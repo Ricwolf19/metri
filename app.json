@@ -1,0 +1,60 @@
+{
+  "expo": {
+    "name": "Metri",
+    "slug": "metri",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "metri",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "bundleIdentifier": "com.ricwolf19.metri"
+    },
+    "android": {
+      "package": "com.ricwolf19.metri",
+      "adaptiveIcon": {
+        "backgroundColor": "#0c0c0c",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0c0c0c",
+          "android": {
+            "image": "./assets/images/splash-icon.png",
+            "imageWidth": 76
+          }
+        }
+      ],
+      "expo-sqlite",
+      "expo-font",
+      "expo-image"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/7107cc0a-ed7d-4693-8138-96bf21f5b1bc"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "7107cc0a-ed7d-4693-8138-96bf21f5b1bc"
+      }
+    },
+    "owner": "ricwolf19"
+  }
+}

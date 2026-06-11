@@ -1,0 +1,43 @@
+name: EAS Update (OTA)
+
+# Publishes an over-the-air JS update on every push to main, so changes that
+# do not touch native code reach installed builds without a new store release.
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: eas-update-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  update:
+    name: Publish OTA update
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Guard EXPO_TOKEN
+        id: guard
+        run: |
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
+            echo "EXPO_TOKEN not set — skipping OTA update."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: ./.github/actions/setup-repo
+        if: ${{ steps.guard.outputs.skip != 'true' }}
+        with:
+          cache: true
+
+      - name: Setup EAS
+        if: ${{ steps.guard.outputs.skip != 'true' }}
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Publish update
+        if: ${{ steps.guard.outputs.skip != 'true' }}
+        run: eas update --auto --non-interactive

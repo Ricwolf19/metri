@@ -1,0 +1,8 @@
+node_modules
+.expo
+dist
+android
+ios
+src/db/migrations
+bun.lock
+package-lock.json
