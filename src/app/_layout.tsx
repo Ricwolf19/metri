@@ -15,6 +15,7 @@ import migrations from '@/db/migrations/migrations';
 import { AuthProvider } from '@/features/auth/auth-context';
 import { seedAdmin } from '@/features/auth/seed';
 import { initNotifications } from '@/features/reminders/scheduler';
+import { seedTraining } from '@/features/training/seed';
 import { I18nProvider } from '@/i18n';
 import { ThemeProvider, useTheme } from '@/theme/theme-context';
 
@@ -49,12 +50,13 @@ const RootLayout = () => {
     void initNotifications().catch(() => {});
   }, []);
 
-  // Seed the master admin once migrations have created the tables.
+  // Seed the master admin + training templates once migrations created the tables.
   useEffect(() => {
     if (!success) return;
-    seedAdmin()
-      .catch((e) => console.warn('[seed] failed:', e))
-      .finally(() => setSeeded(true));
+    Promise.all([
+      seedAdmin().catch((e) => console.warn('[seed] admin failed:', e)),
+      seedTraining().catch((e) => console.warn('[seed] training failed:', e)),
+    ]).finally(() => setSeeded(true));
   }, [success]);
 
   if (error) {

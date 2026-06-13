@@ -6,6 +6,7 @@ import {
   BellIcon,
   BookIcon,
   CameraIcon,
+  DumbbellIcon,
   FlameIcon,
   type IconProps,
 } from '@/components/icons';
@@ -25,6 +26,13 @@ export type QuickAction = {
 };
 
 export const QUICK_ACTIONS: QuickAction[] = [
+  {
+    id: 'training',
+    titleKey: 'tools.trainingTitle',
+    subKey: 'tools.trainingDesc',
+    href: '/training',
+    icon: DumbbellIcon,
+  },
   {
     id: 'bmr',
     titleKey: 'tools.hbTitle',

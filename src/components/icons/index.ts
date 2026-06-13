@@ -16,4 +16,11 @@ export {
   Flame as FlameIcon,
   LogOut as LogOutIcon,
   Shield as ShieldIcon,
+  Dumbbell as DumbbellIcon,
+  Plus as PlusIcon,
+  Check as CheckIcon,
+  Timer as TimerIcon,
+  Play as PlayIcon,
+  X as XIcon,
+  Trophy as TrophyIcon,
 } from 'lucide-react-native';

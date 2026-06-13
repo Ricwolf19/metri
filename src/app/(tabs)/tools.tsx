@@ -2,7 +2,13 @@ import { useRouter, type Href } from 'expo-router';
 import type { ComponentType } from 'react';
 import { Text, View } from 'react-native';
 
-import { ActivityIcon, ChevronRightIcon, FlameIcon, type IconProps } from '@/components/icons';
+import {
+  ActivityIcon,
+  ChevronRightIcon,
+  DumbbellIcon,
+  FlameIcon,
+  type IconProps,
+} from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import { Card, FadeInUp, PressableScale, Screen } from '@/components/ui';
 import type { TranslationKey } from '@/i18n/en';
@@ -18,6 +24,13 @@ type Tool = {
 };
 
 const TOOLS: Tool[] = [
+  {
+    titleKey: 'tools.trainingTitle',
+    descKey: 'tools.trainingDesc',
+    href: '/training',
+    icon: DumbbellIcon,
+    available: true,
+  },
   {
     titleKey: 'tools.hbTitle',
     descKey: 'tools.hbDesc',
