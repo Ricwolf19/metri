@@ -9,6 +9,7 @@ import type { ProgressPhoto } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
 import { photosQuery } from '@/features/photos/photos.repo';
 import { useT } from '@/i18n';
+import { formatYmd } from '@/lib/date';
 
 type Slot = 'before' | 'after';
 
@@ -45,7 +46,7 @@ const Panel = ({
       {label}
     </Text>
     <Text className="text-center text-xs text-ink-300">
-      {photo ? photo.takenAt.slice(0, 10) : '—'}
+      {photo ? formatYmd(photo.takenAt) : '—'}
       {photo?.weightKg != null ? ` · ${photo.weightKg} kg` : ''}
     </Text>
   </Pressable>

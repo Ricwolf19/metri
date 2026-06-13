@@ -21,6 +21,7 @@ import { pickFromCamera, pickFromLibrary } from '@/features/photos/capture';
 import { groupByPeriod, PERIODS, type Period } from '@/features/photos/period';
 import { addPhoto, photosQuery } from '@/features/photos/photos.repo';
 import { useT } from '@/i18n';
+import { formatYmd } from '@/lib/date';
 
 const Progress = () => {
   const { user } = useAuth();
@@ -44,7 +45,7 @@ const Progress = () => {
     if (!uri) return;
     try {
       await addPhoto(user.id, uri, {
-        takenAt: new Date().toISOString(),
+        takenAt: new Date(),
         weightKg: user.weightKg ?? null,
       });
       toast.success(t('photos.savedToast'));
@@ -132,7 +133,7 @@ const Progress = () => {
                         />
                       </View>
                       <Text className="mt-1 text-center text-xs text-ink-400">
-                        {p.takenAt.slice(0, 10)}
+                        {formatYmd(p.takenAt)}
                       </Text>
                     </PressableScale>
                   </FadeInUp>

@@ -106,7 +106,7 @@ export type ProfileUpdate = Partial<
 export const updateProfile = (id: string, patch: ProfileUpdate): PublicUser | null => {
   const [row] = db
     .update(users)
-    .set({ ...patch, updatedAt: sql`(current_timestamp)` })
+    .set({ ...patch, updatedAt: new Date() })
     .where(eq(users.id, id))
     .returning()
     .all();
@@ -137,8 +137,8 @@ export const saveBmr = (id: string, snap: BmrSnapshot): PublicUser | null => {
       heightCm: snap.heightCm,
       weightKg: snap.weightKg,
       activityLevel: snap.activityLevel,
-      bmrComputedAt: sql`(current_timestamp)`,
-      updatedAt: sql`(current_timestamp)`,
+      bmrComputedAt: new Date(),
+      updatedAt: new Date(),
     })
     .where(eq(users.id, id))
     .returning()
@@ -172,7 +172,7 @@ export const updateAccount = async (id: string, patch: AccountUpdate): Promise<P
 
   const [row] = db
     .update(users)
-    .set({ ...set, updatedAt: sql`(current_timestamp)` })
+    .set({ ...set, updatedAt: new Date() })
     .where(eq(users.id, id))
     .returning()
     .all();
@@ -193,7 +193,7 @@ export const changePassword = async (
   const salt = await generateSalt();
   const passwordHash = await hashPassword(newPassword, salt);
   db.update(users)
-    .set({ passwordHash, passwordSalt: salt, updatedAt: sql`(current_timestamp)` })
+    .set({ passwordHash, passwordSalt: salt, updatedAt: new Date() })
     .where(eq(users.id, id))
     .run();
 };
@@ -202,7 +202,7 @@ export const changePassword = async (
 export const completeOnboarding = (id: string, patch: ProfileUpdate): PublicUser | null => {
   const [row] = db
     .update(users)
-    .set({ ...patch, onboardedAt: sql`(current_timestamp)`, updatedAt: sql`(current_timestamp)` })
+    .set({ ...patch, onboardedAt: new Date(), updatedAt: new Date() })
     .where(eq(users.id, id))
     .returning()
     .all();

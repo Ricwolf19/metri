@@ -23,7 +23,7 @@ export const getPhoto = (id: string): ProgressPhoto | null => {
 export const addPhoto = async (
   userId: string,
   srcUri: string,
-  meta: { takenAt: string; weightKg?: number | null; note?: string | null },
+  meta: { takenAt: Date; weightKg?: number | null; note?: string | null },
 ): Promise<ProgressPhoto> => {
   const id = randomId();
   const { uri, thumbUri } = await persistPhoto(srcUri, id);
@@ -43,7 +43,7 @@ export const addPhoto = async (
   return row;
 };
 
-export const updatePhotoDate = (id: string, takenAt: string): void => {
+export const updatePhotoDate = (id: string, takenAt: Date): void => {
   db.update(progressPhotos).set({ takenAt }).where(eq(progressPhotos.id, id)).run();
 };
 

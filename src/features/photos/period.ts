@@ -1,20 +1,20 @@
 import type { ProgressPhoto } from '@/db/schema';
+import { formatYearMonth, formatYmd } from '@/lib/date';
 
 export type Period = 'day' | 'week' | 'month';
 
 export const PERIODS: Period[] = ['day', 'week', 'month'];
 
-/** Monday-based start of the week for a date, as an ISO yyyy-mm-dd string. */
+/** Monday-based start of the week for a date, as a local yyyy-mm-dd string. */
 const weekStart = (d: Date): string => {
   const offset = (d.getDay() + 6) % 7; // 0 = Monday
-  const s = new Date(d.getFullYear(), d.getMonth(), d.getDate() - offset);
-  return s.toISOString().slice(0, 10);
+  return formatYmd(new Date(d.getFullYear(), d.getMonth(), d.getDate() - offset));
 };
 
-const keyFor = (iso: string, period: Period): string => {
-  if (period === 'day') return iso.slice(0, 10);
-  if (period === 'month') return iso.slice(0, 7);
-  return weekStart(new Date(iso));
+const keyFor = (date: Date, period: Period): string => {
+  if (period === 'day') return formatYmd(date);
+  if (period === 'month') return formatYearMonth(date);
+  return weekStart(date);
 };
 
 export type PhotoGroup = { key: string; items: ProgressPhoto[] };

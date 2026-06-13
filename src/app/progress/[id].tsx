@@ -16,14 +16,14 @@ const PhotoViewer = () => {
   const t = useT();
 
   const photo = typeof id === 'string' ? getPhoto(id) : null;
-  const [date, setDate] = useState(() => (photo ? new Date(photo.takenAt) : new Date()));
+  const [date, setDate] = useState(() => photo?.takenAt ?? new Date());
   const [editingDate, setEditingDate] = useState(false);
 
   if (!photo) return <Redirect href="/progress" />;
 
   const onChangeDate = (d: Date) => {
     setDate(d);
-    updatePhotoDate(photo.id, d.toISOString());
+    updatePhotoDate(photo.id, d);
   };
 
   const onDelete = () => {
