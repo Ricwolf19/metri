@@ -13,11 +13,15 @@ export const storage = createMMKV({ id: 'metri' });
 export type Units = 'kg' | 'lb';
 export type LocaleCode = 'en' | 'es';
 export type ThemePreference = 'system' | 'light' | 'dark';
+/** How times are displayed across the app: 24-hour or 12-hour with AM/PM. */
+export type ClockFormat = '24' | '12';
 
 const Keys = {
   units: 'settings.units',
   locale: 'settings.locale',
   theme: 'settings.theme',
+  clock: 'settings.clock',
+  pinnedActions: 'settings.pinnedActions',
   onboarded: 'settings.onboarded',
   sessionUserId: 'auth.userId',
 } as const;
@@ -41,6 +45,26 @@ export const settings = {
   },
   setThemePreference(theme: ThemePreference) {
     storage.set(Keys.theme, theme);
+  },
+  getClockFormat(): ClockFormat {
+    return (storage.getString(Keys.clock) as ClockFormat) ?? '24';
+  },
+  setClockFormat(clock: ClockFormat) {
+    storage.set(Keys.clock, clock);
+  },
+  /** Ids of the quick actions pinned to Home, or null if never customized. */
+  getPinnedActions(): string[] | null {
+    const raw = storage.getString(Keys.pinnedActions);
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? (parsed as string[]) : null;
+    } catch {
+      return null;
+    }
+  },
+  setPinnedActions(ids: string[]) {
+    storage.set(Keys.pinnedActions, JSON.stringify(ids));
   },
   hasOnboarded(): boolean {
     return storage.getBoolean(Keys.onboarded) ?? false;
