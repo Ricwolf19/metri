@@ -1,3 +1,4 @@
+import { getLocales } from 'expo-localization';
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
 import { settings } from '@/lib/storage';
@@ -6,6 +7,15 @@ import { en, type TranslationKey } from './en';
 import { es } from './es';
 
 export type Locale = 'en' | 'es';
+
+/** Spanish if the device's primary language is Spanish, otherwise English. */
+const deviceLocale = (): Locale => {
+  try {
+    return getLocales()[0]?.languageCode === 'es' ? 'es' : 'en';
+  } catch {
+    return 'en';
+  }
+};
 
 export const LOCALES: { value: Locale; key: TranslationKey }[] = [
   { value: 'en', key: 'lang.en' },
@@ -32,7 +42,8 @@ const interpolate = (template: string, vars?: Record<string, string | number>): 
 };
 
 export const I18nProvider = ({ children }: { children: React.ReactNode }) => {
-  const [locale, setLocaleState] = useState<Locale>(() => settings.getLocale());
+  // Saved choice wins; otherwise default to the device language (first launch).
+  const [locale, setLocaleState] = useState<Locale>(() => settings.getLocale() ?? deviceLocale());
 
   const setLocale = useCallback((next: Locale) => {
     settings.setLocale(next);
