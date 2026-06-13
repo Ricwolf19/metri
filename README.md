@@ -91,6 +91,43 @@ or changing the app icon / `app.json` / `metro.config.js` requires a rebuild.
 
 ---
 
+## Running from Scratch / Resetting Local Data
+
+metri keeps **everything on-device** (SQLite + MMKV) — there is no server to reset. Wiping the app's
+storage makes the next launch re-run migrations from an empty database and re-seed the master admin.
+
+```bash
+# Android — uninstall removes the app + its SQLite/MMKV data, then reinstall
+adb uninstall com.ricwolf19.metri
+bunx expo run:android            # migrations + admin seed run automatically on first launch
+
+# iOS simulator
+xcrun simctl uninstall booted com.ricwolf19.metri
+bunx expo run:ios
+```
+
+You can also clear data without uninstalling: Android → Settings → Apps → Metri → Storage → **Clear
+storage**; iOS → long-press the app → **Remove App**.
+
+**Full native rebuild** — needed after changing the app icon, **splash screen**, `app.json`, or adding
+a native module (an OTA update is not enough):
+
+```bash
+bunx expo prebuild --clean
+bunx expo run:android            # or: bunx expo run:ios
+```
+
+**Regenerate SQL migrations** after editing `src/db/schema.ts` (the new file applies on next launch):
+
+```bash
+bun run db:generate
+```
+
+> The master admin is seeded from `EXPO_PUBLIC_ADMIN_*` (see `.env.example`); set those **before**
+> building, since `EXPO_PUBLIC_*` values are baked into the bundle at build time.
+
+---
+
 ## Local Android Setup (the full story)
 
 The Android build needs a specific JVM. Getting this wrong produces a confusing Gradle crash,
@@ -156,21 +193,21 @@ Wireless debugging works on Android: pair the device over Wi-Fi with
 ## Brand & Assets
 
 The brand mark is a lime **dumbbell** rendered as bars, paired with the `metri` wordmark, on a
-near-black background. SVG sources live in `assets/logo/`; the launcher PNGs in
+near-black background. SVG sources live in `assets/images/`; the launcher PNGs in
 `assets/images/` are generated from them (e.g. with `rsvg-convert -w 1024 -h 1024 …`).
 
-| File                              | What it is                               | Used for                             |
-| --------------------------------- | ---------------------------------------- | ------------------------------------ |
-| `assets/logo/metri.svg`           | Full logo (mark + wordmark) on dark bg   | Master / reference                   |
-| `assets/logo/metri-logo.svg`      | Mark + wordmark, transparent, tight crop | In-app cover (`src/app/index.tsx`)   |
-| `assets/logo/metri-icon.svg`      | Dumbbell mark only, black background     | App launcher icon                    |
-| `assets/logo/metri-icon-mono.svg` | Dumbbell mark, white on transparent      | Android 13+ themed (monochrome) icon |
+| File                                | What it is                               | Used for                             |
+| ----------------------------------- | ---------------------------------------- | ------------------------------------ |
+| `assets/images/metri.svg`           | Full logo (mark + wordmark) on dark bg   | Master / reference                   |
+| `assets/images/metri-logo.svg`      | Mark + wordmark, transparent, tight crop | In-app cover (`src/app/index.tsx`)   |
+| `assets/images/metri-icon.svg`      | Dumbbell mark only, black background     | App launcher icon                    |
+| `assets/images/metri-icon-mono.svg` | Dumbbell mark, white on transparent      | Android 13+ themed (monochrome) icon |
 
 Palette: lime accent `#bef82b` on a cool, blue-tinted dark "ink" scale (app background
 `#0b0d12`). See `tailwind.config.js`.
 
 In-app, SVGs are imported as components via `react-native-svg-transformer` (configured in
-`metro.config.js`), e.g. `import MetriLogo from '@/assets/logo/metri-logo.svg'`.
+`metro.config.js`), e.g. `import MetriLogo from '@/assets/images/metri-logo.svg'`.
 
 ---
 
@@ -192,8 +229,7 @@ metri/
 │   │   └── svg.d.ts         # Ambient types for *.svg component imports
 │   └── global.css           # Tailwind directives + font variables
 ├── assets/
-│   ├── logo/                # SVG brand sources (see Brand & Assets)
-│   └── images/              # Generated launcher icons, splash, favicon
+│   └── images/              # SVG brand sources + generated launcher icons, splash, favicon
 ├── tailwind.config.js       # Brand palette (lime accent on cool dark "ink")
 ├── drizzle.config.ts        # Drizzle Kit config (SQLite, expo driver)
 ├── metro.config.js          # NativeWind + SVG transformer + .sql resolver

@@ -57,10 +57,10 @@ changes: edit `src/db/schema.ts` → `bun run db:generate` → the new SQL lands
 **Routing** is file-based via Expo Router under `src/app/`. Typed routes are enabled (`app.json`
 `experiments.typedRoutes`), as is the React Compiler (`experiments.reactCompiler`). Layout:
 `index.tsx` is the auth gate (redirects on the local session); `(auth)/` holds sign-in/sign-up;
-`(tabs)/` is the signed-in shell (Home, Tools + an admin-only Admin tab; **Profile is `href: null`** —
-reached via the avatar in `TopBar`, not the tab bar). `onboarding.tsx` (root Stack) runs on first
-launch — `(tabs)/_layout` redirects there until `user.onboardedAt` is set. Pushed screens like
-`calculators/bmr.tsx` also live at the root Stack. **Typed routes are generated from `.expo/types/`,
+`(tabs)/` is the signed-in shell (Home, Tools, Reminders + an admin-only Admin tab; **Profile is
+`href: null`** — reached via the avatar in `TopBar`, not the tab bar). `onboarding.tsx` (root Stack)
+runs on first launch — `(tabs)/_layout` redirects there until `user.onboardedAt` is set. Pushed
+screens like `calculators/*.tsx` and `reminder-edit.tsx` also live at the root Stack. **Typed routes are generated from `.expo/types/`,
 which is gitignored — after adding/renaming a route, run `bun start` once (or `bun run typecheck`
 will report unknown-route errors against a stale cache).**
 
@@ -72,9 +72,10 @@ large; keep tiny single-use presentational helpers co-located with their one scr
   `calc.ts` (pure, synchronous BMR/TDEE math, safe on every keystroke) and `components/ActivityPicker`.
 - `src/components/ui/` — reusable primitives (`Button`, `Input`, `Card`, `Screen`, `SegmentedControl`,
   `Avatar`, `Toast`), one per file, imported from the `@/components/ui` barrel. `TopBar` is the navbar.
-- `src/components/icons/` — one custom stroke icon per file over a shared `IconBase`, re-exported from
-  the `@/components/icons` barrel (so the import path is stable). NB: a directory barrel and a sibling
-  `icons.tsx` would collide — the file shadows the folder; keep only the folder.
+- `src/components/icons/index.ts` — **Lucide** icons (`lucide-react-native`) re-exported under app names
+  (`HomeIcon`, `BellIcon`, `GearIcon`, …) so screens import a stable `<XIcon>` with `color`/`size`/
+  `strokeWidth`. Icon holders are typed `ComponentType<IconProps>` (Lucide icons are `forwardRef`, not
+  plain function components). Add one by mapping another Lucide icon in `index.ts`.
 - **Auth/session:** `useAuth()` (from `features/auth/auth-context`) exposes the current `PublicUser`,
   `signIn/signUp/signOut`, `updateMyProfile`, `updateMyAccount` (email/username), `changeMyPassword`,
   `finishOnboarding`, `reload`, and `hasRole`. Never surface `passwordHash`/`passwordSalt` — the repo's
@@ -82,10 +83,43 @@ large; keep tiny single-use presentational helpers co-located with their one scr
   env vars (see `.env.example`); seeding is idempotent.
 - **i18n:** EN/ES via `src/i18n/` — a typed, dependency-free dictionary (`en.ts` is the key source of
   truth; `es.ts` must cover every key). Use `const t = useT()` then `t('section.key', { name })`; the
-  active locale lives in MMKV (`settings.getLocale()`) and is set in onboarding/profile. Add a key to
+  active locale lives in MMKV (`settings.getLocale()` → null until chosen, then defaults to the device
+  language via `expo-localization`); set in onboarding/profile or the `<LocaleToggle>` (auth corner). Add a key to
   BOTH `en.ts` and `es.ts` — a missing ES key falls back to EN. Activity labels are translated via
   `activity.<key>`/`activityHint.<key>`; `bmr/calc.ts` holds only multipliers, not labels.
-- **Theme:** the app is **dark-only** today; a light theme is planned and not yet wired.
+- **Theme (light/dark/system):** `src/theme/` — `useTheme()` exposes `scheme`/`preference`/`setPreference`
+  - the nav theme + status-bar style. Colors come from CSS variables: `tailwind.config.js` maps `ink.*`
+    and `accent` to `rgb(var(--x) / <alpha-value>)`, and `ThemeProvider` swaps the values per scheme via
+    NativeWind's `vars()` (defaults in `global.css`). So existing `bg-ink-900`/`text-ink-50` classes adapt
+    automatically — **don't hard-code hex in components**. Two rules: `ink-950` stays constant (it's the
+    dark text on the lime accent), and accent **text** uses `text-accent` (legible on both), while accent
+    **fills** stay `bg-lime-400`. Preference persists in MMKV; default is `dark`. For **icon `color=`**
+    props (a hex, not a class), use `useTheme().accent` (lime-400 dark / lime-700 light) so green icons
+    stay legible on light surfaces — don't hard-code `#bef82b`. The wordmark only reads on dark, so render
+    it via `<BrandLogo>` (always-dark `ink-950` badge). The tab bar reserves `useSafeAreaInsets().bottom`.
+- **Reminders / notifications:** `src/features/reminders/` — `scheduler.ts` wraps `expo-notifications`
+  (handler + Android channel in `initNotifications()`, called from `_layout`; lazy permission;
+  DAILY/WEEKLY scheduling) and `reminders.repo.ts` does CRUD that keeps each `reminders` row's OS
+  notification in sync (best-effort + try/caught, so it no-ops gracefully before the native rebuild).
+  The list uses Drizzle `useLiveQuery`. **expo-notifications is native — reminders only fire after a
+  rebuild.** Reuse this generic table for any gym reminder; don't add per-topic notification code.
+- **Docs:** `src/features/docs/` — bilingual knowledge base as `content/en.ts` + `content/es.ts`
+  (`DocSection[]` markdown bodies, same ids). `searchDocs` ranks title > tags > body. The `docs` tab
+  (`(tabs)/docs.tsx`) lists/searches; `docs/[id].tsx` renders the body via `react-native-markdown-display`
+  (pure JS, no rebuild) with `markdownStyles(scheme)`. **Add a section to BOTH locale files**; it shows up
+  automatically.
+- **Progress photos:** `src/features/photos/` — image **files on disk** (`expo-file-system` NEW
+  `File`/`Directory`/`Paths` API → `documentDir/progress/`), only metadata in the `progress_photos`
+  table (uri/thumbUri/takenAt/weightKg/note — **never blobs**). `media.ts` persists full + a 600px
+  thumb; `capture.ts` wraps `expo-image-picker`; `photos.repo.ts` is the live query + add/delete.
+  Reached via `/progress` (Home card + Profile row, **not a tab**) → `progress/[id].tsx` viewer
+  (date editable via the wheel `DatePicker`). The gallery groups by day/week/month (`period.ts`) and
+  `progress/compare.tsx` does before/after side-by-side.
+  **Native — needs a rebuild.** Cloud sync (Supabase/R2) is the later step.
+- **Animations** use the built-in **RN `Animated`** API (no reanimated/worklets babel plugin is wired —
+  don't reach for reanimated worklets). Reusables: `AppLoader` (branded loading screen), `FadeInUp`
+  (mount entrance, stagger via `delay`), `PressableScale` (springy tap) + the `usePressScale` hook;
+  `Button` already presses-to-scale.
 
 ## Conventions & gotchas
 
@@ -94,12 +128,12 @@ large; keep tiny single-use presentational helpers co-located with their one scr
   No `function` declarations. Enforced by `func-style` + `react/function-component-definition` in
   `eslint.config.js`. The only exception is a named function expression inside `forwardRef(function …)`.
 - **Imports:** use the `@/` alias for `src/*` and `@/assets/*` for `assets/*` (see `tsconfig.json`).
-- **SVGs are components:** `import Logo from '@/assets/logo/foo.svg'` works via `react-native-svg-transformer`
+- **SVGs are components:** `import Logo from '@/assets/images/foo.svg'` works via `react-native-svg-transformer`
   (wired in `metro.config.js`). `.sql` files are also resolvable/inlinable — both `metro.config.js` and
   `babel.config.js` have special config for Drizzle migration `.sql` imports; don't remove it.
 - **Styling:** NativeWind v4 (`className=`). Use the brand palette tokens from `tailwind.config.js`
-  (`lime-400` = `#bef82b` accent, `ink-*` cool-dark scale, `ink-900` = `#0b0d12` background) rather
-  than raw hex. App is dark-mode only.
+  (`lime-400` = `#bef82b` accent, `ink-*` themeable scale, `accent` for accent text) rather than raw
+  hex — the `ink-*`/`accent` tokens adapt to light/dark (see the Theme note above).
 - **Commits:** Conventional Commits enforced by commitlint. Husky runs `lint-staged` (prettier + eslint
   - secretlint) pre-commit and `bun run verify` pre-push. Releases are automated via release-please.
 
