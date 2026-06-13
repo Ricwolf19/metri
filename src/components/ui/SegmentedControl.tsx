@@ -33,11 +33,17 @@ export const SegmentedControl = <T extends string>({
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
               className={[
-                'flex-1 items-center justify-center rounded-lg py-2.5',
+                'flex-1 items-center justify-center rounded-lg px-1 py-2.5',
                 active ? 'bg-accentFill' : 'active:bg-ink-700',
               ].join(' ')}
             >
+              {/* Shrink-to-fit on one line so long labels (e.g. "Sedentario",
+                  "Muy activo") never wrap mid-word on narrow screens. */}
               <Text
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
+                style={{ textAlign: 'center' }}
                 className={['text-sm font-semibold', active ? 'text-ink-950' : 'text-ink-300'].join(
                   ' ',
                 )}

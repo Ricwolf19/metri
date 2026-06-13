@@ -15,8 +15,16 @@ const UNIT_SEGMENTS: Segment<Units>[] = [
 ];
 
 const MacroTile = ({ label, grams }: { label: string; grams: number }) => (
-  <View className="flex-1 items-center">
-    <Text className="text-xs uppercase tracking-wider text-ink-950/60">{label}</Text>
+  <View className="flex-1 items-center px-1">
+    <Text
+      numberOfLines={1}
+      adjustsFontSizeToFit
+      minimumFontScale={0.7}
+      style={{ textAlign: 'center' }}
+      className="text-xs uppercase tracking-wider text-ink-950/60"
+    >
+      {label}
+    </Text>
     <View className="mt-1 flex-row items-baseline">
       <Text className="text-2xl font-extrabold text-ink-950">{grams}</Text>
       <Text className="ml-0.5 text-sm font-semibold text-ink-950/70">g</Text>
@@ -63,6 +71,7 @@ const MacrosCalculator = () => {
         subtitle={t('macros.subtitle')}
         showBack
         showAvatar={false}
+        docId="calc-macros"
       />
 
       {/* Live result */}
