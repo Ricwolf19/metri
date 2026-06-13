@@ -99,6 +99,7 @@ export type ProfileUpdate = Partial<
     | 'heightCm'
     | 'weightKg'
     | 'activityLevel'
+    | 'bodyFatPct'
   >
 >;
 

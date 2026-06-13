@@ -15,7 +15,7 @@ export const RoleBadge = ({ role }: { role: UserRole }) => {
       <Text
         className={[
           'text-xs font-semibold uppercase tracking-wider',
-          isAdmin ? 'text-lime-400' : 'text-ink-300',
+          isAdmin ? 'text-accent' : 'text-ink-300',
         ].join(' ')}
       >
         {role}
