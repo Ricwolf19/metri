@@ -45,7 +45,13 @@ const WaterCalculator = () => {
 
   return (
     <Screen scroll contentClassName="px-5 pb-10">
-      <TopBar title={t('water.title')} subtitle={t('water.subtitle')} showBack showAvatar={false} />
+      <TopBar
+        title={t('water.title')}
+        subtitle={t('water.subtitle')}
+        showBack
+        showAvatar={false}
+        docId="calc-water"
+      />
 
       <View
         className={[

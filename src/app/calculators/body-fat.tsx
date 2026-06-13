@@ -60,6 +60,7 @@ const BodyFatCalculator = () => {
         subtitle={t('bodyfat.subtitle')}
         showBack
         showAvatar={false}
+        docId="calc-body-fat"
       />
 
       <View

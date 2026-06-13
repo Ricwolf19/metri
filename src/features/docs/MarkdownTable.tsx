@@ -1,66 +1,67 @@
-import { useEffect, useState } from 'react';
-import { Animated, ScrollView, Text, View, type StyleProp, type ViewStyle } from 'react-native';
-import type { RenderRules } from 'react-native-markdown-display';
+import { Text, View } from 'react-native';
+import type { ASTNode, RenderRules } from 'react-native-markdown-display';
 
-import { ChevronRightIcon } from '@/components/icons';
-
-const ScrollHint = () => {
-  const [x] = useState(() => new Animated.Value(0));
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(x, { toValue: 5, duration: 650, useNativeDriver: true }),
-        Animated.timing(x, { toValue: 0, duration: 650, useNativeDriver: true }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [x]);
-
-  return (
-    <View className="mt-1 flex-row items-center justify-end">
-      <Text className="mr-1 text-[10px] uppercase tracking-wider text-ink-400">scroll</Text>
-      <Animated.View style={{ transform: [{ translateX: x }] }}>
-        <ChevronRightIcon color="#566077" size={14} />
-      </Animated.View>
-    </View>
-  );
+/** Recursively pull the plain text out of a markdown AST node (handles **bold**, etc.). */
+const nodeText = (node: ASTNode | undefined): string => {
+  if (!node) return '';
+  if (typeof node.content === 'string' && node.content.length) return node.content;
+  if (Array.isArray(node.children)) return node.children.map(nodeText).join('');
+  return '';
 };
+
+const childrenOfType = (node: ASTNode | undefined, type: string): ASTNode[] =>
+  (node?.children ?? []).filter((c) => c.type === type);
 
 /**
- * Wraps a markdown table in a horizontal scroller (wide tables don't wrap
- * mid-word) and shows an animated "scroll" hint only when it actually overflows.
+ * A markdown table rendered as a stack of cards instead of a horizontally
+ * scrolling grid — far more readable on a phone. Each row becomes a card: the
+ * first column is the title, and any remaining columns show as labelled lines
+ * (using the table headers as labels).
  */
-const ScrollableTable = ({
-  style,
-  children,
-}: {
-  style: StyleProp<ViewStyle>;
-  children: React.ReactNode;
-}) => {
-  const [containerW, setContainerW] = useState(0);
-  const [contentW, setContentW] = useState(0);
-  const overflowing = contentW > containerW + 2;
+const ReadableTable = ({ headers, rows }: { headers: string[]; rows: string[][] }) => (
+  <View className="mb-3 gap-2">
+    {rows.map((cells, r) => (
+      <View key={r} className="rounded-xl border border-ink-700 bg-ink-850 p-3">
+        {cells.map((value, c) => {
+          if (!value) return null;
+          // First column is the row's headline; the rest are labelled details.
+          if (c === 0) {
+            return (
+              <Text key={c} className="text-[15px] font-semibold text-ink-50">
+                {value}
+              </Text>
+            );
+          }
+          return (
+            <View key={c} className={c === 1 && cells[0] ? 'mt-2' : 'mt-1.5'}>
+              {headers[c] ? (
+                <Text className="text-[11px] font-semibold uppercase tracking-wider text-ink-400">
+                  {headers[c]}
+                </Text>
+              ) : null}
+              <Text className="text-sm leading-5 text-ink-200">{value}</Text>
+            </View>
+          );
+        })}
+      </View>
+    ))}
+  </View>
+);
 
-  return (
-    <View className="mb-3" onLayout={(e) => setContainerW(e.nativeEvent.layout.width)}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        onContentSizeChange={(w) => setContentW(w)}
-      >
-        <View style={style}>{children}</View>
-      </ScrollView>
-      {overflowing ? <ScrollHint /> : null}
-    </View>
-  );
-};
-
-/** Markdown render override: make tables horizontally scrollable on small screens. */
+/**
+ * Markdown render override: turn tables into a readable stacked-card layout
+ * (no horizontal scrolling). Falls back to the default renderer if the table
+ * structure can't be parsed.
+ */
 export const markdownRules: RenderRules = {
-  table: (node, children, _parent, styles) => (
-    <ScrollableTable key={node.key} style={styles._VIEW_SAFE_table}>
-      {children}
-    </ScrollableTable>
-  ),
+  table: (node, children) => {
+    const thead = childrenOfType(node, 'thead')[0];
+    const tbody = childrenOfType(node, 'tbody')[0];
+    const headerRow = childrenOfType(thead, 'tr')[0];
+    const headers = (headerRow?.children ?? []).map(nodeText);
+    const rows = childrenOfType(tbody, 'tr').map((tr) => (tr.children ?? []).map(nodeText));
+
+    if (rows.length === 0) return <View key={node.key}>{children}</View>;
+    return <ReadableTable key={node.key} headers={headers} rows={rows} />;
+  },
 };

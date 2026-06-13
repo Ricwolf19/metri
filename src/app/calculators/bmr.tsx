@@ -131,7 +131,13 @@ const BmrCalculator = () => {
 
   return (
     <Screen scroll contentClassName="px-5 pb-10">
-      <TopBar title={t('bmr.title')} subtitle={t('bmr.subtitle')} showBack showAvatar={false} />
+      <TopBar
+        title={t('bmr.title')}
+        subtitle={t('bmr.subtitle')}
+        showBack
+        showAvatar={false}
+        docId="calc-bmr"
+      />
 
       {/* Live result */}
       <View

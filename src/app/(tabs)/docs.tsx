@@ -22,12 +22,14 @@ const DocRow = ({
       <Card className="flex-row items-center">
         <View className="flex-1 pr-3">
           <Text className="text-base font-semibold text-ink-50">{section.title}</Text>
-          <Text numberOfLines={1} className="mt-0.5 text-xs text-ink-400">
-            {section.tags
-              .slice(0, 3)
-              .map((tag) => `#${tag}`)
-              .join('  ')}
-          </Text>
+          {/* Same green pills as the doc detail, for a consistent look. */}
+          <View className="mt-1.5 flex-row flex-wrap gap-1.5">
+            {section.tags.slice(0, 3).map((tag) => (
+              <View key={tag} className="rounded-full bg-ink-800 px-2 py-0.5">
+                <Text className="text-xs text-accent">#{tag}</Text>
+              </View>
+            ))}
+          </View>
         </View>
         <ChevronRightIcon color="#566077" />
       </Card>

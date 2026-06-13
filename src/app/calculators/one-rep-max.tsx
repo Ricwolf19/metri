@@ -52,7 +52,13 @@ const OneRepMaxCalculator = () => {
 
   return (
     <Screen scroll contentClassName="px-5 pb-10">
-      <TopBar title={t('onerm.title')} subtitle={t('onerm.subtitle')} showBack showAvatar={false} />
+      <TopBar
+        title={t('onerm.title')}
+        subtitle={t('onerm.subtitle')}
+        showBack
+        showAvatar={false}
+        docId="calc-one-rep-max"
+      />
 
       {/* Live result */}
       <View

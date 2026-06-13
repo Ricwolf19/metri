@@ -3,6 +3,100 @@ import type { DocSection } from '../types';
 /** Spanish knowledge base — mirrors the ids/order in `en.ts`. */
 export const es: DocSection[] = [
   {
+    id: 'calc-bmr',
+    category: 'calculators',
+    title: 'Calculadora de TMB y GETD',
+    tags: ['tmb', 'getd', 'calorías', 'harris-benedict', 'mifflin', 'katch-mcardle', 'metabolismo'],
+    body: `Tu **TMB** (Tasa Metabólica Basal) es la energía que tu cuerpo gasta en reposo total. Tu **GETD** (Gasto Energético Total Diario) es la TMB multiplicada por un factor de actividad — las calorías que realmente quemas al día y el punto de partida de cualquier dieta.
+
+**GETD = TMB × multiplicador de actividad** (1.2 sedentario → 1.9 muy activo).
+
+### Tres fórmulas — ¿cuál elegir?
+
+- **Mifflin–St Jeor (1990)** — derivada de una población moderna; hoy es la estimación más precisa para el público general. *Úsala si tienes dudas.*
+- **Harris–Benedict** — la ecuación clásica publicada por J. A. Harris y F. Benedict en **1919**, revisada por Roza y Shizgal en **1984**. Sigue muy usada; tiende a sobreestimar un poco en personas con más grasa corporal. Ideal para contrastar.
+- **Katch–McArdle** — usa tu **masa magra** (necesita tu % de grasa), así que tiene en cuenta el músculo. La mejor opción si estás definido/musculado y conoces tu grasa corporal.
+
+> Las tres estiman lo mismo. Si dos fórmulas difieren en unos cientos de kcal, es normal — elige una, sigue tu peso 2 semanas y ajusta según la realidad.`,
+  },
+  {
+    id: 'calc-macros',
+    category: 'calculators',
+    title: 'Calculadora de macros',
+    tags: ['macros', 'proteína', 'carbohidratos', 'grasa', 'calorías', 'objetivo'],
+    body: `Convierte tu **GETD** y un objetivo (definir / mantener / volumen) en objetivos diarios de **proteína, carbohidratos y grasa**.
+
+- Ajusta las calorías según tu objetivo — déficit para perder grasa, superávit para ganar.
+- La **proteína** se fija por kg de peso corporal (el macro prioritario para conservar músculo).
+- El resto de calorías se reparte entre **carbohidratos** y **grasa**.
+
+> Cumple primero tus **calorías** y tu **proteína** — el reparto carbos/grasa es preferencia personal. El doc *Macronutrientes* explica qué hace cada macro.`,
+  },
+  {
+    id: 'calc-body-fat',
+    category: 'calculators',
+    title: 'Calculadora de grasa corporal',
+    tags: ['grasa corporal', 'navy', 'circunferencia', 'composición'],
+    body: `Estima tu **porcentaje de grasa corporal** con el **método de circunferencias de la Marina de EE. UU.** — una fórmula con cinta métrica que la Marina adoptó en los años 80.
+
+Mides:
+- **Cuello** y **cintura** (ambos sexos)
+- También la **cadera** (mujeres)
+
+No es tan exacto como un DEXA, pero es gratis, repetible y perfecto para seguir una tendencia. **Mide igual cada vez** — mismos puntos, relajado, por la mañana.`,
+  },
+  {
+    id: 'calc-ideal-weight',
+    category: 'calculators',
+    title: 'Peso saludable e IMC',
+    tags: ['imc', 'peso ideal', 'rango saludable', 'oms'],
+    body: `Muestra tu **IMC** (Índice de Masa Corporal = kg ÷ altura²) y el **rango de peso saludable** para tu altura.
+
+El rango aplica la banda de IMC saludable de la OMS (**18.5–24.9**) a tu altura. Bandas: menos de 18.5 bajo peso · 18.5–24.9 normal · 25–29.9 sobrepeso · 30+ obesidad.
+
+> El IMC ignora el músculo, así que personas muy musculadas pueden salir como "sobrepeso" estando definidas. Úsalo como guía aproximada, no como veredicto — combínalo con la calculadora de grasa corporal.`,
+  },
+  {
+    id: 'calc-one-rep-max',
+    category: 'calculators',
+    title: 'Calculadora de 1RM',
+    tags: ['1rm', 'una repetición máxima', 'fuerza', 'epley', 'brzycki'],
+    body: `Estima tu **1RM** (una repetición máxima) — lo máximo que podrías levantar una vez — a partir de un peso que levantaste varias repeticiones. Útil para fijar pesos de trabajo sin probar un máximo real.
+
+Dos fórmulas:
+- **Epley:** 1RM = peso × (1 + reps ÷ 30)
+- **Brzycki:** 1RM = peso × 36 ÷ (37 − reps), mejor por debajo de ~10 reps
+
+> La precisión baja por encima de ~10 reps — usa una serie de **3–6 reps** para la mejor estimación.`,
+  },
+  {
+    id: 'calc-water',
+    category: 'calculators',
+    title: 'Calculadora de hidratación',
+    tags: ['agua', 'hidratación', 'litros'],
+    body: `Estima tu **objetivo diario de agua** a partir de tu peso (~**35 ml por kg**) más un extra según tu nivel de actividad.
+
+> Un truco práctico: salvo el primer pis de la mañana, tu orina debería ser clara/ligera. Bebe un vaso al despertar y uno antes de cada comida.`,
+  },
+  {
+    id: 'calc-ffmi',
+    category: 'calculators',
+    title: 'Calculadora de FFMI',
+    tags: ['ffmi', 'masa libre de grasa', 'músculo', 'masa magra'],
+    body: `El **FFMI** (Índice de Masa Libre de Grasa) mide cuánta **masa magra** tienes para tu altura — un número mucho mejor que el IMC para saber "¿cuánto músculo tengo?", porque quita la grasa de la ecuación.
+
+- **Masa libre de grasa** = peso × (1 − % grasa ÷ 100)
+- **FFMI** = masa libre de grasa ÷ altura(m)²
+- El **FFMI normalizado** ajusta el resultado a una referencia de 1.8 m para comparar alturas con justicia.
+
+### Leer la escala (hombres)
+- **16–18** bajo la media · **18–20** media · **20–22** sobre la media
+- **22–23** excelente · **23–26** superior
+- **26+** sospechoso / improbable sin sustancias — el techo natural ronda **25**.
+
+> Necesitas un **% de grasa** preciso para que esto signifique algo — estímalo antes con la calculadora de grasa corporal. Los rangos de las mujeres son algo más bajos.`,
+  },
+  {
     id: 'macros',
     category: 'nutrition',
     title: 'Macronutrientes',

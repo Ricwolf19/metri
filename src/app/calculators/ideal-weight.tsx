@@ -46,7 +46,13 @@ const IdealWeightCalculator = () => {
 
   return (
     <Screen scroll contentClassName="px-5 pb-10">
-      <TopBar title={t('ideal.title')} subtitle={t('ideal.subtitle')} showBack showAvatar={false} />
+      <TopBar
+        title={t('ideal.title')}
+        subtitle={t('ideal.subtitle')}
+        showBack
+        showAvatar={false}
+        docId="calc-ideal-weight"
+      />
 
       <View
         className={[

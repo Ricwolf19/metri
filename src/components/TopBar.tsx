@@ -3,6 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { useAuth } from '@/features/auth/auth-context';
 
+import { BookIcon } from './icons';
 import { Avatar } from './ui/Avatar';
 
 type Props = {
@@ -11,6 +12,8 @@ type Props = {
   showBack?: boolean;
   showAvatar?: boolean;
   right?: React.ReactNode;
+  /** When set, shows a "how to use" book button linking to that doc section. */
+  docId?: string;
 };
 
 /**
@@ -19,7 +22,7 @@ type Props = {
  * last / rightmost): an optional action, then the avatar (always shown when
  * signed in) which deep-links to the profile.
  */
-export const TopBar = ({ title, subtitle, showBack, showAvatar = true, right }: Props) => {
+export const TopBar = ({ title, subtitle, showBack, showAvatar = true, right, docId }: Props) => {
   const router = useRouter();
   const { user } = useAuth();
 
@@ -50,6 +53,17 @@ export const TopBar = ({ title, subtitle, showBack, showAvatar = true, right }: 
       </View>
 
       <View className="flex-row items-center gap-3">
+        {docId ? (
+          <Pressable
+            hitSlop={8}
+            onPress={() => router.push({ pathname: '/docs/[id]', params: { id: docId } })}
+            accessibilityRole="button"
+            accessibilityLabel="How to use"
+            className="h-9 w-9 items-center justify-center rounded-full bg-ink-800"
+          >
+            <BookIcon color="#bef82b" size={18} />
+          </Pressable>
+        ) : null}
         {right}
         {showAvatar && user ? (
           <Pressable

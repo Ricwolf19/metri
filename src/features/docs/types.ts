@@ -1,7 +1,14 @@
-export type DocCategory = 'glossary' | 'nutrition' | 'training' | 'supplements' | 'progress';
+export type DocCategory =
+  | 'calculators'
+  | 'glossary'
+  | 'nutrition'
+  | 'training'
+  | 'supplements'
+  | 'progress';
 
 /** Ordered categories for grouping the docs list. */
 export const DOC_CATEGORIES: DocCategory[] = [
+  'calculators',
   'nutrition',
   'training',
   'supplements',

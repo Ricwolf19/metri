@@ -7,6 +7,100 @@ import type { DocSection } from '../types';
  */
 export const en: DocSection[] = [
   {
+    id: 'calc-bmr',
+    category: 'calculators',
+    title: 'BMR & TDEE calculator',
+    tags: ['bmr', 'tdee', 'calories', 'harris-benedict', 'mifflin', 'katch-mcardle', 'metabolism'],
+    body: `Your **BMR** (Basal Metabolic Rate) is the energy your body burns at complete rest. Your **TDEE** (Total Daily Energy Expenditure) is BMR multiplied by an activity factor — the calories you actually burn in a day, and the starting point for any diet.
+
+**TDEE = BMR × activity multiplier** (1.2 sedentary → 1.9 very active).
+
+### Three formulas — which to pick?
+
+- **Mifflin–St Jeor (1990)** — derived from a modern population; today's most accurate estimate for the general public. *Use this if you're unsure.*
+- **Harris–Benedict** — the classic equation first published by J. A. Harris & F. Benedict in **1919**, revised by Roza & Shizgal in **1984**. Still widely used; tends to slightly overestimate for people with higher body fat. Great for cross-checking.
+- **Katch–McArdle** — uses your **lean body mass** (needs your body-fat %), so it accounts for muscle. The best choice if you're lean/muscular and know your body fat.
+
+> All three estimate the same thing. If two formulas disagree by a few hundred kcal, that's normal — pick one, track your weight for 2 weeks, and adjust from reality.`,
+  },
+  {
+    id: 'calc-macros',
+    category: 'calculators',
+    title: 'Macros calculator',
+    tags: ['macros', 'protein', 'carbs', 'fat', 'calories', 'goal'],
+    body: `Turns your **TDEE** and a goal (cut / maintain / bulk) into daily **protein, carb and fat** targets.
+
+- It adjusts calories for your goal — a deficit to lose fat, a surplus to gain.
+- **Protein** is set per kg of body weight (the priority macro for keeping muscle).
+- The remaining calories are split between **carbs** and **fat**.
+
+> Hit your **calories** and **protein** first — the carb/fat split is personal preference. The *Macronutrients* doc explains what each macro does.`,
+  },
+  {
+    id: 'calc-body-fat',
+    category: 'calculators',
+    title: 'Body-fat calculator',
+    tags: ['body fat', 'navy', 'circumference', 'composition'],
+    body: `Estimates your **body-fat percentage** with the **U.S. Navy circumference method** — a tape-measure formula the Navy adopted in the 1980s.
+
+You measure:
+- **Neck** and **waist** (both sexes)
+- **Hip** as well (women)
+
+It's not as exact as a DEXA scan, but it's free, repeatable and great for tracking a trend. **Measure the same way each time** — same spots, relaxed, in the morning.`,
+  },
+  {
+    id: 'calc-ideal-weight',
+    category: 'calculators',
+    title: 'Healthy weight & BMI',
+    tags: ['bmi', 'ideal weight', 'healthy range', 'who'],
+    body: `Shows your **BMI** (Body Mass Index = kg ÷ height²) and the **healthy weight range** for your height.
+
+The range applies the WHO healthy-BMI band (**18.5–24.9**) to your height. Bands: under 18.5 underweight · 18.5–24.9 normal · 25–29.9 overweight · 30+ obese.
+
+> BMI ignores muscle, so very muscular people can read as "overweight" while being lean. Use it as a rough guide, not a verdict — pair it with the body-fat calculator.`,
+  },
+  {
+    id: 'calc-one-rep-max',
+    category: 'calculators',
+    title: '1RM calculator',
+    tags: ['1rm', 'one rep max', 'strength', 'epley', 'brzycki'],
+    body: `Estimates your **one-rep max** (1RM) — the most you could lift once — from a weight you lifted for several reps. Handy for setting working weights without testing a true max.
+
+Two formulas:
+- **Epley:** 1RM = weight × (1 + reps ÷ 30)
+- **Brzycki:** 1RM = weight × 36 ÷ (37 − reps), best for under ~10 reps
+
+> Accuracy drops above ~10 reps — use a set of **3–6 reps** for the best estimate.`,
+  },
+  {
+    id: 'calc-water',
+    category: 'calculators',
+    title: 'Hydration calculator',
+    tags: ['water', 'hydration', 'liters'],
+    body: `Estimates your **daily water target** from your body weight (~**35 ml per kg**) plus an allowance for your activity level.
+
+> A practical check: apart from the first morning pee, your urine should be light/clear. Drink a glass on waking and one before each meal.`,
+  },
+  {
+    id: 'calc-ffmi',
+    category: 'calculators',
+    title: 'FFMI calculator',
+    tags: ['ffmi', 'fat-free mass', 'muscle', 'lean mass'],
+    body: `**FFMI** (Fat-Free Mass Index) measures how much **lean mass** you carry for your height — a far better "how muscular am I?" number than BMI, because it removes fat from the equation.
+
+- **Fat-free mass** = weight × (1 − body-fat % ÷ 100)
+- **FFMI** = fat-free mass ÷ height(m)²
+- **Normalized FFMI** adjusts the result to a 1.8 m reference so heights compare fairly.
+
+### Reading the scale (men)
+- **16–18** below average · **18–20** average · **20–22** above average
+- **22–23** excellent · **23–26** superior
+- **26+** suspicious / unlikely without drugs — the natural ceiling sits around **25**.
+
+> You need an accurate **body-fat %** for this to mean anything — estimate it with the body-fat calculator first. Women's ranges run a few points lower.`,
+  },
+  {
     id: 'macros',
     category: 'nutrition',
     title: 'Macronutrients',
