@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.2.0](https://github.com/Ricwolf19/metri/compare/metri-v1.1.0...metri-v1.2.0) (2026-06-13)
+
+
+### Features
+
+* **calculators:** add FFMI (Fat-Free Mass Index) tool ([f42bb68](https://github.com/Ricwolf19/metri/commit/f42bb68e3efe6cf63bd5e82dff11443009c696ce))
+* **db:** add schema and migrations for the new training system ([0e03913](https://github.com/Ricwolf19/metri/commit/0e039135d1d108729066feb4d3ffc21bac43d36f))
+* **docs:** expand knowledge base content and integrate with calculators ([bff6390](https://github.com/Ricwolf19/metri/commit/bff639091b28eacc225a747b9b56f0c5e394792e))
+* **home:** implement customizable quick actions on the home screen ([83a8bfe](https://github.com/Ricwolf19/metri/commit/83a8bfee5b6917845de3ed04fbb209ff3cd3becc))
+* **i18n:** add translations for the training module ([a6e51e1](https://github.com/Ricwolf19/metri/commit/a6e51e1f991694c036b47fb105577106c7860706))
+* **i18n:** update translations for new calculators, reminders, and profile settings ([6884f35](https://github.com/Ricwolf19/metri/commit/6884f355fd1ec7281dfe75e1a43a26bc0e05c187))
+* **profile:** add time format preference (12h/24h) and update time picker ([1920ab4](https://github.com/Ricwolf19/metri/commit/1920ab44b504615d90eb02407db6434c1bf810e8))
+* **reminders:** support multiple weekdays and adapt to time format preference ([ba98e83](https://github.com/Ricwolf19/metri/commit/ba98e833e189e2183c039edaf8632c3ddba98d82))
+* **storage:** add global keys for clock format and home actions ([3ba9d9a](https://github.com/Ricwolf19/metri/commit/3ba9d9a80efea93c6cf13a9842c5b40e8592aedf))
+* **training:** implement training engine, UI, templates and quick actions ([384e1a0](https://github.com/Ricwolf19/metri/commit/384e1a068d502d83047bedbc43b07fba2918bfe0))
+
 ## [1.1.0](https://github.com/Ricwolf19/metri/compare/metri-v1.0.0...metri-v1.1.0) (2026-06-13)
 
 
