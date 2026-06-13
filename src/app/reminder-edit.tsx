@@ -24,6 +24,7 @@ import {
 } from '@/features/reminders/reminders.repo';
 import { ensureNotificationPermission } from '@/features/reminders/scheduler';
 import { useT } from '@/i18n';
+import { settings } from '@/lib/storage';
 
 const ReminderEdit = () => {
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -31,13 +32,14 @@ const ReminderEdit = () => {
   const toast = useToast();
   const router = useRouter();
   const t = useT();
+  const clock = settings.getClockFormat();
 
   const existing = typeof id === 'string' ? getReminder(id) : null;
 
   const [title, setTitle] = useState(existing?.title ?? '');
   const [body, setBody] = useState(existing?.body ?? '');
   const [frequency, setFrequency] = useState<ReminderFrequency>(existing?.frequency ?? 'daily');
-  const [weekday, setWeekday] = useState(existing?.weekday ?? 2);
+  const [weekdays, setWeekdays] = useState<number[]>(existing?.weekdays ?? [2]);
   const [hour, setHour] = useState(existing?.hour ?? 8);
   const [minute, setMinute] = useState(existing?.minute ?? 0);
   const [enabled, setEnabled] = useState(existing?.enabled ?? true);
@@ -65,7 +67,7 @@ const ReminderEdit = () => {
         frequency,
         hour,
         minute,
-        weekday,
+        weekdays,
         enabled,
       };
       if (existing) await updateReminder(existing.id, input);
@@ -114,16 +116,22 @@ const ReminderEdit = () => {
         {frequency === 'weekly' ? (
           <View>
             <Text className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-ink-300">
-              {t('rem.day')}
+              {t('rem.days')}
             </Text>
             <View className="flex-row gap-2">
               {DAY_KEYS.map((key, i) => {
                 const value = i + 1;
-                const active = value === weekday;
+                const active = weekdays.includes(value);
                 return (
                   <Pressable
                     key={key}
-                    onPress={() => setWeekday(value)}
+                    onPress={() =>
+                      setWeekdays((prev) =>
+                        prev.includes(value)
+                          ? prev.filter((d) => d !== value)
+                          : [...prev, value].sort((a, b) => a - b),
+                      )
+                    }
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
                     className={[
@@ -153,6 +161,7 @@ const ReminderEdit = () => {
           <TimePicker
             hour={hour}
             minute={minute}
+            clock={clock}
             onChange={({ hour: h, minute: m }) => {
               setHour(h);
               setMinute(m);

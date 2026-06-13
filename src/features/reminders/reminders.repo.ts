@@ -1,4 +1,4 @@
-import { desc, eq, sql } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import { reminders, type Reminder, type ReminderFrequency } from '@/db/schema';
@@ -25,15 +25,20 @@ export type ReminderInput = {
   frequency: ReminderFrequency;
   hour: number;
   minute: number;
-  weekday?: number | null;
+  weekdays?: number[] | null;
   enabled: boolean;
 };
 
-const normalizeWeekday = (input: ReminderInput): number | null =>
-  input.frequency === 'weekly' ? (input.weekday ?? 1) : null;
+/** Weekly needs at least one day (default Monday); daily clears the day list. */
+const normalizeWeekdays = (input: ReminderInput): number[] | null =>
+  input.frequency === 'weekly'
+    ? input.weekdays?.length
+      ? [...input.weekdays].sort((a, b) => a - b)
+      : [2]
+    : null;
 
-/** Best-effort OS scheduling — returns the notification id, or null if disabled/denied/unavailable. */
-const scheduleIfEnabled = async (r: Reminder): Promise<string | null> => {
+/** Best-effort OS scheduling — returns the notification ids, or null if disabled/denied/unavailable. */
+const scheduleIfEnabled = async (r: Reminder): Promise<string[] | null> => {
   if (!r.enabled) return null;
   try {
     if (!(await ensureNotificationPermission())) return null;
@@ -46,13 +51,13 @@ const scheduleIfEnabled = async (r: Reminder): Promise<string | null> => {
 export const createReminder = async (userId: string, input: ReminderInput): Promise<Reminder> => {
   const [row] = db
     .insert(reminders)
-    .values({ id: randomId(), userId, ...input, weekday: normalizeWeekday(input) })
+    .values({ id: randomId(), userId, ...input, weekdays: normalizeWeekdays(input) })
     .returning()
     .all();
-  const notificationId = await scheduleIfEnabled(row);
+  const notificationIds = await scheduleIfEnabled(row);
   const [saved] = db
     .update(reminders)
-    .set({ notificationId })
+    .set({ notificationIds })
     .where(eq(reminders.id, row.id))
     .returning()
     .all();
@@ -65,18 +70,18 @@ export const updateReminder = async (
 ): Promise<Reminder | null> => {
   const existing = getReminder(id);
   if (!existing) return null;
-  await cancelReminder(existing.notificationId);
+  await cancelReminder(existing.notificationIds);
 
   const [row] = db
     .update(reminders)
-    .set({ ...input, weekday: normalizeWeekday(input), updatedAt: sql`(current_timestamp)` })
+    .set({ ...input, weekdays: normalizeWeekdays(input), updatedAt: new Date() })
     .where(eq(reminders.id, id))
     .returning()
     .all();
-  const notificationId = await scheduleIfEnabled(row);
+  const notificationIds = await scheduleIfEnabled(row);
   const [saved] = db
     .update(reminders)
-    .set({ notificationId })
+    .set({ notificationIds })
     .where(eq(reminders.id, id))
     .returning()
     .all();
@@ -86,16 +91,16 @@ export const updateReminder = async (
 export const setReminderEnabled = async (id: string, enabled: boolean): Promise<void> => {
   const existing = getReminder(id);
   if (!existing) return;
-  await cancelReminder(existing.notificationId);
-  const notificationId = enabled ? await scheduleIfEnabled({ ...existing, enabled: true }) : null;
+  await cancelReminder(existing.notificationIds);
+  const notificationIds = enabled ? await scheduleIfEnabled({ ...existing, enabled: true }) : null;
   db.update(reminders)
-    .set({ enabled, notificationId, updatedAt: sql`(current_timestamp)` })
+    .set({ enabled, notificationIds, updatedAt: new Date() })
     .where(eq(reminders.id, id))
     .run();
 };
 
 export const deleteReminder = async (id: string): Promise<void> => {
   const existing = getReminder(id);
-  await cancelReminder(existing?.notificationId);
+  await cancelReminder(existing?.notificationIds);
   db.delete(reminders).where(eq(reminders.id, id)).run();
 };

@@ -9,13 +9,19 @@ import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
  * authentication and the per-user profile. When a cloud mirror (PostgreSQL +
  * Better Auth) lands later, these columns map across 1:1 and local becomes the
  * synced offline cache.
+ *
+ * TIMESTAMPS: every date is stored as an INTEGER epoch-ms (`{ mode: 'timestamp_ms' }`)
+ * and surfaced to the app as a JS `Date`. Use `tsMs` for the column and `NOW_MS`
+ * for a "set to now" SQL default; in repos, write a plain `new Date()`.
  */
+const tsMs = (name: string) => integer(name, { mode: 'timestamp_ms' });
+/** SQL expression for the current time in epoch-ms (second precision). */
+export const NOW_MS = sql`(unixepoch() * 1000)`;
+
 export const appMeta = sqliteTable('app_meta', {
   key: text('key').primaryKey(),
   value: text('value'),
-  updatedAt: text('updated_at')
-    .notNull()
-    .default(sql`(current_timestamp)`),
+  updatedAt: tsMs('updated_at').notNull().default(NOW_MS),
 });
 
 export type AppMeta = typeof appMeta.$inferSelect;
@@ -54,17 +60,13 @@ export const users = sqliteTable('users', {
   bmr: real('bmr'),
   tdee: real('tdee'),
   bmrFormula: text('bmr_formula'),
-  bmrComputedAt: text('bmr_computed_at'),
+  bmrComputedAt: tsMs('bmr_computed_at'),
 
   // Set when the user completes the first-launch onboarding flow.
-  onboardedAt: text('onboarded_at'),
+  onboardedAt: tsMs('onboarded_at'),
 
-  createdAt: text('created_at')
-    .notNull()
-    .default(sql`(current_timestamp)`),
-  updatedAt: text('updated_at')
-    .notNull()
-    .default(sql`(current_timestamp)`),
+  createdAt: tsMs('created_at').notNull().default(NOW_MS),
+  updatedAt: tsMs('updated_at').notNull().default(NOW_MS),
 });
 
 export type User = typeof users.$inferSelect;
@@ -77,9 +79,11 @@ export type ReminderFrequency = 'daily' | 'weekly';
 
 /**
  * Generic, reusable local reminders (weigh-ins, measurements, water, supplements,
- * …). Each enabled reminder maps to one scheduled OS notification; we keep its
- * `notificationId` so it can be cancelled/rescheduled on edit or toggle.
- * `weekday` (1=Sun … 7=Sat) is only used when `frequency` is `weekly`.
+ * …). A weekly reminder can fire on several days, so it maps to *one OS
+ * notification per selected day* — `notificationIds` keeps them all so the set
+ * can be cancelled/rescheduled on edit or toggle. `weekdays` (1=Sun … 7=Sat) is
+ * only used when `frequency` is `weekly`; `hour` is always stored 24h (the
+ * 12/24h choice is display-only). Both arrays are JSON-encoded TEXT.
  */
 export const reminders = sqliteTable('reminders', {
   id: text('id').primaryKey(),
@@ -89,15 +93,11 @@ export const reminders = sqliteTable('reminders', {
   frequency: text('frequency').$type<ReminderFrequency>().notNull().default('daily'),
   hour: integer('hour').notNull().default(8),
   minute: integer('minute').notNull().default(0),
-  weekday: integer('weekday'),
+  weekdays: text('weekdays', { mode: 'json' }).$type<number[]>(),
   enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
-  notificationId: text('notification_id'),
-  createdAt: text('created_at')
-    .notNull()
-    .default(sql`(current_timestamp)`),
-  updatedAt: text('updated_at')
-    .notNull()
-    .default(sql`(current_timestamp)`),
+  notificationIds: text('notification_ids', { mode: 'json' }).$type<string[]>(),
+  createdAt: tsMs('created_at').notNull().default(NOW_MS),
+  updatedAt: tsMs('updated_at').notNull().default(NOW_MS),
 });
 
 export type Reminder = typeof reminders.$inferSelect;
@@ -105,20 +105,18 @@ export type NewReminder = typeof reminders.$inferInsert;
 
 /**
  * Progress photos. The image **files live on disk** (app document dir) — only the
- * file paths + metadata are stored here (never the binary). `takenAt` is an ISO
- * date; `weightKg` snapshots the user's weight at capture for an overlay.
+ * file paths + metadata are stored here (never the binary). `takenAt` is an
+ * epoch-ms `Date`; `weightKg` snapshots the user's weight at capture for an overlay.
  */
 export const progressPhotos = sqliteTable('progress_photos', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull(),
   uri: text('uri').notNull(),
   thumbUri: text('thumb_uri').notNull(),
-  takenAt: text('taken_at').notNull(),
+  takenAt: tsMs('taken_at').notNull(),
   weightKg: real('weight_kg'),
   note: text('note'),
-  createdAt: text('created_at')
-    .notNull()
-    .default(sql`(current_timestamp)`),
+  createdAt: tsMs('created_at').notNull().default(NOW_MS),
 });
 
 export type ProgressPhoto = typeof progressPhotos.$inferSelect;

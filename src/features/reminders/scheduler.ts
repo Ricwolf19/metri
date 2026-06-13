@@ -31,29 +31,45 @@ export const ensureNotificationPermission = async (): Promise<boolean> => {
   return requested.granted;
 };
 
-const triggerFor = (r: Reminder): Notifications.SchedulableNotificationTriggerInput =>
-  r.frequency === 'weekly'
-    ? {
-        type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
-        weekday: r.weekday ?? 1,
-        hour: r.hour,
-        minute: r.minute,
-        channelId: CHANNEL_ID,
-      }
-    : {
-        type: Notifications.SchedulableTriggerInputTypes.DAILY,
-        hour: r.hour,
-        minute: r.minute,
-        channelId: CHANNEL_ID,
-      };
+/**
+ * The OS trigger(s) for a reminder. A weekly reminder fires on each selected day,
+ * so it needs one WEEKLY trigger per weekday; a daily reminder needs just one.
+ */
+const triggersFor = (r: Reminder): Notifications.SchedulableNotificationTriggerInput[] => {
+  if (r.frequency === 'weekly') {
+    const days = r.weekdays?.length ? r.weekdays : [1];
+    return days.map((weekday) => ({
+      type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+      weekday,
+      hour: r.hour,
+      minute: r.minute,
+      channelId: CHANNEL_ID,
+    }));
+  }
+  return [
+    {
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
+      hour: r.hour,
+      minute: r.minute,
+      channelId: CHANNEL_ID,
+    },
+  ];
+};
 
-/** Schedule the OS notification for a reminder; returns its notification id. */
-export const scheduleReminder = (r: Reminder): Promise<string> =>
-  Notifications.scheduleNotificationAsync({
-    content: { title: r.title, body: r.body ?? '' },
-    trigger: triggerFor(r),
-  });
+/** Schedule the OS notification(s) for a reminder; returns every notification id. */
+export const scheduleReminder = (r: Reminder): Promise<string[]> =>
+  Promise.all(
+    triggersFor(r).map((trigger) =>
+      Notifications.scheduleNotificationAsync({
+        content: { title: r.title, body: r.body ?? '' },
+        trigger,
+      }),
+    ),
+  );
 
-export const cancelReminder = async (notificationId?: string | null): Promise<void> => {
-  if (notificationId) await Notifications.cancelScheduledNotificationAsync(notificationId);
+export const cancelReminder = async (notificationIds?: string[] | null): Promise<void> => {
+  if (!notificationIds?.length) return;
+  await Promise.all(
+    notificationIds.map((id) => Notifications.cancelScheduledNotificationAsync(id)),
+  );
 };

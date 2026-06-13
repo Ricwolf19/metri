@@ -43,6 +43,13 @@
       "when": 1781332113432,
       "tag": "0005_unique_golden_guardian",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1781332113500,
+      "tag": "0006_lively_weekdays",
+      "breakpoints": true
     }
   ]
 }

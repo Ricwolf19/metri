@@ -10,18 +10,20 @@ import { useAuth } from '@/features/auth/auth-context';
 import { remindersQuery, setReminderEnabled } from '@/features/reminders/reminders.repo';
 import { DAY_KEYS, formatTime } from '@/features/reminders/format';
 import { useT } from '@/i18n';
+import { settings } from '@/lib/storage';
 
 const Reminders = () => {
   const { user } = useAuth();
   const router = useRouter();
   const t = useT();
   const { data } = useLiveQuery(remindersQuery(user?.id ?? ''));
+  const clock = settings.getClockFormat();
 
   const summary = (r: Reminder) => {
-    const time = formatTime(r.hour, r.minute);
-    return r.frequency === 'weekly'
-      ? `${t(DAY_KEYS[(r.weekday ?? 1) - 1])} · ${time}`
-      : `${t('rem.daily')} · ${time}`;
+    const time = formatTime(r.hour, r.minute, clock);
+    if (r.frequency !== 'weekly') return `${t('rem.daily')} · ${time}`;
+    const days = (r.weekdays?.length ? r.weekdays : [1]).map((d) => t(DAY_KEYS[d - 1])).join(', ');
+    return `${days} · ${time}`;
   };
 
   const addButton = (
