@@ -7,10 +7,12 @@ import { Card, Screen } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { countUsers } from '@/features/auth/users.repo';
 import { useT } from '@/i18n';
+import { useTheme } from '@/theme/theme-context';
 
 const Admin = () => {
   const { user, hasRole } = useAuth();
   const t = useT();
+  const { accent } = useTheme();
 
   // Hard guard — even if the route is reached directly, non-admins are bounced.
   if (!hasRole('admin')) {
@@ -25,8 +27,8 @@ const Admin = () => {
 
       <Card>
         <View className="mb-3 flex-row items-center">
-          <ShieldIcon color="#bef82b" size={18} />
-          <Text className="ml-2 text-xs font-semibold uppercase tracking-wider text-lime-400">
+          <ShieldIcon color={accent} size={18} />
+          <Text className="ml-2 text-xs font-semibold uppercase tracking-wider text-accent">
             {t('admin.accessGranted')}
           </Text>
         </View>

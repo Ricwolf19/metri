@@ -3,9 +3,10 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { TopBar } from '@/components/TopBar';
-import { Button, Input, Screen, useToast } from '@/components/ui';
+import { BrandLogo, Button, Input, Screen, useToast } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { useT } from '@/i18n';
+import { LocaleToggle } from '@/i18n/LocaleToggle';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -58,15 +59,22 @@ const SignUp = () => {
         subtitle={t('auth.localSubtitle')}
         showBack
         showAvatar={false}
+        right={<LocaleToggle />}
       />
 
-      <View className="mt-2 gap-4">
+      <View className="mb-6 mt-1 items-center">
+        <BrandLogo width={120} />
+      </View>
+
+      <View className="gap-4">
         <Input
           label={t('auth.name')}
           value={displayName}
           onChangeText={setDisplayName}
-          placeholder="Alex Doe"
+          placeholder={t('auth.phName')}
           autoCapitalize="words"
+          textContentType="name"
+          autoComplete="name"
         />
         <Input
           label={t('auth.email')}
@@ -75,7 +83,9 @@ const SignUp = () => {
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="email-address"
-          placeholder="you@example.com"
+          textContentType="emailAddress"
+          autoComplete="email"
+          placeholder={t('auth.phEmail')}
         />
         <Input
           label={t('auth.username')}
@@ -83,7 +93,9 @@ const SignUp = () => {
           onChangeText={setUsername}
           autoCapitalize="none"
           autoCorrect={false}
-          placeholder="fakeuser"
+          textContentType="username"
+          autoComplete="username"
+          placeholder={t('auth.phUsername')}
           hint={t('auth.usernameHint')}
         />
         <Input
@@ -91,13 +103,17 @@ const SignUp = () => {
           value={password}
           onChangeText={setPassword}
           secureTextEntry
-          placeholder={t('auth.passwordMin')}
+          textContentType="newPassword"
+          autoComplete="new-password"
+          placeholder={t('auth.phPassword')}
         />
         <Input
           label={t('auth.confirmPassword')}
           value={confirm}
           onChangeText={setConfirm}
           secureTextEntry
+          textContentType="newPassword"
+          autoComplete="new-password"
           placeholder={t('auth.passwordRepeat')}
           error={error ?? undefined}
           onSubmitEditing={onSubmit}
@@ -105,6 +121,13 @@ const SignUp = () => {
         />
 
         <Button label={t('auth.createCta')} onPress={onSubmit} loading={loading} />
+
+        <View className="flex-row flex-wrap items-center justify-center">
+          <Text className="text-xs text-ink-400">{t('auth.agree')} </Text>
+          <Pressable onPress={() => router.push('/legal')} accessibilityRole="button">
+            <Text className="text-xs font-semibold text-accent">{t('legal.title')}</Text>
+          </Pressable>
+        </View>
       </View>
 
       <Pressable
@@ -113,7 +136,7 @@ const SignUp = () => {
         accessibilityRole="button"
       >
         <Text className="text-sm text-ink-300">{t('auth.alreadyHave')} </Text>
-        <Text className="text-sm font-semibold text-lime-400">{t('auth.signIn')}</Text>
+        <Text className="text-sm font-semibold text-accent">{t('auth.signIn')}</Text>
       </Pressable>
     </Screen>
   );

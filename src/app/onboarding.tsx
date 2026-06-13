@@ -2,13 +2,21 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 
-import MetriLogo from '@/assets/logo/metri-logo.svg';
-import { Button, Input, Screen, SegmentedControl, useToast, type Segment } from '@/components/ui';
+import {
+  BrandLogo,
+  Button,
+  Input,
+  Screen,
+  SegmentedControl,
+  useToast,
+  type Segment,
+} from '@/components/ui';
 import type { ActivityLevel, Sex } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
 import { ACTIVITY_LEVELS } from '@/features/bmr/calc';
 import { LOCALES, useI18n } from '@/i18n';
 import { settings, type Units } from '@/lib/storage';
+import { ThemeSelect } from '@/theme/ThemeSelect';
 
 const Onboarding = () => {
   const { t, locale, setLocale } = useI18n();
@@ -66,7 +74,7 @@ const Onboarding = () => {
   return (
     <Screen scroll contentClassName="grow px-6 py-10">
       <View className="items-center">
-        <MetriLogo width={150} height={110} />
+        <BrandLogo width={140} />
       </View>
 
       <Text className="mt-6 text-center text-2xl font-bold text-ink-50">{t('onb.welcome')}</Text>
@@ -85,6 +93,12 @@ const Onboarding = () => {
           value={units}
           onChange={setUnits}
         />
+        <View>
+          <Text className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-ink-300">
+            {t('theme.title')}
+          </Text>
+          <ThemeSelect />
+        </View>
 
         <View className="h-px bg-ink-700" />
 

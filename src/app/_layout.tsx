@@ -1,43 +1,53 @@
 import '@/global.css';
 
-import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
+import { Stack, ThemeProvider as NavThemeProvider } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { ToastProvider } from '@/components/ui';
+import { AppLoader, ToastProvider } from '@/components/ui';
 import { db } from '@/db/client';
 import migrations from '@/db/migrations/migrations';
 import { AuthProvider } from '@/features/auth/auth-context';
 import { seedAdmin } from '@/features/auth/seed';
+import { initNotifications } from '@/features/reminders/scheduler';
 import { I18nProvider } from '@/i18n';
+import { ThemeProvider, useTheme } from '@/theme/theme-context';
 
-const MetriTheme = {
-  ...DarkTheme,
-  colors: {
-    ...DarkTheme.colors,
-    primary: '#bef82b',
-    background: '#0b0d12',
-    card: '#0b0d12',
-    text: '#fefefe',
-    border: '#2c3447',
-  },
-};
+// Hold the native splash, then hand off to the in-app animated AppLoader so the
+// branded logo stays continuous from launch into the migration/seed phase.
+void SplashScreen.preventAutoHideAsync();
 
-const Loading = () => {
+/** The navigation shell — themed once the providers are mounted. */
+const ThemedStack = () => {
+  const { navTheme, statusBarStyle } = useTheme();
   return (
-    <View className="flex-1 items-center justify-center bg-ink-900">
-      <ActivityIndicator color="#bef82b" />
-    </View>
+    <NavThemeProvider value={navTheme}>
+      <StatusBar style={statusBarStyle} />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: navTheme.colors.background },
+          animation: 'fade',
+        }}
+      />
+    </NavThemeProvider>
   );
 };
 
 const RootLayout = () => {
   const { success, error } = useMigrations(db, migrations);
   const [seeded, setSeeded] = useState(false);
+
+  // Reveal our animated AppLoader as soon as JS mounts (native splash → AppLoader).
+  useEffect(() => {
+    void SplashScreen.hideAsync();
+    void initNotifications().catch(() => {});
+  }, []);
 
   // Seed the master admin once migrations have created the tables.
   useEffect(() => {
@@ -59,24 +69,17 @@ const RootLayout = () => {
   }
 
   if (!success || !seeded) {
-    return <Loading />;
+    return <AppLoader />;
   }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <I18nProvider>
-          <ThemeProvider value={MetriTheme}>
+          <ThemeProvider>
             <AuthProvider>
               <ToastProvider>
-                <StatusBar style="light" />
-                <Stack
-                  screenOptions={{
-                    headerShown: false,
-                    contentStyle: { backgroundColor: '#0b0d12' },
-                    animation: 'fade',
-                  }}
-                />
+                <ThemedStack />
               </ToastProvider>
             </AuthProvider>
           </ThemeProvider>

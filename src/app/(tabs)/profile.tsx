@@ -1,8 +1,8 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Alert, Pressable, Text, View } from 'react-native';
 
-import { LogOutIcon, ShieldIcon } from '@/components/icons';
+import { CameraIcon, ChevronRightIcon, LogOutIcon, ShieldIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import {
   Avatar,
@@ -10,6 +10,7 @@ import {
   Button,
   Card,
   Input,
+  PressableScale,
   Screen,
   SegmentedControl,
   useToast,
@@ -18,7 +19,11 @@ import {
 import { useAuth } from '@/features/auth/auth-context';
 import { RoleBadge } from '@/features/auth/components/RoleBadge';
 import { RoleGate } from '@/features/auth/components/RoleGate';
+import { pickFromCamera, pickFromLibrary } from '@/features/photos/capture';
+import { deletePhotoFiles, persistAvatar } from '@/features/photos/media';
 import { LOCALES, useI18n, type Locale } from '@/i18n';
+import { ThemeSelect } from '@/theme/ThemeSelect';
+import { useTheme } from '@/theme/theme-context';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -34,6 +39,7 @@ const MetricRow = ({ label, value }: { label: string; value: string }) => {
 const Profile = () => {
   const { user, updateMyProfile, updateMyAccount, changeMyPassword, signOut } = useAuth();
   const { t, locale, setLocale } = useI18n();
+  const { accent } = useTheme();
   const toast = useToast();
   const router = useRouter();
 
@@ -97,6 +103,29 @@ const Profile = () => {
     router.replace('/(auth)/sign-in');
   };
 
+  const setPhoto = async (source: 'camera' | 'library') => {
+    if (!user) return;
+    const uri = source === 'camera' ? await pickFromCamera() : await pickFromLibrary();
+    if (!uri) return;
+    try {
+      const saved = await persistAvatar(uri);
+      const old = user.avatarUri;
+      updateMyProfile({ avatarUri: saved });
+      deletePhotoFiles(old);
+      toast.success(t('photos.savedToast'));
+    } catch {
+      toast.error(t('photos.permDenied'));
+    }
+  };
+
+  const onChangePhoto = () => {
+    Alert.alert(t('photos.chooseTitle'), undefined, [
+      { text: t('photos.camera'), onPress: () => setPhoto('camera') },
+      { text: t('photos.library'), onPress: () => setPhoto('library') },
+      { text: t('common.cancel'), style: 'cancel' },
+    ]);
+  };
+
   const localeSegments: Segment<Locale>[] = LOCALES.map((l) => ({
     value: l.value,
     label: t(l.key),
@@ -105,10 +134,15 @@ const Profile = () => {
 
   return (
     <Screen scroll edges={['top']} contentClassName="px-5 pb-10">
-      <TopBar title={t('profile.title')} showBack showAvatar={false} />
+      <TopBar title={t('profile.title')} showAvatar={false} />
 
       <Card className="items-center">
-        <Avatar name={name || user.username} uri={user.avatarUri} color={color} size={84} />
+        <Pressable onPress={onChangePhoto} accessibilityRole="button" className="relative">
+          <Avatar name={name || user.username} uri={user.avatarUri} color={color} size={84} />
+          <View className="absolute -bottom-0.5 -right-0.5 h-7 w-7 items-center justify-center rounded-full border-2 border-ink-800 bg-accentFill">
+            <CameraIcon color="#08090d" size={13} />
+          </View>
+        </Pressable>
         <Text className="mt-3 text-xl font-bold text-ink-50">{name || user.username}</Text>
         <Text className="mb-3 text-sm text-ink-400">
           @{user.username} · {user.email}
@@ -185,12 +219,16 @@ const Profile = () => {
             value={currentPassword}
             onChangeText={setCurrentPassword}
             secureTextEntry
+            textContentType="password"
+            autoComplete="current-password"
           />
           <Input
             label={t('profile.newPassword')}
             value={newPassword}
             onChangeText={setNewPassword}
             secureTextEntry
+            textContentType="newPassword"
+            autoComplete="new-password"
             placeholder={t('auth.passwordMin')}
           />
         </View>
@@ -203,6 +241,14 @@ const Profile = () => {
             disabled={!currentPassword || !newPassword}
           />
         </View>
+      </Card>
+
+      {/* Appearance */}
+      <Text className="mb-2 mt-7 text-xs font-semibold uppercase tracking-wider text-ink-400">
+        {t('theme.title')}
+      </Text>
+      <Card>
+        <ThemeSelect />
       </Card>
 
       {/* Language */}
@@ -246,19 +292,33 @@ const Profile = () => {
         </View>
       </Card>
 
+      {/* Progress photos */}
+      <PressableScale onPress={() => router.push('/progress')} className="mt-7">
+        <Card className="flex-row items-center">
+          <View className="mr-4 h-11 w-11 items-center justify-center rounded-xl bg-lime-400/15">
+            <CameraIcon color={accent} size={22} />
+          </View>
+          <View className="flex-1 pr-2">
+            <Text className="text-base font-semibold text-ink-50">{t('home.progress')}</Text>
+            <Text className="mt-0.5 text-sm text-ink-400">{t('home.progressSub')}</Text>
+          </View>
+          <ChevronRightIcon color="#566077" />
+        </Card>
+      </PressableScale>
+
       {/* Admin-only shortcut — rendered through the role gate. */}
       <RoleGate role="admin">
-        <Pressable onPress={() => router.push('/(tabs)/admin')} className="mt-7">
+        <PressableScale onPress={() => router.push('/(tabs)/admin')} className="mt-7">
           <Card className="flex-row items-center">
             <View className="mr-4 h-11 w-11 items-center justify-center rounded-xl bg-lime-400/15">
-              <ShieldIcon color="#bef82b" size={22} />
+              <ShieldIcon color={accent} size={22} />
             </View>
             <View className="flex-1">
               <Text className="text-base font-semibold text-ink-50">{t('profile.adminPanel')}</Text>
               <Text className="mt-0.5 text-sm text-ink-400">{t('profile.adminPanelDesc')}</Text>
             </View>
           </Card>
-        </Pressable>
+        </PressableScale>
       </RoleGate>
 
       {/* Sign out */}
@@ -270,6 +330,14 @@ const Profile = () => {
           leftIcon={<LogOutIcon color="#f87171" size={18} />}
         />
       </View>
+
+      <Pressable
+        onPress={() => router.push('/legal')}
+        accessibilityRole="button"
+        className="mt-6 items-center"
+      >
+        <Text className="text-xs font-semibold text-ink-400">{t('legal.title')}</Text>
+      </Pressable>
     </Screen>
   );
 };

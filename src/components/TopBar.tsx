@@ -14,16 +14,17 @@ type Props = {
 };
 
 /**
- * The app navbar. Sits at the top of a screen (headers are disabled globally).
- * Shows a back chevron on pushed screens, and the signed-in user's avatar on
- * the right which deep-links to the profile.
+ * The app navbar. Headers are disabled globally, so every screen renders this.
+ * Left: optional back chevron + title/subtitle. Right cluster (most-important
+ * last / rightmost): an optional action, then the avatar (always shown when
+ * signed in) which deep-links to the profile.
  */
 export const TopBar = ({ title, subtitle, showBack, showAvatar = true, right }: Props) => {
   const router = useRouter();
   const { user } = useAuth();
 
   return (
-    <View className="flex-row items-center justify-between px-5 pb-3 pt-1">
+    <View className="flex-row items-center justify-between gap-4 px-5 pb-4 pt-2">
       <View className="flex-1 flex-row items-center">
         {showBack ? (
           <Pressable
@@ -41,15 +42,16 @@ export const TopBar = ({ title, subtitle, showBack, showAvatar = true, right }: 
             {title}
           </Text>
           {subtitle ? (
-            <Text className="text-sm text-ink-400" numberOfLines={1}>
+            <Text className="mt-0.5 text-sm text-ink-400" numberOfLines={1}>
               {subtitle}
             </Text>
           ) : null}
         </View>
       </View>
 
-      {right ??
-        (showAvatar && user ? (
+      <View className="flex-row items-center gap-3">
+        {right}
+        {showAvatar && user ? (
           <Pressable
             hitSlop={8}
             onPress={() => router.push('/(tabs)/profile')}
@@ -63,7 +65,8 @@ export const TopBar = ({ title, subtitle, showBack, showAvatar = true, right }: 
               size={40}
             />
           </Pressable>
-        ) : null)}
+        ) : null}
+      </View>
     </View>
   );
 };

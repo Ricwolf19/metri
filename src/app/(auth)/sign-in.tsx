@@ -2,10 +2,10 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import MetriLogo from '@/assets/logo/metri-logo.svg';
-import { Button, Input, Screen, useToast } from '@/components/ui';
+import { BrandLogo, Button, Input, Screen, useToast } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { useT } from '@/i18n';
+import { LocaleToggle } from '@/i18n/LocaleToggle';
 
 const SignIn = () => {
   const { signIn } = useAuth();
@@ -38,8 +38,12 @@ const SignIn = () => {
 
   return (
     <Screen scroll contentClassName="grow justify-center px-6 py-10">
+      <View className="absolute right-6 top-3 z-10">
+        <LocaleToggle />
+      </View>
+
       <View className="items-center">
-        <MetriLogo width={170} height={124} />
+        <BrandLogo width={160} />
       </View>
 
       <Text className="mt-6 text-center text-2xl font-bold text-ink-50">
@@ -55,7 +59,9 @@ const SignIn = () => {
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="email-address"
-          placeholder="you@example.com"
+          textContentType="username"
+          autoComplete="username"
+          placeholder={t('auth.phIdentifier')}
           returnKeyType="next"
         />
         <Input
@@ -63,6 +69,8 @@ const SignIn = () => {
           value={password}
           onChangeText={setPassword}
           secureTextEntry
+          textContentType="password"
+          autoComplete="current-password"
           placeholder="••••••••"
           returnKeyType="go"
           onSubmitEditing={onSubmit}
@@ -78,7 +86,7 @@ const SignIn = () => {
         accessibilityRole="button"
       >
         <Text className="text-sm text-ink-300">{t('auth.newHere')} </Text>
-        <Text className="text-sm font-semibold text-lime-400">{t('auth.createAccount')}</Text>
+        <Text className="text-sm font-semibold text-accent">{t('auth.createAccount')}</Text>
       </Pressable>
     </Screen>
   );
