@@ -12,7 +12,7 @@ import type { ActivityLevel, Sex } from '@/db/schema';
  *
  * TDEE = BMR × activity multiplier.
  */
-export type BmrFormula = 'harris_benedict' | 'mifflin_st_jeor';
+export type BmrFormula = 'harris_benedict' | 'mifflin_st_jeor' | 'katch_mcardle';
 
 /**
  * Activity multipliers for TDEE. Labels/hints are NOT here — they're translated
@@ -38,6 +38,7 @@ export const ACTIVITY_LEVELS: ActivityLevel[] = [
 export const FORMULAS: Record<BmrFormula, { label: string; note: string }> = {
   harris_benedict: { label: 'Harris–Benedict', note: 'Revised 1984' },
   mifflin_st_jeor: { label: 'Mifflin–St Jeor', note: '1990 · often more accurate' },
+  katch_mcardle: { label: 'Katch–McArdle', note: 'Uses lean body mass' },
 };
 
 export type BmrInput = {
@@ -47,6 +48,7 @@ export type BmrInput = {
   weightKg: number;
   activityLevel: ActivityLevel;
   formula?: BmrFormula;
+  bodyFatPct?: number; // required for Katch–McArdle
 };
 
 export type BmrResult = {
@@ -66,12 +68,22 @@ const mifflinStJeor = (sex: Sex, kg: number, cm: number, age: number): number =>
   return sex === 'male' ? base + 5 : base - 161;
 };
 
+// Katch–McArdle uses lean body mass: BMR = 370 + 21.6 × LBM(kg).
+const katchMcArdle = (kg: number, bodyFatPct: number): number => {
+  const leanMass = kg * (1 - bodyFatPct / 100);
+  return 370 + 21.6 * leanMass;
+};
+
 export const calculateBmr = (input: BmrInput): BmrResult => {
   const formula = input.formula ?? 'harris_benedict';
-  const raw =
-    formula === 'mifflin_st_jeor'
-      ? mifflinStJeor(input.sex, input.weightKg, input.heightCm, input.age)
-      : harrisBenedict(input.sex, input.weightKg, input.heightCm, input.age);
+  let raw: number;
+  if (formula === 'katch_mcardle' && typeof input.bodyFatPct === 'number') {
+    raw = katchMcArdle(input.weightKg, input.bodyFatPct);
+  } else if (formula === 'mifflin_st_jeor') {
+    raw = mifflinStJeor(input.sex, input.weightKg, input.heightCm, input.age);
+  } else {
+    raw = harrisBenedict(input.sex, input.weightKg, input.heightCm, input.age);
+  }
 
   const bmr = Math.max(0, Math.round(raw));
   const multiplier = ACTIVITY_MULTIPLIERS[input.activityLevel];

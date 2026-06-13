@@ -28,10 +28,6 @@ import {
 import { useT } from '@/i18n';
 import { settings, type Units } from '@/lib/storage';
 
-const FORMULA_SEGMENTS: Segment<BmrFormula>[] = (Object.keys(FORMULAS) as BmrFormula[]).map(
-  (key) => ({ value: key, label: FORMULAS[key].label }),
-);
-
 const UNIT_SEGMENTS: Segment<Units>[] = [
   { value: 'kg', label: 'kg' },
   { value: 'lb', label: 'lb' },
@@ -57,6 +53,12 @@ const BmrCalculator = () => {
     { value: 'male', label: t('bmr.male') },
     { value: 'female', label: t('bmr.female') },
   ];
+
+  // Katch–McArdle needs lean body mass, so it only appears once body fat is saved.
+  const hasBodyFat = typeof user?.bodyFatPct === 'number';
+  const formulaSegments: Segment<BmrFormula>[] = (Object.keys(FORMULAS) as BmrFormula[])
+    .filter((key) => key !== 'katch_mcardle' || hasBodyFat)
+    .map((key) => ({ value: key, label: FORMULAS[key].label }));
 
   const [sex, setSex] = useState<Sex>(user?.sex ?? 'male');
   const [age, setAge] = useState(user?.age ? String(user.age) : '');
@@ -89,8 +91,9 @@ const BmrCalculator = () => {
       weightKg,
       activityLevel: activity,
       formula,
+      bodyFatPct: user?.bodyFatPct ?? undefined,
     });
-  }, [valid, sex, ageNum, heightNum, weightKg, activity, formula]);
+  }, [valid, sex, ageNum, heightNum, weightKg, activity, formula, user?.bodyFatPct]);
 
   const onUnitChange = (next: Units) => {
     if (next === unit || weight === '') {
@@ -134,7 +137,7 @@ const BmrCalculator = () => {
       <View
         className={[
           'rounded-2xl p-5',
-          result ? 'bg-lime-400' : 'border border-dashed border-ink-600 bg-ink-800',
+          result ? 'bg-accentFill' : 'border border-dashed border-ink-600 bg-ink-800',
         ].join(' ')}
       >
         {result ? (
@@ -213,12 +216,17 @@ const BmrCalculator = () => {
           <ActivityPicker value={activity} onChange={setActivity} />
         </View>
 
-        <SegmentedControl
-          label={t('bmr.formula')}
-          segments={FORMULA_SEGMENTS}
-          value={formula}
-          onChange={setFormula}
-        />
+        <View>
+          <SegmentedControl
+            label={t('bmr.formula')}
+            segments={formulaSegments}
+            value={formula}
+            onChange={setFormula}
+          />
+          {!hasBodyFat ? (
+            <Text className="mt-1.5 text-xs text-ink-400">{t('bmr.katchHint')}</Text>
+          ) : null}
+        </View>
 
         <Card padded className="bg-ink-850">
           <Text className="text-xs leading-5 text-ink-400">{t('bmr.explainer')}</Text>
