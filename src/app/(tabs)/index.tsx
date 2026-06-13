@@ -1,11 +1,18 @@
-import { useRouter } from 'expo-router';
-import { Text, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
 
-import { CameraIcon, ChevronRightIcon, FlameIcon } from '@/components/icons';
+import { ChevronRightIcon, FlameIcon, GearIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import { Card, FadeInUp, PressableScale, Screen } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
+import {
+  DEFAULT_PINNED_ACTIONS,
+  getQuickAction,
+  type QuickAction,
+} from '@/features/home/quick-actions';
 import { useT } from '@/i18n';
+import { settings } from '@/lib/storage';
 import { useTheme } from '@/theme/theme-context';
 
 const Stat = ({ label, value, unit }: { label: string; value: string; unit: string }) => {
@@ -20,6 +27,27 @@ const Stat = ({ label, value, unit }: { label: string; value: string; unit: stri
   );
 };
 
+const QuickActionCard = ({ action }: { action: QuickAction }) => {
+  const router = useRouter();
+  const t = useT();
+  const { accent } = useTheme();
+  const Icon = action.icon;
+  return (
+    <PressableScale onPress={() => router.push(action.href)}>
+      <Card className="flex-row items-center">
+        <View className="mr-4 h-11 w-11 items-center justify-center rounded-xl bg-lime-400/15">
+          <Icon color={accent} size={22} />
+        </View>
+        <View className="flex-1 pr-2">
+          <Text className="text-base font-semibold text-ink-50">{t(action.titleKey)}</Text>
+          <Text className="mt-0.5 text-sm text-ink-400">{t(action.subKey)}</Text>
+        </View>
+        <ChevronRightIcon color="#566077" />
+      </Card>
+    </PressableScale>
+  );
+};
+
 const Home = () => {
   const { user } = useAuth();
   const router = useRouter();
@@ -28,6 +56,18 @@ const Home = () => {
 
   const firstName = (user?.displayName ?? user?.username ?? '').split(' ')[0];
   const hasBmr = typeof user?.bmr === 'number' && typeof user?.tdee === 'number';
+
+  // Pinned quick actions live in MMKV; re-read whenever Home regains focus so
+  // edits made on the customize screen show immediately on return.
+  const [pinnedIds, setPinnedIds] = useState<string[]>(
+    () => settings.getPinnedActions() ?? DEFAULT_PINNED_ACTIONS,
+  );
+  useFocusEffect(
+    useCallback(() => {
+      setPinnedIds(settings.getPinnedActions() ?? DEFAULT_PINNED_ACTIONS);
+    }, []),
+  );
+  const pinned = pinnedIds.map(getQuickAction).filter((a): a is QuickAction => Boolean(a));
 
   return (
     <Screen scroll edges={['top']} contentClassName="px-5 pb-8">
@@ -77,35 +117,39 @@ const Home = () => {
         )}
       </FadeInUp>
 
-      <Text className="mb-2 mt-8 text-xs font-semibold uppercase tracking-wider text-ink-400">
-        {t('home.quickActions')}
-      </Text>
-      <FadeInUp delay={80}>
-        <PressableScale onPress={() => router.push('/calculators/bmr')}>
-          <Card className="flex-row items-center justify-between">
-            <View className="flex-1 pr-3">
-              <Text className="text-base font-semibold text-ink-50">{t('home.hbTitle')}</Text>
-              <Text className="mt-0.5 text-sm text-ink-400">{t('home.hbSubtitle')}</Text>
-            </View>
-            <ChevronRightIcon color="#566077" />
-          </Card>
-        </PressableScale>
-      </FadeInUp>
+      <View className="mb-2 mt-8 flex-row items-center justify-between">
+        <Text className="text-xs font-semibold uppercase tracking-wider text-ink-400">
+          {t('home.quickActions')}
+        </Text>
+        <Pressable
+          hitSlop={8}
+          onPress={() => router.push('/home-customize')}
+          accessibilityRole="button"
+          accessibilityLabel={t('home.customize')}
+          className="flex-row items-center"
+        >
+          <GearIcon color="#566077" size={14} />
+          <Text className="ml-1 text-xs font-semibold text-ink-400">{t('home.customize')}</Text>
+        </Pressable>
+      </View>
 
-      <FadeInUp delay={140}>
-        <PressableScale onPress={() => router.push('/progress')} className="mt-3">
-          <Card className="flex-row items-center">
-            <View className="mr-4 h-11 w-11 items-center justify-center rounded-xl bg-lime-400/15">
-              <CameraIcon color={accent} size={22} />
-            </View>
-            <View className="flex-1 pr-2">
-              <Text className="text-base font-semibold text-ink-50">{t('home.progress')}</Text>
-              <Text className="mt-0.5 text-sm text-ink-400">{t('home.progressSub')}</Text>
-            </View>
-            <ChevronRightIcon color="#566077" />
-          </Card>
-        </PressableScale>
-      </FadeInUp>
+      {pinned.length === 0 ? (
+        <FadeInUp>
+          <PressableScale onPress={() => router.push('/home-customize')}>
+            <Card className="items-center py-6">
+              <Text className="text-center text-sm text-ink-400">{t('home.noPinned')}</Text>
+            </Card>
+          </PressableScale>
+        </FadeInUp>
+      ) : (
+        <View className="gap-3">
+          {pinned.map((action, i) => (
+            <FadeInUp key={action.id} delay={i * 70}>
+              <QuickActionCard action={action} />
+            </FadeInUp>
+          ))}
+        </View>
+      )}
     </Screen>
   );
 };
