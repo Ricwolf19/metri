@@ -30,15 +30,29 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#0c0c0c",
-          "android": {
-            "image": "./assets/images/splash-icon.png",
-            "imageWidth": 76
-          }
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 160,
+          "resizeMode": "contain"
         }
       ],
       "expo-sqlite",
       "expo-font",
-      "expo-image"
+      "expo-image",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/android-icon-monochrome.png",
+          "color": "#bef82b"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Metri uses your photos to save progress pictures.",
+          "cameraPermission": "Metri uses the camera to take progress photos."
+        }
+      ],
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": true,
