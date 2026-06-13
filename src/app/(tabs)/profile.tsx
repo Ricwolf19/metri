@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 
-import { CameraIcon, ChevronRightIcon, LogOutIcon, ShieldIcon } from '@/components/icons';
+import { CameraIcon, LogOutIcon, ShieldIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import {
   Avatar,
@@ -22,6 +22,7 @@ import { RoleGate } from '@/features/auth/components/RoleGate';
 import { pickFromCamera, pickFromLibrary } from '@/features/photos/capture';
 import { deletePhotoFiles, persistAvatar } from '@/features/photos/media';
 import { LOCALES, useI18n, type Locale } from '@/i18n';
+import { settings, type ClockFormat } from '@/lib/storage';
 import { ThemeSelect } from '@/theme/ThemeSelect';
 import { useTheme } from '@/theme/theme-context';
 
@@ -52,6 +53,7 @@ const Profile = () => {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [changingPw, setChangingPw] = useState(false);
+  const [clock, setClock] = useState<ClockFormat>(settings.getClockFormat());
 
   if (!user) return null;
 
@@ -130,6 +132,14 @@ const Profile = () => {
     value: l.value,
     label: t(l.key),
   }));
+  const clockSegments: Segment<ClockFormat>[] = [
+    { value: '24', label: t('clock.24') },
+    { value: '12', label: t('clock.12') },
+  ];
+  const onClockChange = (next: ClockFormat) => {
+    settings.setClockFormat(next);
+    setClock(next);
+  };
   const hasMetrics = typeof user.age === 'number';
 
   return (
@@ -259,6 +269,14 @@ const Profile = () => {
         <SegmentedControl segments={localeSegments} value={locale} onChange={setLocale} />
       </Card>
 
+      {/* Time format */}
+      <Text className="mb-2 mt-7 text-xs font-semibold uppercase tracking-wider text-ink-400">
+        {t('profile.timeFormat')}
+      </Text>
+      <Card>
+        <SegmentedControl segments={clockSegments} value={clock} onChange={onClockChange} />
+      </Card>
+
       {/* Body metrics */}
       <Text className="mb-2 mt-7 text-xs font-semibold uppercase tracking-wider text-ink-400">
         {t('profile.bodyMetrics')}
@@ -291,20 +309,6 @@ const Profile = () => {
           />
         </View>
       </Card>
-
-      {/* Progress photos */}
-      <PressableScale onPress={() => router.push('/progress')} className="mt-7">
-        <Card className="flex-row items-center">
-          <View className="mr-4 h-11 w-11 items-center justify-center rounded-xl bg-lime-400/15">
-            <CameraIcon color={accent} size={22} />
-          </View>
-          <View className="flex-1 pr-2">
-            <Text className="text-base font-semibold text-ink-50">{t('home.progress')}</Text>
-            <Text className="mt-0.5 text-sm text-ink-400">{t('home.progressSub')}</Text>
-          </View>
-          <ChevronRightIcon color="#566077" />
-        </Card>
-      </PressableScale>
 
       {/* Admin-only shortcut — rendered through the role gate. */}
       <RoleGate role="admin">
