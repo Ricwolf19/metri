@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD `body_fat_pct` real;

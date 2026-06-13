@@ -48,6 +48,7 @@ export const users = sqliteTable('users', {
   heightCm: real('height_cm'),
   weightKg: real('weight_kg'),
   activityLevel: text('activity_level').$type<ActivityLevel>(),
+  bodyFatPct: real('body_fat_pct'),
 
   // Saved calculation result (latest), so it can be consulted from the profile.
   bmr: real('bmr'),
@@ -70,3 +71,54 @@ export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 /** The user object exposed to the UI — never carries the password material. */
 export type PublicUser = Omit<User, 'passwordHash' | 'passwordSalt'>;
+
+/** How often a reminder repeats. */
+export type ReminderFrequency = 'daily' | 'weekly';
+
+/**
+ * Generic, reusable local reminders (weigh-ins, measurements, water, supplements,
+ * …). Each enabled reminder maps to one scheduled OS notification; we keep its
+ * `notificationId` so it can be cancelled/rescheduled on edit or toggle.
+ * `weekday` (1=Sun … 7=Sat) is only used when `frequency` is `weekly`.
+ */
+export const reminders = sqliteTable('reminders', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull(),
+  title: text('title').notNull(),
+  body: text('body'),
+  frequency: text('frequency').$type<ReminderFrequency>().notNull().default('daily'),
+  hour: integer('hour').notNull().default(8),
+  minute: integer('minute').notNull().default(0),
+  weekday: integer('weekday'),
+  enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
+  notificationId: text('notification_id'),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`(current_timestamp)`),
+  updatedAt: text('updated_at')
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
+export type Reminder = typeof reminders.$inferSelect;
+export type NewReminder = typeof reminders.$inferInsert;
+
+/**
+ * Progress photos. The image **files live on disk** (app document dir) — only the
+ * file paths + metadata are stored here (never the binary). `takenAt` is an ISO
+ * date; `weightKg` snapshots the user's weight at capture for an overlay.
+ */
+export const progressPhotos = sqliteTable('progress_photos', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull(),
+  uri: text('uri').notNull(),
+  thumbUri: text('thumb_uri').notNull(),
+  takenAt: text('taken_at').notNull(),
+  weightKg: real('weight_kg'),
+  note: text('note'),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
+export type ProgressPhoto = typeof progressPhotos.$inferSelect;
