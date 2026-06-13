@@ -7,4 +7,15 @@ module.exports = defineConfig([
   {
     ignores: ['dist/*'],
   },
+  {
+    // House style: prefer arrow-function expressions everywhere (components,
+    // hooks, helpers) for one consistent shape across the app.
+    rules: {
+      'func-style': ['error', 'expression', { allowArrowFunctions: true }],
+      'react/function-component-definition': [
+        'error',
+        { namedComponents: 'arrow-function', unnamedComponents: 'arrow-function' },
+      ],
+    },
+  },
 ]);
