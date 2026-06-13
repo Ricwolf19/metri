@@ -60,6 +60,13 @@ const TOOLS: Tool[] = [
     icon: FlameIcon,
     available: true,
   },
+  {
+    titleKey: 'tools.ffmiTitle',
+    descKey: 'tools.ffmiDesc',
+    href: '/calculators/ffmi',
+    icon: ActivityIcon,
+    available: true,
+  },
 ];
 
 const Tools = () => {
