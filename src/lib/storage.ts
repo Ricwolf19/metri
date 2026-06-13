@@ -12,10 +12,12 @@ export const storage = createMMKV({ id: 'metri' });
 
 export type Units = 'kg' | 'lb';
 export type LocaleCode = 'en' | 'es';
+export type ThemePreference = 'system' | 'light' | 'dark';
 
 const Keys = {
   units: 'settings.units',
   locale: 'settings.locale',
+  theme: 'settings.theme',
   onboarded: 'settings.onboarded',
   sessionUserId: 'auth.userId',
 } as const;
@@ -27,11 +29,18 @@ export const settings = {
   setUnits(units: Units) {
     storage.set(Keys.units, units);
   },
-  getLocale(): LocaleCode {
-    return (storage.getString(Keys.locale) as LocaleCode) ?? 'en';
+  /** The user's saved locale, or null if they've never chosen one (use device default). */
+  getLocale(): LocaleCode | null {
+    return (storage.getString(Keys.locale) as LocaleCode) ?? null;
   },
   setLocale(locale: LocaleCode) {
     storage.set(Keys.locale, locale);
+  },
+  getThemePreference(): ThemePreference {
+    return (storage.getString(Keys.theme) as ThemePreference) ?? 'dark';
+  },
+  setThemePreference(theme: ThemePreference) {
+    storage.set(Keys.theme, theme);
   },
   hasOnboarded(): boolean {
     return storage.getBoolean(Keys.onboarded) ?? false;
