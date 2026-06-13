@@ -1,4 +1,15 @@
-import { ActivityIndicator, Pressable, Text, View, type PressableProps } from 'react-native';
+import {
+  ActivityIndicator,
+  Animated,
+  Pressable,
+  Text,
+  View,
+  type PressableProps,
+} from 'react-native';
+
+import { usePressScale } from '@/lib/usePressScale';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 type Size = 'sm' | 'md' | 'lg';
@@ -13,7 +24,7 @@ type Props = Omit<PressableProps, 'children'> & {
 };
 
 const CONTAINER: Record<Variant, string> = {
-  primary: 'bg-lime-400 active:bg-lime-500',
+  primary: 'bg-accentFill',
   secondary: 'bg-ink-700 active:bg-ink-600 border border-ink-600',
   ghost: 'bg-transparent active:bg-ink-800',
   danger: 'bg-red-500/15 active:bg-red-500/25 border border-red-500/40',
@@ -49,12 +60,16 @@ export const Button = ({
   ...rest
 }: Props) => {
   const isDisabled = disabled || loading;
+  const { scale, onPressIn, onPressOut } = usePressScale();
 
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       accessibilityState={{ disabled: !!isDisabled, busy: loading }}
       disabled={isDisabled}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={{ transform: [{ scale }] }}
       className={[
         'flex-row items-center justify-center rounded-xl',
         PADDING[size],
@@ -74,6 +89,6 @@ export const Button = ({
           </Text>
         </>
       )}
-    </Pressable>
+    </AnimatedPressable>
   );
 };

@@ -34,7 +34,7 @@ export const SegmentedControl = <T extends string>({
               accessibilityState={{ selected: active }}
               className={[
                 'flex-1 items-center justify-center rounded-lg py-2.5',
-                active ? 'bg-lime-400' : 'active:bg-ink-700',
+                active ? 'bg-accentFill' : 'active:bg-ink-700',
               ].join(' ')}
             >
               <Text

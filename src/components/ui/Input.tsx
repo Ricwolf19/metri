@@ -45,7 +45,7 @@ export const Input = forwardRef<TextInput, Props>(function Input(
             accessibilityRole="button"
             accessibilityLabel={hidden ? 'Show password' : 'Hide password'}
           >
-            <Text className="text-xs font-semibold uppercase tracking-wider text-lime-400">
+            <Text className="text-xs font-semibold uppercase tracking-wider text-accent">
               {hidden ? 'Show' : 'Hide'}
             </Text>
           </Pressable>

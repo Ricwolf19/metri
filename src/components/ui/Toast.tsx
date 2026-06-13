@@ -45,11 +45,9 @@ const ToastView = ({ toast, onDone }: { toast: Toast; onDone: (id: number) => vo
     <Animated.View
       style={{
         opacity: anim,
-        transform: [
-          { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [-12, 0] }) },
-        ],
+        transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
       }}
-      className="mb-2"
+      className="mt-2"
     >
       <Pressable onPress={() => onDone(toast.id)}>
         <View
@@ -89,9 +87,10 @@ export const ToastProvider = ({ children }: { children: React.ReactNode }) => {
   return (
     <ToastContext.Provider value={value}>
       {children}
+      {/* Bottom-anchored, lifted clear of the tab bar (which reserves the safe-area inset). */}
       <View
         pointerEvents="box-none"
-        style={{ top: insets.top + 8 }}
+        style={{ bottom: insets.bottom + 80 }}
         className="absolute left-0 right-0 z-50 px-4"
       >
         {toasts.map((t) => (

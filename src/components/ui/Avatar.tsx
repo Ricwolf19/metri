@@ -31,20 +31,28 @@ const pickColor = (name?: string | null): string => {
   return AVATAR_COLORS[sum % AVATAR_COLORS.length];
 };
 
-/** Avatar — shows an image if set, otherwise initials on a deterministic color. */
+/** Avatar — a photo (with an accent ring) if set, otherwise initials on a color. */
 export const Avatar = ({ name, uri, color, size = 44 }: Props) => {
+  const ring = color ?? pickColor(name);
+
   if (uri) {
     return (
       <Image
         source={{ uri }}
-        style={{ width: size, height: size, borderRadius: size / 2 }}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          borderWidth: Math.max(2, size * 0.045),
+          borderColor: ring,
+        }}
         contentFit="cover"
         transition={150}
       />
     );
   }
 
-  const bg = color ?? pickColor(name);
+  const bg = ring;
   return (
     <View
       style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: bg }}
