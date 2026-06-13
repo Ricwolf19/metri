@@ -8,6 +8,8 @@ import m0003 from './0003_cloudy_rocket_racer.sql';
 import m0004 from './0004_wide_falcon.sql';
 import m0005 from './0005_unique_golden_guardian.sql';
 import m0006 from './0006_lively_weekdays.sql';
+import m0007 from './0007_jolly_epoch.sql';
+import m0008 from './0008_large_shinobi_shaw.sql';
 
   export default {
     journal,
@@ -18,7 +20,9 @@ m0002,
 m0003,
 m0004,
 m0005,
-m0006
+m0006,
+m0007,
+m0008
     }
   }
   

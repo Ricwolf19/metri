@@ -50,6 +50,20 @@
       "when": 1781332113500,
       "tag": "0006_lively_weekdays",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1781332113600,
+      "tag": "0007_jolly_epoch",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1781387243198,
+      "tag": "0008_large_shinobi_shaw",
+      "breakpoints": true
     }
   ]
 }

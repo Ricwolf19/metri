@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { index, integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 /**
  * Drizzle schema (SQLite — the on-device source of truth).
@@ -120,3 +120,255 @@ export const progressPhotos = sqliteTable('progress_photos', {
 });
 
 export type ProgressPhoto = typeof progressPhotos.$inferSelect;
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Training system (v1.2) — programmable routines, progressive overload, logging.
+ *
+ * Two layers share most tables:
+ *   • TEMPLATES — seeded (or user-authored) blueprints. `user_program_id` IS NULL.
+ *   • ENROLLED COPIES — on enrolment we **deep-copy** a template's rows into
+ *     user-owned rows tagged with the new `user_programs.id` (`user_program_id`).
+ *     The workout engine then reads only the user's copy, so editing a program
+ *     never mutates the shared template (offline, no sync until v2).
+ *
+ * Weeks are stored **routine-relative (1–4)**; the absolute program week is
+ * derived from the routine's `order_index` + position. Suggested weights are
+ * derived from `set_logs` history (no MMKV cache). All FKs are intentionally
+ * loose text refs (matching the rest of the schema; expo-sqlite runs with
+ * foreign_keys OFF) — referential cleanup is handled in repo code.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+export type ExerciseCategory =
+  | 'chest'
+  | 'back'
+  | 'legs'
+  | 'shoulders'
+  | 'arms'
+  | 'core'
+  | 'full_body'
+  | 'cardio';
+export type Equipment =
+  | 'barbell'
+  | 'dumbbell'
+  | 'machine'
+  | 'cable'
+  | 'bodyweight'
+  | 'kettlebell'
+  | 'other';
+
+/** Global exercise library. Seeded staples have `userId` NULL; user-made ones set it. */
+export const exercises = sqliteTable(
+  'exercises',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    category: text('category').$type<ExerciseCategory>().notNull(),
+    primaryMuscles: text('primary_muscles', { mode: 'json' }).$type<string[]>(),
+    secondaryMuscles: text('secondary_muscles', { mode: 'json' }).$type<string[]>(),
+    equipment: text('equipment').$type<Equipment>(),
+    imageUrl: text('image_url'),
+    instructions: text('instructions'),
+    isCustom: integer('is_custom', { mode: 'boolean' }).notNull().default(false),
+    userId: text('user_id'),
+    createdAt: tsMs('created_at').notNull().default(NOW_MS),
+  },
+  (t) => [index('idx_exercises_category').on(t.category), index('idx_exercises_name').on(t.name)],
+);
+
+export type Exercise = typeof exercises.$inferSelect;
+export type NewExercise = typeof exercises.$inferInsert;
+
+export type ProgramDifficulty = 'beginner' | 'intermediate' | 'advanced';
+export type ProgramGoal = 'strength' | 'hypertrophy' | 'powerbuilding' | 'endurance';
+
+export const programs = sqliteTable(
+  'programs',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    description: text('description'),
+    durationWeeks: integer('duration_weeks'),
+    difficulty: text('difficulty').$type<ProgramDifficulty>(),
+    goal: text('goal').$type<ProgramGoal>(),
+    isCustom: integer('is_custom', { mode: 'boolean' }).notNull().default(false),
+    /** Author of a custom program; NULL for seeded templates. */
+    userId: text('user_id'),
+    /** Set on an enrolled deep-copy; NULL = template. */
+    userProgramId: text('user_program_id'),
+    createdAt: tsMs('created_at').notNull().default(NOW_MS),
+    updatedAt: tsMs('updated_at').notNull().default(NOW_MS),
+  },
+  (t) => [index('idx_programs_user_program').on(t.userProgramId)],
+);
+
+export type Program = typeof programs.$inferSelect;
+export type NewProgram = typeof programs.$inferInsert;
+
+/** A multi-week block within a program (e.g. "Rutina 1 — Base", 4 weeks). */
+export const routines = sqliteTable(
+  'routines',
+  {
+    id: text('id').primaryKey(),
+    programId: text('program_id').notNull(),
+    name: text('name').notNull(),
+    orderIndex: integer('order_index').notNull().default(0),
+    durationWeeks: integer('duration_weeks').notNull().default(4),
+    userProgramId: text('user_program_id'),
+    createdAt: tsMs('created_at').notNull().default(NOW_MS),
+  },
+  (t) => [index('idx_routines_program').on(t.programId)],
+);
+
+export type Routine = typeof routines.$inferSelect;
+export type NewRoutine = typeof routines.$inferInsert;
+
+/** A training day within a routine (e.g. "Push", "Pull", "Legs"). Was "face". */
+export const workoutDays = sqliteTable(
+  'workout_days',
+  {
+    id: text('id').primaryKey(),
+    routineId: text('routine_id').notNull(),
+    name: text('name').notNull(),
+    focusMuscles: text('focus_muscles', { mode: 'json' }).$type<string[]>(),
+    orderIndex: integer('order_index').notNull().default(0),
+    userProgramId: text('user_program_id'),
+    createdAt: tsMs('created_at').notNull().default(NOW_MS),
+  },
+  (t) => [index('idx_workout_days_routine').on(t.routineId)],
+);
+
+export type WorkoutDay = typeof workoutDays.$inferSelect;
+export type NewWorkoutDay = typeof workoutDays.$inferInsert;
+
+/** An exercise slot within a workout day (ordered position + default rest). */
+export const workoutDayExercises = sqliteTable(
+  'workout_day_exercises',
+  {
+    id: text('id').primaryKey(),
+    workoutDayId: text('workout_day_id').notNull(),
+    exerciseId: text('exercise_id').notNull(),
+    orderIndex: integer('order_index').notNull().default(0),
+    defaultRestSeconds: integer('default_rest_seconds').default(120),
+    notes: text('notes'),
+    userProgramId: text('user_program_id'),
+  },
+  (t) => [index('idx_workout_day_exercises_day').on(t.workoutDayId)],
+);
+
+export type WorkoutDayExercise = typeof workoutDayExercises.$inferSelect;
+export type NewWorkoutDayExercise = typeof workoutDayExercises.$inferInsert;
+
+/** How intensity for a week is expressed. `percentage` fills the %1RM gap. */
+export type IntensityType = 'rir' | 'rpe' | 'percentage';
+
+/**
+ * Per-week prescription for a slot — the heart of progressive overload.
+ * `weekNumber` is routine-relative (1–4). `intensityValue` carries the RPE or
+ * %1RM target when `intensityType` isn't `rir`; RIR ranges use `rirMin/rirMax`.
+ */
+export const weekConfigs = sqliteTable(
+  'week_configs',
+  {
+    id: text('id').primaryKey(),
+    workoutDayExerciseId: text('workout_day_exercise_id').notNull(),
+    weekNumber: integer('week_number').notNull(),
+    sets: integer('sets').notNull(),
+    reps: integer('reps').notNull(),
+    rirMin: integer('rir_min'),
+    rirMax: integer('rir_max'),
+    toFailure: integer('to_failure', { mode: 'boolean' }).notNull().default(false),
+    restSeconds: integer('rest_seconds'),
+    intensityType: text('intensity_type').$type<IntensityType>().notNull().default('rir'),
+    intensityValue: real('intensity_value'),
+    userProgramId: text('user_program_id'),
+  },
+  (t) => [index('idx_week_configs_slot').on(t.workoutDayExerciseId)],
+);
+
+export type WeekConfig = typeof weekConfigs.$inferSelect;
+export type NewWeekConfig = typeof weekConfigs.$inferInsert;
+
+export type UserProgramStatus = 'active' | 'paused' | 'completed' | 'abandoned';
+
+/** A user's enrolment in a program. Owns the deep-copied template rows. */
+export const userPrograms = sqliteTable(
+  'user_programs',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(),
+    /** The template this copy was enrolled from. */
+    programId: text('program_id').notNull(),
+    status: text('status').$type<UserProgramStatus>().notNull().default('active'),
+    startedAt: tsMs('started_at'),
+    completedAt: tsMs('completed_at'),
+    /** Position is stored routine-relative; the absolute program week is derived. */
+    currentRoutineId: text('current_routine_id'),
+    currentWeek: integer('current_week').notNull().default(1),
+    createdAt: tsMs('created_at').notNull().default(NOW_MS),
+    updatedAt: tsMs('updated_at').notNull().default(NOW_MS),
+  },
+  (t) => [index('idx_user_programs_user').on(t.userId)],
+);
+
+export type UserProgram = typeof userPrograms.$inferSelect;
+export type NewUserProgram = typeof userPrograms.$inferInsert;
+
+export type WorkoutStatus = 'in_progress' | 'completed' | 'abandoned';
+
+/**
+ * A training session. The single `in_progress` row per user IS the active
+ * session — there is no global store; the UI reads it from the DB. `weekNumber`
+ * is the routine-relative week trained.
+ */
+export const workoutLogs = sqliteTable(
+  'workout_logs',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(),
+    userProgramId: text('user_program_id').notNull(),
+    workoutDayId: text('workout_day_id').notNull(),
+    status: text('status').$type<WorkoutStatus>().notNull().default('in_progress'),
+    weekNumber: integer('week_number').notNull(),
+    startedAt: tsMs('started_at').notNull().default(NOW_MS),
+    completedAt: tsMs('completed_at'),
+    durationSeconds: integer('duration_seconds'),
+    notes: text('notes'),
+    rating: integer('rating'),
+    createdAt: tsMs('created_at').notNull().default(NOW_MS),
+  },
+  (t) => [
+    index('idx_workout_logs_user').on(t.userId),
+    index('idx_workout_logs_program').on(t.userProgramId),
+    index('idx_workout_logs_status').on(t.status),
+  ],
+);
+
+export type WorkoutLog = typeof workoutLogs.$inferSelect;
+export type NewWorkoutLog = typeof workoutLogs.$inferInsert;
+
+/** A single logged set — the core training datum. Weight stored in kg. */
+export const setLogs = sqliteTable(
+  'set_logs',
+  {
+    id: text('id').primaryKey(),
+    workoutLogId: text('workout_log_id').notNull(),
+    exerciseId: text('exercise_id').notNull(),
+    setNumber: integer('set_number').notNull(),
+    weightKg: real('weight_kg').notNull(),
+    reps: integer('reps').notNull(),
+    rpe: integer('rpe'),
+    rir: integer('rir'),
+    isWarmup: integer('is_warmup', { mode: 'boolean' }).notNull().default(false),
+    isFailure: integer('is_failure', { mode: 'boolean' }).notNull().default(false),
+    notes: text('notes'),
+    restBeforeSeconds: integer('rest_before_seconds'),
+    createdAt: tsMs('created_at').notNull().default(NOW_MS),
+  },
+  (t) => [
+    index('idx_set_logs_workout').on(t.workoutLogId),
+    index('idx_set_logs_exercise').on(t.exerciseId),
+  ],
+);
+
+export type SetLog = typeof setLogs.$inferSelect;
+export type NewSetLog = typeof setLogs.$inferInsert;
