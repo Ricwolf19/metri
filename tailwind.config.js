@@ -24,23 +24,30 @@ module.exports = {
           800: '#4d7c0f',
           900: '#3f6212',
         },
-        // Cool dark neutrals for surfaces and text.
+        // Cool neutrals for surfaces and text. Values come from CSS variables so
+        // they swap per theme (see src/theme/tokens.ts + ThemeProvider). `950`
+        // stays constant — it's the dark text used on the lime accent.
         ink: {
           DEFAULT: '#0b0d12',
           950: '#08090d',
-          900: '#0b0d12', // app background
-          850: '#0f1219',
-          800: '#141823', // cards / surfaces
-          750: '#1a1f2b',
-          700: '#212737', // raised surfaces
-          600: '#2c3447', // borders
-          500: '#3b4459',
-          400: '#566077', // muted text
-          300: '#7c869c', // secondary text
-          200: '#aab2c4',
-          100: '#d7dce6',
-          50: '#eef1f6',
+          900: 'rgb(var(--ink-900) / <alpha-value>)', // app background
+          850: 'rgb(var(--ink-850) / <alpha-value>)',
+          800: 'rgb(var(--ink-800) / <alpha-value>)', // cards / surfaces
+          750: 'rgb(var(--ink-750) / <alpha-value>)',
+          700: 'rgb(var(--ink-700) / <alpha-value>)', // raised surfaces
+          600: 'rgb(var(--ink-600) / <alpha-value>)', // borders
+          500: 'rgb(var(--ink-500) / <alpha-value>)',
+          400: 'rgb(var(--ink-400) / <alpha-value>)', // muted text
+          300: 'rgb(var(--ink-300) / <alpha-value>)', // secondary text
+          200: 'rgb(var(--ink-200) / <alpha-value>)',
+          100: 'rgb(var(--ink-100) / <alpha-value>)',
+          50: 'rgb(var(--ink-50) / <alpha-value>)',
         },
+        // Accent TEXT that must stay legible on the current surface (lime on dark,
+        // a darker green on light).
+        accent: 'rgb(var(--accent) / <alpha-value>)',
+        // Accent FILL for buttons/CTAs — calmer green on white so it isn't neon.
+        accentFill: 'rgb(var(--accent-fill) / <alpha-value>)',
       },
       fontFamily: {
         sans: ['var(--font-display)'],

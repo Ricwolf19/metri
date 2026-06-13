@@ -10,4 +10,21 @@
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
   --font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif;
   --font-serif: Georgia, 'Times New Roman', serif;
+
+  /* Default (dark) theme tokens — channels for rgb(var(--x) / <alpha>). The
+     ThemeProvider overrides these at runtime via NativeWind vars() per scheme. */
+  --ink-900: 11 13 18;
+  --ink-850: 15 18 25;
+  --ink-800: 20 24 35;
+  --ink-750: 26 31 43;
+  --ink-700: 33 39 55;
+  --ink-600: 44 52 71;
+  --ink-500: 59 68 89;
+  --ink-400: 86 96 119;
+  --ink-300: 124 134 156;
+  --ink-200: 170 178 196;
+  --ink-100: 215 220 230;
+  --ink-50: 238 241 246;
+  --accent: 190 248 43;
+  --accent-fill: 190 248 43;
 }
