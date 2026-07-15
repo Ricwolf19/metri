@@ -21,17 +21,17 @@ const DocRow = ({
     <PressableScale onPress={() => onPress(section.id)}>
       <Card className="flex-row items-center">
         <View className="flex-1 pr-3">
-          <Text className="text-base font-semibold text-ink-50">{section.title}</Text>
+          <Text className="text-base font-sans-semibold text-ink-50">{section.title}</Text>
           {/* Same green pills as the doc detail, for a consistent look. */}
           <View className="mt-1.5 flex-row flex-wrap gap-1.5">
             {section.tags.slice(0, 3).map((tag) => (
               <View key={tag} className="rounded-full bg-ink-800 px-2 py-0.5">
-                <Text className="text-xs text-accent">#{tag}</Text>
+                <Text className="text-xs text-brand">#{tag}</Text>
               </View>
             ))}
           </View>
         </View>
-        <ChevronRightIcon color="#566077" />
+        <ChevronRightIcon color="#71717a" />
       </Card>
     </PressableScale>
   </FadeInUp>
@@ -87,7 +87,7 @@ const Docs = () => {
             if (items.length === 0) return null;
             return (
               <View key={cat}>
-                <Text className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-400">
+                <Text className="mb-2 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
                   {t(`docs.cat.${cat}`)}
                 </Text>
                 <View className="gap-3">

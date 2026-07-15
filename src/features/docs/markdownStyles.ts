@@ -6,10 +6,10 @@ import type { ThemeScheme } from '@/theme/tokens';
  */
 export const markdownStyles = (scheme: ThemeScheme) => {
   const dark = scheme === 'dark';
-  const text = dark ? '#d7dce6' : '#1e232e';
-  const heading = dark ? '#eef1f6' : '#11141b';
-  const border = dark ? '#2c3447' : '#d1d6e0';
-  const surface = dark ? '#141823' : '#f1f5f9';
+  const text = dark ? '#d6d6db' : '#18181b';
+  const heading = dark ? '#f5f5f7' : '#11141b';
+  const border = dark ? '#2a2a2f' : '#d6d6db';
+  const surface = dark ? '#141823' : '#f5f5f7';
   const accent = dark ? '#bef82b' : '#65a30d';
 
   return {

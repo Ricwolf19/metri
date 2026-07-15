@@ -32,7 +32,7 @@ const DocDetail = () => {
               onPress={() => router.push({ pathname: '/(tabs)/docs', params: { q: tag } })}
               className="rounded-full bg-ink-800 px-2.5 py-1"
             >
-              <Text className="text-xs text-accent">#{tag}</Text>
+              <Text className="text-xs text-brand">#{tag}</Text>
             </Pressable>
           ))}
         </View>

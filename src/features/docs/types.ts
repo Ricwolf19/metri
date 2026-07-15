@@ -1,16 +1,20 @@
 export type DocCategory =
+  | 'getting-started'
   | 'calculators'
-  | 'glossary'
   | 'nutrition'
   | 'training'
+  | 'recovery'
   | 'supplements'
-  | 'progress';
+  | 'progress'
+  | 'glossary';
 
-/** Ordered categories for grouping the docs list. */
+/** Ordered categories for grouping the docs list (mirrors metri.info). */
 export const DOC_CATEGORIES: DocCategory[] = [
+  'getting-started',
   'calculators',
   'nutrition',
   'training',
+  'recovery',
   'supplements',
   'progress',
   'glossary',

@@ -27,7 +27,7 @@ const ReadableTable = ({ headers, rows }: { headers: string[]; rows: string[][] 
           // First column is the row's headline; the rest are labelled details.
           if (c === 0) {
             return (
-              <Text key={c} className="text-[15px] font-semibold text-ink-50">
+              <Text key={c} className="text-[15px] font-sans-semibold text-ink-50">
                 {value}
               </Text>
             );
@@ -35,7 +35,7 @@ const ReadableTable = ({ headers, rows }: { headers: string[]; rows: string[][] 
           return (
             <View key={c} className={c === 1 && cells[0] ? 'mt-2' : 'mt-1.5'}>
               {headers[c] ? (
-                <Text className="text-[11px] font-semibold uppercase tracking-wider text-ink-400">
+                <Text className="text-[11px] font-sans-semibold uppercase tracking-wider text-ink-400">
                   {headers[c]}
                 </Text>
               ) : null}
