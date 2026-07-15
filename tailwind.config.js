@@ -1,8 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 
 // metri brand palette — derived from the logo (lime accent on near-black)
-// plus a cool, slightly blue-tinted dark scale ("ink") in the spirit of
-// Zed's docs, used for backgrounds, surfaces and borders.
+// plus a cool, slightly blue-tinted dark scale ("ink")
 module.exports = {
   content: ['./src/**/*.{js,jsx,ts,tsx}'],
   presets: [require('nativewind/preset')],
@@ -48,10 +47,26 @@ module.exports = {
         accent: 'rgb(var(--accent) / <alpha-value>)',
         // Accent FILL for buttons/CTAs — calmer green on white so it isn't neon.
         accentFill: 'rgb(var(--accent-fill) / <alpha-value>)',
+        // Brand (metri.info parity): lime CTA/active color + its contrast text.
+        brand: 'rgb(var(--brand) / <alpha-value>)',
+        brandContrast: 'rgb(var(--brand-contrast) / <alpha-value>)',
+        // Secondary "PR" orange — used sparingly (mirrors web --flame).
+        flame: '#ff6b35',
+      },
+      borderRadius: {
+        // metri.info tokens: sharper "Zed/Better Auth" feel.
+        field: '0.5rem', // buttons, inputs, selects
+        card: '0.625rem', // cards / surfaces
       },
       fontFamily: {
-        sans: ['var(--font-display)'],
-        mono: ['var(--font-mono)'],
+        // Geist, mapped per weight — RN does not synthesize weights from one file,
+        // so each weight needs its own family (see _layout useFonts).
+        sans: ['Geist_400Regular'],
+        'sans-medium': ['Geist_500Medium'],
+        'sans-semibold': ['Geist_600SemiBold'],
+        'sans-bold': ['Geist_700Bold'],
+        mono: ['GeistMono_400Regular'],
+        'mono-medium': ['GeistMono_500Medium'],
       },
     },
   },

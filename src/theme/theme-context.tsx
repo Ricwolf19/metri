@@ -19,6 +19,8 @@ type ThemeContextValue = {
   statusBarStyle: 'light' | 'dark';
   /** Accent hex that stays legible on the current surface (for icon `color` props). */
   accent: string;
+  /** Brand (lime) hex per scheme — for icon `color` props / lime accents. */
+  brand: string;
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -70,6 +72,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       navTheme,
       statusBarStyle: scheme === 'dark' ? 'light' : 'dark',
       accent: scheme === 'dark' ? '#bef82b' : '#65a30d',
+      brand: scheme === 'dark' ? '#bef82b' : '#4d7c0f',
     };
   }, [preference, scheme, setPreference]);
 
