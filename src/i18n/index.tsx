@@ -6,6 +6,7 @@ import { settings } from '@/lib/storage';
 import { en, type TranslationKey } from './en';
 import { es } from './es';
 
+export type { TranslationKey } from './en';
 export type Locale = 'en' | 'es';
 
 /** Spanish if the device's primary language is Spanish, otherwise English. */

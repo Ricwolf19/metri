@@ -16,12 +16,12 @@ export const LocaleToggle = () => {
             onPress={() => setLocale(l.value)}
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
-            className={['rounded-full px-3 py-1', active ? 'bg-accentFill' : ''].join(' ')}
+            className={['rounded-full px-3 py-1', active ? 'bg-ink-50' : ''].join(' ')}
           >
             <Text
               className={[
-                'text-xs font-bold uppercase',
-                active ? 'text-ink-950' : 'text-ink-300',
+                'text-xs font-sans-bold uppercase',
+                active ? 'text-ink-900' : 'text-ink-300',
               ].join(' ')}
             >
               {l.value}
