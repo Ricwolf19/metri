@@ -3,28 +3,21 @@ import { View } from 'react-native';
 
 import { DumbbellIcon } from '@/components/icons';
 
-import { getExerciseImage } from '../exercise-images';
-
 type Props = {
-  /** Exercise slug — used to resolve a bundled photo. */
-  id: string;
-  /** On-disk URI for a user-created exercise's own photo (wins when set). */
+  /** On-disk URI for a user-created exercise's own photo. */
   imageUrl?: string | null;
   size?: number;
   rounded?: string;
 };
 
 /**
- * Resolves an exercise thumbnail with a graceful fallback chain:
- * custom on-disk photo → bundled Free Exercise DB photo → muscle/dumbbell icon.
+ * Resolves an exercise thumbnail: custom on-disk photo → muscle/dumbbell icon.
  */
-export const ExerciseImage = ({ id, imageUrl, size = 56, rounded = 'rounded-xl' }: Props) => {
-  const source = imageUrl ? { uri: imageUrl } : getExerciseImage(id);
-
-  if (source) {
+export const ExerciseImage = ({ imageUrl, size = 56, rounded = 'rounded-field' }: Props) => {
+  if (imageUrl) {
     return (
       <Image
-        source={source}
+        source={{ uri: imageUrl }}
         style={{ width: size, height: size }}
         className={`${rounded} bg-ink-700`}
         contentFit="cover"
@@ -38,7 +31,7 @@ export const ExerciseImage = ({ id, imageUrl, size = 56, rounded = 'rounded-xl' 
       style={{ width: size, height: size }}
       className={`${rounded} items-center justify-center bg-ink-700`}
     >
-      <DumbbellIcon color="#566077" size={size * 0.45} />
+      <DumbbellIcon color="#71717a" size={size * 0.45} />
     </View>
   );
 };
