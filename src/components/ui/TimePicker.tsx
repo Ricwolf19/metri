@@ -31,7 +31,7 @@ export const TimePicker = ({ hour, minute, onChange, clock = '24' }: Props) => {
           onChange={(h) => onChange({ hour: to24(h, period), minute })}
           format={String}
         />
-        <Text className="px-2 text-2xl font-bold text-ink-300">:</Text>
+        <Text className="px-2 text-2xl font-sans-bold text-ink-300">:</Text>
         <WheelPicker
           values={MINUTES}
           value={minute}
@@ -56,7 +56,7 @@ export const TimePicker = ({ hour, minute, onChange, clock = '24' }: Props) => {
         onChange={(h) => onChange({ hour: h, minute })}
         format={pad2}
       />
-      <Text className="px-2 text-2xl font-bold text-ink-300">:</Text>
+      <Text className="px-2 text-2xl font-sans-bold text-ink-300">:</Text>
       <WheelPicker
         values={MINUTES}
         value={minute}

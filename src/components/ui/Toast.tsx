@@ -15,13 +15,13 @@ type ToastContextValue = {
 const ToastContext = createContext<ToastContextValue | null>(null);
 
 const ACCENT: Record<ToastType, string> = {
-  success: 'border-lime-400/40 bg-ink-800',
+  success: 'border-brand/40 bg-ink-800',
   error: 'border-red-500/40 bg-ink-800',
   info: 'border-ink-500 bg-ink-800',
 };
 
 const DOT: Record<ToastType, string> = {
-  success: 'bg-lime-400',
+  success: 'bg-brand',
   error: 'bg-red-400',
   info: 'bg-ink-300',
 };
@@ -51,9 +51,10 @@ const ToastView = ({ toast, onDone }: { toast: Toast; onDone: (id: number) => vo
     >
       <Pressable onPress={() => onDone(toast.id)}>
         <View
-          className={['flex-row items-center rounded-xl border px-4 py-3', ACCENT[toast.type]].join(
-            ' ',
-          )}
+          className={[
+            'flex-row items-center rounded-field border px-4 py-3',
+            ACCENT[toast.type],
+          ].join(' ')}
         >
           <View className={['mr-3 h-2 w-2 rounded-full', DOT[toast.type]].join(' ')} />
           <Text className="flex-1 text-sm text-ink-100">{toast.message}</Text>

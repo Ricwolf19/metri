@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, Switch, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { TopBar } from '@/components/TopBar';
 import {
@@ -9,6 +9,7 @@ import {
   Input,
   Screen,
   SegmentedControl,
+  Switch,
   TimePicker,
   useToast,
   type Segment,
@@ -115,7 +116,7 @@ const ReminderEdit = () => {
 
         {frequency === 'weekly' ? (
           <View>
-            <Text className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-ink-300">
+            <Text className="mb-1.5 font-mono-medium text-xs uppercase tracking-wider text-ink-300">
               {t('rem.days')}
             </Text>
             <View className="flex-row gap-2">
@@ -136,13 +137,13 @@ const ReminderEdit = () => {
                     accessibilityState={{ selected: active }}
                     className={[
                       'flex-1 items-center rounded-lg border py-2',
-                      active ? 'border-lime-400 bg-accentFill' : 'border-ink-600 bg-ink-800',
+                      active ? 'border-brand bg-brand/10' : 'border-ink-600 bg-ink-800',
                     ].join(' ')}
                   >
                     <Text
                       className={[
-                        'text-xs font-semibold',
-                        active ? 'text-ink-950' : 'text-ink-300',
+                        'text-xs font-sans-semibold',
+                        active ? 'text-brand' : 'text-ink-300',
                       ].join(' ')}
                     >
                       {t(key)}
@@ -155,7 +156,7 @@ const ReminderEdit = () => {
         ) : null}
 
         <View>
-          <Text className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-ink-300">
+          <Text className="mb-1.5 text-xs font-sans-semibold uppercase tracking-wider text-ink-300">
             {t('rem.time')}
           </Text>
           <TimePicker
@@ -170,13 +171,8 @@ const ReminderEdit = () => {
         </View>
 
         <Card className="flex-row items-center justify-between">
-          <Text className="text-base font-medium text-ink-100">{t('rem.enabled')}</Text>
-          <Switch
-            value={enabled}
-            onValueChange={setEnabled}
-            trackColor={{ true: '#bef82b', false: '#2c3447' }}
-            thumbColor="#eef1f6"
-          />
+          <Text className="text-base font-sans-medium text-ink-100">{t('rem.enabled')}</Text>
+          <Switch value={enabled} onValueChange={setEnabled} />
         </Card>
 
         <Button label={t('rem.save')} onPress={onSave} loading={saving} />

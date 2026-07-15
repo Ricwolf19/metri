@@ -14,29 +14,38 @@ export const Input = forwardRef<TextInput, Props>(function Input(
   ref,
 ) {
   const [hidden, setHidden] = useState(!!secureTextEntry);
+  const [focused, setFocused] = useState(false);
   const showToggle = secureToggle ?? !!secureTextEntry;
 
   return (
     <View className="w-full">
       {label ? (
-        <Text className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-ink-300">
+        <Text className="mb-1.5 font-mono-medium text-xs uppercase tracking-wider text-ink-300">
           {label}
         </Text>
       ) : null}
 
       <View
         className={[
-          'w-full flex-row items-center rounded-xl border bg-ink-800 px-4',
-          error ? 'border-red-500/60' : 'border-ink-600',
+          'w-full flex-row items-center rounded-field border bg-ink-900 px-4',
+          error ? 'border-red-500/60' : focused ? 'border-brand/60' : 'border-ink-600',
         ].join(' ')}
       >
         <TextInput
           ref={ref}
-          placeholderTextColor="#566077"
+          placeholderTextColor="#71717a"
           selectionColor="#bef82b"
           secureTextEntry={showToggle ? hidden : secureTextEntry}
-          className={['flex-1 py-3 text-base text-ink-50', className ?? ''].join(' ')}
           {...rest}
+          onFocus={(e) => {
+            setFocused(true);
+            rest.onFocus?.(e);
+          }}
+          onBlur={(e) => {
+            setFocused(false);
+            rest.onBlur?.(e);
+          }}
+          className={['flex-1 py-3 text-base text-ink-50', className ?? ''].join(' ')}
         />
         {showToggle ? (
           <Pressable
@@ -45,7 +54,7 @@ export const Input = forwardRef<TextInput, Props>(function Input(
             accessibilityRole="button"
             accessibilityLabel={hidden ? 'Show password' : 'Hide password'}
           >
-            <Text className="text-xs font-semibold uppercase tracking-wider text-accent">
+            <Text className="font-mono-medium text-xs uppercase tracking-wider text-brand">
               {hidden ? 'Show' : 'Hide'}
             </Text>
           </Pressable>

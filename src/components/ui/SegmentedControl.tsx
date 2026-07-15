@@ -19,11 +19,11 @@ export const SegmentedControl = <T extends string>({
   return (
     <View className="w-full">
       {label ? (
-        <Text className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-ink-300">
+        <Text className="mb-1.5 font-mono-medium text-xs uppercase tracking-wider text-ink-300">
           {label}
         </Text>
       ) : null}
-      <View className="w-full flex-row rounded-xl border border-ink-600 bg-ink-800 p-1">
+      <View className="w-full flex-row rounded-field border border-ink-600 bg-ink-800 p-1">
         {segments.map((seg) => {
           const active = seg.value === value;
           return (
@@ -33,8 +33,8 @@ export const SegmentedControl = <T extends string>({
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
               className={[
-                'flex-1 items-center justify-center rounded-lg px-1 py-2.5',
-                active ? 'bg-accentFill' : 'active:bg-ink-700',
+                'flex-1 items-center justify-center rounded-[0.375rem] px-1 py-2.5',
+                active ? 'bg-ink-50' : 'active:bg-ink-700',
               ].join(' ')}
             >
               {/* Shrink-to-fit on one line so long labels (e.g. "Sedentario",
@@ -44,9 +44,10 @@ export const SegmentedControl = <T extends string>({
                 adjustsFontSizeToFit
                 minimumFontScale={0.7}
                 style={{ textAlign: 'center' }}
-                className={['text-sm font-semibold', active ? 'text-ink-950' : 'text-ink-300'].join(
-                  ' ',
-                )}
+                className={[
+                  'text-sm font-sans-semibold',
+                  active ? 'text-ink-900' : 'text-ink-300',
+                ].join(' ')}
               >
                 {seg.label}
               </Text>

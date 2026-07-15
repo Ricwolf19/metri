@@ -41,7 +41,7 @@ export const TopBar = ({ title, subtitle, showBack, showAvatar = true, right, do
           </Pressable>
         ) : null}
         <View className="flex-1">
-          <Text className="text-2xl font-bold text-ink-50" numberOfLines={1}>
+          <Text className="text-2xl font-sans-bold text-ink-50" numberOfLines={1}>
             {title}
           </Text>
           {subtitle ? (
@@ -77,6 +77,7 @@ export const TopBar = ({ title, subtitle, showBack, showAvatar = true, right, do
               uri={user.avatarUri}
               color={user.avatarColor}
               size={40}
+              premium={user.plan === 'premium'}
             />
           </Pressable>
         ) : null}

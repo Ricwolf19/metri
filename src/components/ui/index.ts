@@ -9,5 +9,7 @@ export { Input } from './Input';
 export { PressableScale } from './PressableScale';
 export { Screen } from './Screen';
 export { SegmentedControl, type Segment } from './SegmentedControl';
+export { Select, type SelectItem } from './Select';
+export { Switch } from './Switch';
 export { TimePicker } from './TimePicker';
 export { ToastProvider, useToast } from './Toast';

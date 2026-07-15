@@ -47,7 +47,7 @@ export const WheelPicker = ({ values, value, onChange, format }: Props) => {
       <View
         pointerEvents="none"
         style={{ position: 'absolute', top: PAD, left: 0, right: 0, height: ITEM_HEIGHT }}
-        className="rounded-xl border border-lime-400/40 bg-lime-400/10"
+        className="rounded-field border border-brand/40 bg-brand/10"
       />
       <ScrollView
         ref={ref}
@@ -64,7 +64,7 @@ export const WheelPicker = ({ values, value, onChange, format }: Props) => {
             <View key={v} style={{ height: ITEM_HEIGHT }} className="items-center justify-center">
               <Text
                 className={[
-                  selected ? 'text-2xl font-bold text-ink-50' : 'text-lg text-ink-400',
+                  selected ? 'text-2xl font-sans-bold text-ink-50' : 'text-lg text-ink-400',
                 ].join(' ')}
               >
                 {format ? format(v) : String(v)}

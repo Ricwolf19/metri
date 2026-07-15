@@ -1,10 +1,10 @@
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { useRouter } from 'expo-router';
-import { Pressable, Switch, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { BellIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
-import { Button, Card, FadeInUp, PressableScale, Screen } from '@/components/ui';
+import { Button, Card, FadeInUp, PressableScale, Screen, Switch } from '@/components/ui';
 import type { Reminder } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
 import { remindersQuery, setReminderEnabled } from '@/features/reminders/reminders.repo';
@@ -32,9 +32,9 @@ const Reminders = () => {
       onPress={() => router.push('/reminder-edit')}
       accessibilityRole="button"
       accessibilityLabel={t('rem.add')}
-      className="h-9 w-9 items-center justify-center rounded-full bg-accentFill"
+      className="h-9 w-9 items-center justify-center rounded-full border border-brand/30 bg-brand/10"
     >
-      <Text className="text-xl font-bold text-ink-950">+</Text>
+      <Text className="text-xl font-sans-bold text-brand">+</Text>
     </Pressable>
   );
 
@@ -45,8 +45,8 @@ const Reminders = () => {
       {data.length === 0 ? (
         <FadeInUp>
           <Card className="mt-1 items-center py-8">
-            <BellIcon color="#566077" size={32} />
-            <Text className="mt-3 text-base font-semibold text-ink-50">{t('rem.empty')}</Text>
+            <BellIcon color="#71717a" size={32} />
+            <Text className="mt-3 text-base font-sans-semibold text-ink-50">{t('rem.empty')}</Text>
             <Text className="mt-1 text-center text-sm text-ink-400">{t('rem.emptyBody')}</Text>
             <View className="mt-5 w-full">
               <Button label={t('rem.add')} onPress={() => router.push('/reminder-edit')} />
@@ -62,15 +62,10 @@ const Reminders = () => {
               >
                 <Card className="flex-row items-center">
                   <View className="flex-1 pr-3">
-                    <Text className="text-base font-semibold text-ink-50">{r.title}</Text>
+                    <Text className="text-base font-sans-semibold text-ink-50">{r.title}</Text>
                     <Text className="mt-0.5 text-sm text-ink-400">{summary(r)}</Text>
                   </View>
-                  <Switch
-                    value={r.enabled}
-                    onValueChange={(v) => setReminderEnabled(r.id, v)}
-                    trackColor={{ true: '#bef82b', false: '#2c3447' }}
-                    thumbColor="#eef1f6"
-                  />
+                  <Switch value={r.enabled} onValueChange={(v) => setReminderEnabled(r.id, v)} />
                 </Card>
               </PressableScale>
             </FadeInUp>
