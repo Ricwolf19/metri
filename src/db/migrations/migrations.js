@@ -10,6 +10,11 @@ import m0005 from './0005_unique_golden_guardian.sql';
 import m0006 from './0006_lively_weekdays.sql';
 import m0007 from './0007_jolly_epoch.sql';
 import m0008 from './0008_large_shinobi_shaw.sql';
+import m0009 from './0009_broad_luminals.sql';
+import m0010 from './0010_famous_mariko_yashida.sql';
+import m0011 from './0011_curious_red_hulk.sql';
+import m0012 from './0012_broad_riptide.sql';
+import m0013 from './0013_freezing_tinkerer.sql';
 
   export default {
     journal,
@@ -22,7 +27,12 @@ m0004,
 m0005,
 m0006,
 m0007,
-m0008
+m0008,
+m0009,
+m0010,
+m0011,
+m0012,
+m0013
     }
   }
   

@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { index, integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 /**
  * Drizzle schema (SQLite — the on-device source of truth).
@@ -41,6 +41,9 @@ export const users = sqliteTable('users', {
   passwordHash: text('password_hash').notNull(),
   passwordSalt: text('password_salt').notNull(),
   role: text('role').$type<UserRole>().notNull().default('user'),
+  // Entitlement plan, mirrored from the remote Better Auth session (the server
+  // is authoritative). Cached locally so the badge/gate resolve offline.
+  plan: text('plan').notNull().default('free'),
 
   // Profile.
   displayName: text('display_name'),
@@ -171,6 +174,7 @@ export const exercises = sqliteTable(
     isCustom: integer('is_custom', { mode: 'boolean' }).notNull().default(false),
     userId: text('user_id'),
     createdAt: tsMs('created_at').notNull().default(NOW_MS),
+    updatedAt: tsMs('updated_at'),
   },
   (t) => [index('idx_exercises_category').on(t.category), index('idx_exercises_name').on(t.name)],
 );
@@ -215,6 +219,8 @@ export const routines = sqliteTable(
     durationWeeks: integer('duration_weeks').notNull().default(4),
     userProgramId: text('user_program_id'),
     createdAt: tsMs('created_at').notNull().default(NOW_MS),
+    // Nullable so the migration is a plain ADD COLUMN; sync reads COALESCE(updatedAt, createdAt).
+    updatedAt: tsMs('updated_at'),
   },
   (t) => [index('idx_routines_program').on(t.programId)],
 );
@@ -233,6 +239,7 @@ export const workoutDays = sqliteTable(
     orderIndex: integer('order_index').notNull().default(0),
     userProgramId: text('user_program_id'),
     createdAt: tsMs('created_at').notNull().default(NOW_MS),
+    updatedAt: tsMs('updated_at'),
   },
   (t) => [index('idx_workout_days_routine').on(t.routineId)],
 );
@@ -250,7 +257,11 @@ export const workoutDayExercises = sqliteTable(
     orderIndex: integer('order_index').notNull().default(0),
     defaultRestSeconds: integer('default_rest_seconds').default(120),
     notes: text('notes'),
+    // Short, char-limited helper tags shown as chips (technique cues, grip,
+    // warmup, "don't go to failure", etc.). Separate from free-form `notes`.
+    badges: text('badges', { mode: 'json' }).$type<string[]>(),
     userProgramId: text('user_program_id'),
+    updatedAt: tsMs('updated_at').notNull().default(NOW_MS),
   },
   (t) => [index('idx_workout_day_exercises_day').on(t.workoutDayId)],
 );
@@ -273,7 +284,8 @@ export const weekConfigs = sqliteTable(
     workoutDayExerciseId: text('workout_day_exercise_id').notNull(),
     weekNumber: integer('week_number').notNull(),
     sets: integer('sets').notNull(),
-    reps: integer('reps').notNull(),
+    reps: integer('reps').notNull(), // target / lower bound of the rep range
+    repsMax: integer('reps_max'), // upper bound; null ⇒ single value (e.g. "6-8")
     rirMin: integer('rir_min'),
     rirMax: integer('rir_max'),
     toFailure: integer('to_failure', { mode: 'boolean' }).notNull().default(false),
@@ -281,6 +293,7 @@ export const weekConfigs = sqliteTable(
     intensityType: text('intensity_type').$type<IntensityType>().notNull().default('rir'),
     intensityValue: real('intensity_value'),
     userProgramId: text('user_program_id'),
+    updatedAt: tsMs('updated_at').notNull().default(NOW_MS),
   },
   (t) => [index('idx_week_configs_slot').on(t.workoutDayExerciseId)],
 );
@@ -335,6 +348,7 @@ export const workoutLogs = sqliteTable(
     notes: text('notes'),
     rating: integer('rating'),
     createdAt: tsMs('created_at').notNull().default(NOW_MS),
+    updatedAt: tsMs('updated_at'),
   },
   (t) => [
     index('idx_workout_logs_user').on(t.userId),
@@ -363,6 +377,7 @@ export const setLogs = sqliteTable(
     notes: text('notes'),
     restBeforeSeconds: integer('rest_before_seconds'),
     createdAt: tsMs('created_at').notNull().default(NOW_MS),
+    updatedAt: tsMs('updated_at'),
   },
   (t) => [
     index('idx_set_logs_workout').on(t.workoutLogId),
@@ -372,3 +387,66 @@ export const setLogs = sqliteTable(
 
 export type SetLog = typeof setLogs.$inferSelect;
 export type NewSetLog = typeof setLogs.$inferInsert;
+
+/* ── Adherence (long-term consistency tracking) ────────────────────────────── */
+
+/** Trained as planned · deliberate rest · missed a planned session. */
+export type TrainingDayStatus = 'trained' | 'rest' | 'skipped';
+/** Why a planned session was missed — powers the "why not" legend. */
+export type SkipReason = 'sick' | 'busy' | 'travel' | 'injury' | 'fatigue' | 'deload' | 'other';
+
+/**
+ * One row per user per calendar day recording whether they trained. This is the
+ * substrate for the consistency heatmap, streaks, and long-term progress — the
+ * product's core "metrics over time" promise. `date` is the **device-local** day
+ * as 'YYYY-MM-DD' (not an instant) so a day never drifts across the UTC boundary
+ * and month-range queries are trivial string comparisons.
+ */
+export const trainingDays = sqliteTable(
+  'training_days',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(),
+    date: text('date').notNull(),
+    status: text('status').$type<TrainingDayStatus>().notNull(),
+    /** Only meaningful when status = 'skipped'. */
+    skipReason: text('skip_reason').$type<SkipReason>(),
+    note: text('note'),
+    /** The session that satisfied this day, when trained. */
+    workoutLogId: text('workout_log_id'),
+    /** What was scheduled/trained (for pattern analysis later). */
+    workoutDayId: text('workout_day_id'),
+    createdAt: tsMs('created_at').notNull().default(NOW_MS),
+    updatedAt: tsMs('updated_at').notNull().default(NOW_MS),
+  },
+  (t) => [
+    index('idx_training_days_user').on(t.userId),
+    uniqueIndex('idx_training_days_user_date').on(t.userId, t.date),
+  ],
+);
+
+export type TrainingDay = typeof trainingDays.$inferSelect;
+export type NewTrainingDay = typeof trainingDays.$inferInsert;
+
+/* ── Sync (premium: SQLite ↔ Neon delta sync) ──────────────────────────────── */
+
+/**
+ * Tombstone log. Local deletes stay hard (reads never change), but each delete
+ * on a syncable table appends a row here so the delta-sync engine can propagate
+ * the removal to the server (and vice-versa) instead of resurrecting the row on
+ * the next pull. Cleared once a tombstone has been pushed.
+ */
+export const syncDeletions = sqliteTable(
+  'sync_deletions',
+  {
+    id: text('id').primaryKey(),
+    tableName: text('table_name').notNull(),
+    rowId: text('row_id').notNull(),
+    deletedAt: tsMs('deleted_at').notNull().default(NOW_MS),
+    /** Set once the tombstone has been acknowledged by a successful push. */
+    pushedAt: tsMs('pushed_at'),
+  },
+  (t) => [index('idx_sync_deletions_pushed').on(t.pushedAt)],
+);
+
+export type SyncDeletion = typeof syncDeletions.$inferSelect;

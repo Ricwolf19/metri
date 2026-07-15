@@ -64,6 +64,41 @@
       "when": 1781387243198,
       "tag": "0008_large_shinobi_shaw",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1783996634410,
+      "tag": "0009_broad_luminals",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1784004842528,
+      "tag": "0010_famous_mariko_yashida",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1784007424055,
+      "tag": "0011_curious_red_hulk",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1784069571002,
+      "tag": "0012_broad_riptide",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1784069608013,
+      "tag": "0013_freezing_tinkerer",
+      "breakpoints": true
     }
   ]
 }
