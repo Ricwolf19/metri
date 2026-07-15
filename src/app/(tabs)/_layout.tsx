@@ -3,21 +3,15 @@ import type { ComponentType } from 'react';
 import type { ColorValue } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import {
-  ActivityIcon,
-  BellIcon,
-  BookIcon,
-  GearIcon,
-  HomeIcon,
-  type IconProps,
-} from '@/components/icons';
+import { ActivityIcon, BookIcon, GearIcon, HomeIcon, type IconProps } from '@/components/icons';
 import { useAuth } from '@/features/auth/auth-context';
+import { useAutoSync } from '@/features/sync/useAutoSync';
 import { useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
 const TAB_BAR = {
-  dark: { active: '#bef82b', inactive: '#566077', bg: '#0f1219', border: '#212737' },
-  light: { active: '#65a30d', inactive: '#788296', bg: '#ffffff', border: '#e2e7f0' },
+  dark: { active: '#bef82b', inactive: '#71717a', bg: '#09090b', border: '#2a2a2f' },
+  light: { active: '#4d7c0f', inactive: '#a1a1aa', bg: '#ffffff', border: '#d6d6db' },
 };
 
 const TabBarIcon = ({
@@ -29,7 +23,7 @@ const TabBarIcon = ({
   color: ColorValue;
   focused: boolean;
 }) => {
-  return <Icon color={color as string} size={24} strokeWidth={focused ? 2.4 : 2} />;
+  return <Icon color={color as string} size={22} strokeWidth={focused ? 2.4 : 2} />;
 };
 
 const TabsLayout = () => {
@@ -38,6 +32,9 @@ const TabsLayout = () => {
   const insets = useSafeAreaInsets();
   const t = useT();
   const bar = TAB_BAR[scheme];
+
+  // Premium: sync training data on foreground (no-op for free users).
+  useAutoSync();
 
   if (isReady && !isAuthenticated) {
     return <Redirect href="/(auth)/sign-in" />;
@@ -62,10 +59,11 @@ const TabsLayout = () => {
           borderTopColor: bar.border,
           borderTopWidth: 1,
           // Reserve the device's bottom inset (gesture pill / home indicator) so
-          // the bar never sits under it on Android or iPhone.
-          height: 58 + insets.bottom,
-          paddingBottom: insets.bottom + 6,
-          paddingTop: 10,
+          // the bar never sits under it on Android or iPhone. Kept compact to
+          // maximise usable screen space.
+          height: 46 + insets.bottom,
+          paddingBottom: insets.bottom + 3,
+          paddingTop: 7,
         },
       }}
     >
@@ -84,13 +82,6 @@ const TabsLayout = () => {
         }}
       />
       <Tabs.Screen
-        name="reminders"
-        options={{
-          title: t('tab.reminders'),
-          tabBarIcon: (p) => <TabBarIcon Icon={BellIcon} color={p.color} focused={p.focused} />,
-        }}
-      />
-      <Tabs.Screen
         name="docs"
         options={{
           title: t('tab.docs'),
@@ -105,8 +96,8 @@ const TabsLayout = () => {
           tabBarIcon: (p) => <TabBarIcon Icon={GearIcon} color={p.color} focused={p.focused} />,
         }}
       />
-      {/* Admin is reached from the shortcut inside Profile (admins only), not a tab. */}
-      <Tabs.Screen name="admin" options={{ href: null }} />
+      {/* Reminders lives inside Tools now, not as a tab — but keep the route mounted. */}
+      <Tabs.Screen name="reminders" options={{ href: null }} />
     </Tabs>
   );
 };

@@ -16,7 +16,7 @@ import { useT } from '@/i18n';
 
 const Tag = ({ label }: { label: string }) => (
   <View className="rounded-full bg-ink-700 px-2.5 py-0.5">
-    <Text className="text-xs font-medium text-ink-200">{label}</Text>
+    <Text className="text-xs font-sans-medium text-ink-200">{label}</Text>
   </View>
 );
 
@@ -86,7 +86,7 @@ const ProgramDetail = () => {
         ) : null}
       </FadeInUp>
 
-      <Text className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-300">
+      <Text className="mb-2 font-mono-medium text-xs uppercase tracking-wider text-ink-300">
         {t('training.routines')}
       </Text>
       <View className="gap-3">
@@ -94,7 +94,7 @@ const ProgramDetail = () => {
           <FadeInUp key={routine.id} delay={i * 60}>
             <Card>
               <View className="flex-row items-center justify-between">
-                <Text className="text-base font-semibold text-ink-50">{routine.name}</Text>
+                <Text className="text-base font-sans-semibold text-ink-50">{routine.name}</Text>
                 <Text className="text-xs text-ink-400">
                   {t('training.daysCount', { count: routine.days.length })}
                 </Text>

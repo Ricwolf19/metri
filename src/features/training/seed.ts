@@ -12,7 +12,7 @@ import {
 } from '@/db/schema';
 
 import { EXERCISE_SEEDS } from './exercises.seed';
-import { PROGRAM_SEEDS, WEEK_PROGRESSION, type ProgramSeed } from './programs/powerbuilding-2';
+import { PROGRAM_SEEDS, WEEK_PROGRESSION, type ProgramSeed } from './programs';
 
 /**
  * Seed the global exercise library and the built-in program templates.
@@ -26,7 +26,7 @@ import { PROGRAM_SEEDS, WEEK_PROGRESSION, type ProgramSeed } from './programs/po
  * them into user-owned rows — that lives in the Phase-2 workout engine.
  */
 const SEED_KEY = 'training_seed_version';
-const SEED_VERSION = '1';
+const SEED_VERSION = '2';
 
 const alreadySeeded = (): boolean => {
   const [row] = db.select().from(appMeta).where(eq(appMeta.key, SEED_KEY)).all();
@@ -102,6 +102,7 @@ const seedProgram = (p: ProgramSeed): void => {
             orderIndex: slotIndex + 1,
             defaultRestSeconds: slot.restSeconds,
             notes: slot.notes ?? null,
+            badges: slot.badges ?? null,
           })
           .onConflictDoNothing()
           .run();
@@ -115,6 +116,7 @@ const seedProgram = (p: ProgramSeed): void => {
               weekNumber,
               sets: slot.sets,
               reps: slot.reps,
+              repsMax: slot.repsMax ?? null,
               rirMin: step.rirMin,
               rirMax: step.rirMax,
               toFailure: step.toFailure,

@@ -15,6 +15,9 @@ import {
 } from '@/db/schema';
 import { randomId } from '@/lib/crypto';
 
+import { recordDeletion } from '@/features/sync/tombstones';
+
+import { localDateKey, markTrainingDay } from './adherence.repo';
 import { roundToPlate } from './progression';
 
 /* ── Active session ──────────────────────────────────────────────────────── */
@@ -30,6 +33,18 @@ export const activeWorkoutQuery = (userId: string) =>
 export const getWorkout = (id: string): WorkoutLog | null => {
   const [row] = db.select().from(workoutLogs).where(eq(workoutLogs.id, id)).all();
   return row ?? null;
+};
+
+/** The workout-day of the most recent completed session (drives "next up"). */
+export const lastCompletedDayId = (userProgramId: string): string | null => {
+  const [row] = db
+    .select({ id: workoutLogs.workoutDayId })
+    .from(workoutLogs)
+    .where(and(eq(workoutLogs.userProgramId, userProgramId), eq(workoutLogs.status, 'completed')))
+    .orderBy(desc(workoutLogs.completedAt))
+    .limit(1)
+    .all();
+  return row?.id ?? null;
 };
 
 /** Begin a session for a workout day at a routine-relative week. */
@@ -66,15 +81,34 @@ export const finishWorkout = (id: string, rating?: number, notes?: string): void
       durationSeconds,
       rating: rating ?? null,
       notes: notes ?? null,
+      updatedAt: new Date(),
     })
     .where(eq(workoutLogs.id, id))
     .run();
+
+  // Close the adherence loop: finishing a session marks today "trained".
+  markTrainingDay(log.userId, {
+    date: localDateKey(),
+    status: 'trained',
+    workoutLogId: log.id,
+    workoutDayId: log.workoutDayId,
+  });
 };
 
 /** Discard a session and its sets (used to cancel a started-by-mistake workout). */
 export const abandonWorkout = (id: string): void => {
+  const setIds = db
+    .select({ id: setLogs.id })
+    .from(setLogs)
+    .where(eq(setLogs.workoutLogId, id))
+    .all()
+    .map((r) => r.id);
   db.delete(setLogs).where(eq(setLogs.workoutLogId, id)).run();
-  db.update(workoutLogs).set({ status: 'abandoned' }).where(eq(workoutLogs.id, id)).run();
+  recordDeletion('set_logs', setIds);
+  db.update(workoutLogs)
+    .set({ status: 'abandoned', updatedAt: new Date() })
+    .where(eq(workoutLogs.id, id))
+    .run();
 };
 
 /* ── Session exercises (slot + exercise + this week's prescription) ────────── */
@@ -154,6 +188,7 @@ export const logSet = (input: LogSetInput): SetLog => {
 
 export const deleteSet = (id: string): void => {
   db.delete(setLogs).where(eq(setLogs.id, id)).run();
+  recordDeletion('set_logs', id);
 };
 
 /* ── Suggested weight (progressive overload) ───────────────────────────────── */

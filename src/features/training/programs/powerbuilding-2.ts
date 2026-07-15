@@ -1,64 +1,13 @@
-import type { IntensityType, ProgramDifficulty, ProgramGoal } from '@/db/schema';
+import { ACCESSORY_REST, COMPOUND_REST, type ProgramSeed } from './types';
 
 /**
  * PowerBuilding 2.0 — a 12-week template (3 routines × 4 weeks) built from the
  * curated exercise library. Each slot defines a base set/rep scheme; the seed
  * runner expands it into four routine-relative `week_configs` using the shared
- * RIR progression below (the standard 3-4 → 2-3 → 1-2 → failure/deload ramp).
+ * RIR progression (the standard 3-4 → 2-3 → 1-2 → failure/deload ramp).
  *
  * Source: PowerBuilding 2.0 — Adrian Herrero Coach.
  */
-export type SlotSeed = {
-  exerciseId: string;
-  sets: number;
-  reps: number;
-  restSeconds: number;
-  notes?: string;
-};
-
-export type DaySeed = {
-  /** Slug suffix, made unique per routine when seeded. */
-  slug: string;
-  name: string;
-  focusMuscles: string[];
-  exercises: SlotSeed[];
-};
-
-export type RoutineSeed = {
-  slug: string;
-  name: string;
-  orderIndex: number;
-  days: DaySeed[];
-};
-
-export type ProgramSeed = {
-  id: string;
-  name: string;
-  description: string;
-  durationWeeks: number;
-  difficulty: ProgramDifficulty;
-  goal: ProgramGoal;
-  routines: RoutineSeed[];
-};
-
-/** Routine-relative week prescription. Week 4 is an intensification/test week. */
-export type WeekStep = {
-  rirMin: number | null;
-  rirMax: number | null;
-  toFailure: boolean;
-  intensityType: IntensityType;
-};
-
-export const WEEK_PROGRESSION: WeekStep[] = [
-  { rirMin: 3, rirMax: 4, toFailure: false, intensityType: 'rir' },
-  { rirMin: 2, rirMax: 3, toFailure: false, intensityType: 'rir' },
-  { rirMin: 1, rirMax: 2, toFailure: false, intensityType: 'rir' },
-  { rirMin: 0, rirMax: 0, toFailure: true, intensityType: 'rir' },
-];
-
-const COMPOUND_REST = 180;
-const ACCESSORY_REST = 90;
-
 export const POWERBUILDING_2: ProgramSeed = {
   id: 'pb-2-0',
   name: 'PowerBuilding 2.0',
@@ -209,5 +158,3 @@ export const POWERBUILDING_2: ProgramSeed = {
     },
   ],
 };
-
-export const PROGRAM_SEEDS: ProgramSeed[] = [POWERBUILDING_2];

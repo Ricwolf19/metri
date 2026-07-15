@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 
-import { CameraIcon, LogOutIcon, ShieldIcon } from '@/components/icons';
+import { CameraIcon, ChevronRightIcon, LogOutIcon, StarIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import {
   Avatar,
@@ -18,7 +18,7 @@ import {
 } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { RoleBadge } from '@/features/auth/components/RoleBadge';
-import { RoleGate } from '@/features/auth/components/RoleGate';
+import { syncNow } from '@/features/sync/engine';
 import { pickFromCamera, pickFromLibrary } from '@/features/photos/capture';
 import { deletePhotoFiles, persistAvatar } from '@/features/photos/media';
 import { LOCALES, useI18n, type Locale } from '@/i18n';
@@ -26,27 +26,25 @@ import { settings, type ClockFormat } from '@/lib/storage';
 import { ThemeSelect } from '@/theme/ThemeSelect';
 import { useTheme } from '@/theme/theme-context';
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 const MetricRow = ({ label, value }: { label: string; value: string }) => {
   return (
     <View className="flex-row items-center justify-between py-2">
       <Text className="text-sm text-ink-400">{label}</Text>
-      <Text className="text-sm font-medium text-ink-100">{value}</Text>
+      <Text className="text-sm font-sans-medium text-ink-100">{value}</Text>
     </View>
   );
 };
 
 const Profile = () => {
-  const { user, updateMyProfile, updateMyAccount, changeMyPassword, signOut } = useAuth();
+  const { user, isPremium, updateMyProfile, updateMyAccount, changeMyPassword, signOut } =
+    useAuth();
   const { t, locale, setLocale } = useI18n();
-  const { accent } = useTheme();
+  const { brand } = useTheme();
   const toast = useToast();
   const router = useRouter();
 
   const [name, setName] = useState(user?.displayName ?? '');
   const [username, setUsername] = useState(user?.username ?? '');
-  const [email, setEmail] = useState(user?.email ?? '');
   const [color, setColor] = useState(user?.avatarColor ?? AVATAR_COLORS[0]);
   const [saving, setSaving] = useState(false);
 
@@ -54,32 +52,42 @@ const Profile = () => {
   const [newPassword, setNewPassword] = useState('');
   const [changingPw, setChangingPw] = useState(false);
   const [clock, setClock] = useState<ClockFormat>(settings.getClockFormat());
+  const [syncing, setSyncing] = useState(false);
 
   if (!user) return null;
+
+  const doSync = async () => {
+    setSyncing(true);
+    try {
+      const { pushed, pulled } = await syncNow(user.id);
+      toast.success(t('sync.doneToast', { pushed, pulled }));
+    } catch {
+      toast.error(t('sync.failedToast'));
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const dirty =
     name.trim() !== (user.displayName ?? '') ||
     username.trim().toLowerCase() !== user.username ||
-    email.trim().toLowerCase() !== user.email ||
     color !== (user.avatarColor ?? '');
 
   const saveAccount = async () => {
     if (!user) return;
     if (!name.trim()) return toast.error(t('profile.errNameEmpty'));
     if (username.trim().length < 3) return toast.error(t('auth.errUsername'));
-    if (!EMAIL_RE.test(email.trim())) return toast.error(t('auth.errEmail'));
 
     setSaving(true);
     try {
       const nextUsername = username.trim().toLowerCase();
-      const nextEmail = email.trim().toLowerCase();
-      if (nextUsername !== user.username || nextEmail !== user.email) {
-        await updateMyAccount({ username: nextUsername, email: nextEmail });
+      if (nextUsername !== user.username) {
+        await updateMyAccount({ username: nextUsername });
       }
       updateMyProfile({ displayName: name.trim(), avatarColor: color });
       toast.success(t('profile.accountUpdatedToast'));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t('auth.errEmail'));
+      toast.error(e instanceof Error ? e.message : t('auth.errUsername'));
     } finally {
       setSaving(false);
     }
@@ -149,19 +157,53 @@ const Profile = () => {
       <Card className="items-center">
         <Pressable onPress={onChangePhoto} accessibilityRole="button" className="relative">
           <Avatar name={name || user.username} uri={user.avatarUri} color={color} size={84} />
-          <View className="absolute -bottom-0.5 -right-0.5 h-7 w-7 items-center justify-center rounded-full border-2 border-ink-800 bg-accentFill">
-            <CameraIcon color="#08090d" size={13} />
+          <View className="absolute -bottom-0.5 -right-0.5 h-7 w-7 items-center justify-center rounded-full border-2 border-ink-800 bg-brand/10">
+            <CameraIcon color={brand} size={13} />
           </View>
         </Pressable>
-        <Text className="mt-3 text-xl font-bold text-ink-50">{name || user.username}</Text>
-        <Text className="mb-3 text-sm text-ink-400">
-          @{user.username} · {user.email}
+        <Text className="mt-3 text-xl font-sans-bold text-ink-50">
+          {name || user.displayName || user.email}
         </Text>
-        <RoleBadge role={user.role} />
+        <Text className="mb-3 text-sm text-ink-400">{user.email}</Text>
+        <View className="flex-row items-center gap-2">
+          <RoleBadge role={user.role} />
+          {user.plan === 'premium' ? (
+            <View className="flex-row items-center gap-1 rounded-full bg-brand/10 px-2.5 py-1">
+              <StarIcon color={brand} size={11} />
+              <Text className="font-mono-medium text-xs uppercase tracking-wider text-brand">
+                {t('plan.premium')}
+              </Text>
+            </View>
+          ) : null}
+        </View>
       </Card>
 
+      {/* Premium upsell / status */}
+      <PressableScale onPress={() => router.push('/premium')} className="mt-7">
+        <Card className="flex-row items-center border-brand/30 bg-brand/10">
+          <View className="mr-4 h-11 w-11 items-center justify-center rounded-field bg-brand">
+            <StarIcon color="#08090d" size={20} />
+          </View>
+          <View className="flex-1 pr-2">
+            <Text className="text-base font-sans-semibold text-ink-50">
+              {user.plan === 'premium' ? t('plan.premium') : t('premium.upsellRow')}
+            </Text>
+            <Text className="mt-0.5 text-sm text-ink-400">{t('premium.upsellSub')}</Text>
+          </View>
+          <ChevronRightIcon color={brand} />
+        </Card>
+      </PressableScale>
+
+      {/* Sync (premium) */}
+      {isPremium ? (
+        <View className="mt-4">
+          <Button label={t('sync.now')} variant="secondary" onPress={doSync} loading={syncing} />
+          <Text className="mt-2 text-center text-xs text-ink-400">{t('sync.hint')}</Text>
+        </View>
+      ) : null}
+
       {/* Account */}
-      <Text className="mb-2 mt-7 text-xs font-semibold uppercase tracking-wider text-ink-400">
+      <Text className="mb-2 mt-7 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
         {t('profile.account')}
       </Text>
       <Card>
@@ -179,17 +221,17 @@ const Profile = () => {
             autoCapitalize="none"
             autoCorrect={false}
           />
+          {/* Email is the cloud-account identity — managed on metri.info, read-only here. */}
           <Input
             label={t('auth.email')}
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="email-address"
+            value={user.email}
+            editable={false}
+            className="text-ink-400"
+            hint={t('profile.emailLocked')}
           />
         </View>
 
-        <Text className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wider text-ink-300">
+        <Text className="mb-2 mt-4 font-mono-medium text-xs uppercase tracking-wider text-ink-300">
           {t('profile.avatarColor')}
         </Text>
         <View className="flex-row flex-wrap gap-3">
@@ -219,7 +261,7 @@ const Profile = () => {
       </Card>
 
       {/* Change password */}
-      <Text className="mb-2 mt-7 text-xs font-semibold uppercase tracking-wider text-ink-400">
+      <Text className="mb-2 mt-7 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
         {t('profile.changePassword')}
       </Text>
       <Card>
@@ -254,7 +296,7 @@ const Profile = () => {
       </Card>
 
       {/* Appearance */}
-      <Text className="mb-2 mt-7 text-xs font-semibold uppercase tracking-wider text-ink-400">
+      <Text className="mb-2 mt-7 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
         {t('theme.title')}
       </Text>
       <Card>
@@ -262,7 +304,7 @@ const Profile = () => {
       </Card>
 
       {/* Language */}
-      <Text className="mb-2 mt-7 text-xs font-semibold uppercase tracking-wider text-ink-400">
+      <Text className="mb-2 mt-7 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
         {t('profile.language')}
       </Text>
       <Card>
@@ -270,7 +312,7 @@ const Profile = () => {
       </Card>
 
       {/* Time format */}
-      <Text className="mb-2 mt-7 text-xs font-semibold uppercase tracking-wider text-ink-400">
+      <Text className="mb-2 mt-7 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
         {t('profile.timeFormat')}
       </Text>
       <Card>
@@ -278,7 +320,7 @@ const Profile = () => {
       </Card>
 
       {/* Body metrics */}
-      <Text className="mb-2 mt-7 text-xs font-semibold uppercase tracking-wider text-ink-400">
+      <Text className="mb-2 mt-7 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
         {t('profile.bodyMetrics')}
       </Text>
       <Card>
@@ -305,25 +347,10 @@ const Profile = () => {
           <Button
             label={hasMetrics ? t('profile.updateViaCalc') : t('profile.addMetrics')}
             variant="secondary"
-            onPress={() => router.push('/calculators/bmr')}
+            onPress={() => router.push('/calculators/tdee')}
           />
         </View>
       </Card>
-
-      {/* Admin-only shortcut — rendered through the role gate. */}
-      <RoleGate role="admin">
-        <PressableScale onPress={() => router.push('/(tabs)/admin')} className="mt-7">
-          <Card className="flex-row items-center">
-            <View className="mr-4 h-11 w-11 items-center justify-center rounded-xl bg-lime-400/15">
-              <ShieldIcon color={accent} size={22} />
-            </View>
-            <View className="flex-1">
-              <Text className="text-base font-semibold text-ink-50">{t('profile.adminPanel')}</Text>
-              <Text className="mt-0.5 text-sm text-ink-400">{t('profile.adminPanelDesc')}</Text>
-            </View>
-          </Card>
-        </PressableScale>
-      </RoleGate>
 
       {/* Sign out */}
       <View className="mt-8">
@@ -340,7 +367,7 @@ const Profile = () => {
         accessibilityRole="button"
         className="mt-6 items-center"
       >
-        <Text className="text-xs font-semibold text-ink-400">{t('legal.title')}</Text>
+        <Text className="text-xs font-sans-semibold text-ink-400">{t('legal.title')}</Text>
       </Pressable>
     </Screen>
   );

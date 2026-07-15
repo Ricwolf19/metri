@@ -10,6 +10,7 @@ import {
   workoutDays,
   type UserProgram,
 } from '@/db/schema';
+import { recordDeletion } from '@/features/sync/tombstones';
 import { randomId } from '@/lib/crypto';
 
 /** Live query of the user's enrollment (active or paused), so the UI reacts to enroll/finish. */
@@ -120,6 +121,7 @@ export const enrollInProgram = (userId: string, programId: string): UserProgram 
         orderIndex: s.orderIndex,
         defaultRestSeconds: s.defaultRestSeconds,
         notes: s.notes,
+        badges: s.badges,
         userProgramId,
       })
       .run();
@@ -133,6 +135,7 @@ export const enrollInProgram = (userId: string, programId: string): UserProgram 
         weekNumber: c.weekNumber,
         sets: c.sets,
         reps: c.reps,
+        repsMax: c.repsMax,
         rirMin: c.rirMin,
         rirMax: c.rirMax,
         toFailure: c.toFailure,
@@ -175,10 +178,41 @@ export const setEnrollmentPosition = (
 
 /** Abandon an enrollment and delete its owned copy of the program structure. */
 export const abandonEnrollment = (userProgramId: string): void => {
+  // Capture ids first so the deletions can be tombstoned for sync.
+  const cfgIds = db
+    .select({ id: weekConfigs.id })
+    .from(weekConfigs)
+    .where(eq(weekConfigs.userProgramId, userProgramId))
+    .all()
+    .map((r) => r.id);
+  const slotIds = db
+    .select({ id: workoutDayExercises.id })
+    .from(workoutDayExercises)
+    .where(eq(workoutDayExercises.userProgramId, userProgramId))
+    .all()
+    .map((r) => r.id);
+  const dayIds = db
+    .select({ id: workoutDays.id })
+    .from(workoutDays)
+    .where(eq(workoutDays.userProgramId, userProgramId))
+    .all()
+    .map((r) => r.id);
+  const routineIds = db
+    .select({ id: routines.id })
+    .from(routines)
+    .where(eq(routines.userProgramId, userProgramId))
+    .all()
+    .map((r) => r.id);
+
   db.delete(weekConfigs).where(eq(weekConfigs.userProgramId, userProgramId)).run();
   db.delete(workoutDayExercises).where(eq(workoutDayExercises.userProgramId, userProgramId)).run();
   db.delete(workoutDays).where(eq(workoutDays.userProgramId, userProgramId)).run();
   db.delete(routines).where(eq(routines.userProgramId, userProgramId)).run();
+  recordDeletion('week_configs', cfgIds);
+  recordDeletion('workout_day_exercises', slotIds);
+  recordDeletion('workout_days', dayIds);
+  recordDeletion('routines', routineIds);
+
   db.update(userPrograms)
     .set({ status: 'abandoned', updatedAt: new Date() })
     .where(eq(userPrograms.id, userProgramId))

@@ -11,6 +11,7 @@ import {
   Input,
   Screen,
   SegmentedControl,
+  Switch,
   useToast,
   type Segment,
 } from '@/components/ui';
@@ -19,6 +20,7 @@ import { useAuth } from '@/features/auth/auth-context';
 import { kgToLb, lbToKg } from '@/features/bmr/calc';
 import { ExerciseImage } from '@/features/training/components/ExerciseImage';
 import { RestTimer } from '@/features/training/components/RestTimer';
+import { Stepper } from '@/features/training/components/Stepper';
 import { getWorkoutDay } from '@/features/training/programs.repo';
 import { formatIntensity, formatSetsReps } from '@/features/training/progression';
 import {
@@ -33,6 +35,7 @@ import {
 } from '@/features/training/session.repo';
 import { useT } from '@/i18n';
 import { settings, type Units } from '@/lib/storage';
+import { useTheme } from '@/theme/theme-context';
 
 const UNIT_SEGMENTS: Segment<Units>[] = [
   { value: 'kg', label: 'kg' },
@@ -62,8 +65,11 @@ const ExerciseBlock = ({
   onLogged,
 }: BlockProps) => {
   const t = useT();
+  const { brand } = useTheme();
   const [weight, setWeight] = useState('');
   const [reps, setReps] = useState(config ? String(config.reps) : '');
+  const [rir, setRir] = useState('');
+  const [isWarmup, setIsWarmup] = useState(false);
 
   const suggestedKg = useMemo(
     () => suggestedWeight(exercise.id, config?.reps ?? 8, config?.rirMax ?? config?.rirMin ?? 2),
@@ -71,52 +77,86 @@ const ExerciseBlock = ({
   );
 
   const target = config
-    ? `${formatSetsReps(config.sets, config.reps)}${
+    ? `${formatSetsReps(config.sets, config.reps, config.repsMax)}${
         formatIntensity(config, t('training.failure'))
           ? ` · ${formatIntensity(config, t('training.failure'))}`
           : ''
       }`
     : '—';
 
+  const badges = slot.badges ?? [];
+  const weightStep = unit === 'lb' ? 5 : 2.5;
+
   const add = () => {
     const w = Number(weight);
     const r = Number(reps);
     if (weight === '' || reps === '' || Number.isNaN(w) || w < 0 || !(r > 0)) return;
+    const rirNum = rir === '' ? null : Number(rir);
     logSet({
       workoutLogId,
       exerciseId: exercise.id,
       weightKg: unit === 'lb' ? lbToKg(w) : w,
       reps: r,
+      rir: rirNum != null && Number.isFinite(rirNum) ? rirNum : null,
+      isWarmup,
     });
     onLogged(config?.restSeconds ?? slot.defaultRestSeconds ?? 120);
-    setWeight('');
+    // Keep the weight loaded for the next set (fast logging); warmups don't carry.
+    setIsWarmup(false);
+  };
+
+  const repeatLast = () => {
+    const last = sets[sets.length - 1];
+    if (!last) return;
+    setWeight(String(fromKg(last.weightKg, unit)));
+    setReps(String(last.reps));
   };
 
   return (
     <Card className="mb-3">
       <View className="flex-row items-center">
-        <ExerciseImage id={exercise.id} imageUrl={exercise.imageUrl} size={52} />
+        <ExerciseImage imageUrl={exercise.imageUrl} size={52} />
         <View className="ml-3 flex-1">
-          <Text className="text-base font-semibold text-ink-50">{exercise.name}</Text>
+          <Text className="text-base font-sans-semibold text-ink-50">{exercise.name}</Text>
           <Text className="mt-0.5 text-xs text-ink-400">
             {t('training.target')}: {target}
           </Text>
         </View>
       </View>
 
-      {/* Logged sets */}
+      {/* Coaching badges (warm-up / rest / technique cues) */}
+      {badges.length ? (
+        <View className="mt-2.5 flex-row flex-wrap gap-1.5">
+          {badges.map((b, i) => (
+            <View key={`${b}-${i}`} className="rounded-full bg-ink-800 px-2.5 py-1">
+              <Text className="font-mono-medium text-[10px] uppercase tracking-wide text-ink-300">
+                {b}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {/* Logged sets — warm-ups dimmed + tagged */}
       {sets.length ? (
         <View className="mt-3 gap-1.5">
           {sets.map((s) => (
-            <View key={s.id} className="flex-row items-center rounded-lg bg-ink-850 px-3 py-2">
-              <Text className="w-14 text-xs font-semibold text-accent">
-                {t('training.set', { n: s.setNumber })}
+            <View
+              key={s.id}
+              className={[
+                'flex-row items-center rounded-lg bg-ink-850 px-3 py-2',
+                s.isWarmup ? 'opacity-60' : '',
+              ].join(' ')}
+            >
+              <Text className="w-14 text-xs font-sans-semibold text-brand">
+                {s.isWarmup ? t('training.warmupShort') : t('training.set', { n: s.setNumber })}
               </Text>
               <Text className="flex-1 text-sm text-ink-100">
                 {fromKg(s.weightKg, unit)} {unit} × {s.reps}
+                {s.rir != null ? ` · RIR ${s.rir}` : ''}
               </Text>
               <Pressable hitSlop={8} onPress={() => deleteSet(s.id)} accessibilityRole="button">
-                <XIcon color="#566077" size={16} />
+                <XIcon color="#71717a" size={16} />
               </Pressable>
             </View>
           ))}
@@ -127,43 +167,73 @@ const ExerciseBlock = ({
       {suggestedKg != null ? (
         <Pressable
           onPress={() => setWeight(String(fromKg(suggestedKg, unit)))}
-          className="mt-3 self-start rounded-full bg-lime-400/15 px-3 py-1"
+          className="mt-3 self-start rounded-full bg-brand/10 px-3 py-1"
         >
-          <Text className="text-xs font-semibold text-accent">
+          <Text className="text-xs font-sans-semibold text-brand">
             {t('training.suggested')}: {fromKg(suggestedKg, unit)} {unit}
           </Text>
         </Pressable>
       ) : null}
 
       {/* Inputs */}
-      <View className="mt-3 flex-row items-end gap-2">
-        <View className="flex-1">
-          <Input
-            label={`${t('training.weight')} (${unit})`}
-            value={weight}
-            onChangeText={setWeight}
-            keyboardType="decimal-pad"
-            placeholder="0"
-            maxLength={6}
-          />
+      <View className="mt-3 gap-2">
+        <Stepper
+          label={`${t('training.weight')} (${unit})`}
+          value={weight}
+          onChangeText={setWeight}
+          step={weightStep}
+          decimals={1}
+          keyboardType="decimal-pad"
+          maxLength={6}
+        />
+        <Stepper
+          label={t('training.reps')}
+          value={reps}
+          onChangeText={setReps}
+          step={1}
+          keyboardType="number-pad"
+          maxLength={3}
+        />
+      </View>
+
+      {/* Warm-up toggle + optional RIR */}
+      <View className="mt-3 flex-row items-center justify-between">
+        <View className="flex-row items-center gap-2">
+          <Switch value={isWarmup} onValueChange={setIsWarmup} />
+          <Text className="text-sm text-ink-300">{t('training.warmup')}</Text>
         </View>
-        <View className="w-20">
+        <View className="w-24">
           <Input
-            label={t('training.reps')}
-            value={reps}
-            onChangeText={setReps}
+            value={rir}
+            onChangeText={setRir}
             keyboardType="number-pad"
-            placeholder="0"
-            maxLength={3}
+            placeholder={t('training.rir')}
+            maxLength={2}
           />
         </View>
+      </View>
+
+      {/* Actions */}
+      <View className="mt-3 flex-row gap-2">
+        {sets.length ? (
+          <Pressable
+            onPress={repeatLast}
+            accessibilityRole="button"
+            className="h-12 items-center justify-center rounded-field border border-ink-700 bg-ink-800 px-4"
+          >
+            <Text className="text-xs font-sans-semibold text-ink-200">
+              {t('training.repeatLast')}
+            </Text>
+          </Pressable>
+        ) : null}
         <Pressable
           onPress={add}
           accessibilityRole="button"
           accessibilityLabel={t('training.addSet')}
-          className="h-12 w-12 items-center justify-center rounded-xl bg-accentFill"
+          className="h-12 flex-1 flex-row items-center justify-center gap-1.5 rounded-field border border-brand/30 bg-brand/10"
         >
-          <PlusIcon color="#0b0f14" size={22} />
+          <PlusIcon color={brand} size={20} />
+          <Text className="text-sm font-sans-semibold text-brand">{t('training.addSet')}</Text>
         </Pressable>
       </View>
     </Card>
@@ -273,12 +343,14 @@ const WorkoutSession = () => {
             seconds={rest.seconds}
             label={t('training.rest')}
             skipLabel={t('training.skip')}
+            notifyTitle={t('training.restDoneTitle')}
+            notifyBody={t('training.restDoneBody')}
             onDone={() => setRest(null)}
           />
         ) : null}
         <Button
           label={t('training.finish')}
-          leftIcon={<CheckIcon color="#0b0f14" size={18} />}
+          leftIcon={<CheckIcon color="#09090b" size={18} />}
           onPress={finish}
         />
       </View>

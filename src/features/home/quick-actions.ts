@@ -37,7 +37,7 @@ export const QUICK_ACTIONS: QuickAction[] = [
     id: 'bmr',
     titleKey: 'tools.hbTitle',
     subKey: 'tools.hbDesc',
-    href: '/calculators/bmr',
+    href: '/calculators/tdee',
     icon: FlameIcon,
   },
   {
@@ -51,14 +51,14 @@ export const QUICK_ACTIONS: QuickAction[] = [
     id: 'onerm',
     titleKey: 'tools.onermTitle',
     subKey: 'tools.onermDesc',
-    href: '/calculators/one-rep-max',
+    href: '/calculators/onerm',
     icon: ActivityIcon,
   },
   {
     id: 'bodyfat',
     titleKey: 'tools.bodyfatTitle',
     subKey: 'tools.bodyfatDesc',
-    href: '/calculators/body-fat',
+    href: '/calculators/bodyfat',
     icon: FlameIcon,
   },
   {
@@ -72,7 +72,7 @@ export const QUICK_ACTIONS: QuickAction[] = [
     id: 'ideal',
     titleKey: 'tools.idealTitle',
     subKey: 'tools.idealDesc',
-    href: '/calculators/ideal-weight',
+    href: '/calculators/idealweight',
     icon: FlameIcon,
   },
   {

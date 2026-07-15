@@ -1,5 +1,14 @@
 import '@/global.css';
 
+// Per-weight subpath imports so Metro only bundles the 6 Geist files we use
+// (the package barrel pulls in all 36 weights + italics).
+import { useFonts } from '@expo-google-fonts/geist/useFonts';
+import { Geist_400Regular } from '@expo-google-fonts/geist/400Regular';
+import { Geist_500Medium } from '@expo-google-fonts/geist/500Medium';
+import { Geist_600SemiBold } from '@expo-google-fonts/geist/600SemiBold';
+import { Geist_700Bold } from '@expo-google-fonts/geist/700Bold';
+import { GeistMono_400Regular } from '@expo-google-fonts/geist-mono/400Regular';
+import { GeistMono_500Medium } from '@expo-google-fonts/geist-mono/500Medium';
 import { Stack, ThemeProvider as NavThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -13,8 +22,8 @@ import { AppLoader, ToastProvider } from '@/components/ui';
 import { db } from '@/db/client';
 import migrations from '@/db/migrations/migrations';
 import { AuthProvider } from '@/features/auth/auth-context';
-import { seedAdmin } from '@/features/auth/seed';
 import { initNotifications } from '@/features/reminders/scheduler';
+import { initRestNotifications } from '@/features/training/rest-timer';
 import { seedTraining } from '@/features/training/seed';
 import { I18nProvider } from '@/i18n';
 import { ThemeProvider, useTheme } from '@/theme/theme-context';
@@ -43,20 +52,30 @@ const ThemedStack = () => {
 const RootLayout = () => {
   const { success, error } = useMigrations(db, migrations);
   const [seeded, setSeeded] = useState(false);
+  const [fontsLoaded] = useFonts({
+    Geist_400Regular,
+    Geist_500Medium,
+    Geist_600SemiBold,
+    Geist_700Bold,
+    GeistMono_400Regular,
+    GeistMono_500Medium,
+  });
 
   // Reveal our animated AppLoader as soon as JS mounts (native splash → AppLoader).
   useEffect(() => {
     void SplashScreen.hideAsync();
     void initNotifications().catch(() => {});
+    void initRestNotifications().catch(() => {});
   }, []);
 
-  // Seed the master admin + training templates once migrations created the tables.
+  // Seed the built-in training catalog (exercise library + suggested programs)
+  // once migrations created the tables. This is shared app content, not user
+  // data. Accounts now live on the metri.info backend, so no admin is seeded.
   useEffect(() => {
     if (!success) return;
-    Promise.all([
-      seedAdmin().catch((e) => console.warn('[seed] admin failed:', e)),
-      seedTraining().catch((e) => console.warn('[seed] training failed:', e)),
-    ]).finally(() => setSeeded(true));
+    seedTraining()
+      .catch((e) => console.warn('[seed] training failed:', e))
+      .finally(() => setSeeded(true));
   }, [success]);
 
   if (error) {
@@ -70,7 +89,7 @@ const RootLayout = () => {
     );
   }
 
-  if (!success || !seeded) {
+  if (!success || !seeded || !fontsLoaded) {
     return <AppLoader />;
   }
 

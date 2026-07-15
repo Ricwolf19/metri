@@ -26,7 +26,8 @@ export const totalProgramWeeks = (routines: Routine[]): number =>
   routines.reduce((sum, r) => sum + r.durationWeeks, 0);
 
 /** "4 × 6" sets-by-reps summary. */
-export const formatSetsReps = (sets: number, reps: number): string => `${sets} × ${reps}`;
+export const formatSetsReps = (sets: number, reps: number, repsMax?: number | null): string =>
+  `${sets} × ${repsMax && repsMax > reps ? `${reps}-${repsMax}` : reps}`;
 
 /**
  * Short intensity tag for a week config, e.g. "RIR 2-3", "RIR 2", "Failure",
