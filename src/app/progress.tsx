@@ -68,9 +68,9 @@ const Progress = () => {
       onPress={onAdd}
       accessibilityRole="button"
       accessibilityLabel={t('photos.add')}
-      className="h-9 w-9 items-center justify-center rounded-full bg-accentFill"
+      className="h-9 w-9 items-center justify-center rounded-full border border-brand/30 bg-brand/10"
     >
-      <Text className="text-xl font-bold text-ink-950">+</Text>
+      <Text className="text-xl font-sans-bold text-brand">+</Text>
     </Pressable>
   );
 
@@ -81,8 +81,10 @@ const Progress = () => {
       {data.length === 0 ? (
         <FadeInUp>
           <Card className="mt-1 items-center py-8">
-            <CameraIcon color="#566077" size={32} />
-            <Text className="mt-3 text-base font-semibold text-ink-50">{t('photos.empty')}</Text>
+            <CameraIcon color="#71717a" size={32} />
+            <Text className="mt-3 text-base font-sans-semibold text-ink-50">
+              {t('photos.empty')}
+            </Text>
             <Text className="mt-1 text-center text-sm text-ink-400">{t('photos.emptyBody')}</Text>
             <View className="mt-5 w-full">
               <Button label={t('photos.add')} onPress={onAdd} />
@@ -99,16 +101,16 @@ const Progress = () => {
               <Pressable
                 onPress={() => router.push('/progress/compare')}
                 accessibilityRole="button"
-                className="rounded-xl border border-ink-600 bg-ink-800 px-3 py-2.5"
+                className="rounded-field border border-ink-600 bg-ink-800 px-3 py-2.5"
               >
-                <Text className="text-sm font-semibold text-accent">{t('photos.compare')}</Text>
+                <Text className="text-sm font-sans-semibold text-brand">{t('photos.compare')}</Text>
               </Pressable>
             ) : null}
           </View>
 
           {groups.map((group, gi) => (
             <View key={group.key} className="mb-5">
-              <Text className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-400">
+              <Text className="mb-2 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
                 {groupLabel(group.key)}
               </Text>
               <View className="flex-row flex-wrap justify-between">
@@ -124,7 +126,7 @@ const Progress = () => {
                         router.push({ pathname: '/progress/[id]', params: { id: p.id } })
                       }
                     >
-                      <View className="aspect-square overflow-hidden rounded-xl bg-ink-800">
+                      <View className="aspect-square overflow-hidden rounded-field bg-ink-800">
                         <Image
                           source={{ uri: p.thumbUri }}
                           style={{ width: '100%', height: '100%' }}

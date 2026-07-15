@@ -37,7 +37,7 @@ const PhotoViewer = () => {
       <TopBar title={date.toISOString().slice(0, 10)} showBack showAvatar={false} />
 
       <FadeInUp>
-        <View className="overflow-hidden rounded-2xl bg-ink-800">
+        <View className="overflow-hidden rounded-card bg-ink-800">
           <Image
             source={{ uri: photo.uri }}
             style={{ width: '100%', aspectRatio: 0.8 }}
@@ -51,10 +51,10 @@ const PhotoViewer = () => {
           <Card className="mt-4 flex-row items-center justify-between">
             <Text className="text-sm text-ink-400">{t('photos.date')}</Text>
             <View className="flex-row items-center">
-              <Text className="text-base font-semibold text-ink-50">
+              <Text className="text-base font-sans-semibold text-ink-50">
                 {date.toISOString().slice(0, 10)}
               </Text>
-              <ChevronRightIcon color="#566077" size={18} />
+              <ChevronRightIcon color="#71717a" size={18} />
             </View>
           </Card>
         </Pressable>
@@ -67,7 +67,7 @@ const PhotoViewer = () => {
         {photo.weightKg != null ? (
           <Card className="mt-4 flex-row items-center justify-between">
             <Text className="text-sm text-ink-400">{t('profile.weight')}</Text>
-            <Text className="text-base font-semibold text-ink-50">{photo.weightKg} kg</Text>
+            <Text className="text-base font-sans-semibold text-ink-50">{photo.weightKg} kg</Text>
           </Card>
         ) : null}
 

@@ -27,8 +27,8 @@ const Panel = ({
   <Pressable onPress={onPress} accessibilityRole="button" className="flex-1">
     <View
       className={[
-        'overflow-hidden rounded-2xl border-2 bg-ink-800',
-        active ? 'border-lime-400' : 'border-transparent',
+        'overflow-hidden rounded-card border-2 bg-ink-800',
+        active ? 'border-brand' : 'border-transparent',
       ].join(' ')}
     >
       {photo ? (
@@ -42,7 +42,7 @@ const Panel = ({
         <View style={{ aspectRatio: 0.7 }} />
       )}
     </View>
-    <Text className="mt-1 text-center text-xs font-semibold uppercase tracking-wider text-accent">
+    <Text className="mt-1 text-center font-mono-medium text-xs uppercase tracking-wider text-brand">
       {label}
     </Text>
     <Text className="text-center text-xs text-ink-300">
@@ -105,7 +105,7 @@ const Compare = () => {
         />
       </View>
 
-      <Text className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-ink-400">
+      <Text className="mb-2 mt-6 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
         {t('photos.pickTwo')}
       </Text>
       <ScrollView
@@ -120,8 +120,8 @@ const Compare = () => {
             <Pressable key={p.id} onPress={() => pick(p.id)} accessibilityRole="button">
               <View
                 className={[
-                  'h-20 w-20 overflow-hidden rounded-xl border-2 bg-ink-800',
-                  isBefore || isAfter ? 'border-lime-400' : 'border-ink-700',
+                  'h-20 w-20 overflow-hidden rounded-field border-2 bg-ink-800',
+                  isBefore || isAfter ? 'border-brand' : 'border-ink-700',
                 ].join(' ')}
               >
                 <Image
@@ -132,8 +132,8 @@ const Compare = () => {
                 />
               </View>
               {isBefore || isAfter ? (
-                <View className="absolute right-1 top-1 h-5 w-5 items-center justify-center rounded-full bg-accentFill">
-                  <Text className="text-[10px] font-bold text-ink-950">
+                <View className="absolute right-1 top-1 h-5 w-5 items-center justify-center rounded-full border border-brand/30 bg-brand/10">
+                  <Text className="text-[10px] font-sans-bold text-brand">
                     {isBefore ? t('photos.before')[0] : t('photos.after')[0]}
                   </Text>
                 </View>
