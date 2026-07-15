@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
+import { CheckIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import { BrandLogo, Button, Input, Screen, useToast } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
@@ -11,25 +12,32 @@ import { LocaleToggle } from '@/i18n/LocaleToggle';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const SignUp = () => {
-  const { signUp } = useAuth();
+  const { signUpRemote } = useAuth();
   const toast = useToast();
   const router = useRouter();
   const t = useT();
 
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
-  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Checking the box opens the terms so the user actually reads them.
+  const onToggleTerms = () => {
+    const next = !acceptedTerms;
+    setAcceptedTerms(next);
+    if (next) router.push('/legal');
+  };
 
   const validate = (): string | null => {
     if (!displayName.trim()) return t('auth.errName');
     if (!EMAIL_RE.test(email.trim())) return t('auth.errEmail');
-    if (username.trim().length < 3) return t('auth.errUsername');
     if (password.length < 6) return t('auth.errPassword');
     if (password !== confirm) return t('auth.errMismatch');
+    if (!acceptedTerms) return t('auth.errTerms');
     return null;
   };
 
@@ -42,7 +50,12 @@ const SignUp = () => {
     setError(null);
     setLoading(true);
     try {
-      await signUp({ email, username, password, displayName });
+      const { needsVerification } = await signUpRemote(email, password, displayName);
+      if (needsVerification) {
+        toast.success(t('auth.verifySent'));
+        router.replace('/(auth)/sign-in');
+        return;
+      }
       toast.success(t('auth.createdToast'));
       router.replace('/(tabs)');
     } catch (e) {
@@ -56,7 +69,7 @@ const SignUp = () => {
     <Screen scroll contentClassName="grow px-6 pb-10">
       <TopBar
         title={t('auth.createTitle')}
-        subtitle={t('auth.localSubtitle')}
+        subtitle={t('auth.cloudNote')}
         showBack
         showAvatar={false}
         right={<LocaleToggle />}
@@ -88,17 +101,6 @@ const SignUp = () => {
           placeholder={t('auth.phEmail')}
         />
         <Input
-          label={t('auth.username')}
-          value={username}
-          onChangeText={setUsername}
-          autoCapitalize="none"
-          autoCorrect={false}
-          textContentType="username"
-          autoComplete="username"
-          placeholder={t('auth.phUsername')}
-          hint={t('auth.usernameHint')}
-        />
-        <Input
           label={t('auth.password')}
           value={password}
           onChangeText={setPassword}
@@ -120,14 +122,33 @@ const SignUp = () => {
           returnKeyType="go"
         />
 
-        <Button label={t('auth.createCta')} onPress={onSubmit} loading={loading} />
+        {/* Mandatory terms — tapping opens them to read. */}
+        <Pressable
+          onPress={onToggleTerms}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: acceptedTerms }}
+          className="flex-row items-center gap-3"
+        >
+          <View
+            className={[
+              'h-6 w-6 items-center justify-center rounded-md border',
+              acceptedTerms ? 'border-brand bg-brand' : 'border-ink-500 bg-transparent',
+            ].join(' ')}
+          >
+            {acceptedTerms ? <CheckIcon color="#08090d" size={16} /> : null}
+          </View>
+          <Text className="flex-1 text-sm text-ink-300">
+            {t('auth.agree')}{' '}
+            <Text className="font-sans-semibold text-brand">{t('legal.title')}</Text>
+          </Text>
+        </Pressable>
 
-        <View className="flex-row flex-wrap items-center justify-center">
-          <Text className="text-xs text-ink-400">{t('auth.agree')} </Text>
-          <Pressable onPress={() => router.push('/legal')} accessibilityRole="button">
-            <Text className="text-xs font-semibold text-accent">{t('legal.title')}</Text>
-          </Pressable>
-        </View>
+        <Button
+          label={t('auth.createCta')}
+          onPress={onSubmit}
+          loading={loading}
+          disabled={!acceptedTerms}
+        />
       </View>
 
       <Pressable
@@ -136,7 +157,7 @@ const SignUp = () => {
         accessibilityRole="button"
       >
         <Text className="text-sm text-ink-300">{t('auth.alreadyHave')} </Text>
-        <Text className="text-sm font-semibold text-accent">{t('auth.signIn')}</Text>
+        <Text className="text-sm font-sans-semibold text-brand">{t('auth.signIn')}</Text>
       </Pressable>
     </Screen>
   );

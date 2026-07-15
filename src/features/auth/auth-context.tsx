@@ -3,16 +3,15 @@ import { createContext, useCallback, useContext, useMemo, useState } from 'react
 import type { PublicUser, UserRole } from '@/db/schema';
 import { session } from '@/lib/storage';
 
+import { authClient } from './auth-client';
+import { can as canFeature, type Feature } from './entitlements';
 import {
-  changePassword,
   completeOnboarding,
-  createUser,
   findById,
   updateAccount,
   updateProfile,
-  verifyCredentials,
+  upsertRemoteUser,
   type AccountUpdate,
-  type CreateUserInput,
   type ProfileUpdate,
 } from './users.repo';
 
@@ -20,8 +19,14 @@ type AuthContextValue = {
   user: PublicUser | null;
   isReady: boolean;
   isAuthenticated: boolean;
-  signIn: (identifier: string, password: string) => Promise<void>;
-  signUp: (input: CreateUserInput) => Promise<void>;
+  /** Cloud sign-in against the shared metri.info backend (email). Links a local user. */
+  signInRemote: (email: string, password: string) => Promise<void>;
+  /** Cloud sign-up. Returns whether the backend requires email verification first. */
+  signUpRemote: (
+    email: string,
+    password: string,
+    name?: string,
+  ) => Promise<{ needsVerification: boolean }>;
   signOut: () => void;
   updateMyProfile: (patch: ProfileUpdate) => void;
   updateMyAccount: (patch: AccountUpdate) => Promise<void>;
@@ -29,6 +34,10 @@ type AuthContextValue = {
   finishOnboarding: (patch: ProfileUpdate) => void;
   reload: () => void;
   hasRole: (role: UserRole) => boolean;
+  /** True when the user's plan unlocks premium features. */
+  isPremium: boolean;
+  /** Feature-gate check derived from the user's plan (entitlements). */
+  can: (feature: Feature) => boolean;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -48,20 +57,38 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(id ? findById(id) : null);
   }, []);
 
-  const signIn = useCallback(async (identifier: string, password: string) => {
-    const found = await verifyCredentials(identifier, password);
-    if (!found) throw new Error('Wrong email/username or password.');
-    session.setUserId(found.id);
-    setUser(found);
+  const signInRemote = useCallback(async (email: string, password: string) => {
+    const res = await authClient.signIn.email({ email: email.trim().toLowerCase(), password });
+    if (res.error) {
+      throw new Error(res.error.message ?? 'Cloud sign-in failed.');
+    }
+    // Anchor on-device data to a local row mirroring the remote account, caching
+    // the server-set entitlement plan for offline reads.
+    const local = await upsertRemoteUser({
+      email: res.data.user.email,
+      displayName: res.data.user.name,
+      plan: (res.data.user as { plan?: string }).plan,
+    });
+    session.setUserId(local.id);
+    setUser(local);
   }, []);
 
-  const signUp = useCallback(async (input: CreateUserInput) => {
-    const created = await createUser(input);
-    session.setUserId(created.id);
-    setUser(created);
+  const signUpRemote = useCallback(async (email: string, password: string, name?: string) => {
+    const res = await authClient.signUp.email({
+      email: email.trim().toLowerCase(),
+      password,
+      name: name?.trim() || email.split('@')[0],
+    });
+    if (res.error) {
+      throw new Error(res.error.message ?? 'Cloud sign-up failed.');
+    }
+    // The backend requires email verification, so no session is issued yet —
+    // the user must verify before signing in.
+    return { needsVerification: !res.data.token };
   }, []);
 
   const signOut = useCallback(() => {
+    void authClient.signOut().catch(() => {});
     session.clear();
     setUser(null);
   }, []);
@@ -84,13 +111,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [user],
   );
 
-  const changeMyPassword = useCallback(
-    async (current: string, next: string) => {
-      if (!user) return;
-      await changePassword(user.id, current, next);
-    },
-    [user],
-  );
+  const changeMyPassword = useCallback(async (current: string, next: string) => {
+    // Passwords live on the remote Better Auth account (the local hash is a
+    // throwaway placeholder), so change it there.
+    const res = await authClient.changePassword({ currentPassword: current, newPassword: next });
+    if (res.error) throw new Error(res.error.message ?? 'Password change failed.');
+  }, []);
 
   const finishOnboarding = useCallback(
     (patch: ProfileUpdate) => {
@@ -102,14 +128,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   );
 
   const hasRole = useCallback((role: UserRole) => user?.role === role, [user]);
+  const can = useCallback((feature: Feature) => canFeature(user?.plan, feature), [user]);
+  const isPremium = user?.plan === 'premium';
 
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
       isReady,
       isAuthenticated: !!user,
-      signIn,
-      signUp,
+      signInRemote,
+      signUpRemote,
       signOut,
       updateMyProfile,
       updateMyAccount,
@@ -117,13 +145,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       finishOnboarding,
       reload,
       hasRole,
+      isPremium,
+      can,
     }),
     [
       user,
       isReady,
-      signIn,
-      signUp,
+      signInRemote,
+      signUpRemote,
       signOut,
+      isPremium,
+      can,
       updateMyProfile,
       updateMyAccount,
       changeMyPassword,

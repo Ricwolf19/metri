@@ -8,29 +8,29 @@ import { useT } from '@/i18n';
 import { LocaleToggle } from '@/i18n/LocaleToggle';
 
 const SignIn = () => {
-  const { signIn } = useAuth();
+  const { signInRemote } = useAuth();
   const toast = useToast();
   const router = useRouter();
   const t = useT();
 
-  const [identifier, setIdentifier] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const onSubmit = async () => {
-    if (!identifier.trim() || !password) {
+    if (!email.trim() || !password) {
       setError(t('auth.errEnterCreds'));
       return;
     }
     setError(null);
     setLoading(true);
     try {
-      await signIn(identifier, password);
+      await signInRemote(email, password);
       toast.success(t('auth.welcomeToast'));
       router.replace('/(tabs)');
-    } catch {
-      setError(t('auth.errSignIn'));
+    } catch (e) {
+      setError((e as Error).message ?? t('auth.errSignIn'));
     } finally {
       setLoading(false);
     }
@@ -46,22 +46,22 @@ const SignIn = () => {
         <BrandLogo width={160} />
       </View>
 
-      <Text className="mt-6 text-center text-2xl font-bold text-ink-50">
+      <Text className="mt-6 text-center text-2xl font-sans-bold text-ink-50">
         {t('auth.welcomeBack')}
       </Text>
-      <Text className="mb-8 mt-1 text-center text-sm text-ink-400">{t('auth.signInSubtitle')}</Text>
+      <Text className="mb-6 mt-1 text-center text-sm text-ink-400">{t('auth.signInSubtitle')}</Text>
 
       <View className="gap-4">
         <Input
-          label={t('auth.identifier')}
-          value={identifier}
-          onChangeText={setIdentifier}
+          label={t('auth.email')}
+          value={email}
+          onChangeText={setEmail}
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="email-address"
-          textContentType="username"
-          autoComplete="username"
-          placeholder={t('auth.phIdentifier')}
+          textContentType="emailAddress"
+          autoComplete="email"
+          placeholder="you@email.com"
           returnKeyType="next"
         />
         <Input
@@ -77,6 +77,8 @@ const SignIn = () => {
           error={error ?? undefined}
         />
 
+        <Text className="text-xs text-ink-500">{t('auth.cloudNote')}</Text>
+
         <Button label={t('auth.signIn')} onPress={onSubmit} loading={loading} />
       </View>
 
@@ -86,7 +88,7 @@ const SignIn = () => {
         accessibilityRole="button"
       >
         <Text className="text-sm text-ink-300">{t('auth.newHere')} </Text>
-        <Text className="text-sm font-semibold text-accent">{t('auth.createAccount')}</Text>
+        <Text className="text-sm font-sans-semibold text-brand">{t('auth.createAccount')}</Text>
       </Pressable>
     </Screen>
   );

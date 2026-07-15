@@ -77,7 +77,9 @@ const Onboarding = () => {
         <BrandLogo width={140} />
       </View>
 
-      <Text className="mt-6 text-center text-2xl font-bold text-ink-50">{t('onb.welcome')}</Text>
+      <Text className="mt-6 text-center text-2xl font-sans-bold text-ink-50">
+        {t('onb.welcome')}
+      </Text>
       <Text className="mb-8 mt-1 text-center text-sm text-ink-400">{t('onb.subtitle')}</Text>
 
       <View className="gap-6">
@@ -94,7 +96,7 @@ const Onboarding = () => {
           onChange={setUnits}
         />
         <View>
-          <Text className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-ink-300">
+          <Text className="mb-1.5 font-mono-medium text-xs uppercase tracking-wider text-ink-300">
             {t('theme.title')}
           </Text>
           <ThemeSelect />
@@ -103,7 +105,7 @@ const Onboarding = () => {
         <View className="h-px bg-ink-700" />
 
         <View>
-          <Text className="text-base font-semibold text-ink-50">{t('onb.aboutYou')}</Text>
+          <Text className="text-base font-sans-semibold text-ink-50">{t('onb.aboutYou')}</Text>
           <Text className="mt-0.5 text-xs text-ink-400">{t('onb.aboutYouHint')}</Text>
         </View>
 

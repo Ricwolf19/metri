@@ -23,6 +23,7 @@ const Keys = {
   clock: 'settings.clock',
   pinnedActions: 'settings.pinnedActions',
   onboarded: 'settings.onboarded',
+  premiumIntroSeen: 'settings.premiumIntroSeen',
   sessionUserId: 'auth.userId',
 } as const;
 
@@ -71,6 +72,13 @@ export const settings = {
   },
   setOnboarded(value: boolean) {
     storage.set(Keys.onboarded, value);
+  },
+  /** Whether the one-time premium/data intro has been shown. */
+  hasSeenPremiumIntro(): boolean {
+    return storage.getBoolean(Keys.premiumIntroSeen) ?? false;
+  },
+  setPremiumIntroSeen(value: boolean) {
+    storage.set(Keys.premiumIntroSeen, value);
   },
 };
 

@@ -76,6 +76,54 @@ export const createUser = async (input: CreateUserInput): Promise<PublicUser> =>
   return toPublic(row);
 };
 
+/** Public lookup by email (null if none). */
+export const findByEmail = (email: string): PublicUser | null => {
+  const [row] = db.select().from(users).where(eq(users.email, email.trim().toLowerCase())).all();
+  return row ? toPublic(row) : null;
+};
+
+/**
+ * Find-or-create the LOCAL user row that anchors on-device data to a remote
+ * (Better Auth) account. The remote server is authoritative for credentials, so
+ * the local password is a throwaway placeholder never used to sign in.
+ */
+export const upsertRemoteUser = async (input: {
+  email: string;
+  displayName?: string | null;
+  plan?: string | null;
+}): Promise<PublicUser> => {
+  const plan = input.plan === 'premium' ? 'premium' : 'free';
+  const existing = findByEmail(input.email);
+  if (existing) {
+    // Refresh the cached entitlement from the authoritative remote session.
+    if (existing.plan !== plan) return setUserPlan(existing.id, plan) ?? existing;
+    return existing;
+  }
+  const base =
+    input.email
+      .split('@')[0]
+      .replace(/[^a-z0-9_]/gi, '')
+      .toLowerCase() || 'user';
+  const created = await createUser({
+    email: input.email,
+    username: `${base}-${randomId().slice(0, 4)}`,
+    password: `${randomId()}${randomId()}`,
+    displayName: input.displayName ?? undefined,
+  });
+  return setUserPlan(created.id, plan) ?? created;
+};
+
+/** Refresh the locally-cached entitlement plan (mirrors the remote session). */
+export const setUserPlan = (id: string, plan: string): PublicUser | null => {
+  const [row] = db
+    .update(users)
+    .set({ plan, updatedAt: new Date() })
+    .where(eq(users.id, id))
+    .returning()
+    .all();
+  return row ? toPublic(row) : null;
+};
+
 /** Verify credentials by email OR username. Returns the public user or null. */
 export const verifyCredentials = async (
   identifier: string,

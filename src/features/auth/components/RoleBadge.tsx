@@ -9,13 +9,13 @@ export const RoleBadge = ({ role }: { role: UserRole }) => {
     <View
       className={[
         'self-start rounded-full px-2.5 py-1',
-        isAdmin ? 'bg-lime-400/15' : 'bg-ink-700',
+        isAdmin ? 'bg-brand/10' : 'bg-ink-700',
       ].join(' ')}
     >
       <Text
         className={[
-          'text-xs font-semibold uppercase tracking-wider',
-          isAdmin ? 'text-accent' : 'text-ink-300',
+          'font-mono-medium text-xs uppercase tracking-wider',
+          isAdmin ? 'text-brand' : 'text-ink-300',
         ].join(' ')}
       >
         {role}
