@@ -248,16 +248,13 @@ const WorkoutSession = () => {
   const { user } = useAuth();
 
   const log = typeof id === 'string' ? getWorkout(id) : null;
+  const workoutDayId = log?.workoutDayId ?? null;
+  const weekNumber = log?.weekNumber ?? null;
   const [unit, setUnit] = useState<Units>(settings.getUnits());
   const [rest, setRest] = useState<{ key: number; seconds: number } | null>(null);
 
-  const slots = useMemo(
-    () => (log ? getSessionSlots(log.workoutDayId, log.weekNumber) : []),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [log?.workoutDayId, log?.weekNumber],
-  );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const day = useMemo(() => (log ? getWorkoutDay(log.workoutDayId) : null), [log?.workoutDayId]);
+  const slots = workoutDayId && weekNumber != null ? getSessionSlots(workoutDayId, weekNumber) : [];
+  const day = workoutDayId ? getWorkoutDay(workoutDayId) : null;
   const { data: sets } = useLiveQuery(setLogsQuery(typeof id === 'string' ? id : ''));
 
   if (!user || !log || log.status !== 'in_progress') return <Redirect href="/training" />;

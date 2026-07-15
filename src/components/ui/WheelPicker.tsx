@@ -18,23 +18,17 @@ type Props = {
   format?: (n: number) => string;
 };
 
-/**
- * A single snapping scroll column (Apple-style wheel). The selected value is the
- * one centered in the highlight band; scrolling snaps to whole rows.
- */
 export const WheelPicker = ({ values, value, onChange, format }: Props) => {
   const ref = useRef<ScrollView>(null);
   const index = Math.max(0, values.indexOf(value));
 
-  // Center the current value on mount.
   useEffect(() => {
     const t = setTimeout(
       () => ref.current?.scrollTo({ y: index * ITEM_HEIGHT, animated: false }),
       0,
     );
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [index]);
 
   const commit = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const i = Math.round(e.nativeEvent.contentOffset.y / ITEM_HEIGHT);

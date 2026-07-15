@@ -63,8 +63,8 @@ export const RestTimer = ({
       void cancelRestNotification(notifId.current);
       notifId.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // Stable for the component's life (remounted via `key` per rest), so this runs once.
+  }, [seconds, notifyTitle, notifyBody]);
 
   // Tick from the clock; resync immediately when returning to the foreground.
   useEffect(() => {

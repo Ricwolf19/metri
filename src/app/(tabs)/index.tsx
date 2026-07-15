@@ -18,7 +18,7 @@ import { PremiumIntroModal } from '@/features/premium/PremiumIntroModal';
 import { TodayAdherence } from '@/features/training/components/TodayAdherence';
 import { setEnrollmentPosition } from '@/features/training/enroll';
 import { activeWorkoutQuery, startWorkout } from '@/features/training/session.repo';
-import { weeklyVolume } from '@/features/training/stats.repo';
+import { bucketVolume, weeklyVolumeQuery } from '@/features/training/stats.repo';
 import { nextWorkoutDay, useEnrollment } from '@/features/training/useEnrollment';
 import { useT } from '@/i18n';
 import { settings } from '@/lib/storage';
@@ -81,14 +81,9 @@ const Home = () => {
   const activeWorkout = actives[0] ?? null;
   const nextDay = enrollment && structure ? nextWorkoutDay(enrollment.id, structure.days) : null;
 
-  // Weekly training volume — recomputed when a session ends (activeWorkout clears).
   const userId = user?.id;
-  // activeWorkout.id is an intentional trigger: recompute when a session ends.
-
-  const volume = useMemo(
-    () => (userId ? weeklyVolume(userId, 6) : []),
-    [userId, activeWorkout?.id],
-  );
+  const { data: volumeRows } = useLiveQuery(weeklyVolumeQuery(userId ?? '', 6));
+  const volume = useMemo(() => bucketVolume(volumeRows, 6), [volumeRows]);
   const hasVolume = volume.some((w) => w.volume > 0);
   const volumeChart: Chart = {
     kind: 'bars',
@@ -102,7 +97,6 @@ const Home = () => {
     })),
   };
 
-  // Pinned quick actions live in MMKV; re-read whenever Home regains focus.
   const [pinnedIds, setPinnedIds] = useState<string[]>(
     () => settings.getPinnedActions() ?? DEFAULT_PINNED_ACTIONS,
   );
