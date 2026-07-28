@@ -1,1 +1,10 @@
 bun run verify
+
+# expo-doctor is slow (~40 s) and network-bound, and only fails when dependency
+# versions or the app config drift — so run it only when the commits being pushed
+# actually touch them. Secrets are already scanned per-commit by lint-staged, so
+# there is no repo-wide scan here (CI keeps the authoritative one).
+if ! git diff --quiet origin/main...HEAD -- package.json bun.lock app.json app.config.ts 2>/dev/null; then
+  echo "deps/config changed - running expo-doctor"
+  bun run doctor
+fi
