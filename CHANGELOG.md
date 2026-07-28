@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.3.0](https://github.com/Ricwolf19/metri/compare/metri-v1.2.0...metri-v1.3.0) (2026-07-28)
+
+
+### Features
+
+* **auth:** remote better-auth, entitlements and premium ([1752598](https://github.com/Ricwolf19/metri/commit/17525980fc16efa3153e56db735d31d630c0a93f))
+* **calculators:** data-driven calculator suite ([1c9b182](https://github.com/Ricwolf19/metri/commit/1c9b182302c135011d9d1988c51c2ee3ee114b65))
+* **db:** schema and migrations for training, adherence and sync ([d32119e](https://github.com/Ricwolf19/metri/commit/d32119e6b63ab3f92502cf34b19f586d10e0773f))
+* **docs:** refresh in-app documentation ([12f6630](https://github.com/Ricwolf19/metri/commit/12f6630f01649517b04f1268b98ab8b9ceb477ac))
+* **i18n:** translations for training, adherence, editor and sync ([37c2c69](https://github.com/Ricwolf19/metri/commit/37c2c6927ebc158c1673f1cb8337357f1842c954))
+* **sync:** premium sqlite-neon delta sync engine ([800c158](https://github.com/Ricwolf19/metri/commit/800c158e6f5db9bc2cf63462178c13ce0dea233a))
+* **theme:** design tokens, theme context and tailwind config ([9066606](https://github.com/Ricwolf19/metri/commit/90666065fd65e0078ff2b5fcaa8a748f01d9de8d))
+* **training:** logging, rest timer, adherence, dashboard and editor ([ec55234](https://github.com/Ricwolf19/metri/commit/ec55234ad481f73c215d7470d2ef09162e29a3e0))
+* **ui:** component primitives, icons and switch adoption ([7f92729](https://github.com/Ricwolf19/metri/commit/7f927293cfd93ea184709c223c722bea4470bfe2))
+
+
+### Bug Fixes
+
+* **deps:** align expo packages with sdk 56 ([329bf35](https://github.com/Ricwolf19/metri/commit/329bf35173f2b4484dff9ecf809b9a5668caf25d))
+
 ## [1.2.0](https://github.com/Ricwolf19/metri/compare/metri-v1.1.0...metri-v1.2.0) (2026-06-13)
 
 
