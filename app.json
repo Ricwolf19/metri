@@ -52,7 +52,9 @@
           "cameraPermission": "Metri uses the camera to take progress photos."
         }
       ],
-      "expo-localization"
+      "expo-localization",
+      "expo-secure-store",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
