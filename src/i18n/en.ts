@@ -560,10 +560,8 @@ export const en = {
   'equipment.other': 'Other',
 
   // --- Sync (premium) ---
-  'sync.now': 'Sync now',
-  'sync.hint': 'Back up and sync your training across your devices.',
-  'sync.doneToast': 'Synced · ↑{pushed} ↓{pulled}',
-  'sync.failedToast': 'Sync failed. Check your connection.',
+  'sync.autoHint':
+    'Your training syncs automatically. The ring around your avatar shows the current status.',
 
   // --- Calculators (ported from metri.info) ---
   'calc.emptyPrompt': 'Fill in the fields to see your result.',
@@ -718,7 +716,7 @@ export const en = {
   'calc.relatedGuides': 'Learn the concepts',
   'calc.trustTitle': 'Free & open source',
   'calc.trustBody':
-    'Every Metri calculator runs in your browser — no account, no paywall, no tracking.',
+    'Every Metri calculator runs on your device — free with your account, no paywall, no tracking.',
   'calc.trustCta': 'Browse all calculators',
 } as const;
 

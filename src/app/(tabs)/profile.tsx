@@ -18,7 +18,6 @@ import {
 } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { RoleBadge } from '@/features/auth/components/RoleBadge';
-import { syncNow } from '@/features/sync/engine';
 import { pickFromCamera, pickFromLibrary } from '@/features/photos/capture';
 import { deletePhotoFiles, persistAvatar } from '@/features/photos/media';
 import { LOCALES, useI18n, type Locale } from '@/i18n';
@@ -52,21 +51,8 @@ const Profile = () => {
   const [newPassword, setNewPassword] = useState('');
   const [changingPw, setChangingPw] = useState(false);
   const [clock, setClock] = useState<ClockFormat>(settings.getClockFormat());
-  const [syncing, setSyncing] = useState(false);
 
   if (!user) return null;
-
-  const doSync = async () => {
-    setSyncing(true);
-    try {
-      const { pushed, pulled } = await syncNow(user.id);
-      toast.success(t('sync.doneToast', { pushed, pulled }));
-    } catch {
-      toast.error(t('sync.failedToast'));
-    } finally {
-      setSyncing(false);
-    }
-  };
 
   const dirty =
     name.trim() !== (user.displayName ?? '') ||
@@ -194,12 +180,10 @@ const Profile = () => {
         </Card>
       </PressableScale>
 
-      {/* Sync (premium) */}
+      {/* Sync is automatic with Premium — no button. The ring around the avatar
+          in the top bar is the status surface. */}
       {isPremium ? (
-        <View className="mt-4">
-          <Button label={t('sync.now')} variant="secondary" onPress={doSync} loading={syncing} />
-          <Text className="mt-2 text-center text-xs text-ink-400">{t('sync.hint')}</Text>
-        </View>
+        <Text className="mt-4 text-center text-xs text-ink-400">{t('sync.autoHint')}</Text>
       ) : null}
 
       {/* Account */}

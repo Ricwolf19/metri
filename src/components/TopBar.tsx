@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 
 import { useAuth } from '@/features/auth/auth-context';
+import { SyncRing } from '@/features/sync/SyncRing';
 
 import { BookIcon } from './icons';
 import { Avatar } from './ui/Avatar';
@@ -72,13 +73,20 @@ export const TopBar = ({ title, subtitle, showBack, showAvatar = true, right, do
             accessibilityRole="button"
             accessibilityLabel="Open profile"
           >
-            <Avatar
-              name={user.displayName ?? user.username}
-              uri={user.avatarUri}
-              color={user.avatarColor}
-              size={40}
-              premium={user.plan === 'premium'}
-            />
+            {/* The ring is the app's only sync indicator — sync is automatic and
+                has no manual control, so this is where a premium user sees that
+                their data is safe, in flight, or stuck.
+                No star badge here: the ring only renders for premium, so it
+                already carries that meaning — and the badge's negative offsets
+                would overlap the ring band. */}
+            <SyncRing size={40}>
+              <Avatar
+                name={user.displayName ?? user.username}
+                uri={user.avatarUri}
+                color={user.avatarColor}
+                size={40}
+              />
+            </SyncRing>
           </Pressable>
         ) : null}
       </View>

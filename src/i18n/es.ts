@@ -561,10 +561,8 @@ export const es: Record<TranslationKey, string> = {
   'equipment.other': 'Otro',
 
   // --- Sync (premium) ---
-  'sync.now': 'Sincronizar ahora',
-  'sync.hint': 'Respalda y sincroniza tu entrenamiento entre tus dispositivos.',
-  'sync.doneToast': 'Sincronizado · ↑{pushed} ↓{pulled}',
-  'sync.failedToast': 'Falló la sincronización. Revisa tu conexión.',
+  'sync.autoHint':
+    'Tu entrenamiento se sincroniza automáticamente. El anillo alrededor de tu avatar muestra el estado actual.',
 
   // --- Calculators (ported from metri.info) ---
   'calc.emptyPrompt': 'Completa los campos para ver tu resultado.',
@@ -719,6 +717,6 @@ export const es: Record<TranslationKey, string> = {
   'calc.relatedGuides': 'Aprende los conceptos',
   'calc.trustTitle': 'Gratis y de código abierto',
   'calc.trustBody':
-    'Cada calculadora de Metri corre en tu navegador — sin cuenta, sin muros de pago, sin rastreo.',
+    'Cada calculadora de Metri corre en tu dispositivo — gratis con tu cuenta, sin muros de pago, sin rastreo.',
   'calc.trustCta': 'Ver todas las calculadoras',
 };
