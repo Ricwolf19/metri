@@ -12,10 +12,8 @@ import { API_URL } from '@/lib/env';
  * The backend origin is resolved per-environment in `app.config.ts` (`API_URL`);
  * the `expo` server plugin + `metri://` trusted origin must be enabled there.
  */
-export const AUTH_BASE_URL = API_URL;
-
 export const authClient = createAuthClient({
-  baseURL: AUTH_BASE_URL,
+  baseURL: API_URL,
   plugins: [
     expoClient({
       scheme: 'metri',

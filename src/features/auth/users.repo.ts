@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import { users, type NewUser, type PublicUser, type User } from '@/db/schema';
@@ -7,14 +7,6 @@ import { randomId } from '@/lib/crypto';
 /** Identity, kept so call sites still read as "this is what the UI may see".
  * The row holds no credential material — passwords are Better Auth's. */
 const toPublic = (row: User): PublicUser => row;
-
-export const countUsers = (): number => {
-  const [row] = db
-    .select({ count: sql<number>`count(*)` })
-    .from(users)
-    .all();
-  return row?.count ?? 0;
-};
 
 export const findById = (id: string): PublicUser | null => {
   const [row] = db.select().from(users).where(eq(users.id, id)).all();
@@ -35,7 +27,7 @@ const findRawByUsername = (username: string): User | null => {
   return row ?? null;
 };
 
-export type CreateUserInput = {
+type CreateUserInput = {
   email: string;
   username: string;
   displayName?: string;
@@ -45,7 +37,7 @@ export type CreateUserInput = {
 
 /** Create the local mirror row for an account. Takes no password — credentials
  * are held by Better Auth on the server and never reach the device. */
-export const createUser = async (input: CreateUserInput): Promise<PublicUser> => {
+const createUser = async (input: CreateUserInput): Promise<PublicUser> => {
   const email = input.email.trim().toLowerCase();
   const username = input.username.trim().toLowerCase();
 
@@ -69,7 +61,7 @@ export const createUser = async (input: CreateUserInput): Promise<PublicUser> =>
 };
 
 /** Public lookup by email (null if none). */
-export const findByEmail = (email: string): PublicUser | null => {
+const findByEmail = (email: string): PublicUser | null => {
   const [row] = db.select().from(users).where(eq(users.email, email.trim().toLowerCase())).all();
   return row ? toPublic(row) : null;
 };
@@ -105,7 +97,7 @@ export const upsertRemoteUser = async (input: {
 };
 
 /** Refresh the locally-cached entitlement plan (mirrors the remote session). */
-export const setUserPlan = (id: string, plan: string): PublicUser | null => {
+const setUserPlan = (id: string, plan: string): PublicUser | null => {
   const [row] = db
     .update(users)
     .set({ plan, updatedAt: new Date() })
@@ -173,18 +165,14 @@ export const saveBmr = (id: string, snap: BmrSnapshot): PublicUser | null => {
   return row ? toPublic(row) : null;
 };
 
-export type AccountUpdate = { email?: string; username?: string };
+/** No email here on purpose: the server owns it, and `upsertRemoteUser` anchors
+ * the local row by it — a locally-diverged email would mint a duplicate row on
+ * the next revalidation. The username is a device-local handle, free to change. */
+export type AccountUpdate = { username?: string };
 
-/** Change email/username with uniqueness checks that exclude the user's own row. */
 export const updateAccount = async (id: string, patch: AccountUpdate): Promise<PublicUser> => {
   const set: Partial<User> = {};
 
-  if (patch.email !== undefined) {
-    const email = patch.email.trim().toLowerCase();
-    const existing = findRawByEmail(email);
-    if (existing && existing.id !== id) throw new Error('That email is already registered.');
-    set.email = email;
-  }
   if (patch.username !== undefined) {
     const username = patch.username.trim().toLowerCase();
     const existing = findRawByUsername(username);

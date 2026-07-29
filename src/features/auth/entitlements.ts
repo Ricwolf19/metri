@@ -14,7 +14,7 @@ const ENTITLEMENTS: Record<Plan, Record<Feature, boolean>> = {
 const normalize = (plan: string | null | undefined): Plan =>
   plan === 'premium' ? 'premium' : 'free';
 
-export const entitlementsFor = (plan: string | null | undefined) => ENTITLEMENTS[normalize(plan)];
+const entitlementsFor = (plan: string | null | undefined) => ENTITLEMENTS[normalize(plan)];
 
 export const can = (plan: string | null | undefined, feature: Feature): boolean =>
   entitlementsFor(plan)[feature] ?? false;
