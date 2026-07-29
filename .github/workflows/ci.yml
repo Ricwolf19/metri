@@ -21,6 +21,8 @@ jobs:
         with:
           cache: true
 
+      # Same set as `bun run ci` (the pre-push hook) — keep them in sync so a
+      # green push can't go red here. Split into steps for per-step annotations.
       - name: Format check
         run: bun run format:check
 
@@ -29,6 +31,12 @@ jobs:
 
       - name: Typecheck
         run: bun run typecheck
+
+      - name: i18n dead keys
+        run: bun run i18n:check
+
+      - name: Dead code (knip)
+        run: bun run deadcode
 
       - name: Secrets scan
         run: bun run secrets:scan
