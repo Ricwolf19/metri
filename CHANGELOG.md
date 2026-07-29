@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.4.0](https://github.com/Ricwolf19/metri/compare/metri-v1.3.0...metri-v1.4.0) (2026-07-29)
+
+
+### Features
+
+* **sync:** automatic sync with an avatar status ring ([937c248](https://github.com/Ricwolf19/metri/commit/937c248c9981a4ba6c1bc477c3fda64bf6ac906f))
+
+
+### Bug Fixes
+
+* **auth:** drop legacy on-device password storage ([730180b](https://github.com/Ricwolf19/metri/commit/730180baacc40769649bac62de7e0b216256b88a))
+* **security:** validate the session and scope photo access ([6d69f1b](https://github.com/Ricwolf19/metri/commit/6d69f1b4cfc63696059d9b32ceb8500cb02ea76b))
+* **sync:** isolate row apply and page the pull ([6a588e5](https://github.com/Ricwolf19/metri/commit/6a588e5dafef05902fa271989a38308a21ea571d))
+
 ## [1.3.0](https://github.com/Ricwolf19/metri/compare/metri-v1.2.0...metri-v1.3.0) (2026-07-28)
 
 
