@@ -166,6 +166,33 @@ large; keep tiny single-use presentational helpers co-located with their one scr
 - **Commits:** Conventional Commits enforced by commitlint. Husky runs `lint-staged` (prettier + eslint
   - secretlint) pre-commit and `bun run verify` pre-push. Releases are automated via release-please.
 
+## CI & release
+
+`ci.yml` (PR gate) · `eas-update.yml` (OTA on push to main) · `release-please.yml` (version + tag,
+then calls) · `apk-beta.yml` (EAS APK → `apk-beta` pre-release). The app ships **sideloaded**, so
+nothing pushes a new binary to anyone — every rule below follows from that. Full walkthrough in
+`README.md` → "CI & Release Pipeline". Five things that are easy to break:
+
+- **Never pass `--output` to a cloud `eas build`** — EAS rejects it (`allowed only for local builds`).
+  `apk-beta.yml` builds with `--json` and `curl`s `artifacts.applicationArchiveUrl` instead.
+- **Publish OTA with `--channel beta`, not `--auto`.** `--auto` targets an EAS branch named after the
+  git branch (`main`); the APK listens on the `beta` channel, which EAS links to a `beta` branch.
+  `--auto` silently orphans every update. The build profile is still called `preview` (EAS's
+  scaffolding name) — profile and channel names are independent, don't "align" them.
+- **`runtimeVersion` is `fingerprint` + `fingerprint.config.js` skipping `ExpoConfigVersions`.**
+  Don't switch back to `appVersion` and don't delete that config: either one makes every release bump
+  a new runtime version, which cuts existing installs off from OTA with no way to auto-deliver the
+  APK. Under fingerprint the runtime version tracks the native layer only.
+- **The `apk-beta` tag and the `metri.apk` asset name are hard-coded by metri.info.** Renaming either
+  breaks the public download link. The release notes are hand-written — only the assets are replaced.
+- **Version lives in three files**, all bumped by release-please: `package.json`, `CHANGELOG.md`, and
+  `app.json` → `$.expo.version`. Never bump them by hand.
+
+- **Beta support surface** (`src/features/beta/` + `src/app/beta.tsx`): the running version, the
+  automatic-vs-manual update story, and the manual-install steps. The Home banner stores its
+  dismissal **per version** so it returns on the next release. `betaLinks` mirrors metri.info's
+  `lib/site.ts` — keep the APK URL in sync with it.
+
 ## Android local build
 
 React Native 0.85 pins its toolchain to **JDK 17** (newer JDKs fail). Homebrew installs `openjdk@17`
