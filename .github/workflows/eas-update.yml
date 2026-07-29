@@ -43,8 +43,16 @@ jobs:
       # the SAME name — so the `beta` channel that the sideloaded APK listens on
       # would never see updates pushed to `main`. Targeting the channel lets EAS
       # resolve the branch on its side.
+      #
+      # EXPO_PUBLIC_AUTH_URL pins the API origin during config evaluation. This
+      # runner sets no NODE_ENV, and app.config.ts must resolve the same
+      # `extra.apiUrl` here as on the EAS builder (eas.json sets the same env) —
+      # the first beta APK shipped pointing at the emulator's localhost because
+      # these contexts disagreed.
       - name: Publish update
         if: ${{ steps.guard.outputs.skip != 'true' }}
+        env:
+          EXPO_PUBLIC_AUTH_URL: https://metri.info
         run: |
           eas update --channel beta --non-interactive \
             --message "$(git log -1 --pretty=%s)"

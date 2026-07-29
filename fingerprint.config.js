@@ -1,18 +1,17 @@
 /**
- * Fingerprint inputs for the `runtimeVersion: { policy: "fingerprint" }` in app.json.
+ * The runtime version (`fingerprint` policy) must track the NATIVE layer only —
+ * the app is sideloaded, so an install cut off from OTA has no auto-delivery
+ * path to a new APK. Neither skip is an @expo/fingerprint default:
  *
- * `ExpoConfigVersions` is NOT part of @expo/fingerprint's default source skips, so without this
- * file release-please's `expo.version` bump would change the runtime version on every release —
- * exactly the `appVersion` policy behaviour we moved away from. The app ships as a sideloaded APK
- * with no store auto-update, so a runtime version that changes per release strands every install
- * that does not manually re-download.
+ * - `ExpoConfigVersions` — release-please bumps `expo.version` every release;
+ *   without the skip each release strands existing installs.
+ * - `ExpoConfigExtraSection` — `extra.apiUrl` varies with the evaluating
+ *   environment; without the skip the same commit yields different runtime
+ *   versions per context.
  *
- * Skipping it means the runtime version tracks the NATIVE layer only: JS-only releases keep
- * reaching every install over the air, and a native change correctly cuts old installs off until
- * they grab the new APK.
- *
+ * @see README.md "CI & Release Pipeline"
  * @type {import('@expo/fingerprint').Config}
  */
 module.exports = {
-  sourceSkips: ['ExpoConfigVersions'],
+  sourceSkips: ['ExpoConfigVersions', 'ExpoConfigExtraSection'],
 };

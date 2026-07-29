@@ -1,14 +1,16 @@
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
 /**
- * Backend origin per environment (like metri.info's local vs Vercel env split).
- * `NODE_ENV` is production in release/EAS builds and development otherwise. On
- * the Android emulator `10.0.2.2` is the host machine's localhost. Set
- * `EXPO_PUBLIC_AUTH_URL` to override (iOS simulator, physical device, tunnel).
+ * Backend origin. Production is the fail-safe default: the dev URL (`10.0.2.2`
+ * = the Android emulator's host loopback) requires an explicit
+ * `NODE_ENV=development`, because this config is also evaluated in contexts
+ * with no NODE_ENV at all (EAS builder, `eas update` in CI) and those must
+ * resolve production. Override with `EXPO_PUBLIC_AUTH_URL` (iOS simulator,
+ * physical device, tunnel). @see AGENTS.md "CI & release".
  */
 const apiUrl =
   process.env.EXPO_PUBLIC_AUTH_URL ??
-  (process.env.NODE_ENV === 'production' ? 'https://metri.info' : 'http://10.0.2.2:3000');
+  (process.env.NODE_ENV === 'development' ? 'http://10.0.2.2:3000' : 'https://metri.info');
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...(config as ExpoConfig),
