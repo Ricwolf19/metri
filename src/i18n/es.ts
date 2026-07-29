@@ -79,6 +79,39 @@ export const es: Record<TranslationKey, string> = {
   'premium.introDismiss': 'Quizá después',
   'premium.upsellRow': 'Hazte Premium',
   'premium.upsellSub': 'Sync y respaldo · beta abierta',
+
+  // Programa beta
+  'beta.title': 'Programa beta',
+  'beta.badge': 'Beta abierta',
+  'beta.version': 'Versión {version}',
+  'beta.bannerTitle': 'Estás en la beta de Metri',
+  'beta.bannerBody': 'Versión {version} · mira cómo llegan las actualizaciones',
+  'beta.bannerDismiss': 'Ocultar el aviso de beta',
+  'beta.introBody':
+    'Metri todavía no está en Google Play. La instalaste como descarga directa del APK mientras preparamos el lanzamiento en tienda, así que las funciones pueden cambiar o fallar entre versiones. Gracias por probarla.',
+  'beta.updatesTitle': 'Cómo te llegan las actualizaciones',
+  'beta.updatesAuto':
+    'La mayoría se instalan solas. Abre la app con conexión y ya tienes la versión más reciente — nada que descargar, nada que tocar.',
+  'beta.updatesManual':
+    'Cuando un cambio toca la parte nativa de la app, la actualización por aire no basta y tienes que instalar un APK nuevo a mano.',
+  'beta.installTitle': 'Cómo instalar un APK nuevo',
+  'beta.installStep1': 'Abre la página de descarga o el release de GitHub y toca el archivo APK.',
+  'beta.installStep2':
+    'Tu navegador y Android te advertirán por instalar algo fuera de Play Store. Es normal en una app sidecargada y no significa que sea insegura.',
+  'beta.installStep3':
+    'Permite instalar desde esa fuente cuando te lo pida y confirma la instalación.',
+  'beta.installStep4':
+    'Instálalo encima de la app que ya tienes. No desinstales Metri primero — eso borra los datos de entrenamiento guardados en este dispositivo.',
+  'beta.installNote':
+    'Tu cuenta no se ve afectada. Con Premium, los datos sincronizados vuelven desde la nube; las fotos de progreso y los recordatorios viven solo en este dispositivo.',
+  'beta.notifyTitle': 'Te avisamos por correo',
+  'beta.notifyBody':
+    'Cuando una versión necesite instalación manual, te escribimos al correo de tu cuenta. Solo avisos de release — sin listas ni publicidad.',
+  'beta.apkCta': 'Descargar el APK más reciente',
+  'beta.releasesCta': 'Releases y changelog',
+  'beta.webCta': 'Abrir la página de descarga',
+  'profile.beta': 'Programa beta',
+
   'auth.username': 'Usuario',
   'auth.usernameHint': 'Minúsculas, al menos 3 caracteres.',
   'auth.confirmPassword': 'Confirmar contraseña',

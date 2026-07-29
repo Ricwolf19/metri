@@ -7,6 +7,7 @@ import { ChevronRightIcon, DumbbellIcon, FlameIcon, GearIcon, PlayIcon } from '@
 import { TopBar } from '@/components/TopBar';
 import { Button, Card, FadeInUp, PressableScale, Screen } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
+import { BetaBanner } from '@/features/beta/components/BetaBanner';
 import { CalcChart } from '@/features/calculators/components/CalcChart';
 import type { CalcChart as Chart } from '@/features/calculators/types';
 import {
@@ -123,6 +124,8 @@ const Home = () => {
         title={t('home.greeting', { name: firstName || t('home.lifter') })}
         subtitle={t('home.subtitle')}
       />
+
+      <BetaBanner />
 
       {/* Training hero — what to do right now */}
       <FadeInUp>

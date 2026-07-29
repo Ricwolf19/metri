@@ -346,13 +346,15 @@ const Profile = () => {
         />
       </View>
 
-      <Pressable
-        onPress={() => router.push('/legal')}
-        accessibilityRole="button"
-        className="mt-6 items-center"
-      >
-        <Text className="text-xs font-sans-semibold text-ink-400">{t('legal.title')}</Text>
-      </Pressable>
+      <View className="mt-6 flex-row items-center justify-center gap-3">
+        <Pressable onPress={() => router.push('/beta')} accessibilityRole="button">
+          <Text className="text-xs font-sans-semibold text-ink-400">{t('profile.beta')}</Text>
+        </Pressable>
+        <Text className="text-xs text-ink-600">·</Text>
+        <Pressable onPress={() => router.push('/legal')} accessibilityRole="button">
+          <Text className="text-xs font-sans-semibold text-ink-400">{t('legal.title')}</Text>
+        </Pressable>
+      </View>
     </Screen>
   );
 };

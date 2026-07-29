@@ -80,6 +80,38 @@ export const en = {
   'premium.introDismiss': 'Maybe later',
   'premium.upsellRow': 'Go Premium',
   'premium.upsellSub': 'Cloud sync & backup · open beta',
+
+  // Beta programme
+  'beta.title': 'Beta programme',
+  'beta.badge': 'Open beta',
+  'beta.version': 'Version {version}',
+  'beta.bannerTitle': "You're running the Metri beta",
+  'beta.bannerBody': 'Version {version} · see how updates reach you',
+  'beta.bannerDismiss': 'Dismiss the beta notice',
+  'beta.introBody':
+    'Metri is not on Google Play yet. You installed it as a direct APK download while we prepare the store release, so features can change or break between builds. Thanks for testing it.',
+  'beta.updatesTitle': 'How updates reach you',
+  'beta.updatesAuto':
+    'Most updates install themselves. Open the app with a connection and the newest version is already there — nothing to download, nothing to tap.',
+  'beta.updatesManual':
+    'When a change touches the native side of the app, an over-the-air update is not enough and you have to install a new APK by hand.',
+  'beta.installTitle': 'Installing a new APK',
+  'beta.installStep1': 'Open the download page or the GitHub release and tap the APK file.',
+  'beta.installStep2':
+    'Your browser and Android will warn you about installing outside the Play Store. That is normal for a sideloaded app and does not mean it is unsafe.',
+  'beta.installStep3': 'Allow installs from that source when prompted, then confirm the install.',
+  'beta.installStep4':
+    'Install it over the app you already have. Do not uninstall Metri first — that erases the training data stored on this device.',
+  'beta.installNote':
+    'Your account is unaffected. With Premium, synced training data comes back from the cloud; progress photos and reminders live only on this device.',
+  'beta.notifyTitle': 'We will email you',
+  'beta.notifyBody':
+    'When a build needs a manual install, we send a note to the email on your account. Release announcements only — no lists, no marketing.',
+  'beta.apkCta': 'Download the latest APK',
+  'beta.releasesCta': 'Releases & changelog',
+  'beta.webCta': 'Open the download page',
+  'profile.beta': 'Beta programme',
+
   'auth.username': 'Username',
   'auth.usernameHint': 'Lowercase, at least 3 characters.',
   'auth.confirmPassword': 'Confirm password',

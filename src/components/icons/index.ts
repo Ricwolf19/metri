@@ -33,6 +33,11 @@ import {
   StarSolid,
   Trash,
   EditPencil,
+  Flask,
+  Download,
+  OpenNewWindow,
+  Mail,
+  Github,
 } from 'iconoir-react-native';
 
 /** Square size in px (maps to width + height). Mirrors lucide's `size`. */
@@ -75,3 +80,8 @@ export const TrophyIcon = sized(Trophy, 'TrophyIcon');
 export const StarIcon = sized(StarSolid, 'StarIcon');
 export const TrashIcon = sized(Trash, 'TrashIcon');
 export const EditPencilIcon = sized(EditPencil, 'EditPencilIcon');
+export const FlaskIcon = sized(Flask, 'FlaskIcon');
+export const DownloadIcon = sized(Download, 'DownloadIcon');
+export const ExternalLinkIcon = sized(OpenNewWindow, 'ExternalLinkIcon');
+export const MailIcon = sized(Mail, 'MailIcon');
+export const GithubIcon = sized(Github, 'GithubIcon');

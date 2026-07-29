@@ -24,6 +24,7 @@ const Keys = {
   pinnedActions: 'settings.pinnedActions',
   onboarded: 'settings.onboarded',
   premiumIntroSeen: 'settings.premiumIntroSeen',
+  betaNoticeDismissed: 'settings.betaNoticeDismissed',
   sessionUserId: 'auth.userId',
 } as const;
 
@@ -79,6 +80,17 @@ export const settings = {
   },
   setPremiumIntroSeen(value: boolean) {
     storage.set(Keys.premiumIntroSeen, value);
+  },
+  /**
+   * App version whose beta banner the user dismissed, or null. Keyed by version
+   * on purpose: dismissing it hides the banner for the build they are on, and
+   * the next release brings it back so they see what changed.
+   */
+  getBetaNoticeDismissedVersion(): string | null {
+    return storage.getString(Keys.betaNoticeDismissed) ?? null;
+  },
+  setBetaNoticeDismissedVersion(version: string) {
+    storage.set(Keys.betaNoticeDismissed, version);
   },
 };
 

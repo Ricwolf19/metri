@@ -6,9 +6,9 @@ import { Button, Card, Screen, useToast } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { exportUserData } from '@/features/premium/export';
 import { useT } from '@/i18n';
+import { WEB_URL } from '@/lib/env';
 
 const CONTACT_EMAIL = 'rhtc19@gmail.com';
-const WEB_URL = 'https://metri.info';
 
 const Premium = () => {
   const t = useT();
