@@ -31,6 +31,10 @@ const CHANGE_TS: Record<SyncTable, string> = {
 
 const idsOf = (rows: Row[]): string[] => rows.map((r) => r.id as string);
 const holes = (n: number): string => Array.from({ length: n }, () => '?').join(',');
+
+/** Pull pages to drain per cycle. The cursor is persisted after each page, so
+ * hitting this ceiling just means the rest lands on the next run. */
+const MAX_PULL_PAGES = 20;
 const all = (source: string, params: unknown[] = []): Row[] =>
   sqlite.getAllSync(source, params as never) as Row[];
 
@@ -139,30 +143,85 @@ type PulledRow = {
   updatedAt: number;
 };
 
+/** Real column names per table, read once from SQLite itself.
+ *
+ * Pulled rows carry whatever keys the *server* mirror holds, and the mirror is
+ * opaque jsonb — the server cannot validate them. Interpolating those keys into
+ * SQL unchecked meant two things: a row written by a newer app version (extra
+ * column) threw `no such column` on older devices, and a crafted key was a SQL
+ * injection primitive pointed at the device. Intersecting against the live
+ * schema fixes both, and self-maintains as migrations land. */
+const columnCache = new Map<string, Set<string>>();
+const tableColumns = (table: SyncTable): Set<string> => {
+  const hit = columnCache.get(table);
+  if (hit) return hit;
+  const rows = sqlite.getAllSync(`pragma table_info(${table})`) as { name: string }[];
+  const cols = new Set(rows.map((c) => c.name));
+  columnCache.set(table, cols);
+  return cols;
+};
+
+/** Uniqueness a table enforces *beyond* its primary key.
+ *
+ * `on conflict(id)` doesn't cover these: two devices can create the same
+ * logical training day with different random ids, so the incoming row collides
+ * on `(user_id, date)` rather than on `id`, and the insert throws. SQLite allows
+ * only one conflict target per statement, so the fix is to clear the local
+ * squatter first — LWW has already decided the remote row wins by this point. */
+const EXTRA_UNIQUE: Partial<Record<SyncTable, string[]>> = {
+  training_days: ['user_id', 'date'],
+};
+
 const applyRow = (r: PulledRow): void => {
   if (!(SYNC_TABLES as readonly string[]).includes(r.table)) return;
+  const table = r.table as SyncTable;
   if (r.deleted) {
-    sqlite.runSync(`delete from ${r.table} where id = ?`, [r.id]);
+    sqlite.runSync(`delete from ${table} where id = ?`, [r.id]);
     return;
   }
   if (!r.data) return;
   // Last-Write-Wins: keep the local row if it's strictly newer.
-  const ts = CHANGE_TS[r.table as SyncTable];
-  const local = sqlite.getFirstSync(`select (${ts}) as __ts from ${r.table} where id = ?`, [
+  const ts = CHANGE_TS[table];
+  const local = sqlite.getFirstSync(`select (${ts}) as __ts from ${table} where id = ?`, [
     r.id,
   ]) as Row | null;
   if (local && Number(local.__ts) > r.updatedAt) return;
 
-  const cols = Object.keys(r.data);
+  const valid = tableColumns(table);
+  const cols = Object.keys(r.data).filter((c) => valid.has(c));
+  if (!cols.length) return;
+
   const updates = cols
     .filter((c) => c !== 'id')
     .map((c) => `${c}=excluded.${c}`)
     .join(',');
-  sqlite.runSync(
-    `insert into ${r.table} (${cols.join(',')}) values (${holes(cols.length)}) ` +
-      `on conflict(id) do update set ${updates}`,
-    cols.map((c) => r.data![c] as never),
-  );
+
+  // Delete-then-insert must be atomic: the pull loop swallows per-row errors, so
+  // a failed insert after a committed delete would silently destroy the local
+  // row with nothing to replace it.
+  sqlite.withTransactionSync(() => {
+    const unique = EXTRA_UNIQUE[table];
+    if (unique && unique.every((c) => c in r.data!)) {
+      const where = unique.map((c) => `${c} = ?`).join(' and ');
+      const args = [...unique.map((c) => r.data![c] as never), r.id];
+      // The LWW check above matched on `id`, which by definition can't find a
+      // squatter holding the same secondary key under a *different* id — so it
+      // gets its own comparison. Without this, an older remote row silently
+      // destroyed a newer local one.
+      const squatter = sqlite.getFirstSync(
+        `select (${ts}) as __ts from ${table} where ${where} and id <> ?`,
+        args,
+      ) as Row | null;
+      if (squatter && Number(squatter.__ts) > r.updatedAt) return;
+      sqlite.runSync(`delete from ${table} where ${where} and id <> ?`, args);
+    }
+
+    sqlite.runSync(
+      `insert into ${table} (${cols.join(',')}) values (${holes(cols.length)}) ` +
+        `on conflict(id) do update set ${updates}`,
+      cols.map((c) => r.data![c] as never),
+    );
+  });
 };
 
 /** Run a full push→pull cycle for the signed-in premium user. */
@@ -192,17 +251,46 @@ export const syncNow = async (userId: string): Promise<{ pushed: number; pulled:
     }
   }
 
-  // 2) PULL remote changes since the cursor.
-  const since = getCursor(userId);
-  const res = await fetch(`${API_URL}/api/sync/pull`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ since }),
-  });
-  if (!res.ok) throw new Error(`pull failed (${res.status})`);
-  const { rows, cursor } = (await res.json()) as { rows: PulledRow[]; cursor: string | null };
-  for (const row of rows) applyRow(row);
-  if (cursor) setCursor(userId, cursor);
+  // 2) PULL remote changes since the cursor, one page at a time.
+  //
+  // The server caps a page (LIMITS.pullPage) and reports `hasMore`; ignoring it
+  // left a big history converging one page per app-foreground, with a partially
+  // populated database in between. MAX_PAGES bounds a single cycle so a pathological
+  // history can't spin forever — the next run resumes from the stored cursor.
+  let pulled = 0;
+  for (let page = 0; page < MAX_PULL_PAGES; page++) {
+    const since = getCursor(userId);
+    const res = await fetch(`${API_URL}/api/sync/pull`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ since }),
+    });
+    if (!res.ok) throw new Error(`pull failed (${res.status})`);
+    const { rows, cursor, hasMore } = (await res.json()) as {
+      rows: PulledRow[];
+      cursor: string | null;
+      hasMore?: boolean;
+    };
 
-  return { pushed: changes.length + deletions.length, pulled: rows.length };
+    // Per row, so one unappliable row can't abort the page and strand the
+    // cursor — that turned a single bad row into a permanently dead sync,
+    // because every later run re-fetched and re-failed on the same page.
+    for (const row of rows) {
+      try {
+        applyRow(row);
+      } catch {
+        // Skipped rows are re-sent on the next server-side change to them.
+      }
+    }
+    pulled += rows.length;
+    // Guard against a cursor that can't advance. The server stores microsecond
+    // precision but the cursor is an ISO string (milliseconds), so a full page
+    // landing inside one millisecond would be re-served forever. Re-serving is
+    // harmless on its own — applying is idempotent — but looping isn't.
+    if (cursor === since) break;
+    if (cursor) setCursor(userId, cursor);
+    if (!hasMore || !rows.length) break;
+  }
+
+  return { pushed: changes.length + deletions.length, pulled };
 };
