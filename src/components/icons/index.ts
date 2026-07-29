@@ -21,7 +21,6 @@ import {
   NavArrowDown,
   FireFlame,
   LogOut,
-  Shield,
   Gym,
   Plus,
   Minus,
@@ -29,7 +28,6 @@ import {
   Timer,
   Play,
   Xmark,
-  Trophy,
   StarSolid,
   Trash,
   EditPencil,
@@ -68,7 +66,6 @@ export const ChevronLeftIcon = sized(NavArrowLeft, 'ChevronLeftIcon');
 export const ChevronDownIcon = sized(NavArrowDown, 'ChevronDownIcon');
 export const FlameIcon = sized(FireFlame, 'FlameIcon');
 export const LogOutIcon = sized(LogOut, 'LogOutIcon');
-export const ShieldIcon = sized(Shield, 'ShieldIcon');
 export const DumbbellIcon = sized(Gym, 'DumbbellIcon');
 export const PlusIcon = sized(Plus, 'PlusIcon');
 export const MinusIcon = sized(Minus, 'MinusIcon');
@@ -76,7 +73,6 @@ export const CheckIcon = sized(Check, 'CheckIcon');
 export const TimerIcon = sized(Timer, 'TimerIcon');
 export const PlayIcon = sized(Play, 'PlayIcon');
 export const XIcon = sized(Xmark, 'XIcon');
-export const TrophyIcon = sized(Trophy, 'TrophyIcon');
 export const StarIcon = sized(StarSolid, 'StarIcon');
 export const TrashIcon = sized(Trash, 'TrashIcon');
 export const EditPencilIcon = sized(EditPencil, 'EditPencilIcon');

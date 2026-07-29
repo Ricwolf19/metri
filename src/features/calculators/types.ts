@@ -39,7 +39,7 @@ export type CalcField =
       default: string;
     };
 
-export type ResultRow = {
+type ResultRow = {
   label?: string;
   labelKey?: TranslationKey;
   value: string;
@@ -83,7 +83,7 @@ export type CalcChart =
       plates: { plate: number; count: number }[];
     };
 
-export type CalcResult = {
+type CalcResult = {
   primaryLabelKey: TranslationKey;
   primaryValue: string;
   primaryUnit?: string;

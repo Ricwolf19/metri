@@ -7,7 +7,7 @@ import type { IntensityType, ProgramDifficulty, ProgramGoal } from '@/db/schema'
  * using a `WeekStep[]` progression (RIR ramp).
  */
 
-export type SlotSeed = {
+type SlotSeed = {
   exerciseId: string;
   sets: number;
   reps: number;
@@ -17,7 +17,7 @@ export type SlotSeed = {
   badges?: string[];
 };
 
-export type DaySeed = {
+type DaySeed = {
   /** Slug suffix, made unique per routine when seeded. */
   slug: string;
   name: string;
@@ -25,7 +25,7 @@ export type DaySeed = {
   exercises: SlotSeed[];
 };
 
-export type RoutineSeed = {
+type RoutineSeed = {
   slug: string;
   name: string;
   orderIndex: number;

@@ -14,5 +14,3 @@ export const sqlite = openDatabaseSync('metri.db', {
 });
 
 export const db = drizzle(sqlite, { schema });
-
-export { schema };

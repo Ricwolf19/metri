@@ -32,7 +32,3 @@ export const round = (n: number, dp = 1) => {
   const f = 10 ** dp;
   return Math.round(n * f) / f;
 };
-
-/** Unit helpers (mobile-only — the web is metric-only). */
-export const kgToLb = (kg: number) => kg * 2.2046226218;
-export const lbToKg = (lb: number) => lb / 2.2046226218;

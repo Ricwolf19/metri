@@ -30,12 +30,6 @@ export const exercisesQuery = (userId: string, category?: ExerciseCategory) => {
     .orderBy(asc(exercises.name));
 };
 
-/** Map of every exercise keyed by id — handy when rendering logged sets. */
-export const exerciseMap = (): Map<string, Exercise> => {
-  const rows = db.select().from(exercises).all();
-  return new Map(rows.map((e) => [e.id, e]));
-};
-
 /* ── Custom exercises (user-authored library entries) ────────────────────────── */
 
 export type ExerciseInput = {

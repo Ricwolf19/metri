@@ -5,11 +5,6 @@
  */
 
 export {
-  ACTIVITY_MULTIPLIERS,
-  PROTEIN_PER_KG,
-  round,
-  kgToLb,
-  lbToKg,
   type ActivityLevel,
   type BmrFormula,
   type Goal,

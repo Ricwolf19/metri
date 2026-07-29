@@ -14,6 +14,3 @@ export const WEB_URL = 'https://metri.info';
  * not the one baked into the installed APK.
  */
 export const APP_VERSION = Constants.expoConfig?.version ?? '0.0.0';
-
-/** True in dev/debug builds, false in release. */
-export const IS_DEV = __DEV__;

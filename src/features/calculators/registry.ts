@@ -8,18 +8,6 @@ import { calsburned, deficit, macrosConfig, protein, tdeeConfig } from './config
 import { onerm, plates, wilks } from './configs/strength';
 import type { CalcConfig, CalcId } from './types';
 
-/** The most globally used calculators — flagged for a "Popular" marker. */
-const POPULAR_CALC_IDS: ReadonlySet<CalcId> = new Set<CalcId>([
-  'bmi',
-  'tdee',
-  'macros',
-  'bodyfat',
-  'onerm',
-  'idealweight',
-]);
-
-export const isPopularCalc = (id: CalcId): boolean => POPULAR_CALC_IDS.has(id);
-
 export const CALCULATORS: Record<CalcId, CalcConfig> = {
   onerm,
   tdee: tdeeConfig,
