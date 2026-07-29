@@ -2,15 +2,11 @@ import { eq, sql } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import { users, type NewUser, type PublicUser, type User } from '@/db/schema';
-import { generateSalt, hashPassword, randomId, verifyPassword } from '@/lib/crypto';
+import { randomId } from '@/lib/crypto';
 
-/** Strip password material before a row ever reaches the UI. */
-const toPublic = (row: User): PublicUser => {
-  const rest: Partial<User> = { ...row };
-  delete rest.passwordHash;
-  delete rest.passwordSalt;
-  return rest as PublicUser;
-};
+/** Identity, kept so call sites still read as "this is what the UI may see".
+ * The row holds no credential material — passwords are Better Auth's. */
+const toPublic = (row: User): PublicUser => row;
 
 export const countUsers = (): number => {
   const [row] = db
@@ -42,12 +38,13 @@ const findRawByUsername = (username: string): User | null => {
 export type CreateUserInput = {
   email: string;
   username: string;
-  password: string;
   displayName?: string;
   role?: NewUser['role'];
   avatarColor?: string;
 };
 
+/** Create the local mirror row for an account. Takes no password — credentials
+ * are held by Better Auth on the server and never reach the device. */
 export const createUser = async (input: CreateUserInput): Promise<PublicUser> => {
   const email = input.email.trim().toLowerCase();
   const username = input.username.trim().toLowerCase();
@@ -55,17 +52,12 @@ export const createUser = async (input: CreateUserInput): Promise<PublicUser> =>
   if (findRawByEmail(email)) throw new Error('That email is already registered.');
   if (findRawByUsername(username)) throw new Error('That username is taken.');
 
-  const salt = await generateSalt();
-  const passwordHash = await hashPassword(input.password, salt);
-
   const [row] = db
     .insert(users)
     .values({
       id: randomId(),
       email,
       username,
-      passwordHash,
-      passwordSalt: salt,
       role: input.role ?? 'user',
       displayName: input.displayName?.trim() || username,
       avatarColor: input.avatarColor,
@@ -84,8 +76,8 @@ export const findByEmail = (email: string): PublicUser | null => {
 
 /**
  * Find-or-create the LOCAL user row that anchors on-device data to a remote
- * (Better Auth) account. The remote server is authoritative for credentials, so
- * the local password is a throwaway placeholder never used to sign in.
+ * (Better Auth) account. The server is authoritative for credentials; this row
+ * only carries identity and the cached entitlement plan.
  */
 export const upsertRemoteUser = async (input: {
   email: string;
@@ -107,7 +99,6 @@ export const upsertRemoteUser = async (input: {
   const created = await createUser({
     email: input.email,
     username: `${base}-${randomId().slice(0, 4)}`,
-    password: `${randomId()}${randomId()}`,
     displayName: input.displayName ?? undefined,
   });
   return setUserPlan(created.id, plan) ?? created;
@@ -122,18 +113,6 @@ export const setUserPlan = (id: string, plan: string): PublicUser | null => {
     .returning()
     .all();
   return row ? toPublic(row) : null;
-};
-
-/** Verify credentials by email OR username. Returns the public user or null. */
-export const verifyCredentials = async (
-  identifier: string,
-  password: string,
-): Promise<PublicUser | null> => {
-  const id = identifier.trim().toLowerCase();
-  const row = findRawByEmail(id) ?? findRawByUsername(id);
-  if (!row) return null;
-  const ok = await verifyPassword(password, row.passwordSalt, row.passwordHash);
-  return ok ? toPublic(row) : null;
 };
 
 export type ProfileUpdate = Partial<
@@ -194,11 +173,6 @@ export const saveBmr = (id: string, snap: BmrSnapshot): PublicUser | null => {
   return row ? toPublic(row) : null;
 };
 
-const findRawById = (id: string): User | null => {
-  const [row] = db.select().from(users).where(eq(users.id, id)).all();
-  return row ?? null;
-};
-
 export type AccountUpdate = { email?: string; username?: string };
 
 /** Change email/username with uniqueness checks that exclude the user's own row. */
@@ -225,25 +199,6 @@ export const updateAccount = async (id: string, patch: AccountUpdate): Promise<P
     .returning()
     .all();
   return toPublic(row);
-};
-
-/** Verify the current password, then store a fresh salt + hash for the new one. */
-export const changePassword = async (
-  id: string,
-  currentPassword: string,
-  newPassword: string,
-): Promise<void> => {
-  const row = findRawById(id);
-  if (!row) throw new Error('User not found.');
-  const ok = await verifyPassword(currentPassword, row.passwordSalt, row.passwordHash);
-  if (!ok) throw new Error('Current password is incorrect.');
-
-  const salt = await generateSalt();
-  const passwordHash = await hashPassword(newPassword, salt);
-  db.update(users)
-    .set({ passwordHash, passwordSalt: salt, updatedAt: new Date() })
-    .where(eq(users.id, id))
-    .run();
 };
 
 /** Save onboarding metrics and stamp the user as onboarded. */

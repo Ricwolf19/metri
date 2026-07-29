@@ -15,6 +15,8 @@ import m0010 from './0010_famous_mariko_yashida.sql';
 import m0011 from './0011_curious_red_hulk.sql';
 import m0012 from './0012_broad_riptide.sql';
 import m0013 from './0013_freezing_tinkerer.sql';
+import m0014 from './0014_purge_legacy_password_hashes.sql';
+import m0015 from './0015_drop_legacy_password_columns.sql';
 
   export default {
     journal,
@@ -32,7 +34,9 @@ m0009,
 m0010,
 m0011,
 m0012,
-m0013
+m0013,
+m0014,
+m0015
     }
   }
   

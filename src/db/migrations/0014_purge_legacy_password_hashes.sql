@@ -1,0 +1,14 @@
+-- Overwrite legacy local-auth credentials before the next migration drops the
+-- columns.
+--
+-- Before Better Auth landed, sign-in was local: passwords were hashed with 150
+-- iterations of SHA-512 and stored on the device. Auth now runs against the
+-- server, but migration 0007 carried the old values forward, so real password
+-- material was still sitting in an unencrypted SQLite file. 150 rounds of
+-- SHA-512 is trivially crackable on a GPU, and because people reuse passwords,
+-- cracking one recovered the user's metri.info account too.
+--
+-- Overwriting first matters: DROP COLUMN rewrites the table but SQLite makes no
+-- promise about zeroing freed pages, so the old bytes could linger in the file.
+-- After this, the only value that can survive is a constant.
+UPDATE users SET password_hash = 'legacy-purged', password_salt = 'legacy-purged';

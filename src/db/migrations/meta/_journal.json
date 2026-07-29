@@ -99,6 +99,20 @@
       "when": 1784069608013,
       "tag": "0013_freezing_tinkerer",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1784069609013,
+      "tag": "0014_purge_legacy_password_hashes",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1785295326014,
+      "tag": "0015_drop_legacy_password_columns",
+      "breakpoints": true
     }
   ]
 }

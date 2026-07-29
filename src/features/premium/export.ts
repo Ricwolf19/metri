@@ -12,7 +12,7 @@ import { reminders, setLogs, userPrograms, users, workoutLogs } from '@/db/schem
  */
 const buildExport = (userId: string) => {
   const [u] = db.select().from(users).where(eq(users.id, userId)).all();
-  const user = u ? { ...u, passwordHash: undefined, passwordSalt: undefined } : null;
+  const user = u ?? null;
 
   const logs = db.select().from(workoutLogs).where(eq(workoutLogs.userId, userId)).all();
   const logIds = logs.map((l) => l.id);

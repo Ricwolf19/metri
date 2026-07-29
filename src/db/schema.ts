@@ -37,9 +37,8 @@ export const users = sqliteTable('users', {
   email: text('email').notNull().unique(),
   username: text('username').notNull().unique(),
 
-  // Auth — password is salted + stretched (see `@/lib/crypto`). Never store plaintext.
-  passwordHash: text('password_hash').notNull(),
-  passwordSalt: text('password_salt').notNull(),
+  // No credential material lives here. Authentication is Better Auth against the
+  // metri.info backend; this row is only the local mirror of that account.
   role: text('role').$type<UserRole>().notNull().default('user'),
   // Entitlement plan, mirrored from the remote Better Auth session (the server
   // is authoritative). Cached locally so the badge/gate resolve offline.
@@ -74,8 +73,8 @@ export const users = sqliteTable('users', {
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
-/** The user object exposed to the UI — never carries the password material. */
-export type PublicUser = Omit<User, 'passwordHash' | 'passwordSalt'>;
+/** Alias kept so call sites read intentionally; the row carries no secrets. */
+export type PublicUser = User;
 
 /** How often a reminder repeats. */
 export type ReminderFrequency = 'daily' | 'weekly';
