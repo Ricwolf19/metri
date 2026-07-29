@@ -1,0 +1,80 @@
+name: Beta APK
+
+# Builds a sideloadable APK and publishes it to the `apk-beta` rolling
+# pre-release, which is what the metri.info download page links to.
+#
+# Two triggers on purpose:
+#   workflow_call     — invoked by release-please.yml when a release is cut.
+#                       A `release: published` trigger would NOT work: that
+#                       release is created with GITHUB_TOKEN, and GitHub does
+#                       not fire workflows from token-generated events.
+#   workflow_dispatch — manual button, for refreshing the APK without cutting
+#                       a release.
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  apk:
+    name: Build and publish beta APK
+    runs-on: ubuntu-latest
+    # A cloud build runs ~30-60 min (queue included). Cap it so a hung EAS job
+    # fails in an hour instead of burning the 6h default.
+    timeout-minutes: 90
+    # The repo default for GITHUB_TOKEN is read-only; the upload needs write.
+    # Scoped to this job rather than the whole workflow.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Guard EXPO_TOKEN
+        id: guard
+        run: |
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
+            echo "EXPO_TOKEN not set — skipping APK build."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: ./.github/actions/setup-repo
+        if: ${{ steps.guard.outputs.skip != 'true' }}
+        with:
+          cache: true
+
+      - name: Setup EAS
+        if: ${{ steps.guard.outputs.skip != 'true' }}
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      # `preview` produces an APK. The `production` profile builds an AAB, which
+      # can only be submitted to Play Store — it cannot be sideloaded.
+      # `--wait` blocks until the build finishes; `--output` downloads it.
+      - name: Build APK
+        if: ${{ steps.guard.outputs.skip != 'true' }}
+        run: |
+          eas build --platform android --profile preview \
+            --non-interactive --wait --output "${{ runner.temp }}/metri.apk"
+
+      # The tag (`apk-beta`) and the asset name (`metri.apk`) are both
+      # load-bearing: metri.info hard-codes
+      # releases/download/apk-beta/metri.apk. Marked --prerelease so it never
+      # becomes "latest" and never interferes with release-please's semver
+      # releases.
+      #
+      # Only the asset is replaced on each run — the release body is written by
+      # hand (EN + ES install instructions) and must survive rebuilds, so this
+      # never edits it. The placeholder below is only used the very first time,
+      # if the release doesn't exist yet.
+      - name: Publish to the rolling beta release
+        if: ${{ steps.guard.outputs.skip != 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view apk-beta --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+            gh release create apk-beta --repo "$GITHUB_REPOSITORY" --prerelease \
+              --title "Metri Beta — Android APK" \
+              --notes "Beta build. Install instructions pending — see https://metri.info/download"
+          gh release upload apk-beta "${{ runner.temp }}/metri.apk" \
+            --clobber --repo "$GITHUB_REPOSITORY"
