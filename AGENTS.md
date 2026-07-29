@@ -35,10 +35,12 @@ Package manager is **Bun**. Native code (MMKV) means the app runs on a **develop
 bun start              # Metro dev server (press a / i to open on a running build)
 bun run android        # expo run:android — native build + run (needs JDK 17, see below)
 bun run ios            # expo run:ios — native build + run
-bun run verify         # format:check + lint + typecheck — the pre-commit gate; run before committing
+bun run verify         # format:check + lint + typecheck + i18n:check + deadcode — run before committing
+bun run ci             # verify + secrets:scan + expo-doctor — exact mirror of the CI quality job; pre-push runs this
 bun run typecheck      # tsc --noEmit
 bun run lint           # expo lint (ESLint)
-bun run deadcode       # knip — unused files / exports / deps
+bun run deadcode       # knip — unused files / exports / deps (a finding FAILS the gate; unexport or delete)
+bun run i18n:check     # scripts/check-i18n.ts — fails on dictionary keys no source file references
 bun run db:generate    # regenerate SQL migrations after editing src/db/schema.ts
 bun run db:studio      # Drizzle Studio
 ```
@@ -66,8 +68,8 @@ changes: edit `src/db/schema.ts` → `bun run db:generate` → the new SQL lands
 **Routing** is file-based via Expo Router under `src/app/`. Typed routes are enabled (`app.json`
 `experiments.typedRoutes`), as is the React Compiler (`experiments.reactCompiler`). Layout:
 `index.tsx` is the auth gate (redirects on the local session); `(auth)/` holds sign-in/sign-up;
-`(tabs)/` is the signed-in shell (Home, Tools, Reminders + an admin-only Admin tab; **Profile is
-`href: null`** — reached via the avatar in `TopBar`, not the tab bar). `onboarding.tsx` (root Stack)
+`(tabs)/` is the signed-in shell (Home, Tools, Docs, Profile — titled via `tab.config`; **Reminders is
+`href: null`**, reached from Home/pushed screens, not the tab bar). `onboarding.tsx` (root Stack)
 runs on first launch — `(tabs)/_layout` redirects there until `user.onboardedAt` is set. Pushed
 screens like `calculators/*.tsx` and `reminder-edit.tsx` also live at the root Stack. **Typed routes are generated from `.expo/types/`,
 which is gitignored — after adding/renaming a route, run `bun start` once (or `bun run typecheck`
@@ -76,17 +78,20 @@ will report unknown-route errors against a stale cache).**
 **Feature & UI layout** (organize by ownership — split a file only when a component is reused or
 large; keep tiny single-use presentational helpers co-located with their one screen):
 
-- `src/features/<domain>/` — feature logic + its own `components/`. `features/auth/` has `users.repo.ts`,
-  `auth-context.tsx`, `seed.ts`, and `components/` (`RoleGate`, `RoleBadge`); `features/bmr/` has
-  `calc.ts` (pure, synchronous BMR/TDEE math, safe on every keystroke) and `components/ActivityPicker`.
+- `src/features/<domain>/` — feature logic + its own `components/`. `features/auth/` has `users.repo.ts`
+  (local mirror rows; **no credential material, no admin seed** — accounts are server-owned),
+  `auth-client.ts` (Better Auth client), `auth-context.tsx`, `entitlements.ts`, and
+  `components/RoleBadge`; `features/bmr/` has `calc.ts` (pure, synchronous BMR/TDEE math, safe on
+  every keystroke) and `components/ActivityPicker`.
 - `src/components/ui/` — reusable primitives (`Button`, `Input`, `Card`, `Screen`, `SegmentedControl`,
   `Avatar`, `Toast`), one per file, imported from the `@/components/ui` barrel. `TopBar` is the navbar.
-- `src/components/icons/index.ts` — **Lucide** icons (`lucide-react-native`) re-exported under app names
-  (`HomeIcon`, `BellIcon`, `GearIcon`, …) so screens import a stable `<XIcon>` with `color`/`size`/
-  `strokeWidth`. Icon holders are typed `ComponentType<IconProps>` (Lucide icons are `forwardRef`, not
-  plain function components). Add one by mapping another Lucide icon in `index.ts`.
+- `src/components/icons/index.ts` — **Iconoir** icons (`iconoir-react-native`) re-exported under app
+  names (`HomeIcon`, `BellIcon`, `GearIcon`, …) so screens import a stable `<XIcon>` with `color`/
+  `size`/`strokeWidth` (the `sized` wrapper maps `size` to width/height). Add one by mapping another
+  Iconoir icon in `index.ts`.
 - **Auth/session:** `useAuth()` (from `features/auth/auth-context`) exposes the current `PublicUser`,
-  `signIn/signUp/signOut`, `updateMyProfile`, `updateMyAccount` (email/username), `changeMyPassword`,
+  `signInRemote/signUpRemote/signOut`, `updateMyProfile`, `updateMyAccount` (local username only — the
+  email is server-owned; editing it locally would orphan the mirror row), `changeMyPassword`,
   `finishOnboarding`, `reload`, and `hasRole`. The `users` row holds **no credential material** —
   passwords live only with Better Auth on the server (migrations 0014/0015 purged and dropped the old
   local `password_hash`/`password_salt`). Never reintroduce hashing on the device.
@@ -164,7 +169,8 @@ large; keep tiny single-use presentational helpers co-located with their one scr
   (`lime-400` = `#bef82b` accent, `ink-*` themeable scale, `accent` for accent text) rather than raw
   hex — the `ink-*`/`accent` tokens adapt to light/dark (see the Theme note above).
 - **Commits:** Conventional Commits enforced by commitlint. Husky runs `lint-staged` (prettier + eslint
-  - secretlint) pre-commit and `bun run verify` pre-push. Releases are automated via release-please.
+  - secretlint) pre-commit and `bun run ci` pre-push (the CI mirror — a green push cannot go red in
+    Actions). Releases are automated via release-please.
 
 ## CI & release
 
@@ -179,10 +185,15 @@ nothing pushes a new binary to anyone — every rule below follows from that. Fu
   git branch (`main`); the APK listens on the `beta` channel, which EAS links to a `beta` branch.
   `--auto` silently orphans every update. The build profile is still called `preview` (EAS's
   scaffolding name) — profile and channel names are independent, don't "align" them.
-- **`runtimeVersion` is `fingerprint` + `fingerprint.config.js` skipping `ExpoConfigVersions`.**
-  Don't switch back to `appVersion` and don't delete that config: either one makes every release bump
-  a new runtime version, which cuts existing installs off from OTA with no way to auto-deliver the
-  APK. Under fingerprint the runtime version tracks the native layer only.
+- **`runtimeVersion` is `fingerprint` + `fingerprint.config.js` skipping `ExpoConfigVersions` and
+  `ExpoConfigExtraSection`.** Don't switch back to `appVersion` and don't delete that config: either
+  one makes every release bump a new runtime version, which cuts existing installs off from OTA with
+  no way to auto-deliver the APK. Under fingerprint the runtime version tracks the native layer only;
+  the extra-section skip keeps the env-dependent `extra.apiUrl` from forking the hash per context.
+- **The API URL fails safe to production.** `app.config.ts` picks `10.0.2.2` only when
+  `NODE_ENV === 'development'`; unset NODE_ENV (EAS builder, CI) must resolve `https://metri.info`,
+  and `eas.json` + `eas-update.yml` pin `EXPO_PUBLIC_AUTH_URL` on top. Don't flip the ternary back to
+  `=== 'production'` — that shipped an APK pointing at the emulator's localhost.
 - **The `apk-beta` tag and the `metri.apk` asset name are hard-coded by metri.info.** Renaming either
   breaks the public download link. The release notes are hand-written — only the assets are replaced.
 - **Version lives in three files**, all bumped by release-please: `package.json`, `CHANGELOG.md`, and

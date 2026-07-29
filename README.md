@@ -107,14 +107,14 @@ or changing the app icon / `app.json` / `metro.config.js` requires a rebuild.
 ## Running from Scratch / Resetting Local Data
 
 metri keeps **training data on-device** (SQLite + MMKV), so wiping the app's storage makes the next
-launch re-run migrations from an empty database and re-seed the master admin. The account itself
+launch re-run migrations from an empty database and re-seed the exercise catalog. The account itself
 lives on the web backend, and so does anything already pushed by Premium cloud sync — neither is
 cleared by a reinstall.
 
 ```bash
 # Android — uninstall removes the app + its SQLite/MMKV data, then reinstall
 adb uninstall com.ricwolf19.metri
-bunx expo run:android            # migrations + admin seed run automatically on first launch
+bunx expo run:android            # migrations + training seed run automatically on first launch
 
 # iOS simulator
 xcrun simctl uninstall booted com.ricwolf19.metri
@@ -138,8 +138,9 @@ bunx expo run:android            # or: bunx expo run:ios
 bun run db:generate
 ```
 
-> The master admin is seeded from `EXPO_PUBLIC_ADMIN_*` (see `.env.example`); set those **before**
-> building, since `EXPO_PUBLIC_*` values are baked into the bundle at build time.
+> No env vars are needed to build or run. Accounts live on the metri.info backend (Better Auth) —
+> there is no local admin seed. The only optional variable is `EXPO_PUBLIC_AUTH_URL` to point a dev
+> build at a different backend origin (documented in `app.config.ts`).
 
 ---
 
@@ -279,11 +280,13 @@ Database migrations are generated with Drizzle Kit and applied automatically on 
 bun start              # Start the Metro dev server
 bun run android        # Build + run on Android
 bun run ios            # Build + run on iOS
-bun run verify         # format:check + lint + typecheck (pre-commit gate)
+bun run verify         # format:check + lint + typecheck + i18n:check + deadcode
+bun run ci             # verify + secrets:scan + doctor — mirrors the GitHub CI quality job (pre-push hook)
 bun run typecheck      # tsc --noEmit
 bun run lint           # ESLint (expo lint)
 bun run format         # Prettier write
-bun run deadcode       # knip — report unused files, exports and dependencies
+bun run deadcode       # knip — unused files, exports and dependencies (fails the gate)
+bun run i18n:check     # fail on i18n dictionary keys that no source file references
 bun run secrets:scan   # secretlint over the repo
 bun run db:generate    # Generate SQL migrations from the Drizzle schema
 bun run db:studio      # Open Drizzle Studio
@@ -345,12 +348,20 @@ next release.
   what it actually is, a public beta. Renaming the channel orphans every existing install until its
   owner manually re-downloads, so treat it as immutable once testers are out there.
 - **`runtimeVersion` follows the `fingerprint` policy**, with `fingerprint.config.js` skipping
-  `ExpoConfigVersions`. That combination is deliberate: the app is sideloaded, so nothing pushes a
-  new APK to anyone. Under the old `appVersion` policy every release froze existing installs out of
-  OTA silently. With the fingerprint, the runtime version tracks the _native_ layer only — JS-only
-  releases keep reaching every install, and a native change correctly cuts them off until they grab
-  the new APK. `ExpoConfigVersions` is not in @expo/fingerprint's defaults, so without the config
-  file the version bump alone would change the hash and nothing would be gained.
+  `ExpoConfigVersions` and `ExpoConfigExtraSection`. That combination is deliberate: the app is
+  sideloaded, so nothing pushes a new APK to anyone. Under the old `appVersion` policy every release
+  froze existing installs out of OTA silently. With the fingerprint, the runtime version tracks the
+  _native_ layer only — JS-only releases keep reaching every install, and a native change correctly
+  cuts them off until they grab the new APK. Neither skip is in @expo/fingerprint's defaults:
+  without `ExpoConfigVersions` the release bump alone would change the hash, and without
+  `ExpoConfigExtraSection` the env-dependent `extra.apiUrl` made the _same commit_ produce different
+  runtime versions in different contexts.
+- **The API URL defaults to production.** `app.config.ts` only picks the dev URL (`10.0.2.2`, the
+  emulator's host loopback) when `NODE_ENV` is explicitly `development` — which the Expo dev server
+  sets. The config is also evaluated in contexts with no `NODE_ENV` at all (the EAS builder's
+  manifest step, `eas update` in CI), and the first beta APK shipped pointing at the emulator's
+  localhost because the old code treated "not production" as "development". Belt and braces, the
+  `preview`/`production` build profiles and the OTA workflow also pin `EXPO_PUBLIC_AUTH_URL`.
 - **The `apk-beta` tag and the `metri.apk` asset name are a public contract.** metri.info hard-codes
   `releases/download/apk-beta/metri.apk`. Renaming either breaks the download page.
 - **The release body is written by hand** (EN + ES install instructions) and must survive rebuilds,
