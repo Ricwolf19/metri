@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.5.0](https://github.com/Ricwolf19/metri/compare/metri-v1.4.0...metri-v1.5.0) (2026-07-29)
+
+
+### Features
+
+* **beta:** add an in-app beta programme screen and home banner ([a9f7bad](https://github.com/Ricwolf19/metri/commit/a9f7baddf992795e5c12ed0215177e913848fc49))
+
+
+### Bug Fixes
+
+* **ci:** download the eas artifact and ship on the beta channel ([ee98d84](https://github.com/Ricwolf19/metri/commit/ee98d84d4154c5e90932a121fa9bcea4758f7579))
+* **updates:** track the native layer with a fingerprint runtime version ([d42b072](https://github.com/Ricwolf19/metri/commit/d42b0728314e520ba2c006631368f37bfcaec846))
+
 ## [1.4.0](https://github.com/Ricwolf19/metri/compare/metri-v1.3.0...metri-v1.4.0) (2026-07-29)
 
 
