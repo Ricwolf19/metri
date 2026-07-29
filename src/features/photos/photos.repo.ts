@@ -1,4 +1,4 @@
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import { progressPhotos, type ProgressPhoto } from '@/db/schema';
@@ -14,8 +14,15 @@ export const photosQuery = (userId: string) =>
     .where(eq(progressPhotos.userId, userId))
     .orderBy(desc(progressPhotos.takenAt));
 
-export const getPhoto = (id: string): ProgressPhoto | null => {
-  const [row] = db.select().from(progressPhotos).where(eq(progressPhotos.id, id)).all();
+/** Scoped by owner on purpose: `/progress/[id]` is reachable through the
+ * `metri://` deep link, so an id alone must not surface — or allow deleting — a
+ * photo belonging to another account on a shared device. */
+export const getPhoto = (id: string, userId: string): ProgressPhoto | null => {
+  const [row] = db
+    .select()
+    .from(progressPhotos)
+    .where(and(eq(progressPhotos.id, id), eq(progressPhotos.userId, userId)))
+    .all();
   return row ?? null;
 };
 
@@ -43,13 +50,18 @@ export const addPhoto = async (
   return row;
 };
 
-export const updatePhotoDate = (id: string, takenAt: Date): void => {
-  db.update(progressPhotos).set({ takenAt }).where(eq(progressPhotos.id, id)).run();
+export const updatePhotoDate = (id: string, userId: string, takenAt: Date): void => {
+  db.update(progressPhotos)
+    .set({ takenAt })
+    .where(and(eq(progressPhotos.id, id), eq(progressPhotos.userId, userId)))
+    .run();
 };
 
-export const deletePhoto = (id: string): void => {
-  const existing = getPhoto(id);
+export const deletePhoto = (id: string, userId: string): void => {
+  const existing = getPhoto(id, userId);
   if (!existing) return;
   deletePhotoFiles(existing.uri, existing.thumbUri);
-  db.delete(progressPhotos).where(eq(progressPhotos.id, id)).run();
+  db.delete(progressPhotos)
+    .where(and(eq(progressPhotos.id, id), eq(progressPhotos.userId, userId)))
+    .run();
 };

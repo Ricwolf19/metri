@@ -6,6 +6,7 @@ import { Pressable, Text, View } from 'react-native';
 import { ChevronRightIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import { Button, Card, DatePicker, FadeInUp, Screen, useToast } from '@/components/ui';
+import { useAuth } from '@/features/auth/auth-context';
 import { deletePhoto, getPhoto, updatePhotoDate } from '@/features/photos/photos.repo';
 import { useT } from '@/i18n';
 
@@ -14,20 +15,24 @@ const PhotoViewer = () => {
   const router = useRouter();
   const toast = useToast();
   const t = useT();
+  const { user } = useAuth();
 
-  const photo = typeof id === 'string' ? getPhoto(id) : null;
+  // Deep-linkable route (`metri://progress/<id>`), so the lookup is owner-scoped
+  // and an unauthenticated hit bounces instead of rendering.
+  const photo = typeof id === 'string' && user ? getPhoto(id, user.id) : null;
   const [date, setDate] = useState(() => photo?.takenAt ?? new Date());
   const [editingDate, setEditingDate] = useState(false);
 
+  if (!user) return <Redirect href="/(auth)/sign-in" />;
   if (!photo) return <Redirect href="/progress" />;
 
   const onChangeDate = (d: Date) => {
     setDate(d);
-    updatePhotoDate(photo.id, d);
+    updatePhotoDate(photo.id, user.id, d);
   };
 
   const onDelete = () => {
-    deletePhoto(photo.id);
+    deletePhoto(photo.id, user.id);
     toast.success(t('photos.deletedToast'));
     router.back();
   };

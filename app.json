@@ -12,6 +12,7 @@
     },
     "android": {
       "package": "com.ricwolf19.metri",
+      "allowBackup": false,
       "adaptiveIcon": {
         "backgroundColor": "#0c0c0c",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { AppState } from 'react-native';
 
 import type { PublicUser, UserRole } from '@/db/schema';
 import { session } from '@/lib/storage';
@@ -126,6 +127,61 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     },
     [user],
   );
+
+  /**
+   * Reconcile the local session with the server's.
+   *
+   * The gate used to be `!!user`, derived purely from an unencrypted MMKV id —
+   * so a deleted, suspended or remotely signed-out account stayed unlocked
+   * forever, and writing that key on a rooted device was a full bypass.
+   *
+   * Offline-first constrains the fix: only an *explicit* "no session" from the
+   * server signs the user out. A network failure leaves local state untouched,
+   * so the app keeps working at the gym with no signal. A successful check also
+   * refreshes the cached `plan`, which is what gates sync.
+   */
+  const revalidate = useCallback(async () => {
+    const before = session.getUserId();
+    if (!before) return;
+
+    // Offline or unreachable resolves to null and is treated as "keep the local
+    // session" — only an explicit no-session response signs the user out.
+    const res = await authClient.getSession().catch(() => null);
+    if (!res || res.error) return;
+
+    // The user may have signed out while this was in flight; re-applying the
+    // resolved session would silently sign them back in.
+    if (session.getUserId() !== before) return;
+
+    if (!res.data?.user) {
+      session.clear();
+      setUser(null);
+      return;
+    }
+    const local = await upsertRemoteUser({
+      email: res.data.user.email,
+      displayName: res.data.user.name,
+      plan: (res.data.user as { plan?: string }).plan,
+    });
+    if (session.getUserId() !== before) return;
+    session.setUserId(local.id);
+    setUser(local);
+  }, []);
+
+  useEffect(() => {
+    // `.catch` on both call sites: `upsertRemoteUser` can throw (unique
+    // email/username, SQLite), and a bare `void` would surface that as an
+    // unhandled rejection nobody sees in production.
+    const run = () => void revalidate().catch(() => {});
+    const timer = setTimeout(run, 0);
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') run();
+    });
+    return () => {
+      clearTimeout(timer);
+      sub.remove();
+    };
+  }, [revalidate]);
 
   const hasRole = useCallback((role: UserRole) => user?.role === role, [user]);
   const can = useCallback((feature: Feature) => canFeature(user?.plan, feature), [user]);
