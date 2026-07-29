@@ -16,7 +16,7 @@
     },
     "preview": {
       "distribution": "internal",
-      "channel": "preview",
+      "channel": "beta",
       "android": {
         "buildType": "apk"
       },

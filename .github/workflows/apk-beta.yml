@@ -48,14 +48,28 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      # `preview` produces an APK. The `production` profile builds an AAB, which
-      # can only be submitted to Play Store — it cannot be sideloaded.
-      # `--wait` blocks until the build finishes; `--output` downloads it.
+      # `preview` produces an APK on the `beta` channel — the same channel
+      # eas-update.yml publishes to, so a fresh sideload keeps receiving OTA
+      # updates. The profile name is EAS's scaffolding convention and stays;
+      # the channel is what the binary listens on. The `production` profile
+      # builds an AAB, which can only be submitted to Play Store.
+      # `--wait` blocks until the build finishes. `--output` is NOT usable here:
+      # EAS rejects it for cloud builds ("allowed only for local builds"), so the
+      # artifact is pulled from the URL that `--json` reports once the build ends.
       - name: Build APK
         if: ${{ steps.guard.outputs.skip != 'true' }}
         run: |
           eas build --platform android --profile preview \
-            --non-interactive --wait --output "${{ runner.temp }}/metri.apk"
+            --non-interactive --wait --json > "${{ runner.temp }}/build.json"
+          url=$(jq -r \
+            '.[0].artifacts.applicationArchiveUrl // .[0].artifacts.buildUrl // empty' \
+            "${{ runner.temp }}/build.json")
+          if [ -z "$url" ]; then
+            echo "EAS returned no artifact URL — build result:" >&2
+            cat "${{ runner.temp }}/build.json" >&2
+            exit 1
+          fi
+          curl -fsSL "$url" -o "${{ runner.temp }}/metri.apk"
 
       # The tag (`apk-beta`) and the asset name (`metri.apk`) are both
       # load-bearing: metri.info hard-codes
@@ -76,5 +90,12 @@ jobs:
             gh release create apk-beta --repo "$GITHUB_REPOSITORY" --prerelease \
               --title "Metri Beta — Android APK" \
               --notes "Beta build. Install instructions pending — see https://metri.info/download"
-          gh release upload apk-beta "${{ runner.temp }}/metri.apk" \
+          # Sideloaded installs bypass Play integrity checks, so publish the
+          # SHA-256 next to the artifact for manual verification.
+          (cd "${{ runner.temp }}" && sha256sum metri.apk > metri.apk.sha256)
+          gh release upload apk-beta \
+            "${{ runner.temp }}/metri.apk" \
+            "${{ runner.temp }}/metri.apk.sha256" \
             --clobber --repo "$GITHUB_REPOSITORY"
+          echo "APK SHA-256: $(cut -d' ' -f1 "${{ runner.temp }}/metri.apk.sha256")" \
+            >> "$GITHUB_STEP_SUMMARY"

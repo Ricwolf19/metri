@@ -38,6 +38,13 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
+      # `--channel`, not `--auto`. `--auto` publishes to an EAS branch named
+      # after the git branch (`main`), but EAS links a channel to a branch of
+      # the SAME name — so the `beta` channel that the sideloaded APK listens on
+      # would never see updates pushed to `main`. Targeting the channel lets EAS
+      # resolve the branch on its side.
       - name: Publish update
         if: ${{ steps.guard.outputs.skip != 'true' }}
-        run: eas update --auto --non-interactive
+        run: |
+          eas update --channel beta --non-interactive \
+            --message "$(git log -1 --pretty=%s)"
