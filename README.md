@@ -22,17 +22,29 @@ metri is a mobile workout tracker built for people who train seriously and want 
 to be **fast, private, and always available** — even with no connection at the gym.
 
 The whole app runs **offline-first**: the database lives on your device and is the single
-source of truth. There is no spinner waiting on a server to log a set. A cloud layer for
-multi-device sync is planned, but the app is fully usable without ever signing in.
+source of truth. There is no spinner waiting on a server to log a set.
+
+metri asks for a **free account** on first launch — email and password, or Google / GitHub.
+No payment, no card, no trial: the account identifies you so your training can sync across
+devices, and it stays free.
+
+> **Create it in the app, or ahead of time at
+> [metri.info/sign-up](https://metri.info/sign-up)** ([español](https://metri.info/es/registrarse)).
+> It is the same account either way — the app authenticates against the web backend, so the
+> credentials you register in the browser work directly on your phone.
+
+The [web app](https://metri.info) itself is the opposite — its calculators and guides are
+open to everyone with no sign-up at all.
 
 - **Instant logging** — the UI reads straight from on-device SQLite, no network round-trips.
-- **Your data stays yours** — nothing leaves the phone until you opt into sync.
-- **Built for lifters** — the roadmap targets estimated 1RM, weekly volume, and PR tracking.
+- **Your data stays yours** — nothing leaves the phone until you turn on cloud sync, an
+  opt-in Premium feature. Progress photos are never uploaded.
+- **Built for lifters** — 16 calculators, an evidence-based knowledge base, and a training
+  tracker with routines, history and reminders.
 
-> **Status:** this repository currently contains the **project setup and foundation** only.
-> The data model, screens, and features are intentionally deferred to later iterations. What
-> exists today is a working base: the app builds, runs on a development build, and has the
-> offline-first data layer wired end to end.
+> **Status:** **open beta on Android**, distributed as a direct APK download from
+> [metri.info/download](https://metri.info/download) while the Play Store listing is
+> prepared. iOS is not available yet — Apple requires TestFlight for betas.
 
 ## Table of Contents
 
@@ -93,8 +105,10 @@ or changing the app icon / `app.json` / `metro.config.js` requires a rebuild.
 
 ## Running from Scratch / Resetting Local Data
 
-metri keeps **everything on-device** (SQLite + MMKV) — there is no server to reset. Wiping the app's
-storage makes the next launch re-run migrations from an empty database and re-seed the master admin.
+metri keeps **training data on-device** (SQLite + MMKV), so wiping the app's storage makes the next
+launch re-run migrations from an empty database and re-seed the master admin. The account itself
+lives on the web backend, and so does anything already pushed by Premium cloud sync — neither is
+cleared by a reinstall.
 
 ```bash
 # Android — uninstall removes the app + its SQLite/MMKV data, then reinstall

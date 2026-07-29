@@ -11,9 +11,13 @@ _Last updated: 2026._
 
 ## Privacy
 
-metri is **offline-first**. Your account, profile, body metrics, reminders and progress photos are stored **only on this device** — in a local database and local files. We do **not** collect, transmit, or sell your data, and there is no account server.
+metri needs a **free account** to use the app — an email and password, or Google / GitHub. There is no payment, no card and no trial: signing up is free and stays free. We store your email and name to identify the account, nothing else.
 
-If a future version adds cloud sync, it will be clearly **opt-in** and explained before you enable it.
+Beyond the account, metri is **offline-first**. Your profile, body metrics, reminders, training history and progress photos live **only on this device** — in a local database and local files. We do **not** sell your data.
+
+**Cloud sync** is a Premium feature. Without Premium it **never runs** and nothing leaves your device. With Premium it is **automatic**: your training data is copied to our servers whenever the app opens or regains connection, so your other devices can read it back. There is no button and no toggle — the ring around your avatar shows the current status.
+
+What syncs: exercises, programs, routines, workouts and set logs. What does **not**: your progress photos, your reminders, and your account password — those stay on this device (or, for the password, only ever with our authentication provider). To stop syncing, cancel Premium.
 
 ### Permissions
 
@@ -34,9 +38,13 @@ _Última actualización: 2026._
 
 ## Privacidad
 
-metri es **offline-first**. Tu cuenta, perfil, métricas corporales, recordatorios y fotos de progreso se guardan **solo en este dispositivo** — en una base de datos y archivos locales. **No** recopilamos, transmitimos ni vendemos tus datos, y no hay servidor de cuentas.
+metri necesita una **cuenta gratuita** para usar la app — un correo y contraseña, o Google / GitHub. No hay pagos, ni tarjeta, ni periodo de prueba: registrarte es gratis y seguirá siéndolo. Guardamos tu correo y tu nombre para identificar la cuenta, nada más.
 
-Si una versión futura agrega sincronización en la nube, será claramente **opcional** y se explicará antes de activarla.
+Más allá de la cuenta, metri es **offline-first**. Tu perfil, métricas corporales, recordatorios, historial de entrenamiento y fotos de progreso viven **solo en este dispositivo** — en una base de datos y archivos locales. **No** vendemos tus datos.
+
+La **sincronización en la nube** es una función de Premium. Sin Premium **nunca se ejecuta** y nada sale de tu dispositivo. Con Premium es **automática**: tus datos de entrenamiento se copian a nuestros servidores cada vez que abres la app o recuperas conexión, para que tus otros dispositivos puedan leerlos. No hay botón ni interruptor — el anillo alrededor de tu avatar muestra el estado actual.
+
+Qué se sincroniza: ejercicios, programas, rutinas, entrenamientos y series registradas. Qué **no**: tus fotos de progreso, tus recordatorios y tu contraseña — eso se queda en este dispositivo (o, en el caso de la contraseña, solo con nuestro proveedor de autenticación). Para dejar de sincronizar, cancela Premium.
 
 ### Permisos
 

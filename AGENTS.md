@@ -7,16 +7,25 @@ This file provides guidance to AI agents when working with code in this reposito
 ## Project
 
 **metri** — offline-first workout tracker (Expo SDK 56, React Native 0.85, TypeScript strict).
-On top of the offline-first foundation, the app now has **local authentication**, a tabbed shell
-(navbar + bottom tabs), profile management, and its first tool — a **Harris–Benedict BMR
-calculator**. The training domain model (exercises, workouts, sets) is still deferred.
+On top of the offline-first foundation the app has **authentication**, a tabbed shell (navbar +
+bottom tabs), profile management, 16 calculators, an MDX knowledge base and a full training domain
+(exercises, workouts, sets, routines, history, reminders).
 
-`src/db/schema.ts` has the `app_meta` plumbing table plus a `users` table that backs local auth and
-the per-user profile (incl. body metrics + latest BMR/TDEE). Auth is intentionally **local-only**
-for v1 (no server): passwords are salted + key-stretched with `expo-crypto`, the session id lives in
-MMKV, and roles (`admin`/`user`) gate sections. When a cloud mirror (PostgreSQL + Better Auth) lands
-later, these columns map across 1:1 and local becomes the synced offline cache — so Better Auth is
-deliberately NOT pulled in yet.
+**An account is required.** `src/app/index.tsx` is the entry gate: no session → `/(auth)/sign-in`.
+Sign-up is free — no payment, card or trial — and auth runs through **Better Auth** against the web
+backend (`@better-auth/expo`, `metri://` scheme, session in SecureStore). This is a change from v1's
+local-only auth; `src/db/schema.ts` still keeps the local `users` table as the offline cache.
+
+Contrast with the web (`metri.info`), which is **open**: its calculators and guides need no account
+at all. Only the mobile app gates on sign-in. Keep this distinction accurate in every user-facing
+string and in the in-app legal copy (`src/features/legal/content.ts`) — it is a privacy claim, not
+marketing.
+
+**Cloud sync** is a Premium feature (`src/features/sync/`, gated via
+`src/features/auth/entitlements.ts` — check `can(plan, feature)`, never `plan === 'premium'`).
+Without Premium it **never runs**; with Premium it is **automatic** — no button, no toggle.
+Progress photos and reminders are never uploaded. This wording is a privacy claim that must stay in
+sync with `src/features/legal/content.ts`; see the Architecture section for the mechanics.
 
 ## Commands
 
@@ -78,9 +87,11 @@ large; keep tiny single-use presentational helpers co-located with their one scr
   plain function components). Add one by mapping another Lucide icon in `index.ts`.
 - **Auth/session:** `useAuth()` (from `features/auth/auth-context`) exposes the current `PublicUser`,
   `signIn/signUp/signOut`, `updateMyProfile`, `updateMyAccount` (email/username), `changeMyPassword`,
-  `finishOnboarding`, `reload`, and `hasRole`. Never surface `passwordHash`/`passwordSalt` — the repo's
-  `PublicUser` already strips them. The master admin is seeded on first launch from `EXPO_PUBLIC_ADMIN_*`
-  env vars (see `.env.example`); seeding is idempotent.
+  `finishOnboarding`, `reload`, and `hasRole`. The `users` row holds **no credential material** —
+  passwords live only with Better Auth on the server (migrations 0014/0015 purged and dropped the old
+  local `password_hash`/`password_salt`). Never reintroduce hashing on the device.
+  `useAuth` also revalidates the local session against the server on mount and on foreground; only an
+  explicit "no session" signs the user out, so an offline device stays usable.
 - **i18n:** EN/ES via `src/i18n/` — a typed, dependency-free dictionary (`en.ts` is the key source of
   truth; `es.ts` must cover every key). Use `const t = useT()` then `t('section.key', { name })`; the
   active locale lives in MMKV (`settings.getLocale()` → null until chosen, then defaults to the device
@@ -115,7 +126,25 @@ large; keep tiny single-use presentational helpers co-located with their one scr
   Reached via `/progress` (Home card + Profile row, **not a tab**) → `progress/[id].tsx` viewer
   (date editable via the wheel `DatePicker`). The gallery groups by day/week/month (`period.ts`) and
   `progress/compare.tsx` does before/after side-by-side.
-  **Native — needs a rebuild.** Cloud sync (Supabase/R2) is the later step.
+  **Native — needs a rebuild.** Photos are deliberately **not** synced (their URIs are local paths).
+- **Cloud sync** (`src/features/sync/`) — Premium only, and **automatic**: there is no button and no
+  opt-in toggle. `useAutoSync` (mounted once in `(tabs)/_layout.tsx`) fires on mount, on foreground,
+  and on regaining connectivity. Without the `sync` entitlement it never runs.
+  - `engine.ts` — `syncNow()` does push-then-pull. Push gathers rows whose change timestamp beats a
+    per-user **watermark** (`state.ts`, MMKV) plus a **tombstone queue** (`sync_deletions`); pull
+    reads by a server-time **cursor** and drains pages until `hasMore` clears.
+  - Three invariants that are easy to break, all of which were real bugs:
+    **(1)** every `applyRow` is individually try/caught — a throw used to skip `setCursor` and
+    permanently dead-lock sync, silently. **(2)** incoming keys are intersected against
+    `PRAGMA table_info`, so a row from a newer app version doesn't throw `no such column` (and a
+    crafted key isn't a SQL-injection primitive). **(3)** a table with a secondary unique index
+    (`training_days` on `user_id,date`) needs an `EXTRA_UNIQUE` entry — `on conflict(id)` alone
+    throws when two devices create the same logical row with different ids.
+  - Adding a synced table means editing `tables.ts` **and** `SYNC_TABLES` in the web repo's
+    `lib/sync/contract.ts`. Synced column names are a wire format: **add, never rename.**
+  - Status is published to `status.ts` and rendered by `SyncRing` around the avatar in `TopBar` —
+    that ring is the only user-facing signal; failures never toast.
+  - Full protocol, server-side rules and limits: **`docs/sync.md` in the metri.info repo.**
 - **Animations** use the built-in **RN `Animated`** API (no reanimated/worklets babel plugin is wired —
   don't reach for reanimated worklets). Reusables: `AppLoader` (branded loading screen), `FadeInUp`
   (mount entrance, stagger via `delay`), `PressableScale` (springy tap) + the `usePressScale` hook;
