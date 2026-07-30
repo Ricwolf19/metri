@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.1](https://github.com/Ricwolf19/metri/compare/metri-v1.5.0...metri-v1.5.1) (2026-07-30)
+
+
+### Bug Fixes
+
+* **config:** fail safe to the production api url ([8d17a31](https://github.com/Ricwolf19/metri/commit/8d17a3199b904e73cee4c97f355cc7f641c25a9b))
+
 ## [1.5.0](https://github.com/Ricwolf19/metri/compare/metri-v1.4.0...metri-v1.5.0) (2026-07-29)
 
 
