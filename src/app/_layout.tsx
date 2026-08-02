@@ -16,14 +16,15 @@ import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { AppLoader, ToastProvider } from '@/components/ui';
+import { AppLoader, DialogProvider, ToastProvider } from '@/components/ui';
 import { db } from '@/db/client';
 import migrations from '@/db/migrations/migrations';
 import { AuthProvider } from '@/features/auth/auth-context';
-import { initNotifications } from '@/features/reminders/scheduler';
-import { initRestNotifications } from '@/features/training/rest-timer';
+import { syncNotificationEvents } from '@/features/notifications/policies';
+import { initNotifications } from '@/features/notifications/service';
 import { seedTraining } from '@/features/training/seed';
 import { I18nProvider } from '@/i18n';
 import { ThemeProvider, useTheme } from '@/theme/theme-context';
@@ -64,8 +65,10 @@ const RootLayout = () => {
   // Reveal our animated AppLoader as soon as JS mounts (native splash → AppLoader).
   useEffect(() => {
     void SplashScreen.hideAsync();
-    void initNotifications().catch(() => {});
-    void initRestNotifications().catch(() => {});
+    // Channels/handler, then reconcile the daily check-in with current settings.
+    void initNotifications()
+      .then(() => syncNotificationEvents())
+      .catch(() => {});
   }, []);
 
   // Seed the built-in training catalog (exercise library + suggested programs)
@@ -95,17 +98,21 @@ const RootLayout = () => {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <I18nProvider>
-          <ThemeProvider>
-            <AuthProvider>
-              <ToastProvider>
-                <ThemedStack />
-              </ToastProvider>
-            </AuthProvider>
-          </ThemeProvider>
-        </I18nProvider>
-      </SafeAreaProvider>
+      <KeyboardProvider>
+        <SafeAreaProvider>
+          <I18nProvider>
+            <ThemeProvider>
+              <AuthProvider>
+                <ToastProvider>
+                  <DialogProvider>
+                    <ThemedStack />
+                  </DialogProvider>
+                </ToastProvider>
+              </AuthProvider>
+            </ThemeProvider>
+          </I18nProvider>
+        </SafeAreaProvider>
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 };

@@ -1,5 +1,5 @@
-import { ScrollView, View, type ViewProps } from 'react-native';
-import { KeyboardAvoidingView, Platform } from 'react-native';
+import { View, type ViewProps } from 'react-native';
+import { KeyboardAvoidingView, KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 
 type Props = ViewProps & {
@@ -10,7 +10,11 @@ type Props = ViewProps & {
 
 /**
  * Standard screen frame: safe-area aware, dark background, optional scroll +
- * keyboard avoidance. Use it as the outer wrapper for every screen.
+ * keyboard handling. Use it as the outer wrapper for every screen.
+ *
+ * Keyboard behavior comes from react-native-keyboard-controller (identical on
+ * iOS/Android, animated on the UI thread): scrollable screens auto-scroll the
+ * focused input above the keyboard; fixed screens pad instead.
  */
 export const Screen = ({
   scroll = false,
@@ -20,30 +24,26 @@ export const Screen = ({
   children,
   ...rest
 }: Props) => {
-  const Body = scroll ? (
-    <ScrollView
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-      contentContainerClassName={contentClassName}
-    >
-      {children}
-    </ScrollView>
-  ) : (
-    <View className={['flex-1', contentClassName ?? ''].join(' ')}>{children}</View>
-  );
-
   return (
     <SafeAreaView
       edges={edges}
       className={['flex-1 bg-ink-900', className ?? ''].join(' ')}
       {...rest}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        className="flex-1"
-      >
-        {Body}
-      </KeyboardAvoidingView>
+      {scroll ? (
+        <KeyboardAwareScrollView
+          bottomOffset={24}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          contentContainerClassName={contentClassName}
+        >
+          {children}
+        </KeyboardAwareScrollView>
+      ) : (
+        <KeyboardAvoidingView behavior="padding" className="flex-1">
+          <View className={['flex-1', contentClassName ?? ''].join(' ')}>{children}</View>
+        </KeyboardAvoidingView>
+      )}
     </SafeAreaView>
   );
 };

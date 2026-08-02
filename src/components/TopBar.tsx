@@ -1,56 +1,108 @@
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { useAuth } from '@/features/auth/auth-context';
+import { SyncPanel } from '@/features/sync/SyncPanel';
 import { SyncRing } from '@/features/sync/SyncRing';
 
-import { BookIcon } from './icons';
+import { HeaderMenu } from './HeaderMenu';
+import { BookIcon, FlaskIcon, HelpIcon } from './icons';
 import { Avatar } from './ui/Avatar';
 
 type Props = {
-  title: string;
+  /** Stack screens only — tab screens render no title (the tab label names them). */
+  title?: string;
   subtitle?: string;
   showBack?: boolean;
   showAvatar?: boolean;
   right?: React.ReactNode;
   /** When set, shows a "how to use" book button linking to that doc section. */
   docId?: string;
+  /** Tab screens: gear menu (settings / notifications / premium / legal). */
+  menu?: boolean;
+  /** Tab screens: quick-answers FAQ entry, next to the gear. */
+  showFaq?: boolean;
+  /** Tab screens: flask entry to the beta panel. */
+  showBeta?: boolean;
 };
 
 /**
  * The app navbar. Headers are disabled globally, so every screen renders this.
- * Left: optional back chevron + title/subtitle. Right cluster (most-important
- * last / rightmost): an optional action, then the avatar (always shown when
- * signed in) which deep-links to the profile.
+ * Tab layout: avatar + flask on the left, FAQ + gear on the right — no text
+ * (the bottom tab label already names the section). The avatar opens the sync
+ * status panel; the gear opens the overflow menu. Stack screens keep the
+ * back-chevron + title form.
  */
-export const TopBar = ({ title, subtitle, showBack, showAvatar = true, right, docId }: Props) => {
+export const TopBar = ({
+  title,
+  subtitle,
+  showBack,
+  showAvatar = true,
+  right,
+  docId,
+  menu,
+  showFaq,
+  showBeta,
+}: Props) => {
   const router = useRouter();
   const { user } = useAuth();
+  const [syncOpen, setSyncOpen] = useState(false);
 
   return (
     <View className="flex-row items-center justify-between gap-4 px-5 pb-4 pt-2">
-      <View className="flex-1 flex-row items-center">
+      <View className="flex-1 flex-row items-center gap-3">
         {showBack ? (
           <Pressable
             hitSlop={10}
             onPress={() => router.back()}
             accessibilityRole="button"
             accessibilityLabel="Go back"
-            className="mr-3 h-9 w-9 items-center justify-center rounded-full bg-ink-800"
+            className="h-9 w-9 items-center justify-center rounded-full bg-ink-800"
           >
             <Text className="text-lg text-ink-100">‹</Text>
           </Pressable>
         ) : null}
-        <View className="flex-1">
-          <Text className="text-2xl font-sans-bold text-ink-50" numberOfLines={1}>
-            {title}
-          </Text>
-          {subtitle ? (
-            <Text className="mt-0.5 text-sm text-ink-400" numberOfLines={1}>
-              {subtitle}
+        {showAvatar && user ? (
+          <>
+            <Pressable
+              hitSlop={8}
+              onPress={() => setSyncOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Sync status"
+            >
+              {/* The ring is the only sync indicator; tapping it opens the
+                  panel with the legend + recent activity (beta support). */}
+              <SyncRing size={32}>
+                <Avatar uri={user.avatarUri} size={32} />
+              </SyncRing>
+            </Pressable>
+            <SyncPanel visible={syncOpen} onClose={() => setSyncOpen(false)} />
+          </>
+        ) : null}
+        {showBeta ? (
+          <Pressable
+            hitSlop={8}
+            onPress={() => router.push('/beta')}
+            accessibilityRole="button"
+            accessibilityLabel="Beta"
+            className="h-9 w-9 items-center justify-center rounded-full border border-brand/30 bg-brand/10"
+          >
+            <FlaskIcon color="#bef82b" size={17} />
+          </Pressable>
+        ) : null}
+        {title ? (
+          <View className="flex-1">
+            <Text className="text-2xl font-sans-bold text-ink-50" numberOfLines={1}>
+              {title}
             </Text>
-          ) : null}
-        </View>
+            {subtitle ? (
+              <Text className="mt-0.5 text-sm text-ink-400" numberOfLines={1}>
+                {subtitle}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
       </View>
 
       <View className="flex-row items-center gap-3">
@@ -66,29 +118,18 @@ export const TopBar = ({ title, subtitle, showBack, showAvatar = true, right, do
           </Pressable>
         ) : null}
         {right}
-        {showAvatar && user ? (
+        {showFaq ? (
           <Pressable
             hitSlop={8}
-            onPress={() => router.push('/(tabs)/profile')}
+            onPress={() => router.push('/faq')}
             accessibilityRole="button"
-            accessibilityLabel="Open profile"
+            accessibilityLabel="FAQ"
+            className="h-9 w-9 items-center justify-center rounded-full bg-ink-800"
           >
-            {/* The ring is the app's only sync indicator — sync is automatic and
-                has no manual control, so this is where a premium user sees that
-                their data is safe, in flight, or stuck.
-                No star badge here: the ring only renders for premium, so it
-                already carries that meaning — and the badge's negative offsets
-                would overlap the ring band. */}
-            <SyncRing size={40}>
-              <Avatar
-                name={user.displayName ?? user.username}
-                uri={user.avatarUri}
-                color={user.avatarColor}
-                size={40}
-              />
-            </SyncRing>
+            <HelpIcon color="#a1a1aa" size={18} />
           </Pressable>
         ) : null}
+        {menu ? <HeaderMenu /> : null}
       </View>
     </View>
   );

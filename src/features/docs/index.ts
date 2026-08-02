@@ -4,7 +4,6 @@ import { en } from './content/en';
 import { es } from './content/es';
 import type { DocSection } from './types';
 
-export { DOC_CATEGORIES } from './types';
 export type { DocSection } from './types';
 
 export const getDocs = (locale: Locale): DocSection[] => (locale === 'es' ? es : en);

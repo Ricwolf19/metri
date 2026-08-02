@@ -15,9 +15,10 @@ const COLOR: Record<Exclude<SyncState, 'off'>, string> = {
   error: '#f87171', // red-400
 };
 
-/** States that breathe. A steady ring means "nothing is happening", which is
- * the desired resting state for both `synced` and `offline`. */
-const ANIMATED: ReadonlySet<SyncState> = new Set<SyncState>(['syncing', 'error']);
+/** Only `error` breathes: red is the one state that should pull the eye.
+ * `syncing` stays steady — cycles are short and a blinking blue ring on every
+ * foreground read as noise, not information. */
+const ANIMATED: ReadonlySet<SyncState> = new Set<SyncState>(['error']);
 
 /**
  * Status ring drawn around the avatar. Only premium users ever see it — the
@@ -48,9 +49,10 @@ export const SyncRing = ({
       return;
     }
     // Same shape as AppLoader's pulse so the app has one breathing rhythm.
+    // Gentle: small amplitude + slow period, so it draws attention without strobing.
     const step = (to: number) =>
-      Animated.timing(opacity, { toValue: to, duration: 950, useNativeDriver: true });
-    const loop = Animated.loop(Animated.sequence([step(0.35), step(1)]));
+      Animated.timing(opacity, { toValue: to, duration: 1300, useNativeDriver: true });
+    const loop = Animated.loop(Animated.sequence([step(0.55), step(1)]));
     loop.start();
     return () => loop.stop();
     // `state` is intentionally not a dep: a syncing -> error flip keeps the same

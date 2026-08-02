@@ -48,6 +48,8 @@ export const users = sqliteTable('users', {
   displayName: text('display_name'),
   avatarUri: text('avatar_uri'),
   avatarColor: text('avatar_color'),
+  // Preset SVG avatar key (see components/ui/avatars) — used when no photo is set.
+  avatarId: text('avatar_id'),
 
   // Body metrics — used to pre-fill the Harris–Benedict calculator and saved
   // back to the user "detail" on calculation. Latest snapshot only (no history yet).

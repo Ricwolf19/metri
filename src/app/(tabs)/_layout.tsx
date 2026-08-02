@@ -1,9 +1,15 @@
 import { Redirect, Tabs } from 'expo-router';
-import type { ComponentType } from 'react';
-import type { ColorValue } from 'react-native';
+import type { ComponentProps, ComponentType } from 'react';
+import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ActivityIcon, BookIcon, GearIcon, HomeIcon, type IconProps } from '@/components/icons';
+import {
+  CompassIcon,
+  DumbbellIcon,
+  GraphUpIcon,
+  HomeIcon,
+  type IconProps,
+} from '@/components/icons';
 import { useAuth } from '@/features/auth/auth-context';
 import { useAutoSync } from '@/features/sync/useAutoSync';
 import { useT } from '@/i18n';
@@ -14,17 +20,34 @@ const TAB_BAR = {
   light: { active: '#4d7c0f', inactive: '#a1a1aa', bg: '#ffffff', border: '#d6d6db' },
 };
 
+/** WhatsApp-style icon: a rounded pill behind the active tab's icon. */
 const TabBarIcon = ({
   Icon,
   color,
   focused,
 }: {
   Icon: ComponentType<IconProps>;
-  color: ColorValue;
+  color: string;
   focused: boolean;
 }) => {
-  return <Icon color={color as string} size={22} strokeWidth={focused ? 2.4 : 2} />;
+  const { scheme } = useTheme();
+  return (
+    <View
+      className={[
+        'h-7 w-14 items-center justify-center rounded-full',
+        focused ? (scheme === 'dark' ? 'bg-brand/15' : 'bg-brand-700/15') : '',
+      ].join(' ')}
+    >
+      <Icon color={color} size={20} strokeWidth={focused ? 2.4 : 2} />
+    </View>
+  );
 };
+
+/** No Android ripple — the active pill is the selection feedback; the default
+ * borderless splash reads cheap next to it. */
+const TabButton = (props: object) => (
+  <Pressable {...(props as ComponentProps<typeof Pressable>)} android_ripple={null} />
+);
 
 const TabsLayout = () => {
   const { isReady, isAuthenticated, user } = useAuth();
@@ -49,21 +72,22 @@ const TabsLayout = () => {
     <Tabs
       screenOptions={{
         headerShown: false,
-        // Icons only — labels overflow with five tabs across EN/ES; the title is
-        // still set per screen for screen readers.
-        tabBarShowLabel: false,
+        tabBarShowLabel: true,
         tabBarActiveTintColor: bar.active,
         tabBarInactiveTintColor: bar.inactive,
+        tabBarButton: TabButton,
+        tabBarLabelStyle: {
+          fontFamily: 'Geist_500Medium',
+          fontSize: 10,
+          marginTop: 2,
+        },
         tabBarStyle: {
           backgroundColor: bar.bg,
           borderTopColor: bar.border,
           borderTopWidth: 1,
-          // Reserve the device's bottom inset (gesture pill / home indicator) so
-          // the bar never sits under it on Android or iPhone. Kept compact to
-          // maximise usable screen space.
-          height: 46 + insets.bottom,
-          paddingBottom: insets.bottom + 3,
-          paddingTop: 7,
+          height: 60 + insets.bottom,
+          paddingBottom: insets.bottom + 6,
+          paddingTop: 6,
         },
       }}
     >
@@ -71,33 +95,38 @@ const TabsLayout = () => {
         name="index"
         options={{
           title: t('tab.home'),
-          tabBarIcon: (p) => <TabBarIcon Icon={HomeIcon} color={p.color} focused={p.focused} />,
+          tabBarIcon: (p) => (
+            <TabBarIcon Icon={HomeIcon} color={p.color as string} focused={p.focused} />
+          ),
         }}
       />
       <Tabs.Screen
-        name="tools"
+        name="training"
         options={{
-          title: t('tab.tools'),
-          tabBarIcon: (p) => <TabBarIcon Icon={ActivityIcon} color={p.color} focused={p.focused} />,
+          title: t('tab.train'),
+          tabBarIcon: (p) => (
+            <TabBarIcon Icon={DumbbellIcon} color={p.color as string} focused={p.focused} />
+          ),
         }}
       />
       <Tabs.Screen
-        name="docs"
+        name="metrics"
         options={{
-          title: t('tab.docs'),
-          tabBarIcon: (p) => <TabBarIcon Icon={BookIcon} color={p.color} focused={p.focused} />,
+          title: t('tab.progress'),
+          tabBarIcon: (p) => (
+            <TabBarIcon Icon={GraphUpIcon} color={p.color as string} focused={p.focused} />
+          ),
         }}
       />
-      {/* Config = the profile / settings section (also reachable via the avatar). */}
       <Tabs.Screen
-        name="profile"
+        name="explore"
         options={{
-          title: t('tab.config'),
-          tabBarIcon: (p) => <TabBarIcon Icon={GearIcon} color={p.color} focused={p.focused} />,
+          title: t('tab.explore'),
+          tabBarIcon: (p) => (
+            <TabBarIcon Icon={CompassIcon} color={p.color as string} focused={p.focused} />
+          ),
         }}
       />
-      {/* Reminders lives inside Tools now, not as a tab — but keep the route mounted. */}
-      <Tabs.Screen name="reminders" options={{ href: null }} />
     </Tabs>
   );
 };

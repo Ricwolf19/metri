@@ -1,9 +1,10 @@
 export { AppLoader } from './AppLoader';
-export { Avatar, AVATAR_COLORS } from './Avatar';
+export { Avatar } from './Avatar';
 export { BrandLogo } from './BrandLogo';
 export { Button } from './Button';
 export { Card } from './Card';
 export { DatePicker } from './DatePicker';
+export { DialogProvider, useDialog } from './Dialog';
 export { FadeInUp } from './FadeInUp';
 export { Input } from './Input';
 export { PressableScale } from './PressableScale';

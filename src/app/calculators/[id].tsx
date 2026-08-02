@@ -7,7 +7,7 @@ import type { CalcId } from '@/features/calculators/types';
 const CalculatorScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   if (!id || !(id in CALCULATORS)) {
-    return <Redirect href="/(tabs)/tools" />;
+    return <Redirect href="/explore" />;
   }
   const calcId = id as CalcId;
   return <Calculator id={calcId} docId={CALC_DOC[calcId]} />;

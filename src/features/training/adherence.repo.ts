@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, like, lte } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, like, lte } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import {
@@ -92,6 +92,20 @@ export const dayQuery = (userId: string, date: string) =>
     .select()
     .from(trainingDays)
     .where(and(eq(trainingDays.userId, userId), eq(trainingDays.date, date)));
+
+/** Live query of an inclusive date range (both 'YYYY-MM-DD') — the Home week strip. */
+export const rangeDaysQuery = (userId: string, from: string, to: string) =>
+  db
+    .select()
+    .from(trainingDays)
+    .where(
+      and(
+        eq(trainingDays.userId, userId),
+        gte(trainingDays.date, from),
+        lte(trainingDays.date, to),
+      ),
+    )
+    .orderBy(asc(trainingDays.date));
 
 /** Live query of a month's entries for the heatmap. `yearMonth` is 'YYYY-MM'. */
 export const monthDaysQuery = (userId: string, yearMonth: string) =>

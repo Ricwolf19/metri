@@ -1,12 +1,11 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Linking, Pressable, Text, View } from 'react-native';
 
 import { CameraIcon, ChevronRightIcon, LogOutIcon, StarIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import {
   Avatar,
-  AVATAR_COLORS,
   Button,
   Card,
   Input,
@@ -15,9 +14,11 @@ import {
   SegmentedControl,
   useToast,
   type Segment,
+  useDialog,
 } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { RoleBadge } from '@/features/auth/components/RoleBadge';
+import { betaLinks } from '@/features/beta/links';
 import { pickFromCamera, pickFromLibrary } from '@/features/photos/capture';
 import { deletePhotoFiles, persistAvatar } from '@/features/photos/media';
 import { LOCALES, useI18n, type Locale } from '@/i18n';
@@ -35,29 +36,22 @@ const MetricRow = ({ label, value }: { label: string; value: string }) => {
 };
 
 const Profile = () => {
-  const { user, isPremium, updateMyProfile, updateMyAccount, changeMyPassword, signOut } =
-    useAuth();
+  const { user, isPremium, updateMyProfile, updateMyAccount, signOut } = useAuth();
   const { t, locale, setLocale } = useI18n();
   const { brand } = useTheme();
   const toast = useToast();
+  const dialog = useDialog();
   const router = useRouter();
 
   const [name, setName] = useState(user?.displayName ?? '');
   const [username, setUsername] = useState(user?.username ?? '');
-  const [color, setColor] = useState(user?.avatarColor ?? AVATAR_COLORS[0]);
   const [saving, setSaving] = useState(false);
 
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [changingPw, setChangingPw] = useState(false);
   const [clock, setClock] = useState<ClockFormat>(settings.getClockFormat());
-
   if (!user) return null;
 
   const dirty =
-    name.trim() !== (user.displayName ?? '') ||
-    username.trim().toLowerCase() !== user.username ||
-    color !== (user.avatarColor ?? '');
+    name.trim() !== (user.displayName ?? '') || username.trim().toLowerCase() !== user.username;
 
   const saveAccount = async () => {
     if (!user) return;
@@ -70,27 +64,12 @@ const Profile = () => {
       if (nextUsername !== user.username) {
         await updateMyAccount({ username: nextUsername });
       }
-      updateMyProfile({ displayName: name.trim(), avatarColor: color });
+      updateMyProfile({ displayName: name.trim() });
       toast.success(t('profile.accountUpdatedToast'));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('auth.errUsername'));
     } finally {
       setSaving(false);
-    }
-  };
-
-  const changePw = async () => {
-    if (newPassword.length < 6) return toast.error(t('auth.errPassword'));
-    setChangingPw(true);
-    try {
-      await changeMyPassword(currentPassword, newPassword);
-      setCurrentPassword('');
-      setNewPassword('');
-      toast.success(t('profile.passwordUpdatedToast'));
-    } catch {
-      toast.error(t('profile.errCurrentPassword'));
-    } finally {
-      setChangingPw(false);
     }
   };
 
@@ -115,11 +94,14 @@ const Profile = () => {
   };
 
   const onChangePhoto = () => {
-    Alert.alert(t('photos.chooseTitle'), undefined, [
-      { text: t('photos.camera'), onPress: () => setPhoto('camera') },
-      { text: t('photos.library'), onPress: () => setPhoto('library') },
-      { text: t('common.cancel'), style: 'cancel' },
-    ]);
+    dialog.show({
+      title: t('photos.chooseTitle'),
+      actions: [
+        { label: t('photos.camera'), onPress: () => setPhoto('camera') },
+        { label: t('photos.library'), onPress: () => setPhoto('library') },
+        { label: t('common.cancel'), style: 'cancel' },
+      ],
+    });
   };
 
   const localeSegments: Segment<Locale>[] = LOCALES.map((l) => ({
@@ -138,11 +120,11 @@ const Profile = () => {
 
   return (
     <Screen scroll edges={['top']} contentClassName="px-5 pb-10">
-      <TopBar title={t('profile.title')} showAvatar={false} />
+      <TopBar title={t('profile.title')} showBack showAvatar={false} />
 
       <Card className="items-center">
         <Pressable onPress={onChangePhoto} accessibilityRole="button" className="relative">
-          <Avatar name={name || user.username} uri={user.avatarUri} color={color} size={84} />
+          <Avatar uri={user.avatarUri} size={84} />
           <View className="absolute -bottom-0.5 -right-0.5 h-7 w-7 items-center justify-center rounded-full border-2 border-ink-800 bg-brand/10">
             <CameraIcon color={brand} size={13} />
           </View>
@@ -215,25 +197,6 @@ const Profile = () => {
           />
         </View>
 
-        <Text className="mb-2 mt-4 font-mono-medium text-xs uppercase tracking-wider text-ink-300">
-          {t('profile.avatarColor')}
-        </Text>
-        <View className="flex-row flex-wrap gap-3">
-          {AVATAR_COLORS.map((c) => (
-            <Pressable
-              key={c}
-              onPress={() => setColor(c)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: c === color }}
-              style={{ backgroundColor: c }}
-              className={[
-                'h-9 w-9 rounded-full',
-                c === color ? 'border-2 border-ink-50' : 'border border-ink-600',
-              ].join(' ')}
-            />
-          ))}
-        </View>
-
         <View className="mt-5">
           <Button
             label={t('common.saveChanges')}
@@ -244,37 +207,32 @@ const Profile = () => {
         </View>
       </Card>
 
-      {/* Change password */}
+      {/* Password — managed on the web (single auth surface, like the email). */}
       <Text className="mb-2 mt-7 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
-        {t('profile.changePassword')}
+        {t('profile.security')}
       </Text>
       <Card>
-        <View className="gap-4">
-          <Input
-            label={t('profile.currentPassword')}
-            value={currentPassword}
-            onChangeText={setCurrentPassword}
-            secureTextEntry
-            textContentType="password"
-            autoComplete="current-password"
-          />
-          <Input
-            label={t('profile.newPassword')}
-            value={newPassword}
-            onChangeText={setNewPassword}
-            secureTextEntry
-            textContentType="newPassword"
-            autoComplete="new-password"
-            placeholder={t('auth.passwordMin')}
-          />
-        </View>
-        <View className="mt-5">
+        <Text className="text-sm leading-6 text-ink-300">{t('profile.passwordWeb')}</Text>
+        <Pressable
+          onPress={() => Linking.openURL('https://metri.info')}
+          accessibilityRole="link"
+          className="mt-3 self-start"
+        >
+          <Text className="text-sm font-sans-semibold text-brand">metri.info</Text>
+        </Pressable>
+      </Card>
+
+      {/* Feedback — ideas & bug reports straight to the team (beta lifeline). */}
+      <Text className="mb-2 mt-7 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
+        {t('faq.feedbackTitle')}
+      </Text>
+      <Card>
+        <Text className="text-sm leading-6 text-ink-300">{t('faq.feedbackBody')}</Text>
+        <View className="mt-4">
           <Button
-            label={t('profile.updatePassword')}
+            label={t('faq.feedbackCta')}
             variant="secondary"
-            onPress={changePw}
-            loading={changingPw}
-            disabled={!currentPassword || !newPassword}
+            onPress={() => Linking.openURL(betaLinks.feedback)}
           />
         </View>
       </Card>

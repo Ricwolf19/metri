@@ -113,6 +113,13 @@
       "when": 1785295326014,
       "tag": "0015_drop_legacy_password_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1785696394944,
+      "tag": "0016_bent_shiver_man",
+      "breakpoints": true
     }
   ]
 }

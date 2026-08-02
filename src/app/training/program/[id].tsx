@@ -1,9 +1,9 @@
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import { Alert, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { TopBar } from '@/components/TopBar';
-import { Button, Card, FadeInUp, Screen, useToast } from '@/components/ui';
+import { Button, Card, FadeInUp, Screen, useToast, useDialog } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import {
   abandonEnrollment,
@@ -25,6 +25,7 @@ const ProgramDetail = () => {
   const router = useRouter();
   const t = useT();
   const toast = useToast();
+  const dialog = useDialog();
   const { user } = useAuth();
 
   const program = typeof id === 'string' ? getProgram(id) : null;
@@ -48,16 +49,19 @@ const ProgramDetail = () => {
       return;
     }
     if (enrollment) {
-      Alert.alert('', t('training.switchConfirm'), [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('training.switch'),
-          onPress: () => {
-            abandonEnrollment(enrollment.id);
-            doEnroll();
+      dialog.show({
+        title: t('training.switchConfirm'),
+        actions: [
+          { label: t('common.cancel'), style: 'cancel' },
+          {
+            label: t('training.switch'),
+            onPress: () => {
+              abandonEnrollment(enrollment.id);
+              doEnroll();
+            },
           },
-        },
-      ]);
+        ],
+      });
       return;
     }
     doEnroll();

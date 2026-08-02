@@ -1,11 +1,11 @@
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { ChevronDownIcon, ChevronRightIcon, PlusIcon, TrashIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
-import { Button, Card, Input, PressableScale, Screen, useToast } from '@/components/ui';
+import { Button, Card, Input, PressableScale, Screen, useToast, useDialog } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import {
   addRoutine,
@@ -25,6 +25,7 @@ const EditProgram = () => {
   const router = useRouter();
   const t = useT();
   const toast = useToast();
+  const dialog = useDialog();
   const { user } = useAuth();
   const { brand } = useTheme();
 
@@ -46,23 +47,33 @@ const EditProgram = () => {
   };
 
   const confirmDeletePhase = (routineId: string) =>
-    Alert.alert('', t('editor.confirmDelete'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: t('editor.delete'), style: 'destructive', onPress: () => deleteRoutine(routineId) },
-    ]);
+    dialog.show({
+      title: t('editor.confirmDelete'),
+      actions: [
+        { label: t('common.cancel'), style: 'cancel' },
+        {
+          label: t('editor.delete'),
+          style: 'destructive',
+          onPress: () => deleteRoutine(routineId),
+        },
+      ],
+    });
 
   const confirmDeleteProgram = () =>
-    Alert.alert('', t('editor.confirmDelete'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('editor.delete'),
-        style: 'destructive',
-        onPress: () => {
-          deleteProgramTree(id);
-          router.replace('/training/programs');
+    dialog.show({
+      title: t('editor.confirmDelete'),
+      actions: [
+        { label: t('common.cancel'), style: 'cancel' },
+        {
+          label: t('editor.delete'),
+          style: 'destructive',
+          onPress: () => {
+            deleteProgramTree(id);
+            router.replace('/training/programs');
+          },
         },
-      },
-    ]);
+      ],
+    });
 
   const enroll = () => {
     try {

@@ -113,6 +113,7 @@ export type ProfileUpdate = Partial<
     | 'displayName'
     | 'avatarUri'
     | 'avatarColor'
+    | 'avatarId'
     | 'sex'
     | 'age'
     | 'heightCm'

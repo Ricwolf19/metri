@@ -15,4 +15,6 @@ export const betaLinks = {
   apk: `${REPO}/releases/download/apk-beta/metri.apk`,
   releases: `${REPO}/releases`,
   download: `${WEB_URL}/download`,
+  /** Ideas, bugs and improvement feedback land on the web contact form. */
+  feedback: `${WEB_URL}/contact`,
 } as const;

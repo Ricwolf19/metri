@@ -58,6 +58,7 @@ const SignUp = () => {
       }
       toast.success(t('auth.createdToast'));
       router.replace('/(tabs)');
+      router.push('/beta');
     } catch (e) {
       setError(e instanceof Error ? e.message : t('auth.errEmail'));
     } finally {

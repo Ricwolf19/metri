@@ -3,7 +3,6 @@ import type { ComponentType } from 'react';
 
 import {
   ActivityIcon,
-  BellIcon,
   BookIcon,
   CameraIcon,
   DumbbellIcon,
@@ -90,23 +89,17 @@ export const QUICK_ACTIONS: QuickAction[] = [
     icon: CameraIcon,
   },
   {
-    id: 'reminders',
-    titleKey: 'tab.reminders',
-    subKey: 'rem.subtitle',
-    href: '/(tabs)/reminders',
-    icon: BellIcon,
-  },
-  {
     id: 'docs',
     titleKey: 'docs.title',
     subKey: 'docs.subtitle',
-    href: '/(tabs)/docs',
+    href: '/explore',
     icon: BookIcon,
   },
 ];
 
 /** Pinned by default for a fresh install — the original Home shortcuts. */
-export const DEFAULT_PINNED_ACTIONS = ['bmr', 'progress'];
+/** None by default — Home shows an invite card until the user pins their own. */
+export const DEFAULT_PINNED_ACTIONS: string[] = [];
 
 export const getQuickAction = (id: string): QuickAction | undefined =>
   QUICK_ACTIONS.find((a) => a.id === id);

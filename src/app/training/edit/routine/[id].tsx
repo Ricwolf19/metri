@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import {
   ChevronDownIcon,
@@ -11,7 +11,7 @@ import {
   TrashIcon,
 } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
-import { Card, Input, PressableScale, Screen, useToast } from '@/components/ui';
+import { Card, Input, PressableScale, Screen, useToast, useDialog } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import {
   addDay,
@@ -31,6 +31,7 @@ const EditRoutine = () => {
   const router = useRouter();
   const t = useT();
   const toast = useToast();
+  const dialog = useDialog();
   const { user } = useAuth();
   const { brand } = useTheme();
 
@@ -63,10 +64,13 @@ const EditRoutine = () => {
   };
 
   const confirmDeleteDay = (dayId: string) =>
-    Alert.alert('', t('editor.confirmDelete'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: t('editor.delete'), style: 'destructive', onPress: () => deleteDay(dayId) },
-    ]);
+    dialog.show({
+      title: t('editor.confirmDelete'),
+      actions: [
+        { label: t('common.cancel'), style: 'cancel' },
+        { label: t('editor.delete'), style: 'destructive', onPress: () => deleteDay(dayId) },
+      ],
+    });
 
   return (
     <Screen scroll edges={['top']} contentClassName="px-5 pb-10">

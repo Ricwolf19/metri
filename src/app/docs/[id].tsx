@@ -17,7 +17,7 @@ const DocDetail = () => {
   const router = useRouter();
 
   const section = typeof id === 'string' ? getDocById(locale, id) : null;
-  if (!section) return <Redirect href="/(tabs)/docs" />;
+  if (!section) return <Redirect href="/explore" />;
 
   return (
     <Screen scroll contentClassName="px-5 pb-12">
@@ -29,7 +29,7 @@ const DocDetail = () => {
           {section.tags.map((tag) => (
             <Pressable
               key={tag}
-              onPress={() => router.push({ pathname: '/(tabs)/docs', params: { q: tag } })}
+              onPress={() => router.push({ pathname: '/explore', params: { q: tag } })}
               className="rounded-full bg-ink-800 px-2.5 py-1"
             >
               <Text className="text-xs text-brand">#{tag}</Text>

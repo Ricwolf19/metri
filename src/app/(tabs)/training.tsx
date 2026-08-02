@@ -1,13 +1,11 @@
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { useRouter } from 'expo-router';
-import { Alert, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { ChevronRightIcon, DumbbellIcon, PlayIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
-import { Button, Card, FadeInUp, PressableScale, Screen } from '@/components/ui';
+import { Button, Card, FadeInUp, PressableScale, Screen, useDialog } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
-import { TodayAdherence } from '@/features/training/components/TodayAdherence';
-import { TrainingCalendar } from '@/features/training/components/TrainingCalendar';
 import { abandonEnrollment, setEnrollmentPosition } from '@/features/training/enroll';
 import { activeWorkoutQuery, startWorkout } from '@/features/training/session.repo';
 import { useEnrollment } from '@/features/training/useEnrollment';
@@ -17,6 +15,7 @@ import { useTheme } from '@/theme/theme-context';
 const Training = () => {
   const router = useRouter();
   const t = useT();
+  const dialog = useDialog();
   const { user } = useAuth();
   const { brand } = useTheme();
 
@@ -37,19 +36,22 @@ const Training = () => {
 
   const confirmAbandon = () => {
     if (!enrollment) return;
-    Alert.alert('', t('training.abandonConfirm'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('training.abandon'),
-        style: 'destructive',
-        onPress: () => abandonEnrollment(enrollment.id),
-      },
-    ]);
+    dialog.show({
+      title: t('training.abandonConfirm'),
+      actions: [
+        { label: t('common.cancel'), style: 'cancel' },
+        {
+          label: t('training.abandon'),
+          style: 'destructive',
+          onPress: () => abandonEnrollment(enrollment.id),
+        },
+      ],
+    });
   };
 
   return (
     <Screen scroll edges={['top']} contentClassName="px-5 pb-10">
-      <TopBar title={t('training.title')} subtitle={t('training.subtitle')} />
+      <TopBar menu showFaq showBeta />
 
       {activeWorkout ? (
         <FadeInUp>
@@ -158,17 +160,6 @@ const Training = () => {
           </Card>
         </FadeInUp>
       )}
-
-      {/* Consistency — the long-term adherence loop */}
-      <FadeInUp delay={120}>
-        <Text className="mb-2 mt-3 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
-          {t('adherence.section')}
-        </Text>
-        <View className="gap-4">
-          <TodayAdherence />
-          <TrainingCalendar />
-        </View>
-      </FadeInUp>
     </Screen>
   );
 };

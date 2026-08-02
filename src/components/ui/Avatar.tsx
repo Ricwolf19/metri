@@ -1,44 +1,22 @@
 import { Image } from 'expo-image';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 
+import MetriLogo from '@/assets/images/metri-logo.svg';
 import { StarIcon } from '@/components/icons';
 
 type Props = {
-  name?: string | null;
   uri?: string | null;
-  color?: string | null;
   size?: number;
   /** Shows a small premium star badge overlay. */
   premium?: boolean;
 };
 
-/** Palette used when a user has no chosen avatar color. */
-export const AVATAR_COLORS = [
-  '#bef82b',
-  '#38bdf8',
-  '#f472b6',
-  '#fb923c',
-  '#a78bfa',
-  '#34d399',
-] as const;
-
-const initials = (name?: string | null): string => {
-  if (!name) return '?';
-  const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map((p) => p[0]?.toUpperCase() ?? '').join('') || '?';
-};
-
-const pickColor = (name?: string | null): string => {
-  if (!name) return AVATAR_COLORS[0];
-  let sum = 0;
-  for (let i = 0; i < name.length; i++) sum += name.charCodeAt(i);
-  return AVATAR_COLORS[sum % AVATAR_COLORS.length];
-};
-
-/** Avatar — a photo (with an accent ring) if set, otherwise initials on a color. */
-export const Avatar = ({ name, uri, color, size = 44, premium = false }: Props) => {
-  const ring = color ?? pickColor(name);
-
+/**
+ * Avatar — the user's photo if they set one, otherwise the Metri mark on the
+ * constant near-black badge (same rule as BrandLogo: the wordmark only reads on
+ * a dark surface, so the disc never follows the theme).
+ */
+export const Avatar = ({ uri, size = 44, premium = false }: Props) => {
   const inner = uri ? (
     <Image
       source={{ uri }}
@@ -47,19 +25,17 @@ export const Avatar = ({ name, uri, color, size = 44, premium = false }: Props) 
         height: size,
         borderRadius: size / 2,
         borderWidth: Math.max(2, size * 0.045),
-        borderColor: ring,
+        borderColor: '#bef82b',
       }}
       contentFit="cover"
       transition={150}
     />
   ) : (
     <View
-      style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: ring }}
-      className="items-center justify-center"
+      style={{ width: size, height: size, borderRadius: size / 2 }}
+      className="items-center justify-center bg-ink-950"
     >
-      <Text style={{ fontSize: size * 0.4 }} className="font-sans-bold text-ink-950">
-        {initials(name)}
-      </Text>
+      <MetriLogo width={size * 0.62} height={size * 0.62 * 0.73} />
     </View>
   );
 

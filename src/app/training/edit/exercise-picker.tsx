@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { PlusIcon, TrashIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
@@ -14,6 +14,7 @@ import {
   Select,
   useToast,
   type SelectItem,
+  useDialog,
 } from '@/components/ui';
 import type { Equipment, ExerciseCategory } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
@@ -34,6 +35,7 @@ const ExercisePicker = () => {
   const router = useRouter();
   const t = useT();
   const toast = useToast();
+  const dialog = useDialog();
   const { user } = useAuth();
   const { brand } = useTheme();
 
@@ -61,16 +63,19 @@ const ExercisePicker = () => {
   };
 
   const confirmDeleteExercise = (exerciseId: string) =>
-    Alert.alert('', t('editor.confirmDelete'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('editor.delete'),
-        style: 'destructive',
-        onPress: () => {
-          if (!deleteCustomExercise(exerciseId, user.id)) toast.error(t('editor.inUse'));
+    dialog.show({
+      title: t('editor.confirmDelete'),
+      actions: [
+        { label: t('common.cancel'), style: 'cancel' },
+        {
+          label: t('editor.delete'),
+          style: 'destructive',
+          onPress: () => {
+            if (!deleteCustomExercise(exerciseId, user.id)) toast.error(t('editor.inUse'));
+          },
         },
-      },
-    ]);
+      ],
+    });
 
   const createAndPick = () => {
     if (newName.trim().length < 2) return toast.error(t('editor.exerciseName'));

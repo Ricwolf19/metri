@@ -2,7 +2,7 @@ import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { CameraIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
@@ -15,6 +15,7 @@ import {
   SegmentedControl,
   useToast,
   type Segment,
+  useDialog,
 } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { pickFromCamera, pickFromLibrary } from '@/features/photos/capture';
@@ -27,6 +28,7 @@ const Progress = () => {
   const { user } = useAuth();
   const router = useRouter();
   const toast = useToast();
+  const dialog = useDialog();
   const t = useT();
   const { data } = useLiveQuery(photosQuery(user?.id ?? ''));
 
@@ -55,11 +57,14 @@ const Progress = () => {
   };
 
   const onAdd = () => {
-    Alert.alert(t('photos.chooseTitle'), undefined, [
-      { text: t('photos.camera'), onPress: () => capture('camera') },
-      { text: t('photos.library'), onPress: () => capture('library') },
-      { text: t('common.cancel'), style: 'cancel' },
-    ]);
+    dialog.show({
+      title: t('photos.chooseTitle'),
+      actions: [
+        { label: t('photos.camera'), onPress: () => capture('camera') },
+        { label: t('photos.library'), onPress: () => capture('library') },
+        { label: t('common.cancel'), style: 'cancel' },
+      ],
+    });
   };
 
   const addButton = (

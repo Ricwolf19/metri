@@ -1,43 +1,23 @@
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { ChevronRightIcon, DumbbellIcon, FlameIcon, GearIcon, PlayIcon } from '@/components/icons';
+import { ChevronRightIcon, DumbbellIcon, GearIcon, PlayIcon, PlusIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import { Button, Card, FadeInUp, PressableScale, Screen } from '@/components/ui';
+import { AnnouncementModal } from '@/features/announcements/AnnouncementModal';
 import { useAuth } from '@/features/auth/auth-context';
-import { BetaBanner } from '@/features/beta/components/BetaBanner';
-import { CalcChart } from '@/features/calculators/components/CalcChart';
-import type { CalcChart as Chart } from '@/features/calculators/types';
-import {
-  DEFAULT_PINNED_ACTIONS,
-  getQuickAction,
-  type QuickAction,
-} from '@/features/home/quick-actions';
+import { getQuickAction, type QuickAction } from '@/features/home/quick-actions';
 import { PremiumIntroModal } from '@/features/premium/PremiumIntroModal';
 import { TodayAdherence } from '@/features/training/components/TodayAdherence';
+import { WeekStrip } from '@/features/training/components/WeekStrip';
 import { setEnrollmentPosition } from '@/features/training/enroll';
 import { activeWorkoutQuery, startWorkout } from '@/features/training/session.repo';
-import { bucketVolume, weeklyVolumeQuery } from '@/features/training/stats.repo';
 import { nextWorkoutDay, useEnrollment } from '@/features/training/useEnrollment';
 import { useT } from '@/i18n';
 import { settings } from '@/lib/storage';
 import { useTheme } from '@/theme/theme-context';
-
-const Stat = ({ label, value, unit }: { label: string; value: string; unit: string }) => {
-  return (
-    <View className="flex-1">
-      <Text className="font-mono-medium text-xs uppercase tracking-wider text-ink-400">
-        {label}
-      </Text>
-      <View className="mt-1 flex-row items-baseline">
-        <Text className="text-2xl font-sans-bold text-ink-50">{value}</Text>
-        <Text className="ml-1 text-sm text-ink-400">{unit}</Text>
-      </View>
-    </View>
-  );
-};
 
 const QuickActionCard = ({ action }: { action: QuickAction }) => {
   const router = useRouter();
@@ -60,50 +40,28 @@ const QuickActionCard = ({ action }: { action: QuickAction }) => {
   );
 };
 
-const SectionLabel = ({ text }: { text: string }) => (
-  <Text className="mb-2 mt-8 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
-    {text}
-  </Text>
-);
-
-const fmtVol = (v: number): string => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : `${v}`);
-
+/**
+ * Home = today, nothing else: the workout to do right now, the "did you train?"
+ * check-in with the week at a glance, and the user's own pinned shortcuts.
+ * Detailed metrics live in the Progress tab.
+ */
 const Home = () => {
   const { user } = useAuth();
   const router = useRouter();
   const t = useT();
   const { brand } = useTheme();
 
-  const firstName = (user?.displayName ?? user?.username ?? '').split(' ')[0];
-  const hasBmr = typeof user?.bmr === 'number' && typeof user?.tdee === 'number';
-
   const { enrollment, structure } = useEnrollment(user?.id ?? '');
   const { data: actives } = useLiveQuery(activeWorkoutQuery(user?.id ?? ''));
   const activeWorkout = actives[0] ?? null;
   const nextDay = enrollment && structure ? nextWorkoutDay(enrollment.id, structure.days) : null;
 
-  const userId = user?.id;
-  const { data: volumeRows } = useLiveQuery(weeklyVolumeQuery(userId ?? '', 6));
-  const volume = useMemo(() => bucketVolume(volumeRows, 6), [volumeRows]);
-  const hasVolume = volume.some((w) => w.volume > 0);
-  const volumeChart: Chart = {
-    kind: 'bars',
-    max: Math.max(1, ...volume.map((w) => w.volume)),
-    bars: volume.map((w, i) => ({
-      label: w.label,
-      value: w.volume,
-      display: fmtVol(w.volume),
-      color: brand,
-      highlight: i === volume.length - 1,
-    })),
-  };
-
-  const [pinnedIds, setPinnedIds] = useState<string[]>(
-    () => settings.getPinnedActions() ?? DEFAULT_PINNED_ACTIONS,
-  );
+  // Pinned quick actions live in MMKV; none by default — the invite card below
+  // explains how to add them. Re-read on focus so edits show on return.
+  const [pinnedIds, setPinnedIds] = useState<string[]>(() => settings.getPinnedActions() ?? []);
   useFocusEffect(
     useCallback(() => {
-      setPinnedIds(settings.getPinnedActions() ?? DEFAULT_PINNED_ACTIONS);
+      setPinnedIds(settings.getPinnedActions() ?? []);
     }, []),
   );
   const pinned = pinnedIds.map(getQuickAction).filter((a): a is QuickAction => Boolean(a));
@@ -120,12 +78,8 @@ const Home = () => {
   return (
     <Screen scroll edges={['top']} contentClassName="px-5 pb-8">
       <PremiumIntroModal />
-      <TopBar
-        title={t('home.greeting', { name: firstName || t('home.lifter') })}
-        subtitle={t('home.subtitle')}
-      />
-
-      <BetaBanner />
+      <AnnouncementModal />
+      <TopBar menu showFaq showBeta />
 
       {/* Training hero — what to do right now */}
       <FadeInUp>
@@ -193,90 +147,46 @@ const Home = () => {
         )}
       </FadeInUp>
 
-      {/* Today's adherence */}
+      {/* Today's check-in + the week at a glance */}
       <FadeInUp delay={60}>
-        <View className="mt-4">
+        <View className="mt-4 gap-3">
           <TodayAdherence />
+          <WeekStrip />
         </View>
       </FadeInUp>
 
-      {/* Energy (calories at a glance) */}
-      <FadeInUp delay={120}>
-        {hasBmr ? (
-          <Card className="mt-4">
-            <View className="mb-4 flex-row items-center">
-              <FlameIcon color={brand} size={18} />
-              <Text className="ml-2 font-mono-medium text-xs uppercase tracking-wider text-brand">
-                {t('home.energy')}
-              </Text>
-            </View>
-            <View className="flex-row">
-              <Stat
-                label={t('home.bmr')}
-                value={String(Math.round(user!.bmr!))}
-                unit={t('home.kcalDay')}
-              />
-              <Stat
-                label={t('home.tdee')}
-                value={String(Math.round(user!.tdee!))}
-                unit={t('home.kcalDay')}
-              />
-            </View>
-            <Text className="mt-4 text-xs text-ink-400">
-              {user?.activityLevel ? t(`activity.${user.activityLevel}`) : ''} ·{' '}
-              {user?.bmrFormula === 'mifflin_st_jeor' ? 'Mifflin–St Jeor' : 'Harris–Benedict'}
-            </Text>
-          </Card>
-        ) : (
-          <Card className="mt-4">
-            <Text className="text-base font-sans-semibold text-ink-50">{t('home.noMetrics')}</Text>
-            <Text className="mt-1 text-sm text-ink-400">{t('home.noMetricsBody')}</Text>
-            <PressableScale
-              onPress={() => router.push('/calculators/tdee')}
-              className="mt-4 flex-row items-center justify-between rounded-field border border-brand/30 bg-brand/10 px-4 py-3"
-            >
-              <Text className="font-sans-semibold text-brand">{t('home.openBmr')}</Text>
-              <ChevronRightIcon color={brand} size={18} />
-            </PressableScale>
-          </Card>
-        )}
-      </FadeInUp>
-
-      {/* Weekly volume trend */}
-      {hasVolume ? (
-        <FadeInUp delay={180}>
-          <SectionLabel text={t('home.trend')} />
-          <Card>
-            <Text className="mb-3 text-xs text-ink-400">{t('home.weeklyVolume')}</Text>
-            <CalcChart chart={volumeChart} />
-          </Card>
-        </FadeInUp>
-      ) : null}
-
-      {/* Quick actions → tools & docs */}
+      {/* Quick access — user-curated shortcuts */}
       <View className="mb-2 mt-8 flex-row items-center justify-between">
-        <Text className="font-mono-medium text-xs uppercase tracking-wider text-ink-400">
-          {t('home.quickActions')}
-        </Text>
-        <Pressable
-          hitSlop={8}
-          onPress={() => router.push('/home-customize')}
-          accessibilityRole="button"
-          accessibilityLabel={t('home.customize')}
-          className="flex-row items-center"
-        >
-          <GearIcon color="#71717a" size={14} />
-          <Text className="ml-1 text-xs font-sans-semibold text-ink-400">
-            {t('home.customize')}
-          </Text>
-        </Pressable>
+        <Text className="text-sm font-sans-semibold text-ink-200">{t('home.quickActions')}</Text>
+        {pinned.length > 0 ? (
+          <Pressable
+            hitSlop={8}
+            onPress={() => router.push('/home-customize')}
+            accessibilityRole="button"
+            accessibilityLabel={t('home.customize')}
+            className="flex-row items-center"
+          >
+            <GearIcon color="#71717a" size={14} />
+            <Text className="ml-1 text-xs font-sans-semibold text-ink-400">
+              {t('home.customize')}
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
 
       {pinned.length === 0 ? (
         <FadeInUp>
           <PressableScale onPress={() => router.push('/home-customize')}>
-            <Card className="items-center py-6">
-              <Text className="text-center text-sm text-ink-400">{t('home.noPinned')}</Text>
+            <Card className="items-center border-dashed py-6">
+              <View className="h-10 w-10 items-center justify-center rounded-full bg-ink-800">
+                <PlusIcon color="#a1a1aa" size={20} />
+              </View>
+              <Text className="mt-3 text-center text-sm font-sans-medium text-ink-200">
+                {t('home.quickEmptyTitle')}
+              </Text>
+              <Text className="mt-1 px-6 text-center text-xs text-ink-400">
+                {t('home.quickEmptyBody')}
+              </Text>
             </Card>
           </PressableScale>
         </FadeInUp>

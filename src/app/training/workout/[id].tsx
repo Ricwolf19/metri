@@ -1,7 +1,8 @@
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
 import { CheckIcon, PlusIcon, XIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
@@ -14,6 +15,7 @@ import {
   Switch,
   useToast,
   type Segment,
+  useDialog,
 } from '@/components/ui';
 import type { Exercise, SetLog, WeekConfig, WorkoutDayExercise } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
@@ -245,6 +247,7 @@ const WorkoutSession = () => {
   const router = useRouter();
   const t = useT();
   const toast = useToast();
+  const dialog = useDialog();
   const { user } = useAuth();
 
   const log = typeof id === 'string' ? getWorkout(id) : null;
@@ -271,17 +274,20 @@ const WorkoutSession = () => {
   };
 
   const cancel = () =>
-    Alert.alert('', t('training.cancelConfirm'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('training.cancelWorkout'),
-        style: 'destructive',
-        onPress: () => {
-          abandonWorkout(log.id);
-          router.replace('/training');
+    dialog.show({
+      title: t('training.cancelConfirm'),
+      actions: [
+        { label: t('common.cancel'), style: 'cancel' },
+        {
+          label: t('training.cancelWorkout'),
+          style: 'destructive',
+          onPress: () => {
+            abandonWorkout(log.id);
+            router.replace('/training');
+          },
         },
-      },
-    ]);
+      ],
+    });
 
   return (
     <Screen edges={['top', 'bottom']}>
@@ -309,9 +315,10 @@ const WorkoutSession = () => {
         </View>
       </View>
 
-      <ScrollView
+      <KeyboardAwareScrollView
         className="flex-1"
         contentContainerClassName="px-5 pb-2"
+        bottomOffset={24}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -331,7 +338,7 @@ const WorkoutSession = () => {
             />
           ))
         )}
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       <View className="gap-3 px-5 pb-2 pt-3">
         {rest ? (

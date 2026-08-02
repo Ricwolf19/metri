@@ -11,8 +11,8 @@ import type { SvgProps } from 'react-native-svg';
 
 import {
   Home,
-  Activity,
   Bell,
+  Activity,
   Book,
   Settings,
   Camera,
@@ -22,6 +22,7 @@ import {
   FireFlame,
   LogOut,
   Gym,
+  ShieldCheck,
   Plus,
   Minus,
   Check,
@@ -36,6 +37,9 @@ import {
   OpenNewWindow,
   Mail,
   Github,
+  Compass,
+  HelpCircle,
+  GraphUp,
 } from 'iconoir-react-native';
 
 /** Square size in px (maps to width + height). Mirrors lucide's `size`. */
@@ -56,8 +60,8 @@ const sized = (Icon: IconComponent, name: string) => {
 };
 
 export const HomeIcon = sized(Home, 'HomeIcon');
-export const ActivityIcon = sized(Activity, 'ActivityIcon');
 export const BellIcon = sized(Bell, 'BellIcon');
+export const ActivityIcon = sized(Activity, 'ActivityIcon');
 export const BookIcon = sized(Book, 'BookIcon');
 export const GearIcon = sized(Settings, 'GearIcon');
 export const CameraIcon = sized(Camera, 'CameraIcon');
@@ -81,3 +85,7 @@ export const DownloadIcon = sized(Download, 'DownloadIcon');
 export const ExternalLinkIcon = sized(OpenNewWindow, 'ExternalLinkIcon');
 export const MailIcon = sized(Mail, 'MailIcon');
 export const GithubIcon = sized(Github, 'GithubIcon');
+export const CompassIcon = sized(Compass, 'CompassIcon');
+export const ShieldIcon = sized(ShieldCheck, 'ShieldIcon');
+export const GraphUpIcon = sized(GraphUp, 'GraphUpIcon');
+export const HelpIcon = sized(HelpCircle, 'HelpIcon');
