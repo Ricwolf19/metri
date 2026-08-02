@@ -2,9 +2,12 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { AppState } from 'react-native';
 
 import type { PublicUser, UserRole } from '@/db/schema';
-import { session } from '@/lib/storage';
+import { useI18n } from '@/i18n';
+import { session, settings } from '@/lib/storage';
+import { setTelemetryUser } from '@/lib/telemetry';
 
 import { authClient } from './auth-client';
+import { pushProfile, restoreRemoteProfile } from './profile-sync';
 import { can as canFeature, type Feature } from './entitlements';
 import {
   completeOnboarding,
@@ -21,7 +24,8 @@ type AuthContextValue = {
   isReady: boolean;
   isAuthenticated: boolean;
   /** Cloud sign-in against the shared metri.info backend (email). Links a local user. */
-  signInRemote: (email: string, password: string) => Promise<void>;
+  /** Resolves with whether the account profile was restored (skip onboarding). */
+  signInRemote: (email: string, password: string) => Promise<{ restored: boolean }>;
   /** Cloud sign-up. Returns whether the backend requires email verification first. */
   signUpRemote: (
     email: string,
@@ -44,6 +48,7 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+  const { setLocale } = useI18n();
   // The session lives in MMKV and the user in SQLite — both synchronous — so the
   // signed-in user is resolved lazily at mount with no effect and no spinner flash.
   // (Migrations + seed are already gated by the root layout before this mounts.)
@@ -53,26 +58,44 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   });
   const isReady = true;
 
+  // One choke point for crash-report identity: covers sign-in, sign-out and
+  // revalidation alike. Account id only — never email or name.
+  useEffect(() => {
+    setTelemetryUser(user?.id ?? null);
+  }, [user?.id]);
+
   const reload = useCallback(() => {
     const id = session.getUserId();
     setUser(id ? findById(id) : null);
   }, []);
 
-  const signInRemote = useCallback(async (email: string, password: string) => {
-    const res = await authClient.signIn.email({ email: email.trim().toLowerCase(), password });
-    if (res.error) {
-      throw new Error(res.error.message ?? 'Cloud sign-in failed.');
-    }
-    // Anchor on-device data to a local row mirroring the remote account, caching
-    // the server-set entitlement plan for offline reads.
-    const local = await upsertRemoteUser({
-      email: res.data.user.email,
-      displayName: res.data.user.name,
-      plan: (res.data.user as { plan?: string }).plan,
-    });
-    session.setUserId(local.id);
-    setUser(local);
-  }, []);
+  const signInRemote = useCallback(
+    async (email: string, password: string) => {
+      const res = await authClient.signIn.email({ email: email.trim().toLowerCase(), password });
+      if (res.error) {
+        throw new Error(res.error.message ?? 'Cloud sign-in failed.');
+      }
+      // Anchor on-device data to a local row mirroring the remote account, caching
+      // the server-set entitlement plan for offline reads.
+      const local = await upsertRemoteUser({
+        email: res.data.user.email,
+        displayName: res.data.user.name,
+        plan: (res.data.user as { plan?: string }).plan,
+      });
+      session.setUserId(local.id);
+      // Restore the account profile (metrics + preferences) before first render:
+      // a reinstall then lands on Home greeted, not on onboarding.
+      const restored = await restoreRemoteProfile(local.id);
+      // The restore writes preferences straight to MMKV, but the i18n provider
+      // holds the locale in React state — re-apply it or the whole UI (including
+      // the "restored" toast) stays in the pre-sign-in language until relaunch.
+      const savedLocale = settings.getLocale();
+      if (savedLocale) setLocale(savedLocale);
+      setUser(findById(local.id) ?? local);
+      return { restored };
+    },
+    [setLocale],
+  );
 
   const signUpRemote = useCallback(async (email: string, password: string, name?: string) => {
     const res = await authClient.signUp.email({
@@ -98,7 +121,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     (patch: ProfileUpdate) => {
       if (!user) return;
       const next = updateProfile(user.id, patch);
-      if (next) setUser(next);
+      if (next) {
+        setUser(next);
+        pushProfile(next);
+      }
     },
     [user],
   );
@@ -123,7 +149,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     (patch: ProfileUpdate) => {
       if (!user) return;
       const next = completeOnboarding(user.id, patch);
-      if (next) setUser(next);
+      if (next) {
+        setUser(next);
+        pushProfile(next);
+      }
     },
     [user],
   );

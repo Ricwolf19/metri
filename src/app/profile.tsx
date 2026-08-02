@@ -18,6 +18,7 @@ import {
 } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { RoleBadge } from '@/features/auth/components/RoleBadge';
+import { pushProfile } from '@/features/auth/profile-sync';
 import { betaLinks } from '@/features/beta/links';
 import { pickFromCamera, pickFromLibrary } from '@/features/photos/capture';
 import { deletePhotoFiles, persistAvatar } from '@/features/photos/media';
@@ -115,6 +116,11 @@ const Profile = () => {
   const onClockChange = (next: ClockFormat) => {
     settings.setClockFormat(next);
     setClock(next);
+    if (user) pushProfile(user);
+  };
+  const onLocaleChange = (next: Locale) => {
+    setLocale(next);
+    if (user) pushProfile(user);
   };
   const hasMetrics = typeof user.age === 'number';
 
@@ -250,7 +256,7 @@ const Profile = () => {
         {t('profile.language')}
       </Text>
       <Card>
-        <SegmentedControl segments={localeSegments} value={locale} onChange={setLocale} />
+        <SegmentedControl segments={localeSegments} value={locale} onChange={onLocaleChange} />
       </Card>
 
       {/* Time format */}

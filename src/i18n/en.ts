@@ -174,6 +174,7 @@ export const en = {
   'faq.feedbackBody':
     'Found a bug? Have an idea? Your feedback shapes the beta — it goes straight to the team.',
   'faq.feedbackCta': 'Send feedback',
+  'auth.profileRestored': 'Welcome back — your profile was restored.',
   'menu.open': 'More options',
   'menu.settings': 'Settings',
   'menu.premium': 'Premium',

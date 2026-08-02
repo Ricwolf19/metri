@@ -26,8 +26,8 @@ const SignIn = () => {
     setError(null);
     setLoading(true);
     try {
-      await signInRemote(email, password);
-      toast.success(t('auth.welcomeToast'));
+      const { restored } = await signInRemote(email, password);
+      toast.success(t(restored ? 'auth.profileRestored' : 'auth.welcomeToast'));
       router.replace('/(tabs)');
       router.push('/beta');
     } catch (e) {

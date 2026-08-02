@@ -175,6 +175,7 @@ export const es: Record<TranslationKey, string> = {
   'faq.feedbackBody':
     '¿Encontraste un bug? ¿Tienes una idea? Tu feedback define la beta — llega directo al equipo.',
   'faq.feedbackCta': 'Enviar feedback',
+  'auth.profileRestored': 'Bienvenido de nuevo — tu perfil se restauró.',
   'menu.open': 'Más opciones',
   'menu.settings': 'Ajustes',
   'menu.premium': 'Premium',
