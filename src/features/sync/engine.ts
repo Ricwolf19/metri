@@ -2,7 +2,7 @@ import { sqlite } from '@/db/client';
 import { authClient } from '@/features/auth/auth-client';
 import { API_URL } from '@/lib/env';
 
-import { getCursor, getPushWatermark, setCursor, setPushWatermark } from './state';
+import { getCursor, getDeviceId, getPushWatermark, setCursor, setPushWatermark } from './state';
 import { SYNC_TABLES, type SyncTable } from './tables';
 
 /**
@@ -224,11 +224,22 @@ const applyRow = (r: PulledRow): void => {
   });
 };
 
+/** Anything queued locally (changed rows or tombstones)? Local-only reads, so
+ * it is cheap enough for the auto-sync hook to call before every cycle — a
+ * pending local write bypasses the cooldown, an idle app respects it. */
+export const hasLocalChanges = (userId: string): boolean => {
+  if (all('select id from sync_deletions where pushed_at is null limit 1').length > 0) return true;
+  return gatherChanges(userId, getPushWatermark(userId)).changes.length > 0;
+};
+
 /** Run a full push→pull cycle for the signed-in premium user. */
 export const syncNow = async (userId: string): Promise<{ pushed: number; pulled: number }> => {
   const cookie = authClient.getCookie();
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (cookie) headers.Cookie = cookie;
+  // Identifies this install so the server can keep our own writes out of our
+  // pulls — without it, every push came straight back on the next pull.
+  const deviceId = getDeviceId();
 
   // 1) PUSH local changes + tombstones.
   const watermark = getPushWatermark(userId);
@@ -239,6 +250,7 @@ export const syncNow = async (userId: string): Promise<{ pushed: number; pulled:
       method: 'POST',
       headers,
       body: JSON.stringify({
+        deviceId,
         changes,
         deletions: deletions.map((d) => ({ table: d.table, id: d.id, deletedAt: d.deletedAt })),
       }),
@@ -263,7 +275,7 @@ export const syncNow = async (userId: string): Promise<{ pushed: number; pulled:
     const res = await fetch(`${API_URL}/api/sync/pull`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ since }),
+      body: JSON.stringify({ since, deviceId }),
     });
     if (!res.ok) throw new Error(`pull failed (${res.status})`);
     const { rows, cursor, hasMore } = (await res.json()) as {

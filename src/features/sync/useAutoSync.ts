@@ -4,8 +4,21 @@ import { AppState } from 'react-native';
 
 import { useAuth } from '@/features/auth/auth-context';
 
-import { syncNow } from './engine';
+import { hasLocalChanges, syncNow } from './engine';
+import { logSync } from './log';
 import { setSyncState } from './status';
+
+/** Minimum gap between idle cycles. Foreground/network events fire far more
+ * often than data changes (Android emits network-state flaps constantly), and
+ * every skipped cycle is a full round of server requests saved. A pending
+ * local write bypasses the gap entirely, so a set logged offline still syncs
+ * the moment signal returns. */
+const COOLDOWN_MS = 60_000;
+/** After a failure, retries back off exponentially (30s, 1m, 2m … capped at
+ * 5m) instead of re-firing on every network flap — that loop is what kept the
+ * ring flashing red/blue while hammering the API. */
+const BACKOFF_BASE_MS = 30_000;
+const BACKOFF_MAX_MS = 5 * 60_000;
 
 /**
  * Background sync for premium users. There is no manual trigger and no opt-in
@@ -22,6 +35,8 @@ import { setSyncState } from './status';
 export const useAutoSync = (): void => {
   const { user, can } = useAuth();
   const busy = useRef(false);
+  const nextAllowedAt = useRef(0);
+  const failures = useRef(0);
   const userId = user?.id;
   const enabled = !!userId && can('sync');
 
@@ -33,16 +48,29 @@ export const useAutoSync = (): void => {
 
     const run = async () => {
       if (busy.current) return;
+      // Idle cycles respect the cooldown/backoff window; queued local changes
+      // jump it — they are the whole point of syncing.
+      if (Date.now() < nextAllowedAt.current && !hasLocalChanges(userId)) return;
       busy.current = true;
       setSyncState('syncing');
       try {
-        await syncNow(userId);
+        const { pushed, pulled } = await syncNow(userId);
+        // Only movements are logged — empty cycles would drown the panel.
+        if (pushed || pulled) logSync('ok', `↑${pushed} ↓${pulled}`);
+        failures.current = 0;
+        nextAllowedAt.current = Date.now() + COOLDOWN_MS;
         setSyncState('synced');
-      } catch {
+      } catch (e) {
         // Distinguish "no signal" from "the server rejected us": only the
-        // second is worth showing as an error.
+        // second is worth showing as an error — but both back off; retrying
+        // into a dead network is as useless as retrying into a 500.
+        failures.current += 1;
+        const backoff = Math.min(BACKOFF_BASE_MS * 2 ** (failures.current - 1), BACKOFF_MAX_MS);
+        nextAllowedAt.current = Date.now() + backoff;
         const state = await Network.getNetworkStateAsync().catch(() => null);
-        setSyncState(state && !state.isConnected ? 'offline' : 'error');
+        const offline = !!state && !state.isConnected;
+        if (!offline) logSync('error', e instanceof Error ? e.message : String(e));
+        setSyncState(offline ? 'offline' : 'error');
       } finally {
         busy.current = false;
       }

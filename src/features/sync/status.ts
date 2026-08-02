@@ -26,10 +26,32 @@ const listeners = new Set<Listener>();
 
 export const getSyncState = (): SyncState => current;
 
-export const setSyncState = (next: SyncState): void => {
+const publish = (next: SyncState): void => {
   if (next === current) return;
   current = next;
   for (const l of listeners) l(next);
+};
+
+let syncingDelay: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * `syncing` is debounced: an empty delta round-trips in well under a second,
+ * and flashing the ring on every foreground/reconnect reads as flapping. Only
+ * cycles still running after the delay surface; any terminal state cancels it.
+ */
+export const setSyncState = (next: SyncState): void => {
+  if (syncingDelay) {
+    clearTimeout(syncingDelay);
+    syncingDelay = null;
+  }
+  if (next === 'syncing') {
+    syncingDelay = setTimeout(() => {
+      syncingDelay = null;
+      publish('syncing');
+    }, 600);
+    return;
+  }
+  publish(next);
 };
 
 export const subscribeSyncState = (listener: Listener): (() => void) => {
