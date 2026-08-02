@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { View } from 'react-native';
 
-import MetriLogo from '@/assets/images/metri-logo.svg';
+import MetriIcon from '@/assets/images/metri-icon.svg';
 import { StarIcon } from '@/components/icons';
 
 type Props = {
@@ -12,9 +12,9 @@ type Props = {
 };
 
 /**
- * Avatar — the user's photo if they set one, otherwise the Metri mark on the
- * constant near-black badge (same rule as BrandLogo: the wordmark only reads on
- * a dark surface, so the disc never follows the theme).
+ * Avatar — the user's photo if they set one, otherwise the Metri isotype
+ * cropped to a circle (the icon ships its own near-black background, so it
+ * reads the same on any theme).
  */
 export const Avatar = ({ uri, size = 44, premium = false }: Props) => {
   const inner = uri ? (
@@ -31,11 +31,8 @@ export const Avatar = ({ uri, size = 44, premium = false }: Props) => {
       transition={150}
     />
   ) : (
-    <View
-      style={{ width: size, height: size, borderRadius: size / 2 }}
-      className="items-center justify-center bg-ink-950"
-    >
-      <MetriLogo width={size * 0.62} height={size * 0.62 * 0.73} />
+    <View style={{ width: size, height: size, borderRadius: size / 2, overflow: 'hidden' }}>
+      <MetriIcon width={size} height={size} />
     </View>
   );
 
