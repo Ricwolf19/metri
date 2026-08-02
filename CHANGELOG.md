@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.6.0](https://github.com/Ricwolf19/metri/compare/metri-v1.5.1...metri-v1.6.0) (2026-08-02)
+
+
+### Features
+
+* **app:** four-tab shell and header redesign ([a2acf3c](https://github.com/Ricwolf19/metri/commit/a2acf3cd06eb362c772fa91c7f11f3fc42337ff8))
+* **auth:** restore the account profile on sign-in ([ea7c004](https://github.com/Ricwolf19/metri/commit/ea7c0040dc084543c582c351bac8b28f88f93f7e))
+* **notifications:** event catalogue replaces reminders ([6021cb2](https://github.com/Ricwolf19/metri/commit/6021cb22c5d5ad4528ec1117c639a29657af1835))
+* **telemetry:** sentry behind a single gateway ([05dd605](https://github.com/Ricwolf19/metri/commit/05dd60543556c9780c5505cfe59f3cfba9c0bb5d))
+
+
+### Performance Improvements
+
+* **sync:** device id, cooldown and backoff ([ad8c494](https://github.com/Ricwolf19/metri/commit/ad8c494e9ab8c8419cf066e2346c42ad8bc161f7))
+
 ## [1.5.1](https://github.com/Ricwolf19/metri/compare/metri-v1.5.0...metri-v1.5.1) (2026-07-30)
 
 
