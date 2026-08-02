@@ -140,7 +140,9 @@ bun run db:generate
 
 > No env vars are needed to build or run. Accounts live on the metri.info backend (Better Auth) —
 > there is no local admin seed. The only optional variable is `EXPO_PUBLIC_AUTH_URL` to point a dev
-> build at a different backend origin (documented in `app.config.ts`).
+> build at a different backend origin (documented in `app.config.ts`). Crash reporting (Sentry) is
+> configured in `src/lib/telemetry.ts` — the DSN is a public client key hardcoded there (empty =
+> disabled); `SENTRY_AUTH_TOKEN` exists only as a CI/EAS secret for source-map uploads.
 
 ---
 

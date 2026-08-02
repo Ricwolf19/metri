@@ -1,7 +1,9 @@
-const { getDefaultConfig } = require('expo/metro-config');
+const { getSentryExpoConfig } = require('@sentry/react-native/metro');
 const { withNativeWind } = require('nativewind/metro');
 
-const config = getDefaultConfig(__dirname);
+// Sentry's wrapper over expo/metro-config: same defaults plus Debug IDs so
+// uploaded sourcemaps match the bundles. Our customizations layer on top.
+const config = getSentryExpoConfig(__dirname);
 
 // Import .svg files as React components (react-native-svg-transformer)
 config.transformer.babelTransformerPath = require.resolve('react-native-svg-transformer/expo');

@@ -27,7 +27,11 @@ import { syncNotificationEvents } from '@/features/notifications/policies';
 import { initNotifications } from '@/features/notifications/service';
 import { seedTraining } from '@/features/training/seed';
 import { I18nProvider } from '@/i18n';
+import { initTelemetry, wrapRoot } from '@/lib/telemetry';
 import { ThemeProvider, useTheme } from '@/theme/theme-context';
+
+// Before anything renders, so startup crashes are captured too.
+initTelemetry();
 
 // Hold the native splash, then hand off to the in-app animated AppLoader so the
 // branded logo stays continuous from launch into the migration/seed phase.
@@ -117,4 +121,4 @@ const RootLayout = () => {
   );
 };
 
-export default RootLayout;
+export default wrapRoot(RootLayout);

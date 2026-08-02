@@ -40,7 +40,9 @@ keys. Every production bug fix ships with the test that would have caught it.
 - **Entitlements**: gate with `can(plan, feature)` (`features/auth/entitlements.ts`), never
   `plan === 'premium'`.
 - **Privacy claims are code.** "Photos and reminders never leave the device" must stay true and in
-  sync with `src/features/legal/content.ts` whenever sync or telemetry changes.
+  sync with `src/features/legal/content.ts` whenever sync or telemetry changes. All Sentry access
+  goes through `src/lib/telemetry.ts` (account id only, `sendDefaultPii: false`, empty DSN = off) —
+  never import `@sentry/react-native` elsewhere.
 - **Animations** use built-in RN `Animated` (no reanimated worklets plugin is wired).
 
 ## Sync (Premium) — the rules that were real bugs

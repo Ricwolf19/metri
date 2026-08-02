@@ -6,6 +6,7 @@
     "@better-auth/expo": "^1.6.23",
     "@expo-google-fonts/geist": "^0.4.2",
     "@expo-google-fonts/geist-mono": "^0.4.2",
+    "@sentry/react-native": "~7.11.0",
     "better-auth": "^1.6.23",
     "drizzle-orm": "^0.45.2",
     "expo": "~56.0.18",

@@ -56,3 +56,17 @@ jobs:
         run: |
           eas update --channel beta --non-interactive \
             --message "$(git log -1 --pretty=%s)"
+
+      # Without sourcemaps every OTA stack trace arrives minified. Org/project
+      # come from the Sentry plugin config in app.json; skips cleanly until the
+      # SENTRY_AUTH_TOKEN secret exists.
+      - name: Upload OTA sourcemaps to Sentry
+        if: ${{ steps.guard.outputs.skip != 'true' }}
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          if [ -z "$SENTRY_AUTH_TOKEN" ]; then
+            echo "SENTRY_AUTH_TOKEN not set — skipping sourcemap upload."
+            exit 0
+          fi
+          bunx sentry-expo-upload-sourcemaps dist

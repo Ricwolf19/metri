@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 
 import { useAuth } from '@/features/auth/auth-context';
+import { captureError } from '@/lib/telemetry';
 
 import { hasLocalChanges, syncNow } from './engine';
 import { logSync } from './log';
@@ -69,7 +70,11 @@ export const useAutoSync = (): void => {
         nextAllowedAt.current = Date.now() + backoff;
         const state = await Network.getNetworkStateAsync().catch(() => null);
         const offline = !!state && !state.isConnected;
-        if (!offline) logSync('error', e instanceof Error ? e.message : String(e));
+        if (!offline) {
+          logSync('error', e instanceof Error ? e.message : String(e));
+          // Server-rejected cycles only — offline is normal gym life, not a bug.
+          captureError(e);
+        }
         setSyncState(offline ? 'offline' : 'error');
       } finally {
         busy.current = false;
