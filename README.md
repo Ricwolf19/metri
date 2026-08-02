@@ -280,7 +280,8 @@ Database migrations are generated with Drizzle Kit and applied automatically on 
 bun start              # Start the Metro dev server
 bun run android        # Build + run on Android
 bun run ios            # Build + run on iOS
-bun run verify         # format:check + lint + typecheck + i18n:check + deadcode
+bun run verify         # format:check + lint + typecheck + test + i18n:check + deadcode
+bun run test           # vitest — unit tests (pure logic: calculators math, more to come)
 bun run ci             # verify + secrets:scan + doctor — mirrors the GitHub CI quality job (pre-push hook)
 bun run typecheck      # tsc --noEmit
 bun run lint           # ESLint (expo lint)
