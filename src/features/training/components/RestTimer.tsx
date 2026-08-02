@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { AppState, Pressable, Text, Vibration, View } from 'react-native';
 
 import { TimerIcon, XIcon } from '@/components/icons';
-import { ensureNotificationPermission } from '@/features/reminders/scheduler';
+import {
+  cancelNotifications,
+  ensureNotificationPermission,
+  scheduleOneShot,
+} from '@/features/notifications/service';
 import { useTheme } from '@/theme/theme-context';
-
-import { cancelRestNotification, scheduleRestNotification } from '../rest-timer';
 
 type Props = {
   /** Countdown length in seconds. */
@@ -54,13 +56,16 @@ export const RestTimer = ({
     void (async () => {
       const granted = await ensureNotificationPermission();
       if (!granted || cancelled) return;
-      const id = await scheduleRestNotification(seconds, notifyTitle, notifyBody).catch(() => null);
-      if (cancelled) void cancelRestNotification(id);
+      const id = await scheduleOneShot('rest-timer', seconds, {
+        title: notifyTitle,
+        body: notifyBody,
+      }).catch(() => null);
+      if (cancelled) void cancelNotifications([id]);
       else notifId.current = id;
     })();
     return () => {
       cancelled = true;
-      void cancelRestNotification(notifId.current);
+      void cancelNotifications([notifId.current]);
       notifId.current = null;
     };
     // Stable for the component's life (remounted via `key` per rest), so this runs once.
@@ -74,7 +79,7 @@ export const RestTimer = ({
       if (left <= 0 && !doneRef.current) {
         doneRef.current = true;
         Vibration.vibrate([0, 300, 150, 300]);
-        void cancelRestNotification(notifId.current);
+        void cancelNotifications([notifId.current]);
         notifId.current = null;
         onDone();
       }

@@ -18,6 +18,10 @@ const deviceLocale = (): Locale => {
   }
 };
 
+/** The effective locale outside React (notification copy, background work).
+ * Same resolution the provider uses: saved choice, else device language. */
+export const resolveLocale = (): Locale => settings.getLocale() ?? deviceLocale();
+
 export const LOCALES: { value: Locale; key: TranslationKey }[] = [
   { value: 'en', key: 'lang.en' },
   { value: 'es', key: 'lang.es' },
@@ -44,7 +48,7 @@ const interpolate = (template: string, vars?: Record<string, string | number>): 
 
 export const I18nProvider = ({ children }: { children: React.ReactNode }) => {
   // Saved choice wins; otherwise default to the device language (first launch).
-  const [locale, setLocaleState] = useState<Locale>(() => settings.getLocale() ?? deviceLocale());
+  const [locale, setLocaleState] = useState<Locale>(() => resolveLocale());
 
   const setLocale = useCallback((next: Locale) => {
     settings.setLocale(next);

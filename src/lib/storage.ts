@@ -24,7 +24,8 @@ const Keys = {
   pinnedActions: 'settings.pinnedActions',
   onboarded: 'settings.onboarded',
   premiumIntroSeen: 'settings.premiumIntroSeen',
-  betaNoticeDismissed: 'settings.betaNoticeDismissed',
+  dismissedAnnouncements: 'announcements.dismissed',
+  notificationsEnabled: 'settings.notificationsEnabled',
   sessionUserId: 'auth.userId',
 } as const;
 
@@ -81,16 +82,39 @@ export const settings = {
   setPremiumIntroSeen(value: boolean) {
     storage.set(Keys.premiumIntroSeen, value);
   },
-  /**
-   * App version whose beta banner the user dismissed, or null. Keyed by version
-   * on purpose: dismissing it hides the banner for the build they are on, and
-   * the next release brings it back so they see what changed.
-   */
-  getBetaNoticeDismissedVersion(): string | null {
-    return storage.getString(Keys.betaNoticeDismissed) ?? null;
+  /** Announcement ids the user dismissed (see features/announcements). */
+  getDismissedAnnouncements(): string[] {
+    const raw = storage.getString(Keys.dismissedAnnouncements);
+    return raw ? (JSON.parse(raw) as string[]) : [];
   },
-  setBetaNoticeDismissedVersion(version: string) {
-    storage.set(Keys.betaNoticeDismissed, version);
+  addDismissedAnnouncement(id: string) {
+    const seen = new Set(settings.getDismissedAnnouncements());
+    seen.add(id);
+    storage.set(Keys.dismissedAnnouncements, JSON.stringify([...seen]));
+  },
+  /** Master switch for app-scheduled notifications (reminders). Default on;
+   * the OS permission is still requested lazily the first time it matters. */
+  getNotificationsEnabled(): boolean {
+    return storage.getBoolean(Keys.notificationsEnabled) ?? true;
+  },
+  setNotificationsEnabled(value: boolean) {
+    storage.set(Keys.notificationsEnabled, value);
+  },
+  /** Per-event notification config (see features/notifications/events). */
+  getEventConfig<T>(eventId: string, defaults: T): T {
+    const raw = storage.getString(`notifications.event.${eventId}`);
+    return raw ? { ...defaults, ...(JSON.parse(raw) as Partial<T>) } : defaults;
+  },
+  setEventConfig(eventId: string, config: unknown) {
+    storage.set(`notifications.event.${eventId}`, JSON.stringify(config));
+  },
+  /** OS notification ids scheduled for an event (cancel-then-reschedule). */
+  getEventIds(eventId: string): string[] {
+    const raw = storage.getString(`notifications.ids.${eventId}`);
+    return raw ? (JSON.parse(raw) as string[]) : [];
+  },
+  setEventIds(eventId: string, ids: string[]) {
+    storage.set(`notifications.ids.${eventId}`, JSON.stringify(ids));
   },
 };
 
