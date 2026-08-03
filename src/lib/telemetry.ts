@@ -2,14 +2,13 @@ import * as Sentry from '@sentry/react-native';
 import * as Updates from 'expo-updates';
 
 /**
- * The app's single gateway to Sentry — screens and features never import
- * `@sentry/react-native` directly, so what leaves the device is auditable in
- * one file and the legal copy (`features/legal/content.ts`) can stay true.
+ * The app's single gateway to Sentry — nothing else imports
+ * `@sentry/react-native`, so what leaves the device stays auditable in one file
+ * and the legal copy (`features/legal/content.ts`) can stay true.
  *
- * The DSN is a public client key, not a secret; empty string keeps telemetry
- * fully off (a clean no-op, mirroring the web's missing-env behavior).
- * Rotation ships as an OTA update. Disabled in dev builds — the local sync
- * panel covers debugging there.
+ * The DSN is a public client key, not a secret; an empty string is a clean
+ * no-op, and rotation ships as an OTA update. Off in dev builds — the in-app
+ * sync panel covers debugging there.
  */
 const SENTRY_DSN =
   'https://d7d375c91c1deb6670ce31e9476f7e22@o4511656635006976.ingest.us.sentry.io/4511843228844032';

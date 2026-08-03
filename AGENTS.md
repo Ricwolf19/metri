@@ -68,6 +68,10 @@ Read `docs/sync.md` before touching `src/features/sync/`. Non-negotiables:
   `useTheme()` values. Icons come from the `@/components/icons` Iconoir barrel — add by mapping
   there, don't import `iconoir-react-native` in screens.
 - **i18n**: flat dotted keys in `src/i18n/{en,es}.ts` — add to BOTH (tsc + `i18n:check` enforce).
+- **Server/technical strings never reach the UI.** A caught error shows a translated message and
+  goes to `captureError` (`lib/telemetry.ts`); raw API text is EN-only and leaks internals.
+- **Screens**: navbar via `Screen`'s `header` slot (`<TopBar>`, fixed), page title as
+  `<ScreenTitle>` — the first content block, so it scrolls away at full width.
 - Conventional Commits (commitlint); husky runs lint-staged pre-commit and `bun run ci` pre-push.
 
 ## CI & release (sideloaded beta — no store pushes a binary for you)
