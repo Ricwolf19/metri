@@ -51,6 +51,11 @@ export const WheelPicker = ({ values, value, onChange, format }: Props) => {
         contentContainerStyle={{ paddingVertical: PAD }}
         onMomentumScrollEnd={commit}
         onScrollEndDrag={commit}
+        // The wheel always lives inside a scrollable Screen; without this,
+        // Android hands the vertical drag to the outer scroll view and the
+        // wheel never moves.
+        nestedScrollEnabled
+        overScrollMode="never"
       >
         {values.map((v) => {
           const selected = v === value;

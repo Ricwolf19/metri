@@ -43,10 +43,12 @@ const LABEL: Record<Variant, string> = {
   danger: 'text-red-400',
 };
 
-const HEIGHT: Record<Size, string> = {
-  sm: 'h-9 px-3.5',
-  md: 'h-11 px-5',
-  lg: 'h-12 px-6',
+// min-height + padding, never a fixed height: a two-line label (long ES copy in
+// narrow side-by-side buttons) grows the button instead of clipping inside it.
+const SIZE_BOX: Record<Size, string> = {
+  sm: 'min-h-9 px-3.5 py-1.5',
+  md: 'min-h-11 px-5 py-2.5',
+  lg: 'min-h-12 px-6 py-3',
 };
 
 const TEXT_SIZE: Record<Size, string> = {
@@ -91,7 +93,7 @@ export const Button = ({
       style={{ transform: [{ scale }] }}
       className={[
         'flex-row items-center justify-center rounded-field',
-        HEIGHT[size],
+        SIZE_BOX[size],
         CONTAINER[variant],
         fullWidth ? 'w-full' : 'self-start',
         isDisabled ? 'opacity-50' : '',
@@ -103,7 +105,14 @@ export const Button = ({
       ) : (
         <>
           {leftIcon ? <View className="mr-2">{leftIcon}</View> : null}
-          <Text className={['font-sans-semibold', TEXT_SIZE[size], LABEL[variant]].join(' ')}>
+          <Text
+            className={[
+              'shrink text-center',
+              'font-sans-semibold',
+              TEXT_SIZE[size],
+              LABEL[variant],
+            ].join(' ')}
+          >
             {label}
           </Text>
         </>
