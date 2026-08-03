@@ -72,6 +72,11 @@ const TabsLayout = () => {
     <Tabs
       screenOptions={{
         headerShown: false,
+        // Lazy mounting made the user watch each section's first render — the
+        // entrance animation plus live queries landing a frame late read as a
+        // layout jump. Queries are local SQLite, so mounting all four up front
+        // is cheap and every tab opens already settled.
+        lazy: false,
         tabBarShowLabel: true,
         tabBarActiveTintColor: bar.active,
         tabBarInactiveTintColor: bar.inactive,

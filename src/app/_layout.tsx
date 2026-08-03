@@ -17,7 +17,7 @@ import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { initialWindowMetrics, SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AppLoader, DialogProvider, ToastProvider } from '@/components/ui';
 import { db } from '@/db/client';
@@ -103,7 +103,9 @@ const RootLayout = () => {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <KeyboardProvider>
-        <SafeAreaProvider>
+        {/* Synchronous first-frame insets: without initialMetrics every screen's
+            first render used inset 0 and the header visibly jumped into place. */}
+        <SafeAreaProvider initialMetrics={initialWindowMetrics}>
           <I18nProvider>
             <ThemeProvider>
               <AuthProvider>
