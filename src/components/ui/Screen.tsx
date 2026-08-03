@@ -1,11 +1,22 @@
+import { remapProps } from 'nativewind';
 import { View, type ViewProps } from 'react-native';
 import { KeyboardAvoidingView, KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
+
+// NativeWind only maps `contentContainerClassName` on RN's own scroll views; on
+// this third-party one the prop would reach the native side as a raw string.
+remapProps(KeyboardAwareScrollView, {
+  className: 'style',
+  contentContainerClassName: 'contentContainerStyle',
+});
 
 type Props = ViewProps & {
   scroll?: boolean;
   edges?: readonly Edge[];
   contentClassName?: string;
+  /** Navbar. Rendered OUTSIDE the scroll area so it stays put while the content
+   * (including `<ScreenTitle>`) scrolls under it. */
+  header?: React.ReactNode;
 };
 
 /**
@@ -15,12 +26,16 @@ type Props = ViewProps & {
  * Keyboard behavior comes from react-native-keyboard-controller (identical on
  * iOS/Android, animated on the UI thread): scrollable screens auto-scroll the
  * focused input above the keyboard; fixed screens pad instead.
+ *
+ * Pass the navbar via `header` (fixed) and the page title as a `<ScreenTitle>`
+ * inside the content — the large-title pattern.
  */
 export const Screen = ({
   scroll = false,
   edges = ['top', 'bottom'],
   className,
   contentClassName,
+  header,
   children,
   ...rest
 }: Props) => {
@@ -30,6 +45,7 @@ export const Screen = ({
       className={['flex-1 bg-ink-900', className ?? ''].join(' ')}
       {...rest}
     >
+      {header}
       {scroll ? (
         <KeyboardAwareScrollView
           bottomOffset={24}

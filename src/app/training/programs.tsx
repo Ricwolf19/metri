@@ -4,7 +4,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { ChevronRightIcon, DumbbellIcon, EditPencilIcon, PlusIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
-import { Card, FadeInUp, PressableScale, Screen } from '@/components/ui';
+import { Card, FadeInUp, PressableScale, Screen, ScreenTitle } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { DIFFICULTY_KEY, GOAL_KEY } from '@/features/training/labels';
 import { programTemplatesQuery } from '@/features/training/programs.repo';
@@ -25,8 +25,8 @@ const Programs = () => {
   const { data: programs } = useLiveQuery(programTemplatesQuery());
 
   return (
-    <Screen scroll contentClassName="px-5 pb-10">
-      <TopBar title={t('training.programsTitle')} subtitle={t('training.subtitle')} showBack />
+    <Screen scroll contentClassName="px-5 pb-10" header={<TopBar showBack />}>
+      <ScreenTitle title={t('training.programsTitle')} subtitle={t('training.subtitle')} />
 
       <PressableScale onPress={() => router.push('/training/edit/new')} className="mb-3">
         <Card className="flex-row items-center border-brand/30 bg-brand/10">

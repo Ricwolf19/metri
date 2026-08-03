@@ -10,10 +10,11 @@ import {
   Card,
   Input,
   Screen,
+  ScreenTitle,
   SegmentedControl,
   Switch,
-  useToast,
   type Segment,
+  useToast,
 } from '@/components/ui';
 import type { IntensityType, WeekConfig } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
@@ -133,8 +134,13 @@ const EditSlot = () => {
   };
 
   return (
-    <Screen scroll edges={['top']} contentClassName="px-5 pb-10">
-      <TopBar title={exercise.name} showBack showAvatar={false} />
+    <Screen
+      scroll
+      edges={['top']}
+      contentClassName="px-5 pb-10"
+      header={<TopBar showBack showAvatar={false} />}
+    >
+      <ScreenTitle title={exercise.name} />
 
       {/* Week selector */}
       {weeks > 1 ? (

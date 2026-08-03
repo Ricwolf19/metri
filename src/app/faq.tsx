@@ -2,7 +2,7 @@ import { Linking, Text, View } from 'react-native';
 
 import { ExternalLinkIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
-import { Button, Card, Screen } from '@/components/ui';
+import { Button, Card, Screen, ScreenTitle } from '@/components/ui';
 import { betaLinks } from '@/features/beta/links';
 import { useT, type TranslationKey } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
@@ -37,8 +37,8 @@ const Faq = () => {
   const open = (url: string) => Linking.openURL(url);
 
   return (
-    <Screen scroll contentClassName="px-5 pb-12">
-      <TopBar title={t('faq.title')} showBack showAvatar={false} />
+    <Screen scroll contentClassName="px-5 pb-12" header={<TopBar showBack showAvatar={false} />}>
+      <ScreenTitle title={t('faq.title')} />
 
       {/* Sync ring */}
       <SectionLabel text={t('faq.ringTitle')} />

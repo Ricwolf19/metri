@@ -12,10 +12,11 @@ import {
   FadeInUp,
   PressableScale,
   Screen,
+  ScreenTitle,
   SegmentedControl,
-  useToast,
   type Segment,
   useDialog,
+  useToast,
 } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { pickFromCamera, pickFromLibrary } from '@/features/photos/capture';
@@ -80,8 +81,13 @@ const Progress = () => {
   );
 
   return (
-    <Screen scroll edges={['top']} contentClassName="px-5 pb-8">
-      <TopBar title={t('photos.title')} subtitle={t('photos.subtitle')} right={addButton} />
+    <Screen
+      scroll
+      edges={['top']}
+      contentClassName="px-5 pb-8"
+      header={<TopBar right={addButton} />}
+    >
+      <ScreenTitle title={t('photos.title')} subtitle={t('photos.subtitle')} />
 
       {data.length === 0 ? (
         <FadeInUp>

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { TopBar } from '@/components/TopBar';
-import { Card, Screen } from '@/components/ui';
+import { Card, Screen, ScreenTitle } from '@/components/ui';
 import type { ProgressPhoto } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
 import { photosQuery } from '@/features/photos/photos.repo';
@@ -63,8 +63,8 @@ const Compare = () => {
 
   if (data.length < 2) {
     return (
-      <Screen scroll contentClassName="px-5 pb-10">
-        <TopBar title={t('photos.compare')} showBack showAvatar={false} />
+      <Screen scroll contentClassName="px-5 pb-10" header={<TopBar showBack showAvatar={false} />}>
+        <ScreenTitle title={t('photos.compare')} />
         <Card>
           <Text className="text-sm text-ink-400">{t('photos.needTwo')}</Text>
         </Card>
@@ -87,8 +87,8 @@ const Compare = () => {
   };
 
   return (
-    <Screen scroll contentClassName="px-5 pb-10">
-      <TopBar title={t('photos.compare')} showBack showAvatar={false} />
+    <Screen scroll contentClassName="px-5 pb-10" header={<TopBar showBack showAvatar={false} />}>
+      <ScreenTitle title={t('photos.compare')} />
 
       <View className="flex-row gap-3">
         <Panel

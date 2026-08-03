@@ -11,6 +11,7 @@ import {
   Card,
   Input,
   Screen,
+  ScreenTitle,
   SegmentedControl,
   Switch,
   useToast,
@@ -290,31 +291,26 @@ const WorkoutSession = () => {
     });
 
   return (
-    <Screen edges={['top', 'bottom']}>
-      <TopBar
-        title={day?.name ?? t('training.workout')}
-        subtitle={t('training.weekN', { n: log.weekNumber })}
-        showBack
-        showAvatar={false}
-        right={
-          <Pressable
-            hitSlop={8}
-            onPress={cancel}
-            accessibilityRole="button"
-            accessibilityLabel={t('training.cancelWorkout')}
-            className="h-9 w-9 items-center justify-center rounded-full bg-ink-800"
-          >
-            <XIcon color="#ef4444" size={18} />
-          </Pressable>
-        }
-      />
-
-      <View className="px-5 pb-2">
-        <View className="w-32">
-          <SegmentedControl segments={UNIT_SEGMENTS} value={unit} onChange={setUnit} />
-        </View>
-      </View>
-
+    <Screen
+      edges={['top', 'bottom']}
+      header={
+        <TopBar
+          showBack
+          showAvatar={false}
+          right={
+            <Pressable
+              hitSlop={8}
+              onPress={cancel}
+              accessibilityRole="button"
+              accessibilityLabel={t('training.cancelWorkout')}
+              className="h-9 w-9 items-center justify-center rounded-full bg-ink-800"
+            >
+              <XIcon color="#ef4444" size={18} />
+            </Pressable>
+          }
+        />
+      }
+    >
       <KeyboardAwareScrollView
         className="flex-1"
         contentContainerClassName="px-5 pb-2"
@@ -322,6 +318,16 @@ const WorkoutSession = () => {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        <ScreenTitle
+          title={day?.name ?? t('training.workout')}
+          subtitle={t('training.weekN', { n: log.weekNumber })}
+        />
+
+        {/* Units ride the scroll: a set-and-forget control, not worth pinning. */}
+        <View className="mb-4 w-32">
+          <SegmentedControl segments={UNIT_SEGMENTS} value={unit} onChange={setUnit} />
+        </View>
+
         {slots.length === 0 ? (
           <Text className="mt-10 text-center text-sm text-ink-400">{t('training.empty')}</Text>
         ) : (

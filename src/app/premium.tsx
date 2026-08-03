@@ -2,7 +2,7 @@ import { Linking, Text, View } from 'react-native';
 
 import { StarIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
-import { Button, Card, Screen, useToast } from '@/components/ui';
+import { Button, Card, Screen, ScreenTitle, useToast } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { exportUserData } from '@/features/premium/export';
 import { useT } from '@/i18n';
@@ -26,8 +26,8 @@ const Premium = () => {
   };
 
   return (
-    <Screen scroll contentClassName="px-5 pb-12">
-      <TopBar title={t('premium.title')} showBack showAvatar={false} />
+    <Screen scroll contentClassName="px-5 pb-12" header={<TopBar showBack showAvatar={false} />}>
+      <ScreenTitle title={t('premium.title')} />
 
       {/* Hero */}
       <Card className="items-center border-brand/30 bg-brand/10">
@@ -35,7 +35,6 @@ const Premium = () => {
           <StarIcon color="#08090d" size={26} />
         </View>
         <View className="mt-3 flex-row items-center gap-2">
-          <Text className="text-lg font-sans-bold text-ink-50">{t('premium.title')}</Text>
           {isPremium ? (
             <View className="rounded-full bg-brand px-2 py-0.5">
               <Text className="text-xs font-sans-bold text-brandContrast">{t('plan.premium')}</Text>

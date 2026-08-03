@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { TopBar } from '@/components/TopBar';
-import { Card, Screen, Switch } from '@/components/ui';
+import { Card, Screen, ScreenTitle, Switch } from '@/components/ui';
 import { DEFAULT_PINNED_ACTIONS, QUICK_ACTIONS } from '@/features/home/quick-actions';
 import { useT } from '@/i18n';
 import { settings } from '@/lib/storage';
@@ -25,13 +25,8 @@ const HomeCustomize = () => {
   };
 
   return (
-    <Screen scroll contentClassName="px-5 pb-10">
-      <TopBar
-        title={t('home.customizeTitle')}
-        subtitle={t('home.customizeSub')}
-        showBack
-        showAvatar={false}
-      />
+    <Screen scroll contentClassName="px-5 pb-10" header={<TopBar showBack showAvatar={false} />}>
+      <ScreenTitle title={t('home.customizeTitle')} subtitle={t('home.customizeSub')} />
 
       <View className="mt-1 gap-3">
         {QUICK_ACTIONS.map((action) => {

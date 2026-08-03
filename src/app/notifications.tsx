@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { TopBar } from '@/components/TopBar';
-import { Card, Screen, Switch, TimePicker } from '@/components/ui';
+import { Card, Screen, ScreenTitle, Switch, TimePicker } from '@/components/ui';
 import {
   NOTIFICATION_EVENTS,
   type EventConfig,
@@ -109,8 +109,8 @@ const Notifications = () => {
   };
 
   return (
-    <Screen scroll contentClassName="px-5 pb-12">
-      <TopBar title={t('menu.notifications')} showBack showAvatar={false} />
+    <Screen scroll contentClassName="px-5 pb-12" header={<TopBar showBack showAvatar={false} />}>
+      <ScreenTitle title={t('menu.notifications')} />
 
       <Card>
         <View className="flex-row items-center justify-between">

@@ -3,7 +3,16 @@ import { useState } from 'react';
 import { View } from 'react-native';
 
 import { TopBar } from '@/components/TopBar';
-import { Button, Card, Input, Screen, Select, useToast, type SelectItem } from '@/components/ui';
+import {
+  Button,
+  Card,
+  Input,
+  Screen,
+  ScreenTitle,
+  Select,
+  type SelectItem,
+  useToast,
+} from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { createCustomProgram } from '@/features/training/authoring.repo';
 import { DIFFICULTY_KEY, GOAL_KEY } from '@/features/training/labels';
@@ -45,8 +54,13 @@ const NewProgram = () => {
   };
 
   return (
-    <Screen scroll edges={['top']} contentClassName="px-5 pb-10">
-      <TopBar title={t('editor.newProgram')} showBack showAvatar={false} />
+    <Screen
+      scroll
+      edges={['top']}
+      contentClassName="px-5 pb-10"
+      header={<TopBar showBack showAvatar={false} />}
+    >
+      <ScreenTitle title={t('editor.newProgram')} />
 
       <Card>
         <View className="gap-4">

@@ -3,7 +3,7 @@ import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Text, View } from 'react-native';
 
 import { TopBar } from '@/components/TopBar';
-import { Button, Card, FadeInUp, Screen, useToast, useDialog } from '@/components/ui';
+import { Button, Card, FadeInUp, Screen, ScreenTitle, useDialog, useToast } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import {
   abandonEnrollment,
@@ -74,8 +74,8 @@ const ProgramDetail = () => {
       : t('training.enroll');
 
   return (
-    <Screen scroll contentClassName="px-5 pb-28">
-      <TopBar title={program.name} showBack showAvatar={false} />
+    <Screen scroll contentClassName="px-5 pb-28" header={<TopBar showBack showAvatar={false} />}>
+      <ScreenTitle title={program.name} />
 
       <FadeInUp>
         <View className="mb-2 flex-row flex-wrap gap-2">

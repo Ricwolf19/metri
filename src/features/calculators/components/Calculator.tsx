@@ -3,7 +3,16 @@ import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { TopBar } from '@/components/TopBar';
-import { Button, Card, Input, Screen, SegmentedControl, Select, useToast } from '@/components/ui';
+import {
+  Button,
+  Card,
+  Input,
+  Screen,
+  ScreenTitle,
+  SegmentedControl,
+  Select,
+  useToast,
+} from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { saveBmr } from '@/features/auth/users.repo';
 import { useI18n, useT } from '@/i18n';
@@ -196,14 +205,12 @@ export const Calculator = ({ id, docId }: { id: CalcId; docId?: string }) => {
   };
 
   return (
-    <Screen scroll contentClassName="px-5 pb-12">
-      <TopBar
-        title={content.h1}
-        subtitle={content.tagline}
-        showBack
-        showAvatar={false}
-        docId={docId}
-      />
+    <Screen
+      scroll
+      contentClassName="px-5 pb-12"
+      header={<TopBar showBack showAvatar={false} docId={docId} />}
+    >
+      <ScreenTitle title={content.h1} subtitle={content.tagline} />
 
       {/* Live result */}
       {result ? (

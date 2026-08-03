@@ -5,7 +5,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { ChevronRightIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
-import { Button, Card, DatePicker, FadeInUp, Screen, useToast } from '@/components/ui';
+import { Button, Card, DatePicker, FadeInUp, Screen, ScreenTitle, useToast } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { deletePhoto, getPhoto, updatePhotoDate } from '@/features/photos/photos.repo';
 import { useT } from '@/i18n';
@@ -38,8 +38,8 @@ const PhotoViewer = () => {
   };
 
   return (
-    <Screen scroll contentClassName="px-5 pb-10">
-      <TopBar title={date.toISOString().slice(0, 10)} showBack showAvatar={false} />
+    <Screen scroll contentClassName="px-5 pb-10" header={<TopBar showBack showAvatar={false} />}>
+      <ScreenTitle title={date.toISOString().slice(0, 10)} />
 
       <FadeInUp>
         <View className="overflow-hidden rounded-card bg-ink-800">

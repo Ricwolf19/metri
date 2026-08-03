@@ -11,10 +11,11 @@ import {
   Input,
   PressableScale,
   Screen,
+  ScreenTitle,
   SegmentedControl,
-  useToast,
   type Segment,
   useDialog,
+  useToast,
 } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { RoleBadge } from '@/features/auth/components/RoleBadge';
@@ -125,8 +126,13 @@ const Profile = () => {
   const hasMetrics = typeof user.age === 'number';
 
   return (
-    <Screen scroll edges={['top']} contentClassName="px-5 pb-10">
-      <TopBar title={t('profile.title')} showBack showAvatar={false} />
+    <Screen
+      scroll
+      edges={['top']}
+      contentClassName="px-5 pb-10"
+      header={<TopBar showBack showAvatar={false} />}
+    >
+      <ScreenTitle title={t('profile.title')} />
 
       <Card className="items-center">
         <Pressable onPress={onChangePhoto} accessibilityRole="button" className="relative">

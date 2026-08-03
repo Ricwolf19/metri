@@ -5,7 +5,15 @@ import { Pressable, Text, View } from 'react-native';
 
 import { ChevronDownIcon, ChevronRightIcon, PlusIcon, TrashIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
-import { Card, Input, PressableScale, Screen, useToast, useDialog } from '@/components/ui';
+import {
+  Card,
+  Input,
+  PressableScale,
+  Screen,
+  ScreenTitle,
+  useDialog,
+  useToast,
+} from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import {
   deleteSlot,
@@ -56,8 +64,13 @@ const EditDay = () => {
     });
 
   return (
-    <Screen scroll edges={['top']} contentClassName="px-5 pb-10">
-      <TopBar title={t('editor.dayName')} showBack showAvatar={false} />
+    <Screen
+      scroll
+      edges={['top']}
+      contentClassName="px-5 pb-10"
+      header={<TopBar showBack showAvatar={false} />}
+    >
+      <ScreenTitle title={name.trim() || day.name} />
 
       <Card className="gap-4">
         <Input label={t('editor.dayName')} value={name} onChangeText={setName} onBlur={saveName} />

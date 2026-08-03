@@ -11,10 +11,11 @@ import {
   Input,
   PressableScale,
   Screen,
+  ScreenTitle,
   Select,
-  useToast,
   type SelectItem,
   useDialog,
+  useToast,
 } from '@/components/ui';
 import type { Equipment, ExerciseCategory } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
@@ -97,8 +98,13 @@ const ExercisePicker = () => {
   );
 
   return (
-    <Screen scroll edges={['top']} contentClassName="px-5 pb-10">
-      <TopBar title={t('editor.pickExercise')} showBack showAvatar={false} />
+    <Screen
+      scroll
+      edges={['top']}
+      contentClassName="px-5 pb-10"
+      header={<TopBar showBack showAvatar={false} />}
+    >
+      <ScreenTitle title={t('editor.pickExercise')} />
 
       {creating ? (
         <Card className="gap-4">

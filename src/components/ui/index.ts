@@ -9,6 +9,7 @@ export { FadeInUp } from './FadeInUp';
 export { Input } from './Input';
 export { PressableScale } from './PressableScale';
 export { Screen } from './Screen';
+export { ScreenTitle } from './ScreenTitle';
 export { SegmentedControl, type Segment } from './SegmentedControl';
 export { Select, type SelectItem } from './Select';
 export { Switch } from './Switch';

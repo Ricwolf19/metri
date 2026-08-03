@@ -8,7 +8,7 @@ import {
   MailIcon,
 } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
-import { Button, Card, Screen } from '@/components/ui';
+import { Button, Card, Screen, ScreenTitle } from '@/components/ui';
 import { betaLinks } from '@/features/beta/links';
 import { useT } from '@/i18n';
 import { APP_VERSION } from '@/lib/env';
@@ -49,8 +49,8 @@ const Beta = () => {
   const open = (url: string) => Linking.openURL(url);
 
   return (
-    <Screen scroll contentClassName="px-5 pb-12">
-      <TopBar title={t('beta.title')} showBack showAvatar={false} />
+    <Screen scroll contentClassName="px-5 pb-12" header={<TopBar showBack showAvatar={false} />}>
+      <ScreenTitle title={t('beta.title')} />
 
       {/* Which build am I on */}
       <Card className="items-center border-brand/30 bg-brand/10">
