@@ -27,6 +27,7 @@ export const es: Record<TranslationKey, string> = {
   'auth.createAccount': 'Crea una cuenta',
   'auth.errEnterCreds': 'Ingresa tu correo y contraseña.',
   'auth.errSignIn': 'Correo o contraseña incorrectos.',
+  'auth.errSignUp': 'No pudimos crear tu cuenta. Inténtalo de nuevo en un momento.',
   'auth.welcomeToast': 'Bienvenido de nuevo',
 
   // Auth — sign up

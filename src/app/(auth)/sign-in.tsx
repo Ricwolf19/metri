@@ -5,6 +5,7 @@ import { Pressable, Text, View } from 'react-native';
 import { BrandLogo, Button, Input, Screen, useToast } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { useT } from '@/i18n';
+import { captureError } from '@/lib/telemetry';
 import { LocaleToggle } from '@/i18n/LocaleToggle';
 
 const SignIn = () => {
@@ -31,7 +32,9 @@ const SignIn = () => {
       router.replace('/(tabs)');
       router.push('/beta');
     } catch (e) {
-      setError((e as Error).message ?? t('auth.errSignIn'));
+      // Server strings never reach the UI (see AGENTS.md → Conventions).
+      captureError(e);
+      setError(t('auth.errSignIn'));
     } finally {
       setLoading(false);
     }

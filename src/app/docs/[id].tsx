@@ -3,10 +3,11 @@ import { Pressable, Text, View } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 
 import { TopBar } from '@/components/TopBar';
-import { Card, FadeInUp, Screen } from '@/components/ui';
+import { Card, FadeInUp, Screen, ScreenTitle } from '@/components/ui';
 import { getDocById } from '@/features/docs';
 import { markdownRules } from '@/features/docs/MarkdownTable';
 import { markdownStyles } from '@/features/docs/markdownStyles';
+import { openContentLink } from '@/features/docs/openContentLink';
 import { useI18n } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
@@ -20,8 +21,8 @@ const DocDetail = () => {
   if (!section) return <Redirect href="/explore" />;
 
   return (
-    <Screen scroll contentClassName="px-5 pb-12">
-      <TopBar title={section.title} showBack showAvatar={false} />
+    <Screen scroll contentClassName="px-5 pb-12" header={<TopBar showBack showAvatar={false} />}>
+      <ScreenTitle title={section.title} />
 
       <FadeInUp>
         {/* Tags are tappable — they search the docs by that tag. */}
@@ -37,7 +38,11 @@ const DocDetail = () => {
           ))}
         </View>
         <Card>
-          <Markdown style={markdownStyles(scheme)} rules={markdownRules}>
+          <Markdown
+            style={markdownStyles(scheme)}
+            rules={markdownRules}
+            onLinkPress={(href) => openContentLink(href, router)}
+          >
             {section.body}
           </Markdown>
         </Card>

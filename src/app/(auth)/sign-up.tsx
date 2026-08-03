@@ -4,9 +4,10 @@ import { Pressable, Text, View } from 'react-native';
 
 import { CheckIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
-import { BrandLogo, Button, Input, Screen, useToast } from '@/components/ui';
+import { BrandLogo, Button, Input, Screen, ScreenTitle, useToast } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { useT } from '@/i18n';
+import { captureError } from '@/lib/telemetry';
 import { LocaleToggle } from '@/i18n/LocaleToggle';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -60,21 +61,22 @@ const SignUp = () => {
       router.replace('/(tabs)');
       router.push('/beta');
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('auth.errEmail'));
+      // Server strings are technical and EN-only ("captcha_failed:
+      // missing_token") — never user copy. Sentry gets the real one.
+      captureError(e);
+      setError(t('auth.errSignUp'));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Screen scroll contentClassName="grow px-6 pb-10">
-      <TopBar
-        title={t('auth.createTitle')}
-        subtitle={t('auth.cloudNote')}
-        showBack
-        showAvatar={false}
-        right={<LocaleToggle />}
-      />
+    <Screen
+      scroll
+      contentClassName="grow px-5 pb-10"
+      header={<TopBar showBack showAvatar={false} right={<LocaleToggle />} />}
+    >
+      <ScreenTitle title={t('auth.createTitle')} subtitle={t('auth.cloudNote')} />
 
       <View className="mb-6 mt-1 items-center">
         <BrandLogo width={120} />

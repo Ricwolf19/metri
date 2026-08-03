@@ -29,6 +29,7 @@ export const en = {
   'auth.createAccount': 'Create an account',
   'auth.errEnterCreds': 'Enter your email and password.',
   'auth.errSignIn': 'Wrong email or password.',
+  'auth.errSignUp': 'We could not create your account. Please try again in a moment.',
   'auth.welcomeToast': 'Welcome back',
 
   // Auth — sign up
