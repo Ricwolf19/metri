@@ -1,11 +1,5 @@
-import {
-  ActivityIndicator,
-  Animated,
-  Pressable,
-  Text,
-  View,
-  type PressableProps,
-} from 'react-native';
+import { ActivityIndicator, Pressable, Text, View, type PressableProps } from 'react-native';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
 import { usePressScale } from '@/lib/usePressScale';
 import { useTheme } from '@/theme/theme-context';
@@ -69,6 +63,7 @@ export const Button = ({
 }: Props) => {
   const isDisabled = disabled || loading;
   const { scale, onPressIn, onPressOut } = usePressScale();
+  const pressAnim = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   const { scheme } = useTheme();
 
   // Spinner colour tracks the label colour (which inverts per scheme for the
@@ -90,7 +85,7 @@ export const Button = ({
       disabled={isDisabled}
       onPressIn={onPressIn}
       onPressOut={onPressOut}
-      style={{ transform: [{ scale }] }}
+      style={pressAnim}
       className={[
         'flex-row items-center justify-center rounded-field',
         SIZE_BOX[size],

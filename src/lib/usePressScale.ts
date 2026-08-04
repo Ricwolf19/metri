@@ -1,20 +1,24 @@
-import { useState } from 'react';
-import { Animated } from 'react-native';
+import { useSharedValue, withSpring, type SharedValue } from 'react-native-reanimated';
+
+const SPRING = { damping: 20, stiffness: 400 };
 
 /**
  * Springy press feedback — scales a view down on press-in and back on release.
- * Built on RN's Animated (no worklets/babel plugin needed). Returns the animated
- * value plus the press handlers to spread onto a Pressable.
+ * Runs on the UI thread via reanimated shared values. Returns the shared value
+ * plus the press handlers to spread onto a Pressable.
  */
-export const usePressScale = (to = 0.97) => {
-  const [scale] = useState(() => new Animated.Value(1));
-
-  const spring = (toValue: number) =>
-    Animated.spring(scale, { toValue, useNativeDriver: true, speed: 40, bounciness: 4 }).start();
+export const usePressScale = (
+  to = 0.97,
+): { scale: SharedValue<number>; onPressIn: () => void; onPressOut: () => void } => {
+  const scale = useSharedValue(1);
 
   return {
     scale,
-    onPressIn: () => spring(to),
-    onPressOut: () => spring(1),
+    onPressIn: () => {
+      scale.value = withSpring(to, SPRING);
+    },
+    onPressOut: () => {
+      scale.value = withSpring(1, SPRING);
+    },
   };
 };

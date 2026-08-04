@@ -1,33 +1,36 @@
-import { useEffect, useState } from 'react';
-import { Animated, type ViewProps } from 'react-native';
+import { useEffect } from 'react';
+import { type ViewProps } from 'react-native';
+import Animated, {
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from 'react-native-reanimated';
 
 type Props = ViewProps & { delay?: number; children: React.ReactNode };
 
 /**
  * Mount entrance — a calm fade paired with a subtle scale-up from the element's
  * own center (0.97 → 1). The content "settles in place" rather than sweeping
- * down the screen: a pure top-to-bottom stagger read as if everything flew in
- * from the top. The stagger is capped hard so sections feel like one unified
- * appearance instead of a visible cascade.
+ * down the screen. The stagger is capped hard so sections feel like one unified
+ * appearance instead of a visible cascade. Runs on the UI thread (reanimated).
  */
 export const FadeInUp = ({ delay = 0, children, style, ...rest }: Props) => {
-  const [progress] = useState(() => new Animated.Value(0));
+  const progress = useSharedValue(0);
 
   useEffect(() => {
     // Cap the stagger tightly so the screen reads as one calm entrance.
-    const d = Math.min(delay, 90);
-    Animated.timing(progress, {
-      toValue: 1,
-      duration: 260,
-      delay: d,
-      useNativeDriver: true,
-    }).start();
+    progress.value = withDelay(Math.min(delay, 90), withTiming(1, { duration: 260 }));
   }, [progress, delay]);
 
-  const scale = progress.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1] });
+  const anim = useAnimatedStyle(() => ({
+    opacity: progress.value,
+    transform: [{ scale: interpolate(progress.value, [0, 1], [0.97, 1]) }],
+  }));
 
   return (
-    <Animated.View style={[{ opacity: progress, transform: [{ scale }] }, style]} {...rest}>
+    <Animated.View style={[anim, style]} {...rest}>
       {children}
     </Animated.View>
   );

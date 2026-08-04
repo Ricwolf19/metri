@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
+import Animated, { ZoomIn } from 'react-native-reanimated';
 
 import { Button } from './Button';
 
@@ -51,29 +52,34 @@ export const DialogProvider = ({ children }: { children: React.ReactNode }) => {
       {children}
       <Modal visible={options !== null} transparent animationType="fade" onRequestClose={close}>
         <Pressable className="flex-1 items-center justify-center bg-black/60 px-8" onPress={close}>
-          <Pressable
-            className="w-full rounded-card border border-ink-700 bg-ink-850 p-5"
-            onPress={() => {}}
+          <Animated.View
+            entering={ZoomIn.springify().damping(16).stiffness(220)}
+            className="w-full"
           >
-            {options ? (
-              <>
-                <Text className="text-lg font-sans-bold text-ink-50">{options.title}</Text>
-                {options.message ? (
-                  <Text className="mt-2 text-sm leading-6 text-ink-300">{options.message}</Text>
-                ) : null}
-                <View className="mt-5 gap-2">
-                  {options.actions.map((action) => (
-                    <Button
-                      key={action.label}
-                      label={action.label}
-                      variant={VARIANT[action.style ?? 'default']}
-                      onPress={() => run(action)}
-                    />
-                  ))}
-                </View>
-              </>
-            ) : null}
-          </Pressable>
+            <Pressable
+              className="w-full rounded-card border border-ink-700 bg-ink-850 p-5"
+              onPress={() => {}}
+            >
+              {options ? (
+                <>
+                  <Text className="text-lg font-sans-bold text-ink-50">{options.title}</Text>
+                  {options.message ? (
+                    <Text className="mt-2 text-sm leading-6 text-ink-300">{options.message}</Text>
+                  ) : null}
+                  <View className="mt-5 gap-2">
+                    {options.actions.map((action) => (
+                      <Button
+                        key={action.label}
+                        label={action.label}
+                        variant={VARIANT[action.style ?? 'default']}
+                        onPress={() => run(action)}
+                      />
+                    ))}
+                  </View>
+                </>
+              ) : null}
+            </Pressable>
+          </Animated.View>
         </Pressable>
       </Modal>
     </DialogContext.Provider>
