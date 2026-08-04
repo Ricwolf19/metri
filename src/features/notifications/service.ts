@@ -98,6 +98,33 @@ export const scheduleOneShot = (
     },
   });
 
+/**
+ * Present an ongoing (sticky) notification NOW — Android only by design: it is
+ * the background rest indicator ("resting until HH:MM"). Returns the id for
+ * `dismissOngoing`. On iOS this is a no-op (no sticky concept; the one-shot
+ * "rest over" notification still fires).
+ */
+export const presentOngoing = async (
+  kind: ChannelKind,
+  content: { title: string; body?: string },
+): Promise<string | null> => {
+  if (Platform.OS !== 'android') return null;
+  return Notifications.scheduleNotificationAsync({
+    content: {
+      title: content.title,
+      body: content.body ?? '',
+      sticky: true,
+      autoDismiss: false,
+    },
+    trigger: { channelId: kind },
+  });
+};
+
+export const dismissOngoing = async (id: string | null): Promise<void> => {
+  if (!id) return;
+  await Notifications.dismissNotificationAsync(id).catch(() => {});
+};
+
 export const cancelNotifications = async (ids: (string | null)[] | null): Promise<void> => {
   if (!ids?.length) return;
   await Promise.all(

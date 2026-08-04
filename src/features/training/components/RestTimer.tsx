@@ -4,7 +4,9 @@ import { AppState, Pressable, Text, Vibration, View } from 'react-native';
 import { TimerIcon, XIcon } from '@/components/icons';
 import {
   cancelNotifications,
+  dismissOngoing,
   ensureNotificationPermission,
+  presentOngoing,
   scheduleOneShot,
 } from '@/features/notifications/service';
 import { useTheme } from '@/theme/theme-context';
@@ -17,6 +19,9 @@ type Props = {
   /** Notification copy for the backgrounded case. */
   notifyTitle: string;
   notifyBody: string;
+  /** Ongoing-notification copy while resting ("done at {time}"). */
+  ongoingTitle: string;
+  ongoingBody: string;
   onDone: () => void;
 };
 
@@ -42,12 +47,15 @@ export const RestTimer = ({
   skipLabel,
   notifyTitle,
   notifyBody,
+  ongoingTitle,
+  ongoingBody,
   onDone,
 }: Props) => {
   const { brand } = useTheme();
   const [endsAt] = useState(() => Date.now() + seconds * 1000);
   const [remaining, setRemaining] = useState(seconds);
   const notifId = useRef<string | null>(null);
+  const ongoingId = useRef<string | null>(null);
   const doneRef = useRef(false);
 
   // Schedule the backup OS notification on mount; cancel on unmount (skip/next).
@@ -62,14 +70,24 @@ export const RestTimer = ({
       }).catch(() => null);
       if (cancelled) void cancelNotifications([id]);
       else notifId.current = id;
+      // Android: a sticky "resting until HH:MM" so leaving the app keeps the
+      // timer visible. Wall-clock text, so it never needs re-rendering.
+      const sticky = await presentOngoing('rest-timer', {
+        title: ongoingTitle,
+        body: ongoingBody,
+      }).catch(() => null);
+      if (cancelled) void dismissOngoing(sticky);
+      else ongoingId.current = sticky;
     })();
     return () => {
       cancelled = true;
       void cancelNotifications([notifId.current]);
+      void dismissOngoing(ongoingId.current);
       notifId.current = null;
+      ongoingId.current = null;
     };
     // Stable for the component's life (remounted via `key` per rest), so this runs once.
-  }, [seconds, notifyTitle, notifyBody]);
+  }, [seconds, notifyTitle, notifyBody, ongoingTitle, ongoingBody]);
 
   // Tick from the clock; resync immediately when returning to the foreground.
   useEffect(() => {
@@ -80,7 +98,9 @@ export const RestTimer = ({
         doneRef.current = true;
         Vibration.vibrate([0, 300, 150, 300]);
         void cancelNotifications([notifId.current]);
+        void dismissOngoing(ongoingId.current);
         notifId.current = null;
+        ongoingId.current = null;
         onDone();
       }
     };
