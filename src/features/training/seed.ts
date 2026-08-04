@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import {
@@ -26,11 +26,55 @@ import { PROGRAM_SEEDS, WEEK_PROGRESSION, type ProgramSeed } from './programs';
  * them into user-owned rows — that lives in the Phase-2 workout engine.
  */
 const SEED_KEY = 'training_seed_version';
-const SEED_VERSION = '2';
+const SEED_VERSION = '3';
 
 const alreadySeeded = (): boolean => {
   const [row] = db.select().from(appMeta).where(eq(appMeta.key, SEED_KEY)).all();
   return row?.value === SEED_VERSION;
+};
+
+/** Template programs shipped by older versions — v3 retired them (all-custom).
+ * Only TEMPLATE rows die (`user_program_id IS NULL`); a user's enrolled copies
+ * are user-owned rows and survive untouched. */
+const RETIRED_PROGRAM_IDS = ['pb-2-0', 'ul-4', 'fb-3'];
+
+const cleanupRetiredTemplates = (): void => {
+  const routineIds = db
+    .select({ id: routines.id })
+    .from(routines)
+    .where(and(inArray(routines.programId, RETIRED_PROGRAM_IDS), isNull(routines.userProgramId)))
+    .all()
+    .map((r) => r.id);
+  if (routineIds.length) {
+    const dayIds = db
+      .select({ id: workoutDays.id })
+      .from(workoutDays)
+      .where(and(inArray(workoutDays.routineId, routineIds), isNull(workoutDays.userProgramId)))
+      .all()
+      .map((d) => d.id);
+    if (dayIds.length) {
+      const slotIds = db
+        .select({ id: workoutDayExercises.id })
+        .from(workoutDayExercises)
+        .where(
+          and(
+            inArray(workoutDayExercises.workoutDayId, dayIds),
+            isNull(workoutDayExercises.userProgramId),
+          ),
+        )
+        .all()
+        .map((sl) => sl.id);
+      if (slotIds.length) {
+        db.delete(weekConfigs).where(inArray(weekConfigs.workoutDayExerciseId, slotIds)).run();
+        db.delete(workoutDayExercises).where(inArray(workoutDayExercises.id, slotIds)).run();
+      }
+      db.delete(workoutDays).where(inArray(workoutDays.id, dayIds)).run();
+    }
+    db.delete(routines).where(inArray(routines.id, routineIds)).run();
+  }
+  db.delete(programs)
+    .where(and(inArray(programs.id, RETIRED_PROGRAM_IDS), isNull(programs.userProgramId)))
+    .run();
 };
 
 const seedExercises = (): void => {
@@ -134,6 +178,7 @@ const seedProgram = (p: ProgramSeed): void => {
 export const seedTraining = async (): Promise<void> => {
   if (alreadySeeded()) return;
 
+  cleanupRetiredTemplates();
   seedExercises();
   for (const program of PROGRAM_SEEDS) seedProgram(program);
 

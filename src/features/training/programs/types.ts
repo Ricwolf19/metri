@@ -57,8 +57,3 @@ export const WEEK_PROGRESSION: WeekStep[] = [
   { rirMin: 1, rirMax: 2, toFailure: false, intensityType: 'rir' },
   { rirMin: 0, rirMax: 0, toFailure: true, intensityType: 'rir' },
 ];
-
-/** Rest presets (seconds). */
-export const COMPOUND_REST = 180;
-export const SECONDARY_REST = 120;
-export const ACCESSORY_REST = 90;

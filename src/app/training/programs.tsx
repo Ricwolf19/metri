@@ -2,10 +2,17 @@ import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { useRouter } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 
-import { ChevronRightIcon, DumbbellIcon, EditPencilIcon, PlusIcon } from '@/components/icons';
+import {
+  ChevronRightIcon,
+  DumbbellIcon,
+  EditPencilIcon,
+  PlusIcon,
+  TrashIcon,
+} from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
-import { Card, FadeInUp, PressableScale, Screen, ScreenTitle } from '@/components/ui';
+import { Card, FadeInUp, PressableScale, Screen, ScreenTitle, useDialog } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
+import { deleteProgramTree } from '@/features/training/authoring.repo';
 import { DIFFICULTY_KEY, GOAL_KEY } from '@/features/training/labels';
 import { programTemplatesQuery } from '@/features/training/programs.repo';
 import { useT } from '@/i18n';
@@ -22,7 +29,21 @@ const Programs = () => {
   const t = useT();
   const { brand } = useTheme();
   const { user } = useAuth();
+  const dialog = useDialog();
   const { data: programs } = useLiveQuery(programTemplatesQuery());
+
+  const confirmDelete = (programId: string) =>
+    dialog.show({
+      title: t('editor.confirmDelete'),
+      actions: [
+        { label: t('common.cancel'), style: 'cancel' },
+        {
+          label: t('editor.delete'),
+          style: 'destructive',
+          onPress: () => deleteProgramTree(programId),
+        },
+      ],
+    });
 
   return (
     <Screen scroll contentClassName="px-5 pb-10" header={<TopBar showBack />}>
@@ -76,6 +97,11 @@ const Programs = () => {
                       className="mr-3"
                     >
                       <EditPencilIcon color="#a1a1aa" size={18} />
+                    </Pressable>
+                  ) : null}
+                  {p.isCustom && p.userId === user?.id ? (
+                    <Pressable onPress={() => confirmDelete(p.id)} hitSlop={8} className="mr-3">
+                      <TrashIcon color="#ef4444" size={18} />
                     </Pressable>
                   ) : null}
                   <ChevronRightIcon color="#71717a" />
