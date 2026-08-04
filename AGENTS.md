@@ -43,7 +43,9 @@ keys. Every production bug fix ships with the test that would have caught it.
   sync with `src/features/legal/content.ts` whenever sync or telemetry changes. All Sentry access
   goes through `src/lib/telemetry.ts` (account id only, `sendDefaultPii: false`, empty DSN = off) —
   never import `@sentry/react-native` elsewhere.
-- **Animations** use built-in RN `Animated` (no reanimated worklets plugin is wired).
+- **Animations** use `react-native-reanimated` v4 (shared values + `useAnimatedStyle`; worklets
+  wired via babel-preset-expo). React Compiler rules apply: write `.value` only in effects or
+  module-scope factories, and before `useAnimatedStyle` captures the value.
 
 ## Sync (Premium) — the rules that were real bugs
 
