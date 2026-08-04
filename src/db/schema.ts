@@ -261,6 +261,8 @@ export const workoutDayExercises = sqliteTable(
     // Short, char-limited helper tags shown as chips (technique cues, grip,
     // warmup, "don't go to failure", etc.). Separate from free-form `notes`.
     badges: text('badges', { mode: 'json' }).$type<string[]>(),
+    // Interchangeable exercises ("deadlift or sumo") the session can swap to.
+    alternativeExerciseIds: text('alternative_exercise_ids', { mode: 'json' }).$type<string[]>(),
     userProgramId: text('user_program_id'),
     updatedAt: tsMs('updated_at').notNull().default(NOW_MS),
   },
@@ -272,6 +274,17 @@ export type NewWorkoutDayExercise = typeof workoutDayExercises.$inferInsert;
 
 /** How intensity for a week is expressed. `percentage` fills the %1RM gap. */
 export type IntensityType = 'rir' | 'rpe' | 'percentage';
+
+/** One block of sets sharing a scheme — a week can prescribe several (e.g. the
+ * classic "1×6 RIR 0 top set + 3×6 RIR 3-4 back-off"). */
+export type SetGroup = {
+  sets: number;
+  reps: number;
+  repsMax?: number;
+  rirMin?: number;
+  rirMax?: number;
+  toFailure?: boolean;
+};
 
 /**
  * Per-week prescription for a slot — the heart of progressive overload.
@@ -293,6 +306,8 @@ export const weekConfigs = sqliteTable(
     restSeconds: integer('rest_seconds'),
     intensityType: text('intensity_type').$type<IntensityType>().notNull().default('rir'),
     intensityValue: real('intensity_value'),
+    // Multi-group prescription (top set + back-off). NULL ⇒ the flat scheme above.
+    setGroups: text('set_groups', { mode: 'json' }).$type<SetGroup[]>(),
     userProgramId: text('user_program_id'),
     updatedAt: tsMs('updated_at').notNull().default(NOW_MS),
   },
@@ -318,6 +333,9 @@ export const userPrograms = sqliteTable(
     /** Position is stored routine-relative; the absolute program week is derived. */
     currentRoutineId: text('current_routine_id'),
     currentWeek: integer('current_week').notNull().default(1),
+    // The user's chosen training days (1=Sun…7=Sat) — drives "today's session"
+    // and the automatic training-time notifications.
+    trainingWeekdays: text('training_weekdays', { mode: 'json' }).$type<number[]>(),
     createdAt: tsMs('created_at').notNull().default(NOW_MS),
     updatedAt: tsMs('updated_at').notNull().default(NOW_MS),
   },
@@ -328,6 +346,18 @@ export type UserProgram = typeof userPrograms.$inferSelect;
 export type NewUserProgram = typeof userPrograms.$inferInsert;
 
 export type WorkoutStatus = 'in_progress' | 'completed' | 'abandoned';
+
+/** The prescription materialized when a session starts — the session renders
+ * from this, immune to program edits, and history stays faithful. */
+export type PlannedSlot = {
+  slotId: string;
+  exerciseId: string;
+  name: string;
+  setGroups: SetGroup[];
+  restSeconds: number | null;
+  badges: string[];
+  alternativeExerciseIds: string[];
+};
 
 /**
  * A training session. The single `in_progress` row per user IS the active
@@ -348,6 +378,7 @@ export const workoutLogs = sqliteTable(
     durationSeconds: integer('duration_seconds'),
     notes: text('notes'),
     rating: integer('rating'),
+    plannedSnapshot: text('planned_snapshot', { mode: 'json' }).$type<PlannedSlot[]>(),
     createdAt: tsMs('created_at').notNull().default(NOW_MS),
     updatedAt: tsMs('updated_at'),
   },
