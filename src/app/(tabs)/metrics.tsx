@@ -11,7 +11,7 @@ import { CalcChart } from '@/features/calculators/components/CalcChart';
 import type { CalcChart as Chart } from '@/features/calculators/types';
 import { computeStreak } from '@/features/training/adherence.repo';
 import { TrainingCalendar } from '@/features/training/components/TrainingCalendar';
-import { bucketVolume, weeklyVolumeQuery } from '@/features/training/stats.repo';
+import { bucketVolume, loggedExercises, weeklyVolumeQuery } from '@/features/training/stats.repo';
 import { useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
@@ -61,13 +61,17 @@ const Metrics = () => {
   };
 
   const streak = userId ? computeStreak(userId) : 0;
+  const exercisesLogged = userId ? loggedExercises(userId).slice(0, 6) : [];
 
   if (!user) return null;
 
   return (
-    <Screen scroll edges={['top']} contentClassName="px-5 pb-8">
-      <TopBar menu showFaq showBeta />
-
+    <Screen
+      scroll
+      edges={['top']}
+      contentClassName="px-5 pb-32"
+      header={<TopBar menu showFaq showBeta />}
+    >
       {/* Training at a glance */}
       <FadeInUp>
         <Card className="flex-row">
@@ -96,6 +100,38 @@ const Metrics = () => {
         <SectionLabel text={t('adherence.section')} />
         <TrainingCalendar />
       </FadeInUp>
+
+      {/* Per-exercise history */}
+      {exercisesLogged.length ? (
+        <>
+          <SectionLabel text={t('metrics.exHistory')} />
+          <Card className="gap-0 py-1">
+            {exercisesLogged.map((e, i) => (
+              <PressableScale
+                key={e.exerciseId}
+                onPress={() =>
+                  router.push({ pathname: '/training/exercise/[id]', params: { id: e.exerciseId } })
+                }
+                className={[
+                  'flex-row items-center py-3',
+                  i > 0 ? 'border-t border-ink-800' : '',
+                ].join(' ')}
+              >
+                <Text
+                  className="flex-1 pr-2 text-sm font-sans-medium text-ink-100"
+                  numberOfLines={1}
+                >
+                  {e.name}
+                </Text>
+                <Text className="mr-2 text-xs text-ink-400">
+                  {t('metrics.exSessions', { n: e.sessions })}
+                </Text>
+                <ChevronRightIcon color="#71717a" size={16} />
+              </PressableScale>
+            ))}
+          </Card>
+        </>
+      ) : null}
 
       {/* Energy profile */}
       <SectionLabel text={t('home.energy')} />

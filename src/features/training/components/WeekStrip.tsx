@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
-import { useRouter } from 'expo-router';
-import { Pressable, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import type { TrainingDayStatus } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
@@ -8,44 +8,54 @@ import { useI18n } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
 import { localDateKey, rangeDaysQuery } from '../adherence.repo';
+import { DAY_LETTERS } from '../labels';
+import { DayDetailSheet } from './DayDetailSheet';
 
-// Monday-first single letters (display-only, matches TrainingCalendar).
-const WEEKDAYS: Record<string, string[]> = {
-  en: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
-  es: ['L', 'M', 'M', 'J', 'V', 'S', 'D'],
-};
+const WEEKS_BACK = 8;
 
-/** The current week's seven days keyed 'YYYY-MM-DD', Monday first. */
-const currentWeek = (): { key: string; day: number; isToday: boolean }[] => {
+type Day = { key: string; day: number; weekdayIndex: number; isToday: boolean; isFuture: boolean };
+
+/** The trailing weeks as a flat, Monday-first day list ending this Sunday. */
+const trailingDays = (): Day[] => {
   const today = new Date();
   const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7) - (WEEKS_BACK - 1) * 7);
   const todayKey = localDateKey(today);
-  return Array.from({ length: 7 }, (_, i) => {
+  return Array.from({ length: WEEKS_BACK * 7 }, (_, i) => {
     const d = new Date(monday);
     d.setDate(d.getDate() + i);
     const key = localDateKey(d);
-    return { key, day: d.getDate(), isToday: key === todayKey };
+    return {
+      key,
+      day: d.getDate(),
+      weekdayIndex: i % 7,
+      isToday: key === todayKey,
+      isFuture: key > todayKey,
+    };
   });
 };
 
 /**
- * Compact 7-day adherence strip for Home — the mini calendar. Green = trained,
- * muted = rest, red = missed. Tapping opens the training hub (full month view).
+ * Horizontally scrollable adherence strip (last 8 weeks), current week in view
+ * on mount. Tapping a day opens its detail sheet (workout done, mark, why it
+ * was missed…) — the calendar as a record, not just dots.
  */
 export const WeekStrip = () => {
-  const router = useRouter();
   const { user } = useAuth();
   const { locale } = useI18n();
   const { brand } = useTheme();
+  const scrollRef = useRef<ScrollView>(null);
+  const [selected, setSelected] = useState<string | null>(null);
 
-  const week = currentWeek();
-  const { data } = useLiveQuery(rangeDaysQuery(user?.id ?? '', week[0].key, week[6].key));
+  const days = trailingDays();
+  const { data } = useLiveQuery(
+    rangeDaysQuery(user?.id ?? '', days[0].key, days[days.length - 1].key),
+  );
 
   if (!user) return null;
 
   const byDate = new Map(data.map((d) => [d.date, d.status as TrainingDayStatus]));
-  const labels = WEEKDAYS[locale] ?? WEEKDAYS.en;
+  const labels = DAY_LETTERS[locale] ?? DAY_LETTERS.en;
 
   const dotColor = (status: TrainingDayStatus | undefined): string => {
     if (status === 'trained') return brand;
@@ -55,38 +65,55 @@ export const WeekStrip = () => {
   };
 
   return (
-    <Pressable
-      onPress={() => router.push('/training')}
-      accessibilityRole="button"
-      className="flex-row justify-between rounded-card border border-ink-700 bg-ink-850 px-4 py-3"
-    >
-      {week.map(({ key, day, isToday }, i) => {
-        const status = byDate.get(key);
-        return (
-          <View key={key} className="items-center gap-1">
-            <Text className="font-mono-medium text-[10px] uppercase text-ink-500">{labels[i]}</Text>
-            <View
-              className={[
-                'h-8 w-8 items-center justify-center rounded-full',
-                isToday ? 'border border-brand/50' : '',
-              ].join(' ')}
+    <View className="rounded-card border border-ink-700 bg-ink-850 py-3">
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerClassName="px-3"
+        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
+      >
+        {days.map(({ key, day, weekdayIndex, isToday, isFuture }) => {
+          const status = byDate.get(key);
+          return (
+            <Pressable
+              key={key}
+              onPress={() => !isFuture && setSelected(key)}
+              accessibilityRole="button"
+              className="w-11 items-center gap-1"
             >
-              <Text
+              <Text className="font-mono-medium text-[10px] uppercase text-ink-500">
+                {labels[weekdayIndex]}
+              </Text>
+              <View
                 className={[
-                  'text-xs',
-                  isToday ? 'font-sans-semibold text-brand' : 'text-ink-300',
+                  'h-8 w-8 items-center justify-center rounded-full',
+                  isToday ? 'border border-brand/50' : '',
                 ].join(' ')}
               >
-                {day}
-              </Text>
-            </View>
-            <View
-              style={{ backgroundColor: dotColor(status) }}
-              className="h-1.5 w-1.5 rounded-full"
-            />
-          </View>
-        );
-      })}
-    </Pressable>
+                <Text
+                  className={[
+                    'text-xs',
+                    isToday
+                      ? 'font-sans-semibold text-brand'
+                      : isFuture
+                        ? 'text-ink-600'
+                        : 'text-ink-300',
+                  ].join(' ')}
+                >
+                  {day}
+                </Text>
+              </View>
+              <View
+                style={{ backgroundColor: dotColor(status) }}
+                className="h-1.5 w-1.5 rounded-full"
+              />
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      <DayDetailSheet date={selected} onClose={() => setSelected(null)} />
+    </View>
   );
 };

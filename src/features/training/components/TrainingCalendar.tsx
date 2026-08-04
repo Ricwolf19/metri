@@ -9,7 +9,9 @@ import { useAuth } from '@/features/auth/auth-context';
 import { useI18n } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
+import { DAY_LETTERS } from '../labels';
 import { localDateKey, monthDaysQuery } from '../adherence.repo';
+import { DayDetailSheet } from './DayDetailSheet';
 
 // Display-only labels (kept local — not worth i18n key bloat).
 const MONTHS: Record<string, string[]> = {
@@ -42,12 +44,6 @@ const MONTHS: Record<string, string[]> = {
     'Diciembre',
   ],
 };
-// Week starts Monday (common in MX/EU).
-const WEEKDAYS: Record<string, string[]> = {
-  en: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
-  es: ['L', 'M', 'M', 'J', 'V', 'S', 'D'],
-};
-
 const currentYm = (): string => localDateKey().slice(0, 7);
 
 const shiftMonth = (ym: string, delta: number): string => {
@@ -64,6 +60,7 @@ export const TrainingCalendar = () => {
   const { locale } = useI18n();
   const { brand } = useTheme();
   const [ym, setYm] = useState(currentYm);
+  const [selected, setSelected] = useState<string | null>(null);
 
   const { data } = useLiveQuery(monthDaysQuery(user?.id ?? '', ym));
 
@@ -98,7 +95,7 @@ export const TrainingCalendar = () => {
   };
 
   const months = MONTHS[locale] ?? MONTHS.en;
-  const weekdays = WEEKDAYS[locale] ?? WEEKDAYS.en;
+  const weekdays = DAY_LETTERS[locale] ?? DAY_LETTERS.en;
 
   return (
     <Card>
@@ -140,7 +137,8 @@ export const TrainingCalendar = () => {
         {cells.map((cell, i) => (
           <View key={i} className="items-center py-1" style={{ width: `${100 / 7}%` }}>
             {cell ? (
-              <View
+              <Pressable
+                onPress={() => !cell.future && setSelected(cell.key)}
                 style={{ backgroundColor: colorFor(cell) }}
                 className="h-8 w-8 items-center justify-center rounded-md"
               >
@@ -150,11 +148,12 @@ export const TrainingCalendar = () => {
                 >
                   {cell.day}
                 </Text>
-              </View>
+              </Pressable>
             ) : null}
           </View>
         ))}
       </View>
+      <DayDetailSheet date={selected} onClose={() => setSelected(null)} />
     </Card>
   );
 };
