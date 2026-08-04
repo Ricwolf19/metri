@@ -19,7 +19,7 @@ import {
 } from '@/components/ui';
 import type { Equipment, ExerciseCategory } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
-import { addSlot, getDay } from '@/features/training/authoring.repo';
+import { addSlot, getDay, getSlot, setSlotAlternatives } from '@/features/training/authoring.repo';
 import {
   createCustomExercise,
   deleteCustomExercise,
@@ -32,7 +32,7 @@ import { useTheme } from '@/theme/theme-context';
 const CATEGORIES = Object.keys(CATEGORY_KEY) as ExerciseCategory[];
 
 const ExercisePicker = () => {
-  const { dayId } = useLocalSearchParams<{ dayId: string }>();
+  const { dayId, altFor } = useLocalSearchParams<{ dayId: string; altFor?: string }>();
   const router = useRouter();
   const t = useT();
   const toast = useToast();
@@ -59,6 +59,14 @@ const ExercisePicker = () => {
   if (!user || !day || typeof dayId !== 'string') return <Redirect href="/training" />;
 
   const pick = (exerciseId: string) => {
+    if (typeof altFor === 'string') {
+      // Alternative mode: append to the slot's interchangeable list.
+      const target = getSlot(altFor);
+      const current = target?.alternativeExerciseIds ?? [];
+      if (!current.includes(exerciseId)) setSlotAlternatives(altFor, [...current, exerciseId]);
+      router.back();
+      return;
+    }
     addSlot(dayId, day.userProgramId, exerciseId);
     router.back();
   };

@@ -47,3 +47,9 @@ export const INTENSITY_KEY: Record<IntensityType, TranslationKey> = {
   rpe: 'intensity.rpe',
   percentage: 'intensity.percentage',
 };
+
+/** Monday-first single-letter weekday headers (display-only). */
+export const DAY_LETTERS: Record<string, string[]> = {
+  en: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
+  es: ['L', 'M', 'M', 'J', 'V', 'S', 'D'],
+};

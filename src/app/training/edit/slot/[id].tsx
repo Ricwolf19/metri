@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
-import { Redirect, useLocalSearchParams } from 'expo-router';
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
@@ -16,7 +16,7 @@ import {
   type Segment,
   useToast,
 } from '@/components/ui';
-import type { IntensityType, WeekConfig } from '@/db/schema';
+import type { IntensityType, WeekConfig, SetGroup } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
 import {
   MAX_BADGES,
@@ -24,7 +24,9 @@ import {
   configsQuery,
   copyWeekConfigToAll,
   getSlot,
+  setSlotAlternatives,
   setSlotBadges,
+  setWeekSetGroups,
   updateSlot,
   upsertWeekConfig,
   type ConfigValues,
@@ -81,6 +83,7 @@ const NumRow = ({
 const EditSlot = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const t = useT();
+  const router = useRouter();
   const toast = useToast();
   const { user } = useAuth();
 
@@ -283,6 +286,136 @@ const EditSlot = () => {
           onInc={() => setRestTo(rest + 15)}
         />
       </Card>
+
+      {/* Advanced scheme — top set + back-off for the selected week */}
+      {cfg ? (
+        <>
+          <Text className="mb-1 mt-7 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
+            {t('editor.advancedScheme')}
+          </Text>
+          <Card>
+            <View className="flex-row items-center justify-between">
+              <View className="flex-1 pr-4">
+                <Text className="text-base font-sans-semibold text-ink-50">
+                  {t('editor.topSetToggle')}
+                </Text>
+                <Text className="mt-0.5 text-xs leading-5 text-ink-400">
+                  {t('editor.topSetHint')}
+                </Text>
+              </View>
+              <Switch
+                value={!!cfg.setGroups?.length}
+                onValueChange={(on) =>
+                  setWeekSetGroups(
+                    slot.id,
+                    cfg.weekNumber,
+                    on
+                      ? [
+                          { sets: 1, reps: cfg.reps, rirMin: 0, rirMax: 0 },
+                          { sets: Math.max(cfg.sets - 1, 1), reps: cfg.reps, rirMin: 3, rirMax: 4 },
+                        ]
+                      : null,
+                  )
+                }
+              />
+            </View>
+            {cfg.setGroups?.length ? (
+              <View className="mt-4 gap-4 border-t border-ink-800 pt-4">
+                {cfg.setGroups.map((g, gi) => {
+                  const update = (patchGroup: Partial<SetGroup>) => {
+                    const next = cfg.setGroups!.map((x, xi) =>
+                      xi === gi ? { ...x, ...patchGroup } : x,
+                    );
+                    setWeekSetGroups(slot.id, cfg.weekNumber, next);
+                  };
+                  return (
+                    <View key={gi}>
+                      <Text className="mb-1 font-mono-medium text-[11px] uppercase tracking-wider text-brand">
+                        {gi === 0 ? t('training.topSet') : t('training.backOff')}
+                      </Text>
+                      <NumRow
+                        label={t('editor.sets')}
+                        display={`${g.sets}`}
+                        onDec={() => update({ sets: Math.max(1, g.sets - 1) })}
+                        onInc={() => update({ sets: g.sets + 1 })}
+                      />
+                      <NumRow
+                        label={t('editor.reps')}
+                        display={`${g.reps}`}
+                        onDec={() => update({ reps: Math.max(1, g.reps - 1) })}
+                        onInc={() => update({ reps: g.reps + 1 })}
+                      />
+                      <NumRow
+                        label="RIR"
+                        display={`${g.rirMin ?? 0}-${g.rirMax ?? g.rirMin ?? 0}`}
+                        onDec={() =>
+                          update({
+                            rirMin: Math.max(0, (g.rirMin ?? 0) - 1),
+                            rirMax: Math.max(0, (g.rirMax ?? 0) - 1),
+                          })
+                        }
+                        onInc={() =>
+                          update({
+                            rirMin: Math.min(5, (g.rirMin ?? 0) + 1),
+                            rirMax: Math.min(5, (g.rirMax ?? 0) + 1),
+                          })
+                        }
+                      />
+                    </View>
+                  );
+                })}
+              </View>
+            ) : null}
+          </Card>
+
+          {/* Alternatives */}
+          <Text className="mb-1 mt-7 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
+            {t('editor.alternatives')}
+          </Text>
+          <Card>
+            {(slot.alternativeExerciseIds ?? []).length ? (
+              <View className="mb-3 flex-row flex-wrap gap-2">
+                {(slot.alternativeExerciseIds ?? []).map((altId) => {
+                  const alt = getExercise(altId);
+                  if (!alt) return null;
+                  return (
+                    <View
+                      key={altId}
+                      className="flex-row items-center gap-1.5 rounded-full bg-ink-800 px-3 py-1.5"
+                    >
+                      <Text className="text-xs font-sans-medium text-ink-200">{alt.name}</Text>
+                      <Pressable
+                        onPress={() =>
+                          setSlotAlternatives(
+                            slot.id,
+                            (slot.alternativeExerciseIds ?? []).filter((x) => x !== altId),
+                          )
+                        }
+                        hitSlop={6}
+                      >
+                        <XIcon color="#71717a" size={13} />
+                      </Pressable>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : (
+              <Text className="mb-3 text-xs text-ink-400">{t('editor.alternativesHint')}</Text>
+            )}
+            <Button
+              label={t('editor.addAlternative')}
+              variant="secondary"
+              size="sm"
+              onPress={() =>
+                router.push({
+                  pathname: '/training/edit/exercise-picker',
+                  params: { altFor: slot.id, dayId: slot.workoutDayId },
+                })
+              }
+            />
+          </Card>
+        </>
+      ) : null}
 
       {/* Badges */}
       <Text className="mb-1 mt-7 font-mono-medium text-xs uppercase tracking-wider text-ink-400">

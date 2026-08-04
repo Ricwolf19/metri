@@ -396,6 +396,28 @@ export const updateSlot = (
     .run();
 };
 
+/** Set the interchangeable alternatives for a slot ("deadlift or sumo"). */
+export const setSlotAlternatives = (slotId: string, exerciseIds: string[]): void => {
+  db.update(workoutDayExercises)
+    .set({ alternativeExerciseIds: exerciseIds.length ? exerciseIds : null, updatedAt: new Date() })
+    .where(eq(workoutDayExercises.id, slotId))
+    .run();
+};
+
+/** Set (or clear) a week's multi-group prescription (top set + back-off). */
+export const setWeekSetGroups = (
+  slotId: string,
+  weekNumber: number,
+  groups: import('@/db/schema').SetGroup[] | null,
+): void => {
+  db.update(weekConfigs)
+    .set({ setGroups: groups, updatedAt: new Date() })
+    .where(
+      and(eq(weekConfigs.workoutDayExerciseId, slotId), eq(weekConfigs.weekNumber, weekNumber)),
+    )
+    .run();
+};
+
 /** Set the coaching badges for a slot (validates count + length). */
 export const setSlotBadges = (slotId: string, badges: string[]): void => {
   const clean = badges

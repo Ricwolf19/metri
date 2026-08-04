@@ -24,6 +24,7 @@ import {
   routinesQuery,
   updateProgram,
 } from '@/features/training/authoring.repo';
+import { EnrollSetupSheet } from '@/features/training/components/EnrollSetupSheet';
 import { enrollInProgram } from '@/features/training/enroll';
 import { getProgram } from '@/features/training/programs.repo';
 import { useT } from '@/i18n';
@@ -36,6 +37,7 @@ const EditProgram = () => {
   const toast = useToast();
   const dialog = useDialog();
   const { user } = useAuth();
+  const [setupOpen, setSetupOpen] = useState(false);
   const { brand } = useTheme();
 
   const program = typeof id === 'string' ? getProgram(id) : null;
@@ -84,9 +86,9 @@ const EditProgram = () => {
       ],
     });
 
-  const enroll = () => {
+  const enroll = (weekdays?: number[]) => {
     try {
-      enrollInProgram(user.id, id);
+      enrollInProgram(user.id, id, weekdays);
       toast.success(t('editor.enrollStart'));
       router.replace('/training');
     } catch {
@@ -182,13 +184,21 @@ const EditProgram = () => {
 
       {phases.length > 0 ? (
         <View className="mt-8">
-          <Button label={t('editor.enrollStart')} onPress={enroll} />
+          <Button label={t('editor.enrollStart')} onPress={() => setSetupOpen(true)} />
         </View>
       ) : null}
 
       <View className="mt-3">
         <Button label={t('editor.delete')} variant="danger" onPress={confirmDeleteProgram} />
       </View>
+      <EnrollSetupSheet
+        visible={setupOpen}
+        onClose={() => setSetupOpen(false)}
+        onConfirm={(weekdays) => {
+          setSetupOpen(false);
+          enroll(weekdays);
+        }}
+      />
     </Screen>
   );
 };

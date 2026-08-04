@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { TopBar } from '@/components/TopBar';
@@ -12,6 +13,7 @@ import {
 } from '@/features/training/enroll';
 import { DIFFICULTY_KEY, GOAL_KEY } from '@/features/training/labels';
 import { getProgram, getProgramStructure } from '@/features/training/programs.repo';
+import { EnrollSetupSheet } from '@/features/training/components/EnrollSetupSheet';
 import { useT } from '@/i18n';
 
 const Tag = ({ label }: { label: string }) => (
@@ -27,6 +29,7 @@ const ProgramDetail = () => {
   const toast = useToast();
   const dialog = useDialog();
   const { user } = useAuth();
+  const [setupOpen, setSetupOpen] = useState(false);
 
   const program = typeof id === 'string' ? getProgram(id) : null;
   const structure = typeof id === 'string' ? getProgramStructure(id) : [];
@@ -37,8 +40,8 @@ const ProgramDetail = () => {
 
   const enrolledHere = enrollment?.programId === program.id;
 
-  const doEnroll = () => {
-    enrollInProgram(user.id, program.id);
+  const doEnroll = (weekdays?: number[]) => {
+    enrollInProgram(user.id, program.id, weekdays);
     toast.success(t('training.enrolledToast'));
     router.replace('/training');
   };
@@ -57,14 +60,14 @@ const ProgramDetail = () => {
             label: t('training.switch'),
             onPress: () => {
               abandonEnrollment(enrollment.id);
-              doEnroll();
+              setSetupOpen(true);
             },
           },
         ],
       });
       return;
     }
-    doEnroll();
+    setSetupOpen(true);
   };
 
   const primaryLabel = enrolledHere
@@ -118,6 +121,14 @@ const ProgramDetail = () => {
       <View className="mt-6">
         <Button label={primaryLabel} onPress={onPrimary} />
       </View>
+      <EnrollSetupSheet
+        visible={setupOpen}
+        onClose={() => setSetupOpen(false)}
+        onConfirm={(weekdays) => {
+          setSetupOpen(false);
+          doEnroll(weekdays);
+        }}
+      />
     </Screen>
   );
 };
