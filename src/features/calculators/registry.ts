@@ -6,6 +6,7 @@ import { bmiConfig, bodyfat, ffmiConfig, idealweight, leanmass, whtr } from './c
 import { heartrate, water } from './configs/cardio';
 import { calsburned, deficit, macrosConfig, protein, tdeeConfig } from './configs/energy';
 import { onerm, plates, wilks } from './configs/strength';
+import { CALC_CONTENT } from './content';
 import type { CalcConfig, CalcId } from './types';
 
 export const CALCULATORS: Record<CalcId, CalcConfig> = {
@@ -60,3 +61,7 @@ export const CALC_META: CalcMeta[] = [
   { id: 'plates', icon: DumbbellIcon },
   { id: 'wilks', icon: DumbbellIcon },
 ];
+
+/** Short display name: drops the "X calculator" boilerplate the H1s carry. */
+export const calcShortTitle = (id: CalcId, locale: 'en' | 'es'): string =>
+  CALC_CONTENT[id][locale].h1.replace(/^Calculadora de /i, '').replace(/ calculator$/i, '');

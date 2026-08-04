@@ -1,96 +1,20 @@
-import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import type { ComponentType } from 'react';
+import { useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
-import { BookIcon, type IconProps } from '@/components/icons';
+import { BookIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
-import { FadeInUp, Input, Screen } from '@/components/ui';
+import { FadeInUp, GridTile, Input, Screen, type Tile } from '@/components/ui';
 import { CALC_CONTENT } from '@/features/calculators/content';
-import { CALC_META } from '@/features/calculators/registry';
+import { CALC_META, calcShortTitle } from '@/features/calculators/registry';
 import type { CalcId } from '@/features/calculators/types';
 import { getDocs, searchDocs, type DocSection } from '@/features/docs';
-import type { DocCategory } from '@/features/docs/types';
-import { useI18n, useT, type TranslationKey } from '@/i18n';
-import { useTheme } from '@/theme/theme-context';
-
-/**
- * One curated topic per section, mixing the calculators and guides that belong
- * together — the reader thinks in themes ("nutrition"), not in content types
- * ("calculator vs doc"). Every calc id and doc category appears exactly once.
- */
-const TOPICS: { key: TranslationKey; calcs: CalcId[]; docCategories: DocCategory[] }[] = [
-  {
-    key: 'explore.topicTraining',
-    calcs: ['onerm', 'plates', 'wilks'],
-    docCategories: ['training'],
-  },
-  {
-    key: 'explore.topicNutrition',
-    calcs: ['tdee', 'macros', 'protein', 'deficit', 'calsburned', 'water'],
-    docCategories: ['nutrition', 'supplements'],
-  },
-  {
-    key: 'explore.topicBody',
-    calcs: ['bmi', 'bodyfat', 'ffmi', 'leanmass', 'idealweight', 'whtr'],
-    docCategories: ['progress'],
-  },
-  {
-    key: 'explore.topicCardio',
-    calcs: ['heartrate'],
-    docCategories: ['recovery'],
-  },
-  {
-    key: 'explore.topicBasics',
-    calcs: [],
-    docCategories: ['getting-started', 'calculators', 'glossary'],
-  },
-];
-
-type Tile = {
-  id: string;
-  title: string;
-  href: Href;
-  icon: ComponentType<IconProps>;
-  isDoc?: boolean;
-};
-
-/** Square-ish grid tile — two per row, icon on top, short title below. */
-const GridTile = ({ tile }: { tile: Tile }) => {
-  const router = useRouter();
-  const { brand } = useTheme();
-  const Icon = tile.icon;
-  return (
-    <Pressable
-      onPress={() => router.push(tile.href)}
-      accessibilityRole="button"
-      android_ripple={{ color: 'rgba(150,150,150,0.10)' }}
-      className="w-[48.5%] rounded-card border border-ink-700 bg-ink-850 p-4 active:opacity-80"
-    >
-      <View
-        className={[
-          'h-10 w-10 items-center justify-center rounded-field',
-          tile.isDoc ? 'bg-ink-800' : 'bg-brand/15',
-        ].join(' ')}
-      >
-        <Icon color={tile.isDoc ? '#a1a1aa' : brand} size={20} />
-      </View>
-      <Text numberOfLines={2} className="mt-3 text-sm font-sans-semibold leading-5 text-ink-50">
-        {tile.title}
-      </Text>
-    </Pressable>
-  );
-};
+import { TOPICS } from '@/features/explore/topics';
+import { useI18n, useT } from '@/i18n';
 
 const SectionHeader = ({ text }: { text: string }) => (
   <Text className="mb-3 mt-7 text-base font-sans-semibold text-ink-100">{text}</Text>
 );
-
-/** Short display name: drops the "X calculator" boilerplate the H1s carry. */
-const calcTitle = (id: CalcId, locale: 'en' | 'es'): string => {
-  const h1 = CALC_CONTENT[id][locale].h1;
-  return h1.replace(/^Calculadora de /i, '').replace(/ calculator$/i, '');
-};
 
 /**
  * Explore tab — every calculator and guide in one place, sectioned by theme so
@@ -114,7 +38,7 @@ const Explore = () => {
 
   const calcTile = (id: CalcId): Tile => ({
     id: `calc-${id}`,
-    title: calcTitle(id, locale),
+    title: calcShortTitle(id, locale),
     href: { pathname: '/calculators/[id]', params: { id } },
     icon: iconOf.get(id) ?? BookIcon,
   });
@@ -138,9 +62,12 @@ const Explore = () => {
   }, [needle, locale, docs]);
 
   return (
-    <Screen scroll edges={['top']} contentClassName="px-5 pb-10">
-      <TopBar menu showFaq showBeta />
-
+    <Screen
+      scroll
+      edges={['top']}
+      contentClassName="px-5 pb-32"
+      header={<TopBar menu showFaq showBeta />}
+    >
       <Input
         value={query}
         onChangeText={setQuery}

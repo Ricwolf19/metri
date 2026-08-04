@@ -1,105 +1,66 @@
 import type { Href } from 'expo-router';
 import type { ComponentType } from 'react';
 
-import {
-  ActivityIcon,
-  BookIcon,
-  CameraIcon,
-  DumbbellIcon,
-  FlameIcon,
-  type IconProps,
-} from '@/components/icons';
-import type { TranslationKey } from '@/i18n/en';
+import { BookIcon, CameraIcon, type IconProps } from '@/components/icons';
+import { CALC_META, calcShortTitle } from '@/features/calculators/registry';
+import { getDocs } from '@/features/docs';
+import type { Locale } from '@/i18n';
 
 /**
- * The catalogue of features a user can pin to their Home screen as quick
- * actions. `id` is the stable key persisted in MMKV (see `settings.pinnedActions`)
- * — never reuse or renumber ids. Labels reuse existing i18n keys.
+ * Quick-access catalogue: every calculator and guide (generated from the same
+ * sources Explore renders) plus the extras — the user pins any of them to Home.
+ * Ids are stable (`calc-<id>`, `doc-<slug>`) and persisted in MMKV; never
+ * reuse or rename one.
  */
+type QuickActionKind = 'calc' | 'doc' | 'other';
+
 export type QuickAction = {
   id: string;
-  titleKey: TranslationKey;
-  subKey: TranslationKey;
+  title: string;
   href: Href;
   icon: ComponentType<IconProps>;
+  kind: QuickActionKind;
+  /** Doc actions only — powers the topic sectioning in the picker. */
+  docCategory?: string;
 };
 
-export const QUICK_ACTIONS: QuickAction[] = [
-  {
-    id: 'training',
-    titleKey: 'tools.trainingTitle',
-    subKey: 'tools.trainingDesc',
-    href: '/training',
-    icon: DumbbellIcon,
-  },
-  {
-    id: 'bmr',
-    titleKey: 'tools.hbTitle',
-    subKey: 'tools.hbDesc',
-    href: '/calculators/tdee',
-    icon: FlameIcon,
-  },
-  {
-    id: 'macros',
-    titleKey: 'tools.macrosTitle',
-    subKey: 'tools.macrosDesc',
-    href: '/calculators/macros',
-    icon: FlameIcon,
-  },
-  {
-    id: 'onerm',
-    titleKey: 'tools.onermTitle',
-    subKey: 'tools.onermDesc',
-    href: '/calculators/onerm',
-    icon: ActivityIcon,
-  },
-  {
-    id: 'bodyfat',
-    titleKey: 'tools.bodyfatTitle',
-    subKey: 'tools.bodyfatDesc',
-    href: '/calculators/bodyfat',
-    icon: FlameIcon,
-  },
-  {
-    id: 'water',
-    titleKey: 'tools.waterTitle',
-    subKey: 'tools.waterDesc',
-    href: '/calculators/water',
-    icon: ActivityIcon,
-  },
-  {
-    id: 'ideal',
-    titleKey: 'tools.idealTitle',
-    subKey: 'tools.idealDesc',
-    href: '/calculators/idealweight',
-    icon: FlameIcon,
-  },
-  {
-    id: 'ffmi',
-    titleKey: 'tools.ffmiTitle',
-    subKey: 'tools.ffmiDesc',
-    href: '/calculators/ffmi',
-    icon: ActivityIcon,
-  },
+/** Ids persisted by older builds → their current equivalent. */
+const LEGACY_IDS: Record<string, string> = {
+  bmr: 'calc-tdee',
+  macros: 'calc-macros',
+  onerm: 'calc-onerm',
+  bodyfat: 'calc-bodyfat',
+  water: 'calc-water',
+  ideal: 'calc-idealweight',
+  ffmi: 'calc-ffmi',
+};
+
+export const getQuickActions = (locale: Locale): QuickAction[] => [
+  ...CALC_META.map(({ id, icon }) => ({
+    id: `calc-${id}`,
+    title: calcShortTitle(id, locale),
+    href: { pathname: '/calculators/[id]', params: { id } } as Href,
+    icon,
+    kind: 'calc' as const,
+  })),
+  ...getDocs(locale).map((doc) => ({
+    id: `doc-${doc.id}`,
+    title: doc.title,
+    href: { pathname: '/docs/[id]', params: { id: doc.id } } as Href,
+    icon: BookIcon,
+    kind: 'doc' as const,
+    docCategory: doc.category,
+  })),
   {
     id: 'progress',
-    titleKey: 'home.progress',
-    subKey: 'home.progressSub',
+    title: locale === 'es' ? 'Fotos de progreso' : 'Progress photos',
     href: '/progress',
     icon: CameraIcon,
-  },
-  {
-    id: 'docs',
-    titleKey: 'docs.title',
-    subKey: 'docs.subtitle',
-    href: '/explore',
-    icon: BookIcon,
+    kind: 'other' as const,
   },
 ];
 
-/** Pinned by default for a fresh install — the original Home shortcuts. */
-/** None by default — Home shows an invite card until the user pins their own. */
-export const DEFAULT_PINNED_ACTIONS: string[] = [];
-
-export const getQuickAction = (id: string): QuickAction | undefined =>
-  QUICK_ACTIONS.find((a) => a.id === id);
+export const getQuickAction = (id: string, locale: Locale): QuickAction | undefined => {
+  const resolved = LEGACY_IDS[id] ?? id;
+  return getQuickActions(locale).find((a) => a.id === resolved);
+};
