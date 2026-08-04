@@ -27,8 +27,18 @@ import {
   tdee as computeTdee,
 } from '../math';
 import { CALCULATORS } from '../registry';
-import type { CalcConfig, CalcField, CalcId, CalcValues } from '../types';
+import type { CalcChart as ChartSpec, CalcConfig, CalcField, CalcId, CalcValues } from '../types';
 import { CalcChart } from './CalcChart';
+
+/** Reserved height per chart kind (size="lg") — the plate stack, bar rows or
+ * gauge can redraw with every input without ever resizing the layout. */
+const CHART_HEIGHT: Record<ChartSpec['kind'], number> = {
+  scale: 265,
+  split: 115,
+  bars: 200,
+  ring: 185,
+  barbell: 135,
+};
 
 /** Maps the calculator's short formula key to the profile's stored enum. */
 const FORMULA_ENUM: Record<BmrFormula, string> = {
@@ -52,12 +62,29 @@ const NumberField = ({
   onChange: (v: number | string) => void;
 }) => {
   const t = useT();
-  const min = field.min ?? -Infinity;
-  const max = field.max ?? Infinity;
+  const min = field.min ?? 0;
+  const max = field.max ?? 9999;
   const step = field.step ?? 1;
   const current = Number(value) || 0;
-  const nudge = (dir: 1 | -1) =>
-    onChange(clamp(Math.round((current + dir * step) * 100) / 100, min, max));
+
+  // While the input has focus the user edits a local draft — the result only
+  // recomputes on commit (blur or steppers), so charts and layout never mutate
+  // under their thumbs mid-typing. Commit clamps to the field's real-world
+  // bounds, so impossible values can't reach the math.
+  const [draft, setDraft] = useState<string | null>(null);
+  const parseDraft = (): number => {
+    if (draft === null) return current;
+    const n = Number(draft.replace(',', '.'));
+    return Number.isFinite(n) && draft.trim() !== '' ? n : current;
+  };
+  const commit = () => {
+    onChange(clamp(Math.round(parseDraft() * 100) / 100, min, max));
+    setDraft(null);
+  };
+  const nudge = (dir: 1 | -1) => {
+    onChange(clamp(Math.round((parseDraft() + dir * step) * 100) / 100, min, max));
+    setDraft(null);
+  };
 
   return (
     <View>
@@ -75,8 +102,10 @@ const NumberField = ({
         </Pressable>
         <View className="flex-1">
           <Input
-            value={String(value)}
-            onChangeText={(txt) => onChange(txt === '' ? '' : Number(txt.replace(',', '.')) || 0)}
+            value={draft ?? String(value)}
+            onChangeText={setDraft}
+            onFocus={() => setDraft(String(value))}
+            onBlur={commit}
             keyboardType="decimal-pad"
             className="text-center font-mono"
             maxLength={7}
@@ -231,8 +260,12 @@ export const Calculator = ({ id, docId }: { id: CalcId; docId?: string }) => {
             </View>
           ) : null}
 
+          {/* Fixed height per chart kind: input changes never resize the area. */}
           {result.chart ? (
-            <View className="mt-5">
+            <View
+              style={{ height: CHART_HEIGHT[result.chart.kind] }}
+              className="mt-5 justify-center"
+            >
               <CalcChart chart={result.chart} size="lg" />
             </View>
           ) : null}

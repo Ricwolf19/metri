@@ -10,6 +10,7 @@ import {
 import { TopBar } from '@/components/TopBar';
 import { Button, Card, Screen, ScreenTitle } from '@/components/ui';
 import { betaLinks } from '@/features/beta/links';
+import { useRouter } from 'expo-router';
 import { useT } from '@/i18n';
 import { APP_VERSION } from '@/lib/env';
 import { useTheme } from '@/theme/theme-context';
@@ -43,13 +44,26 @@ const Step = ({ n, text }: { n: number; text: string }) => (
  */
 const Beta = () => {
   const t = useT();
+  const router = useRouter();
   const { brand } = useTheme();
 
   // The system browser, not an in-app one: the APK link is a file download.
   const open = (url: string) => Linking.openURL(url);
 
   return (
-    <Screen scroll contentClassName="px-5 pb-12" header={<TopBar showBack showAvatar={false} />}>
+    <Screen
+      scroll
+      contentClassName="px-5 pb-12"
+      header={<TopBar showBack showAvatar={false} />}
+      footer={
+        <Button
+          label={t('common.continue')}
+          variant="brand"
+          fullWidth
+          onPress={() => router.back()}
+        />
+      }
+    >
       <ScreenTitle title={t('beta.title')} />
 
       {/* Which build am I on */}

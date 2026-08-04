@@ -75,7 +75,7 @@ export const TopBar = ({
   );
 
   return (
-    <View className="flex-row items-center justify-between gap-4 px-5 pb-3 pt-2">
+    <View className="flex-row items-center justify-between gap-4 px-5 py-2.5">
       <View className="flex-1 flex-row items-center gap-3">
         {showBack ? (
           <Pressable

@@ -50,9 +50,12 @@ const Training = () => {
   };
 
   return (
-    <Screen scroll edges={['top']} contentClassName="px-5 pb-10">
-      <TopBar menu showFaq showBeta />
-
+    <Screen
+      scroll
+      edges={['top']}
+      contentClassName="px-5 pb-32"
+      header={<TopBar menu showFaq showBeta />}
+    >
       {activeWorkout ? (
         <FadeInUp>
           <PressableScale

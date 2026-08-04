@@ -38,7 +38,7 @@ export const SyncPanel = ({ visible, onClose }: { visible: boolean; onClose: () 
   const log = useSyncLog();
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable className="flex-1 justify-end bg-black/50" onPress={onClose}>
         <Pressable
           className="max-h-[70%] rounded-t-3xl border-t border-ink-700 bg-ink-900 px-5 pb-8 pt-4"
@@ -67,7 +67,7 @@ export const SyncPanel = ({ visible, onClose }: { visible: boolean; onClose: () 
                 <Text className="text-sm text-ink-400">{t('sync.noActivity')}</Text>
               ) : (
                 <ScrollView className="max-h-64">
-                  {log.map((entry) => (
+                  {log.slice(0, 10).map((entry) => (
                     <View key={entry.ts} className="flex-row items-start gap-3 py-1.5">
                       <Text className="font-mono text-xs text-ink-500">{hhmm(entry.ts)}</Text>
                       <Text

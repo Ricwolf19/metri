@@ -1,4 +1,4 @@
-import { forwardRef, useState } from 'react';
+import { forwardRef, useEffect, useRef, useState } from 'react';
 import { Pressable, Text, TextInput, View, type TextInputProps } from 'react-native';
 
 type Props = TextInputProps & {
@@ -9,13 +9,62 @@ type Props = TextInputProps & {
   secureToggle?: boolean;
 };
 
+/** How long the last typed character of a secure field stays readable. */
+const TAIL_REVEAL_MS = 1300;
+
 export const Input = forwardRef<TextInput, Props>(function Input(
-  { label, error, hint, rightSlot, secureToggle, secureTextEntry, className, ...rest },
+  {
+    label,
+    error,
+    hint,
+    rightSlot,
+    secureToggle,
+    secureTextEntry,
+    className,
+    value,
+    onChangeText,
+    ...rest
+  },
   ref,
 ) {
   const [hidden, setHidden] = useState(!!secureTextEntry);
   const [focused, setFocused] = useState(false);
   const showToggle = secureToggle ?? !!secureTextEntry;
+
+  // Secure fields mask in JS (not natively) so the last typed character can
+  // stay visible for a beat — typing feedback without exposing the whole value.
+  const masked = !!secureTextEntry && hidden;
+  const [tailVisible, setTailVisible] = useState(false);
+  const tailTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (tailTimer.current) clearTimeout(tailTimer.current);
+    },
+    [],
+  );
+
+  const raw = value ?? '';
+  const display = masked
+    ? tailVisible && raw.length
+      ? '•'.repeat(raw.length - 1) + raw.slice(-1)
+      : '•'.repeat(raw.length)
+    : raw;
+
+  const handleChange = (txt: string) => {
+    if (!masked) {
+      onChangeText?.(txt);
+      return;
+    }
+    // Reconstruct the real value from the masked display: growth appends the
+    // newly typed characters, shrinkage truncates from the end.
+    const next = txt.length >= raw.length ? raw + txt.slice(raw.length) : raw.slice(0, txt.length);
+    onChangeText?.(next);
+    if (txt.length > raw.length) {
+      setTailVisible(true);
+      if (tailTimer.current) clearTimeout(tailTimer.current);
+      tailTimer.current = setTimeout(() => setTailVisible(false), TAIL_REVEAL_MS);
+    }
+  };
 
   return (
     <View className="w-full">
@@ -35,8 +84,15 @@ export const Input = forwardRef<TextInput, Props>(function Input(
           ref={ref}
           placeholderTextColor="#71717a"
           selectionColor="#bef82b"
-          secureTextEntry={showToggle ? hidden : secureTextEntry}
+          // Masking happens in JS above; the native flag would hide the tail too.
+          secureTextEntry={false}
+          autoCorrect={masked ? false : rest.autoCorrect}
+          autoCapitalize={masked ? 'none' : rest.autoCapitalize}
           {...rest}
+          // Only secure fields go through the JS mask; plain inputs keep their
+          // original (possibly uncontrolled) value handling.
+          value={secureTextEntry ? display : value}
+          onChangeText={secureTextEntry ? handleChange : onChangeText}
           onFocus={(e) => {
             setFocused(true);
             rest.onFocus?.(e);

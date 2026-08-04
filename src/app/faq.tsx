@@ -4,6 +4,7 @@ import { ExternalLinkIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import { Button, Card, Screen, ScreenTitle } from '@/components/ui';
 import { betaLinks } from '@/features/beta/links';
+import { useRouter } from 'expo-router';
 import { useT, type TranslationKey } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
@@ -33,11 +34,24 @@ const RING: { color: string; key: TranslationKey }[] = [
  */
 const Faq = () => {
   const t = useT();
+  const router = useRouter();
   const { brand } = useTheme();
   const open = (url: string) => Linking.openURL(url);
 
   return (
-    <Screen scroll contentClassName="px-5 pb-12" header={<TopBar showBack showAvatar={false} />}>
+    <Screen
+      scroll
+      contentClassName="px-5 pb-12"
+      header={<TopBar showBack showAvatar={false} />}
+      footer={
+        <Button
+          label={t('common.continue')}
+          variant="brand"
+          fullWidth
+          onPress={() => router.back()}
+        />
+      }
+    >
       <ScreenTitle title={t('faq.title')} />
 
       {/* Sync ring */}

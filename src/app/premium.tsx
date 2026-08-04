@@ -5,6 +5,7 @@ import { TopBar } from '@/components/TopBar';
 import { Button, Card, Screen, ScreenTitle, useToast } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { exportUserData } from '@/features/premium/export';
+import { useRouter } from 'expo-router';
 import { useT } from '@/i18n';
 import { WEB_URL } from '@/lib/env';
 
@@ -12,6 +13,7 @@ const CONTACT_EMAIL = 'rhtc19@gmail.com';
 
 const Premium = () => {
   const t = useT();
+  const router = useRouter();
   const { user, isPremium } = useAuth();
   const toast = useToast();
 
@@ -26,7 +28,19 @@ const Premium = () => {
   };
 
   return (
-    <Screen scroll contentClassName="px-5 pb-12" header={<TopBar showBack showAvatar={false} />}>
+    <Screen
+      scroll
+      contentClassName="px-5 pb-12"
+      header={<TopBar showBack showAvatar={false} />}
+      footer={
+        <Button
+          label={t('common.continue')}
+          variant="brand"
+          fullWidth
+          onPress={() => router.back()}
+        />
+      }
+    >
       <ScreenTitle title={t('premium.title')} />
 
       {/* Hero */}

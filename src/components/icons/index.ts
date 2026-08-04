@@ -38,8 +38,12 @@ import {
   Mail,
   Github,
   Compass,
+  Apple,
   HelpCircle,
   GraphUp,
+  InfoCircle,
+  WarningTriangle,
+  SmartphoneDevice,
 } from 'iconoir-react-native';
 
 /** Square size in px (maps to width + height). Mirrors lucide's `size`. */
@@ -86,6 +90,10 @@ export const ExternalLinkIcon = sized(OpenNewWindow, 'ExternalLinkIcon');
 export const MailIcon = sized(Mail, 'MailIcon');
 export const GithubIcon = sized(Github, 'GithubIcon');
 export const CompassIcon = sized(Compass, 'CompassIcon');
+export const AppleIcon = sized(Apple, 'AppleIcon');
 export const ShieldIcon = sized(ShieldCheck, 'ShieldIcon');
 export const GraphUpIcon = sized(GraphUp, 'GraphUpIcon');
 export const HelpIcon = sized(HelpCircle, 'HelpIcon');
+export const InfoCircleIcon = sized(InfoCircle, 'InfoCircleIcon');
+export const WarningIcon = sized(WarningTriangle, 'WarningIcon');
+export const SmartphoneIcon = sized(SmartphoneDevice, 'SmartphoneIcon');
