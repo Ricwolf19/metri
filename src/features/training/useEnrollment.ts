@@ -6,7 +6,6 @@ import type { Program, Routine, UserProgram, WorkoutDay } from '@/db/schema';
 import { activeEnrollmentQuery } from './enroll';
 import { getProgram, getRoutines, getWorkoutDays } from './programs.repo';
 import { deriveProgramWeek, totalProgramWeeks } from './progression';
-import { lastCompletedDayId } from './session.repo';
 
 export type EnrollmentStructure = {
   program: Program | null;
@@ -45,13 +44,4 @@ export const useEnrollment = (
   }, [enrollmentId, programId, currentRoutineId, currentWeek]);
 
   return { enrollment, structure };
-};
-
-/** The day to train next: the one after the last completed day, cycling. */
-export const nextWorkoutDay = (userProgramId: string, days: WorkoutDay[]): WorkoutDay | null => {
-  if (!days.length) return null;
-  const lastId = lastCompletedDayId(userProgramId);
-  if (!lastId) return days[0];
-  const idx = days.findIndex((d) => d.id === lastId);
-  return days[(idx + 1) % days.length] ?? days[0];
 };

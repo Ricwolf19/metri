@@ -8,6 +8,7 @@ import {
   weekConfigs,
   workoutDayExercises,
   workoutDays,
+  workoutLogs,
   type UserProgram,
 } from '@/db/schema';
 import { recordDeletion } from '@/features/sync/tombstones';
@@ -28,7 +29,11 @@ export const activeEnrollmentQuery = (userId: string) =>
  * `user_programs` row is written LAST — it's the commit point, so a failure
  * mid-copy leaves only orphan rows that are never queried.
  */
-export const enrollInProgram = (userId: string, programId: string): UserProgram => {
+export const enrollInProgram = (
+  userId: string,
+  programId: string,
+  trainingWeekdays?: number[],
+): UserProgram => {
   const [program] = db.select().from(programs).where(eq(programs.id, programId)).all();
   if (!program) throw new Error('Program not found.');
 
@@ -122,6 +127,7 @@ export const enrollInProgram = (userId: string, programId: string): UserProgram 
         defaultRestSeconds: s.defaultRestSeconds,
         notes: s.notes,
         badges: s.badges,
+        alternativeExerciseIds: s.alternativeExerciseIds,
         userProgramId,
       })
       .run();
@@ -142,6 +148,7 @@ export const enrollInProgram = (userId: string, programId: string): UserProgram 
         restSeconds: c.restSeconds,
         intensityType: c.intensityType,
         intensityValue: c.intensityValue,
+        setGroups: c.setGroups,
         userProgramId,
       })
       .run();
@@ -157,11 +164,76 @@ export const enrollInProgram = (userId: string, programId: string): UserProgram 
       startedAt: new Date(),
       currentRoutineId: idMap.get(tplRoutines[0].id)!,
       currentWeek: 1,
+      trainingWeekdays: trainingWeekdays ?? null,
     })
     .returning()
     .all();
 
   return enrollment;
+};
+
+/**
+ * Advance the enrolment after a finished session, when the current week is
+ * complete (every day of the routine trained at this week number): next week →
+ * next routine (by orderIndex, week 1) → program completed. Idempotent — safe
+ * to call after every finish.
+ */
+export const advanceUserProgram = (userProgramId: string): void => {
+  const [enrollment] = db
+    .select()
+    .from(userPrograms)
+    .where(eq(userPrograms.id, userProgramId))
+    .all();
+  if (!enrollment || enrollment.status !== 'active') return;
+
+  const owned = db
+    .select()
+    .from(routines)
+    .where(eq(routines.userProgramId, userProgramId))
+    .orderBy(asc(routines.orderIndex))
+    .all();
+  if (!owned.length) return;
+  const current = owned.find((r) => r.id === enrollment.currentRoutineId) ?? owned[0];
+
+  const days = db
+    .select({ id: workoutDays.id })
+    .from(workoutDays)
+    .where(eq(workoutDays.routineId, current.id))
+    .all();
+  if (!days.length) return;
+  const dayIds = new Set(days.map((d) => d.id));
+
+  // Distinct days completed at this routine-relative week.
+  const doneDayIds = new Set(
+    db
+      .select({ workoutDayId: workoutLogs.workoutDayId })
+      .from(workoutLogs)
+      .where(
+        and(
+          eq(workoutLogs.userProgramId, userProgramId),
+          eq(workoutLogs.weekNumber, enrollment.currentWeek),
+          eq(workoutLogs.status, 'completed'),
+        ),
+      )
+      .all()
+      .map((r) => r.workoutDayId)
+      .filter((id) => dayIds.has(id)),
+  );
+  if (doneDayIds.size < dayIds.size) return; // week not finished yet
+
+  if (enrollment.currentWeek < current.durationWeeks) {
+    setEnrollmentPosition(userProgramId, current.id, enrollment.currentWeek + 1);
+    return;
+  }
+  const next = owned.find((r) => r.orderIndex > current.orderIndex);
+  if (next) {
+    setEnrollmentPosition(userProgramId, next.id, 1);
+    return;
+  }
+  db.update(userPrograms)
+    .set({ status: 'completed', completedAt: new Date(), updatedAt: new Date() })
+    .where(eq(userPrograms.id, userProgramId))
+    .run();
 };
 
 /** Update the user's position within their program (routine + relative week). */
