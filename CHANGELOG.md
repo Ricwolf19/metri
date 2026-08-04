@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.7.0](https://github.com/Ricwolf19/metri/compare/metri-v1.6.0...metri-v1.7.0) (2026-08-04)
+
+
+### Features
+
+* **db:** set groups, snapshot, training weekdays ([0cbd191](https://github.com/Ricwolf19/metri/commit/0cbd19178851e9afff2d79eb2bcd700b469601b5))
+* **home:** quick-actions catalogue + topics ([93c92a3](https://github.com/Ricwolf19/metri/commit/93c92a3e27e54d3cdbaac539961b393668a252ed))
+* **training:** adherence, day detail, history ([1c46454](https://github.com/Ricwolf19/metri/commit/1c46454dd28b116c5cce7509d9178790491ea670))
+* **training:** editor schemes, alts, schedule ([2ddabde](https://github.com/Ricwolf19/metri/commit/2ddabdef9a7a41ef30f42fcc61e03f24d9fbc3a1))
+* **training:** retire seeds, all-custom programs ([6692f87](https://github.com/Ricwolf19/metri/commit/6692f87deb956859b61598132e4284be14603e7c))
+* **training:** session engine snapshot + advance ([1159b72](https://github.com/Ricwolf19/metri/commit/1159b72827edcc854901d8d9a55b35c0c5595c30))
+* **training:** session redesign + sticky rest ([17eac8c](https://github.com/Ricwolf19/metri/commit/17eac8cc684ed0a163e3ff76b7d712fdcbb3080c))
+* **ui:** floating chrome, nutrition tab, polish ([bbc267d](https://github.com/Ricwolf19/metri/commit/bbc267de1bc7dec4fdf02530a43b9dfa52789f61))
+* **widget:** android home-screen widget ([dcd7ce9](https://github.com/Ricwolf19/metri/commit/dcd7ce9af9ef18ff27dbf53307b9c2192dad7c47))
+
+
+### Bug Fixes
+
+* **app:** settle the first render of every screen ([c0b5d75](https://github.com/Ricwolf19/metri/commit/c0b5d757bec469393ad470cd77eab36d44674998))
+* **app:** stop crashing on in-content links ([230a756](https://github.com/Ricwolf19/metri/commit/230a756af55b91482c76f0433592acee3a543af9))
+* **notifications:** small icon at full glyph size ([c06093b](https://github.com/Ricwolf19/metri/commit/c06093b9dfb921c885463c5516862b9e9279fc28))
+* **ui:** unclip buttons, spring the switch, drag the wheel ([cd1ecee](https://github.com/Ricwolf19/metri/commit/cd1ecee5fafa63794d4fc15d7e3c41829dee0ed4))
+
 ## [1.6.0](https://github.com/Ricwolf19/metri/compare/metri-v1.5.1...metri-v1.6.0) (2026-08-02)
 
 
