@@ -7,7 +7,7 @@ import Animated, {
   interpolate,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -51,8 +51,8 @@ const TabBarIcon = ({
   const pop = useSharedValue(1);
   useEffect(() => {
     if (!focused) return;
-    pop.value = 0.85;
-    pop.value = withSpring(1, { damping: 12, stiffness: 320 });
+    pop.value = 0.92;
+    pop.value = withTiming(1, { duration: 180 });
   }, [focused, pop]);
   const anim = useAnimatedStyle(() => ({ transform: [{ scale: pop.value }] }));
   return (
@@ -105,7 +105,7 @@ const FloatingTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) =
         },
         anim,
       ]}
-      className="flex-row rounded-[28px] border border-ink-700/60 bg-ink-850/95 px-1.5 py-2"
+      className="flex-row rounded-full border border-ink-700/60 bg-ink-850/95 px-1.5 py-2"
     >
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];

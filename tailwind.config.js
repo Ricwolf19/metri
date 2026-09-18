@@ -54,9 +54,11 @@ module.exports = {
         flame: '#ff6b35',
       },
       borderRadius: {
-        // metri.info tokens: sharper "Zed/Better Auth" feel.
+        // metri.info tokens: sharper "Zed/Better Auth" feel. Scale: field <
+        // card < sheet; the floating bars use rounded-full (Uber-style pill).
         field: '0.5rem', // buttons, inputs, selects
         card: '0.625rem', // cards / surfaces
+        sheet: '1.5rem', // bottom sheets (top corners)
       },
       fontFamily: {
         // Geist, mapped per weight — RN does not synthesize weights from one file,

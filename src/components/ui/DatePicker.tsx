@@ -23,7 +23,7 @@ export const DatePicker = ({ value, onChange, yearsBack = 8 }: Props) => {
     onChange(new Date(y, m, Math.min(d, daysInMonth(y, m))));
 
   return (
-    <View className="flex-row items-center justify-center rounded-2xl border border-ink-600 bg-ink-800 px-4">
+    <View className="flex-row items-center justify-center rounded-card border border-ink-600 bg-ink-800 px-4">
       <WheelPicker
         values={days}
         value={day}

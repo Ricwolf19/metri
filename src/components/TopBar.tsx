@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { useAuth } from '@/features/auth/auth-context';
 import { SyncPanel } from '@/features/sync/SyncPanel';
@@ -13,6 +13,9 @@ import { Avatar } from './ui/Avatar';
 type Props = {
   showBack?: boolean;
   showAvatar?: boolean;
+  /** Nested screens: page title (+ optional subtitle) inside the pill. */
+  title?: string;
+  subtitle?: string;
   right?: React.ReactNode;
   /** When set, shows a "how to use" book button linking to that doc section. */
   docId?: string;
@@ -24,17 +27,14 @@ type Props = {
   showBeta?: boolean;
 };
 
-/**
- * The app navbar: a thin, text-free bar of controls — back chevron / avatar /
- * beta flask on the left, doc / FAQ / overflow on the right. Goes in `Screen`'s
- * `header` slot, which keeps it fixed while the content scrolls.
- *
- * The page title is deliberately NOT here — it lives in the content as
- * `<ScreenTitle>`, so it gets full width and scrolls away.
- */
+/** The floating navbar pill: back / avatar / beta on the left, doc / FAQ / overflow on the right; lives in
+ * `Screen`'s `header` slot. Tab screens keep it text-free (`<ScreenTitle>` in content); nested screens pass
+ * `title`/`subtitle` — see AGENTS.md#conventions (Screens). */
 export const TopBar = ({
   showBack,
   showAvatar = true,
+  title,
+  subtitle,
   right,
   docId,
   menu,
@@ -75,8 +75,8 @@ export const TopBar = ({
   );
 
   return (
-    <View className="flex-row items-center justify-between gap-4 px-5 py-2.5">
-      <View className="flex-1 flex-row items-center gap-3">
+    <View className="flex-row items-center gap-3 px-5 py-2.5">
+      <View className="shrink-0 flex-row items-center gap-3">
         {showBack ? (
           <Pressable
             // Bare icon, no chip: the touch target stays 44dp via hitSlop while
@@ -100,8 +100,8 @@ export const TopBar = ({
             >
               {/* The ring is the only sync indicator; tapping it opens the
                   panel with the legend + recent activity (beta support). */}
-              <SyncRing size={32}>
-                <Avatar uri={user.avatarUri} size={32} />
+              <SyncRing size={28} gap={2}>
+                <Avatar uri={user.avatarUri} size={28} />
               </SyncRing>
             </Pressable>
             <SyncPanel visible={syncOpen} onClose={() => setSyncOpen(false)} />
@@ -119,6 +119,28 @@ export const TopBar = ({
           </Pressable>
         ) : null}
       </View>
+
+      {title ? (
+        <View className="min-w-0 flex-1 justify-center">
+          <Text
+            numberOfLines={1}
+            accessibilityRole="header"
+            className={[
+              'font-sans-semibold text-ink-50',
+              subtitle ? 'text-[15px] leading-[18px]' : 'text-base leading-5',
+            ].join(' ')}
+          >
+            {title}
+          </Text>
+          {subtitle ? (
+            <Text numberOfLines={1} className="text-[11px] leading-[14px] text-ink-400">
+              {subtitle}
+            </Text>
+          ) : null}
+        </View>
+      ) : (
+        <View className="flex-1" />
+      )}
 
       {accessories}
     </View>

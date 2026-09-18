@@ -1,8 +1,11 @@
 import { useState } from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { CheckIcon, ChevronDownIcon } from '@/components/icons';
 import { useTheme } from '@/theme/theme-context';
+
+import { ScrollArea } from './ScrollArea';
+import { Sheet } from './Sheet';
 
 export type SelectItem<T extends string> = { value: T; label: string };
 
@@ -14,10 +17,12 @@ type Props<T extends string> = {
   placeholder?: string;
 };
 
+const LIST_MAX_HEIGHT = 380;
+
 /**
  * Themed dropdown for fields with more options than fit a SegmentedControl
  * (e.g. activity level, MET activity). Trigger mirrors the Input surface; the
- * option list opens in a bottom sheet.
+ * option list opens in a bottom sheet and hints when it scrolls.
  */
 export const Select = <T extends string>({
   label,
@@ -50,47 +55,40 @@ export const Select = <T extends string>({
         <ChevronDownIcon color="#71717a" size={18} />
       </Pressable>
 
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable
-          onPress={() => setOpen(false)}
-          className="flex-1 justify-end bg-black/60"
-          accessibilityRole="button"
-        >
-          <Pressable className="rounded-t-card border-t border-ink-600 bg-ink-800 px-4 pb-8 pt-3">
-            <View className="mb-2 h-1 w-10 self-center rounded-full bg-ink-600" />
-            {label ? (
-              <Text className="mb-1 px-2 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
-                {label}
-              </Text>
-            ) : null}
-            {items.map((item) => {
-              const active = item.value === value;
-              return (
-                <Pressable
-                  key={item.value}
-                  onPress={() => {
-                    onChange(item.value);
-                    setOpen(false);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
-                  className="flex-row items-center justify-between rounded-field px-3 py-3.5 active:bg-ink-700"
+      <Sheet visible={open} onClose={() => setOpen(false)}>
+        {label ? (
+          <Text className="mb-1 px-2 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
+            {label}
+          </Text>
+        ) : null}
+        <ScrollArea maxHeight={LIST_MAX_HEIGHT}>
+          {items.map((item) => {
+            const active = item.value === value;
+            return (
+              <Pressable
+                key={item.value}
+                onPress={() => {
+                  onChange(item.value);
+                  setOpen(false);
+                }}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                className="flex-row items-center justify-between rounded-field px-3 py-3.5 active:bg-ink-700"
+              >
+                <Text
+                  className={[
+                    'text-base',
+                    active ? 'font-sans-semibold text-ink-50' : 'text-ink-200',
+                  ].join(' ')}
                 >
-                  <Text
-                    className={[
-                      'text-base',
-                      active ? 'font-sans-semibold text-ink-50' : 'text-ink-200',
-                    ].join(' ')}
-                  >
-                    {item.label}
-                  </Text>
-                  {active ? <CheckIcon color={brand} size={18} /> : null}
-                </Pressable>
-              );
-            })}
-          </Pressable>
-        </Pressable>
-      </Modal>
+                  {item.label}
+                </Text>
+                {active ? <CheckIcon color={brand} size={18} /> : null}
+              </Pressable>
+            );
+          })}
+        </ScrollArea>
+      </Sheet>
     </View>
   );
 };

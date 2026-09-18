@@ -1,13 +1,16 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
-import Animated, { ZoomIn } from 'react-native-reanimated';
+
+import { useT } from '@/i18n';
 
 import { Button } from './Button';
+import { HoldButton } from './HoldButton';
 
 export type DialogAction = {
   label: string;
-  /** `destructive` renders red, `cancel` renders ghost; default is secondary. */
-  style?: 'default' | 'destructive' | 'cancel';
+  /** `confirm` = brand (main action); `destructive` = red hold button (no accidental tap);
+   * `cancel` = ghost; default = secondary surface. */
+  style?: 'default' | 'confirm' | 'destructive' | 'cancel';
   onPress?: () => void;
 };
 
@@ -17,16 +20,30 @@ export type DialogOptions = {
   actions: DialogAction[];
 };
 
+export type ConfirmOptions = {
+  title: string;
+  message?: string;
+  confirmLabel: string;
+  cancelLabel?: string;
+  destructive?: boolean;
+  onConfirm: () => void;
+};
+
 type DialogContextValue = {
   /** Imperative themed replacement for `Alert.alert` (same mental model). */
   show: (options: DialogOptions) => void;
+  /** Standard gate: cancel (ghost) + one emphasized confirm. Prefer over a hand-rolled two-button `show()`. */
+  confirm: (options: ConfirmOptions) => void;
 };
 
 const DialogContext = createContext<DialogContextValue | null>(null);
 
-const VARIANT: Record<NonNullable<DialogAction['style']>, 'secondary' | 'danger' | 'ghost'> = {
+const VARIANT: Record<
+  Exclude<NonNullable<DialogAction['style']>, 'destructive'>,
+  'brand' | 'secondary' | 'ghost'
+> = {
   default: 'secondary',
-  destructive: 'danger',
+  confirm: 'brand',
   cancel: 'ghost',
 };
 
@@ -35,51 +52,72 @@ const VARIANT: Record<NonNullable<DialogAction['style']>, 'secondary' | 'danger'
  * all (and looks it, especially on Android). Mount once; call via `useDialog`.
  */
 export const DialogProvider = ({ children }: { children: React.ReactNode }) => {
+  const t = useT();
   const [options, setOptions] = useState<DialogOptions | null>(null);
 
   const show = useCallback((next: DialogOptions) => setOptions(next), []);
   const close = () => setOptions(null);
+
+  const confirm = useCallback(
+    (o: ConfirmOptions) =>
+      setOptions({
+        title: o.title,
+        message: o.message,
+        actions: [
+          { label: o.cancelLabel ?? t('common.cancel'), style: 'cancel' },
+          {
+            label: o.confirmLabel,
+            style: o.destructive ? 'destructive' : 'confirm',
+            onPress: o.onConfirm,
+          },
+        ],
+      }),
+    [t],
+  );
 
   const run = (action: DialogAction) => {
     close();
     action.onPress?.();
   };
 
-  const value = useMemo<DialogContextValue>(() => ({ show }), [show]);
+  const value = useMemo<DialogContextValue>(() => ({ show, confirm }), [show, confirm]);
 
   return (
     <DialogContext.Provider value={value}>
       {children}
       <Modal visible={options !== null} transparent animationType="fade" onRequestClose={close}>
         <Pressable className="flex-1 items-center justify-center bg-black/60 px-8" onPress={close}>
-          <Animated.View
-            entering={ZoomIn.springify().damping(16).stiffness(220)}
-            className="w-full"
+          <Pressable
+            className="w-full rounded-card border border-ink-700 bg-ink-850 p-5"
+            onPress={() => {}}
           >
-            <Pressable
-              className="w-full rounded-card border border-ink-700 bg-ink-850 p-5"
-              onPress={() => {}}
-            >
-              {options ? (
-                <>
-                  <Text className="text-lg font-sans-bold text-ink-50">{options.title}</Text>
-                  {options.message ? (
-                    <Text className="mt-2 text-sm leading-6 text-ink-300">{options.message}</Text>
-                  ) : null}
-                  <View className="mt-5 gap-2">
-                    {options.actions.map((action) => (
+            {options ? (
+              <>
+                <Text className="text-lg font-sans-bold text-ink-50">{options.title}</Text>
+                {options.message ? (
+                  <Text className="mt-2 text-sm leading-6 text-ink-300">{options.message}</Text>
+                ) : null}
+                <View className="mt-5 gap-2">
+                  {options.actions.map((action) =>
+                    action.style === 'destructive' ? (
+                      <HoldButton
+                        key={action.label}
+                        label={action.label}
+                        onComplete={() => run(action)}
+                      />
+                    ) : (
                       <Button
                         key={action.label}
                         label={action.label}
                         variant={VARIANT[action.style ?? 'default']}
                         onPress={() => run(action)}
                       />
-                    ))}
-                  </View>
-                </>
-              ) : null}
-            </Pressable>
-          </Animated.View>
+                    ),
+                  )}
+                </View>
+              </>
+            ) : null}
+          </Pressable>
         </Pressable>
       </Modal>
     </DialogContext.Provider>

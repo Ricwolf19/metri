@@ -16,48 +16,58 @@ export type ThemePreference = 'system' | 'light' | 'dark';
 /** How times are displayed across the app: 24-hour or 12-hour with AM/PM. */
 export type ClockFormat = '24' | '12';
 
-const Keys = {
+export const SettingKeys = {
   units: 'settings.units',
   locale: 'settings.locale',
   theme: 'settings.theme',
   clock: 'settings.clock',
+  // Read reactively through `useDateFormat`.
+  dateFormat: 'settings.dateFormat',
   pinnedActions: 'settings.pinnedActions',
   onboarded: 'settings.onboarded',
   premiumIntroSeen: 'settings.premiumIntroSeen',
   dismissedAnnouncements: 'announcements.dismissed',
   notificationsEnabled: 'settings.notificationsEnabled',
+  localBannerSnoozedUntil: 'settings.localBannerSnoozedUntil',
   sessionUserId: 'auth.userId',
 } as const;
 
 export const settings = {
   getUnits(): Units {
-    return (storage.getString(Keys.units) as Units) ?? 'kg';
+    return (storage.getString(SettingKeys.units) as Units) ?? 'kg';
   },
   setUnits(units: Units) {
-    storage.set(Keys.units, units);
+    storage.set(SettingKeys.units, units);
   },
   /** The user's saved locale, or null if they've never chosen one (use device default). */
   getLocale(): LocaleCode | null {
-    return (storage.getString(Keys.locale) as LocaleCode) ?? null;
+    return (storage.getString(SettingKeys.locale) as LocaleCode) ?? null;
   },
   setLocale(locale: LocaleCode) {
-    storage.set(Keys.locale, locale);
+    storage.set(SettingKeys.locale, locale);
   },
   getThemePreference(): ThemePreference {
-    return (storage.getString(Keys.theme) as ThemePreference) ?? 'dark';
+    return (storage.getString(SettingKeys.theme) as ThemePreference) ?? 'dark';
   },
   setThemePreference(theme: ThemePreference) {
-    storage.set(Keys.theme, theme);
+    storage.set(SettingKeys.theme, theme);
+  },
+  // Local-mode banner snooze deadline (epoch ms).
+  getLocalBannerSnoozedUntil(): number {
+    return storage.getNumber(SettingKeys.localBannerSnoozedUntil) ?? 0;
+  },
+  snoozeLocalBanner(days = 14) {
+    storage.set(SettingKeys.localBannerSnoozedUntil, Date.now() + days * 86_400_000);
   },
   getClockFormat(): ClockFormat {
-    return (storage.getString(Keys.clock) as ClockFormat) ?? '24';
+    return (storage.getString(SettingKeys.clock) as ClockFormat) ?? '24';
   },
   setClockFormat(clock: ClockFormat) {
-    storage.set(Keys.clock, clock);
+    storage.set(SettingKeys.clock, clock);
   },
   /** Ids of the quick actions pinned to Home, or null if never customized. */
   getPinnedActions(): string[] | null {
-    const raw = storage.getString(Keys.pinnedActions);
+    const raw = storage.getString(SettingKeys.pinnedActions);
     if (!raw) return null;
     try {
       const parsed = JSON.parse(raw);
@@ -67,38 +77,38 @@ export const settings = {
     }
   },
   setPinnedActions(ids: string[]) {
-    storage.set(Keys.pinnedActions, JSON.stringify(ids));
+    storage.set(SettingKeys.pinnedActions, JSON.stringify(ids));
   },
   hasOnboarded(): boolean {
-    return storage.getBoolean(Keys.onboarded) ?? false;
+    return storage.getBoolean(SettingKeys.onboarded) ?? false;
   },
   setOnboarded(value: boolean) {
-    storage.set(Keys.onboarded, value);
+    storage.set(SettingKeys.onboarded, value);
   },
   /** Whether the one-time premium/data intro has been shown. */
   hasSeenPremiumIntro(): boolean {
-    return storage.getBoolean(Keys.premiumIntroSeen) ?? false;
+    return storage.getBoolean(SettingKeys.premiumIntroSeen) ?? false;
   },
   setPremiumIntroSeen(value: boolean) {
-    storage.set(Keys.premiumIntroSeen, value);
+    storage.set(SettingKeys.premiumIntroSeen, value);
   },
   /** Announcement ids the user dismissed (see features/announcements). */
   getDismissedAnnouncements(): string[] {
-    const raw = storage.getString(Keys.dismissedAnnouncements);
+    const raw = storage.getString(SettingKeys.dismissedAnnouncements);
     return raw ? (JSON.parse(raw) as string[]) : [];
   },
   addDismissedAnnouncement(id: string) {
     const seen = new Set(settings.getDismissedAnnouncements());
     seen.add(id);
-    storage.set(Keys.dismissedAnnouncements, JSON.stringify([...seen]));
+    storage.set(SettingKeys.dismissedAnnouncements, JSON.stringify([...seen]));
   },
   /** Master switch for app-scheduled notifications (reminders). Default on;
    * the OS permission is still requested lazily the first time it matters. */
   getNotificationsEnabled(): boolean {
-    return storage.getBoolean(Keys.notificationsEnabled) ?? true;
+    return storage.getBoolean(SettingKeys.notificationsEnabled) ?? true;
   },
   setNotificationsEnabled(value: boolean) {
-    storage.set(Keys.notificationsEnabled, value);
+    storage.set(SettingKeys.notificationsEnabled, value);
   },
   /** Per-event notification config (see features/notifications/events). */
   getEventConfig<T>(eventId: string, defaults: T): T {
@@ -124,12 +134,12 @@ export const settings = {
  */
 export const session = {
   getUserId(): string | null {
-    return storage.getString(Keys.sessionUserId) ?? null;
+    return storage.getString(SettingKeys.sessionUserId) ?? null;
   },
   setUserId(id: string) {
-    storage.set(Keys.sessionUserId, id);
+    storage.set(SettingKeys.sessionUserId, id);
   },
   clear() {
-    storage.remove(Keys.sessionUserId);
+    storage.remove(SettingKeys.sessionUserId);
   },
 };

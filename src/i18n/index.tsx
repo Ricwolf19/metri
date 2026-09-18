@@ -1,5 +1,5 @@
 import { getLocales } from 'expo-localization';
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, useTransition } from 'react';
 
 import { settings } from '@/lib/storage';
 
@@ -34,6 +34,8 @@ export type TFunction = (key: TranslationKey, vars?: Record<string, string | num
 type I18nContextValue = {
   locale: Locale;
   setLocale: (locale: Locale) => void;
+  /** True while a locale switch re-renders the tree (show a blocking overlay). */
+  pending: boolean;
   t: TFunction;
 };
 
@@ -50,9 +52,12 @@ export const I18nProvider = ({ children }: { children: React.ReactNode }) => {
   // Saved choice wins; otherwise default to the device language (first launch).
   const [locale, setLocaleState] = useState<Locale>(() => resolveLocale());
 
+  // The switch re-renders every mounted screen at once; a transition keeps
+  // the tap responsive and exposes `pending` for the overlay.
+  const [pending, startTransition] = useTransition();
   const setLocale = useCallback((next: Locale) => {
     settings.setLocale(next);
-    setLocaleState(next);
+    startTransition(() => setLocaleState(next));
   }, []);
 
   const t = useCallback<TFunction>(
@@ -60,7 +65,10 @@ export const I18nProvider = ({ children }: { children: React.ReactNode }) => {
     [locale],
   );
 
-  const value = useMemo<I18nContextValue>(() => ({ locale, setLocale, t }), [locale, setLocale, t]);
+  const value = useMemo<I18nContextValue>(
+    () => ({ locale, setLocale, pending, t }),
+    [locale, setLocale, pending, t],
+  );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 };

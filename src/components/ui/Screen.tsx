@@ -13,10 +13,10 @@ remapProps(KeyboardAwareScrollView, {
   contentContainerClassName: 'contentContainerStyle',
 });
 
-/** Space the content reserves under the floating header pill: pill offset (2)
- * + pill height (~58) + breathing gap. Exported so overlays (toasts) can
- * position themselves below the header zone. */
-export const HEADER_CLEARANCE = 72;
+/** Content clearance under the floating pill: offset 2 + pill 58 + gap; pill bottom = insets.top + HEADER_PILL_BOTTOM. */
+const HEADER_CLEARANCE = 66;
+/** Bottom edge of the floating pill (toasts anchor to it). */
+export const HEADER_PILL_BOTTOM = 60;
 
 type Props = ViewProps & {
   scroll?: boolean;
@@ -88,8 +88,14 @@ export const Screen = ({
     </KeyboardAvoidingView>
   );
 
+  // Always clears the home indicator, whichever edges the screen asked for.
   const footerNode = footer ? (
-    <View className="border-t border-ink-800 bg-ink-900 px-5 pb-2 pt-3">{footer}</View>
+    <View
+      className="border-t border-ink-800 bg-ink-900 px-5 pt-3"
+      style={{ paddingBottom: (edges.includes('bottom') ? 0 : insets.bottom) + 16 }}
+    >
+      {footer}
+    </View>
   ) : null;
 
   if (floating) {
@@ -116,7 +122,7 @@ export const Screen = ({
             headerAnim,
           ]}
         >
-          <View className="overflow-hidden rounded-[26px] border border-ink-700/60 bg-ink-850/95">
+          <View className="overflow-hidden rounded-full border border-ink-700/60 bg-ink-850/95">
             {header}
           </View>
         </Animated.View>

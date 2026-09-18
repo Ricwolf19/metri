@@ -7,6 +7,8 @@ type Props = TextInputProps & {
   hint?: string;
   rightSlot?: React.ReactNode;
   secureToggle?: boolean;
+  /** Read-only informational field: muted, not focusable, no secure toggle. */
+  disabled?: boolean;
 };
 
 /** How long the last typed character of a secure field stays readable. */
@@ -23,13 +25,14 @@ export const Input = forwardRef<TextInput, Props>(function Input(
     className,
     value,
     onChangeText,
+    disabled,
     ...rest
   },
   ref,
 ) {
   const [hidden, setHidden] = useState(!!secureTextEntry);
   const [focused, setFocused] = useState(false);
-  const showToggle = secureToggle ?? !!secureTextEntry;
+  const showToggle = (secureToggle ?? !!secureTextEntry) && !disabled;
 
   // Secure fields mask in JS (not natively) so the last typed character can
   // stay visible for a beat — typing feedback without exposing the whole value.
@@ -76,8 +79,15 @@ export const Input = forwardRef<TextInput, Props>(function Input(
 
       <View
         className={[
-          'w-full flex-row items-center rounded-field border bg-ink-900 px-4',
-          error ? 'border-red-500/60' : focused ? 'border-brand/60' : 'border-ink-600',
+          'w-full flex-row items-center rounded-field border px-4',
+          disabled ? 'border-ink-700 bg-ink-850' : 'bg-ink-900',
+          disabled
+            ? ''
+            : error
+              ? 'border-red-500/60'
+              : focused
+                ? 'border-brand/60'
+                : 'border-ink-600',
         ].join(' ')}
       >
         <TextInput
@@ -89,6 +99,7 @@ export const Input = forwardRef<TextInput, Props>(function Input(
           autoCorrect={masked ? false : rest.autoCorrect}
           autoCapitalize={masked ? 'none' : rest.autoCapitalize}
           {...rest}
+          editable={disabled ? false : rest.editable}
           // Only secure fields go through the JS mask; plain inputs keep their
           // original (possibly uncontrolled) value handling.
           value={secureTextEntry ? display : value}
@@ -101,7 +112,11 @@ export const Input = forwardRef<TextInput, Props>(function Input(
             setFocused(false);
             rest.onBlur?.(e);
           }}
-          className={['flex-1 py-3 text-base text-ink-50', className ?? ''].join(' ')}
+          className={[
+            'flex-1 py-3 text-base',
+            disabled ? 'text-ink-400' : 'text-ink-50',
+            className ?? '',
+          ].join(' ')}
         />
         {showToggle ? (
           <Pressable

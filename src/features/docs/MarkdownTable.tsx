@@ -21,7 +21,7 @@ const childrenOfType = (node: ASTNode | undefined, type: string): ASTNode[] =>
 const ReadableTable = ({ headers, rows }: { headers: string[]; rows: string[][] }) => (
   <View className="mb-3 gap-2">
     {rows.map((cells, r) => (
-      <View key={r} className="rounded-xl border border-ink-700 bg-ink-850 p-3">
+      <View key={r} className="rounded-card border border-ink-700 bg-ink-850 p-3">
         {cells.map((value, c) => {
           if (!value) return null;
           // First column is the row's headline; the rest are labelled details.

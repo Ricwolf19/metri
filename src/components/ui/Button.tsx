@@ -6,8 +6,8 @@ import { useTheme } from '@/theme/theme-context';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-type Variant = 'primary' | 'brand' | 'secondary' | 'outline' | 'ghost' | 'danger';
-type Size = 'sm' | 'md' | 'lg';
+type Variant = 'brand' | 'secondary' | 'outline' | 'ghost' | 'danger';
+type Size = 'sm' | 'md' | 'lg' | 'xl';
 
 type Props = Omit<PressableProps, 'children'> & {
   label: string;
@@ -18,18 +18,17 @@ type Props = Omit<PressableProps, 'children'> & {
   leftIcon?: React.ReactNode;
 };
 
-// Mirrors metri.info's button cva: monochrome `primary`, lime `brand`.
+// One emphasis color: lime `brand` is THE main/continue action of a screen;
+// everything else sits on the dark glass surface (secondary, the default).
 const CONTAINER: Record<Variant, string> = {
-  primary: 'bg-ink-50 active:opacity-90',
   brand: 'bg-brand active:opacity-90',
-  secondary: 'border border-ink-600 bg-ink-800 active:bg-ink-700',
+  secondary: 'border border-ink-600/70 bg-ink-800/90 active:bg-ink-700',
   outline: 'border border-ink-600 bg-transparent active:bg-ink-800',
   ghost: 'bg-transparent active:bg-ink-800',
   danger: 'bg-red-500/15 active:bg-red-500/25 border border-red-500/40',
 };
 
 const LABEL: Record<Variant, string> = {
-  primary: 'text-ink-900',
   brand: 'text-brandContrast',
   secondary: 'text-ink-50',
   outline: 'text-ink-100',
@@ -43,17 +42,20 @@ const SIZE_BOX: Record<Size, string> = {
   sm: 'min-h-9 px-3.5 py-1.5',
   md: 'min-h-11 px-5 py-2.5',
   lg: 'min-h-12 px-6 py-3',
+  // 56dp: the one-thumb primary action of a card (e.g. Start on a program).
+  xl: 'min-h-14 px-6 py-3.5',
 };
 
 const TEXT_SIZE: Record<Size, string> = {
   sm: 'text-sm',
   md: 'text-sm',
   lg: 'text-base',
+  xl: 'text-base',
 };
 
 export const Button = ({
   label,
-  variant = 'primary',
+  variant = 'secondary',
   size = 'md',
   loading = false,
   fullWidth = true,
@@ -64,14 +66,13 @@ export const Button = ({
   const isDisabled = disabled || loading;
   const { scale, onPressIn, onPressOut } = usePressScale();
   const pressAnim = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  const { scheme } = useTheme();
+  const { scheme, brandContrast } = useTheme();
 
   // Spinner colour tracks the label colour (which inverts per scheme for the
   // monochrome/neutral variants).
   const dark = scheme === 'dark';
   const spinnerColor: Record<Variant, string> = {
-    primary: dark ? '#09090b' : '#fafafa',
-    brand: dark ? '#08090d' : '#f7fee7',
+    brand: brandContrast,
     secondary: dark ? '#f5f5f7' : '#18181b',
     outline: dark ? '#e4e4e7' : '#27272a',
     ghost: dark ? '#d4d4d8' : '#3f3f46',

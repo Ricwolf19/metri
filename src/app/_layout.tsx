@@ -19,14 +19,14 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { initialWindowMetrics, SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { AppLoader, DialogProvider, ToastProvider } from '@/components/ui';
+import { AppLoader, BlockingOverlay, DialogProvider, ToastProvider } from '@/components/ui';
 import { db } from '@/db/client';
 import migrations from '@/db/migrations/migrations';
 import { AuthProvider } from '@/features/auth/auth-context';
 import { syncNotificationEvents } from '@/features/notifications/policies';
 import { initNotifications } from '@/features/notifications/service';
 import { seedTraining } from '@/features/training/seed';
-import { I18nProvider } from '@/i18n';
+import { I18nProvider, useI18n } from '@/i18n';
 import { initTelemetry, wrapRoot } from '@/lib/telemetry';
 import { ThemeProvider, useTheme } from '@/theme/theme-context';
 
@@ -40,6 +40,7 @@ void SplashScreen.preventAutoHideAsync();
 /** The navigation shell — themed once the providers are mounted. */
 const ThemedStack = () => {
   const { navTheme, statusBarStyle } = useTheme();
+  const { pending, t } = useI18n();
   return (
     <NavThemeProvider value={navTheme}>
       <StatusBar style={statusBarStyle} />
@@ -50,6 +51,7 @@ const ThemedStack = () => {
           animation: 'fade',
         }}
       />
+      <BlockingOverlay visible={pending} label={t('common.applying')} />
     </NavThemeProvider>
   );
 };

@@ -24,7 +24,7 @@ export const TimePicker = ({ hour, minute, onChange, clock = '24' }: Props) => {
     const period = hour < 12 ? 0 : 1;
     const to24 = (h: number, p: number) => (h % 12) + (p === 1 ? 12 : 0);
     return (
-      <View className="flex-row items-center justify-center rounded-2xl border border-ink-600 bg-ink-800 px-4">
+      <View className="flex-row items-center justify-center rounded-card border border-ink-600 bg-ink-800 px-4">
         <WheelPicker
           values={HOURS_12}
           value={h12}
@@ -49,7 +49,7 @@ export const TimePicker = ({ hour, minute, onChange, clock = '24' }: Props) => {
   }
 
   return (
-    <View className="flex-row items-center justify-center rounded-2xl border border-ink-600 bg-ink-800 px-4">
+    <View className="flex-row items-center justify-center rounded-card border border-ink-600 bg-ink-800 px-4">
       <WheelPicker
         values={HOURS_24}
         value={hour}

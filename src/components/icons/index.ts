@@ -31,7 +31,6 @@ import {
   Xmark,
   StarSolid,
   Trash,
-  EditPencil,
   Flask,
   Download,
   OpenNewWindow,
@@ -44,6 +43,9 @@ import {
   InfoCircle,
   WarningTriangle,
   SmartphoneDevice,
+  Menu,
+  PlaySolid,
+  Sparks,
 } from 'iconoir-react-native';
 
 /** Square size in px (maps to width + height). Mirrors lucide's `size`. */
@@ -83,7 +85,6 @@ export const PlayIcon = sized(Play, 'PlayIcon');
 export const XIcon = sized(Xmark, 'XIcon');
 export const StarIcon = sized(StarSolid, 'StarIcon');
 export const TrashIcon = sized(Trash, 'TrashIcon');
-export const EditPencilIcon = sized(EditPencil, 'EditPencilIcon');
 export const FlaskIcon = sized(Flask, 'FlaskIcon');
 export const DownloadIcon = sized(Download, 'DownloadIcon');
 export const ExternalLinkIcon = sized(OpenNewWindow, 'ExternalLinkIcon');
@@ -97,3 +98,6 @@ export const HelpIcon = sized(HelpCircle, 'HelpIcon');
 export const InfoCircleIcon = sized(InfoCircle, 'InfoCircleIcon');
 export const WarningIcon = sized(WarningTriangle, 'WarningIcon');
 export const SmartphoneIcon = sized(SmartphoneDevice, 'SmartphoneIcon');
+export const DragHandleIcon = sized(Menu, 'DragHandleIcon');
+export const PlaySolidIcon = sized(PlaySolid, 'PlaySolidIcon');
+export const SparksIcon = sized(Sparks, 'SparksIcon');
