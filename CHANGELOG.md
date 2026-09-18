@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.8.0](https://github.com/Ricwolf19/metri/compare/metri-v1.7.0...metri-v1.8.0) (2026-09-18)
+
+
+### Features
+
+* **auth:** local-only mode with in-place account adoption ([341830f](https://github.com/Ricwolf19/metri/commit/341830f81f301c7db9aad62ade75a586e32f3128))
+* **db:** local users, split schedule, retired program tags ([52228a3](https://github.com/Ricwolf19/metri/commit/52228a3d69cd1a9d846b118b482d044d5999fa1f))
+* **plan:** export/import with validation and ai prompt ([c2e393c](https://github.com/Ricwolf19/metri/commit/c2e393cdf10236a845ccdf3a65a4e3d1e343d838))
+* **training:** adherence catch-up, day history, share card ([93082d1](https://github.com/Ricwolf19/metri/commit/93082d1f43c81932befd0bb37e9a69dbfa43602e))
+* **training:** built-in preset programs ([e1df121](https://github.com/Ricwolf19/metri/commit/e1df1210914a87b6d2bf8d0f78cd19507721cd1b))
+* **training:** course exercise catalog + technique cues ([21b9713](https://github.com/Ricwolf19/metri/commit/21b9713742dacc05e7a48b14ecf6826dd22b5a85))
+* **training:** scheduled programs, start flow, editors ([9a8f030](https://github.com/Ricwolf19/metri/commit/9a8f0307fa7958f49b9bc22272e63348f6405c71))
+* **ui:** sheet, hold button, stepper, tag picker, motion rules ([39c0f50](https://github.com/Ricwolf19/metri/commit/39c0f503d7314671885f07db145b39c807477a57))
+* **widget:** one-tap pin with a 14-day snooze ([e9d9457](https://github.com/Ricwolf19/metri/commit/e9d94579a7c9974e6e8fbc56037a20d2a8b6c48f))
+
+
+### Bug Fixes
+
+* **app:** silence router initial-url dev warning ([a35a7e6](https://github.com/Ricwolf19/metri/commit/a35a7e6a89cf4685b771ac876c058db28c3ccbe7))
+
 ## [1.7.0](https://github.com/Ricwolf19/metri/compare/metri-v1.6.0...metri-v1.7.0) (2026-08-04)
 
 
