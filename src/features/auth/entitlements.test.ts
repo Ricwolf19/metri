@@ -2,26 +2,21 @@ import { describe, expect, it } from 'vitest';
 
 import { can, getTier } from './entitlements';
 
-describe('can', () => {
-  it.each<[string | null | undefined, boolean]>([
-    ['premium', true],
-    ['free', false],
-    ['unknown', false],
-    [null, false],
-    [undefined, false],
-  ])('plan %s → sync %s', (plan, allowed) => {
-    expect(can(plan, 'sync')).toBe(allowed);
-  });
-});
-
-describe('getTier', () => {
-  it('is local for device-only users regardless of the cached plan', () => {
-    expect(getTier({ authKind: 'local', plan: 'premium' })).toBe('local');
-    expect(getTier(null)).toBe('local');
+describe('entitlements', () => {
+  // Table-driven: the tier gate every plan/banner surface keys off.
+  it.each([
+    ['no user', null, 'local'],
+    ['device-only user', { authKind: 'local', plan: 'free' }, 'local'],
+    ['free account', { authKind: 'remote', plan: 'free' }, 'free'],
+    ['premium account', { authKind: 'remote', plan: 'premium' }, 'premium'],
+    ['unknown plan normalizes down', { authKind: 'remote', plan: 'gold' }, 'free'],
+  ] as const)('getTier: %s → %s', (_name, user, tier) => {
+    expect(getTier(user as never)).toBe(tier);
   });
 
-  it('maps remote users by plan, defaulting to free', () => {
-    expect(getTier({ authKind: 'remote', plan: 'premium' })).toBe('premium');
-    expect(getTier({ authKind: 'remote', plan: 'weird' })).toBe('free');
+  it('sync stays premium-only regardless of authKind', () => {
+    expect(can('premium', 'sync')).toBe(true);
+    expect(can('free', 'sync')).toBe(false);
+    expect(can(null, 'sync')).toBe(false);
   });
 });

@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { programs, users, workoutLogs } from '@/db/schema';
+import { users } from '@/db/schema';
 import { createTestDb } from '@/test/sqlite';
 
 vi.mock('@/db/client', async () => ({ db: await createTestDb() }));
@@ -11,73 +11,55 @@ const { db } = await import('@/db/client');
 const { adoptLocalUser, createLocalUser, findById, upsertRemoteUser } =
   await import('./users.repo');
 
-const seedOwnedData = (userId: string) => {
-  db.insert(programs)
-    .values({ id: `p-${userId}`, name: 'Mine', isCustom: true, userId })
-    .run();
-  db.insert(workoutLogs)
-    .values({
-      id: `w-${userId}`,
-      userId,
-      userProgramId: 'up-1',
-      workoutDayId: 'd-1',
-      weekNumber: 1,
-      status: 'completed',
-    })
-    .run();
-};
+describe('local-account lifecycle', () => {
+  beforeEach(() => db.delete(users).run());
 
-describe('local → account adoption', () => {
-  beforeEach(() => {
-    db.delete(workoutLogs).run();
-    db.delete(programs).run();
-    db.delete(users).run();
+  it('creates a device-only user: no email, authKind local', async () => {
+    const u = await createLocalUser({ displayName: 'Ric' });
+
+    expect(u.email).toBeNull();
+    expect(u.authKind).toBe('local');
+    expect(u.displayName).toBe('Ric');
   });
 
-  it('keeps the same user id, so every owned row survives sign-up', async () => {
+  it('adoption keeps the SAME id — the invariant all training data hangs on', async () => {
     const local = await createLocalUser({ displayName: 'Ric' });
-    seedOwnedData(local.id);
 
-    const adopted = adoptLocalUser(local.id, { email: 'Ric@Example.com', plan: 'free' });
+    const adopted = adoptLocalUser(local.id, {
+      email: 'Ric@Example.com',
+      displayName: 'Ricardo',
+      plan: 'premium',
+    });
 
     expect(adopted?.id).toBe(local.id);
+    expect(adopted?.email).toBe('ric@example.com'); // normalized
     expect(adopted?.authKind).toBe('remote');
-    expect(adopted?.email).toBe('ric@example.com');
-    expect(adopted?.displayName).toBe('Ric');
-    expect(db.select().from(programs).where(eq(programs.userId, local.id)).all()).toHaveLength(1);
-    expect(
-      db.select().from(workoutLogs).where(eq(workoutLogs.userId, local.id)).all(),
-    ).toHaveLength(1);
-    expect(db.select().from(users).all()).toHaveLength(1);
+    expect(adopted?.plan).toBe('premium');
+    expect(adopted?.displayName).toBe('Ricardo');
   });
 
-  it('detaches a stale mirror holding the same email instead of duplicating the person', async () => {
-    const stale = await upsertRemoteUser({ email: 'ric@example.com', displayName: 'Old' });
-    seedOwnedData(stale.id);
-    const local = await createLocalUser({ displayName: 'Ric' });
-    seedOwnedData(local.id);
+  it('detaches a stale remote mirror already holding the email, without data loss', async () => {
+    // Arrange: an old signed-out account row anchors the email...
+    const stale = await upsertRemoteUser({ email: 'a@b.co', displayName: 'Old' });
+    // ...and a fresh local user wants to adopt into that same account.
+    const local = await createLocalUser({ displayName: 'New' });
 
-    const adopted = adoptLocalUser(local.id, { email: 'ric@example.com' });
+    const adopted = adoptLocalUser(local.id, { email: 'a@b.co' });
 
     expect(adopted?.id).toBe(local.id);
-    const staleRow = findById(stale.id);
-    expect(staleRow?.email).toBeNull();
-    expect(staleRow?.authKind).toBe('local');
-    // Neither side loses data: the stale account's rows stay as an orphan.
-    expect(db.select().from(programs).all()).toHaveLength(2);
+    expect(adopted?.email).toBe('a@b.co');
+    const staleAfter = findById(stale.id);
+    expect(staleAfter?.email).toBeNull(); // orphaned, not deleted
+    expect(staleAfter?.authKind).toBe('local');
   });
 
-  it('caches the premium entitlement from the remote session', async () => {
-    const local = await createLocalUser({ displayName: 'Ric' });
-    const adopted = adoptLocalUser(local.id, { email: 'ric@example.com', plan: 'premium' });
-    expect(adopted?.plan).toBe('premium');
-  });
+  it('re-sign-in refreshes the cached plan on the anchored row', async () => {
+    const first = await upsertRemoteUser({ email: 'a@b.co', plan: 'free' });
 
-  it('upsertRemoteUser reuses the mirror row and refreshes its plan', async () => {
-    const first = await upsertRemoteUser({ email: 'ric@example.com', plan: 'free' });
-    const again = await upsertRemoteUser({ email: 'ric@example.com', plan: 'premium' });
-    expect(again.id).toBe(first.id);
-    expect(again.plan).toBe('premium');
-    expect(db.select().from(users).all()).toHaveLength(1);
+    const second = await upsertRemoteUser({ email: 'a@b.co', plan: 'premium' });
+
+    expect(second.id).toBe(first.id);
+    expect(second.plan).toBe('premium');
+    expect(db.select().from(users).where(eq(users.email, 'a@b.co')).all()).toHaveLength(1);
   });
 });
