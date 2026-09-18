@@ -7,8 +7,8 @@
 **Offline-first workout tracker for serious lifters.**
 
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
-[![Expo](https://img.shields.io/badge/Expo-SDK%2056-000020.svg)](https://expo.dev/)
-[![React Native](https://img.shields.io/badge/React%20Native-0.85-61dafb.svg)](https://reactnative.dev/)
+[![Expo](https://img.shields.io/badge/Expo-SDK%2057-000020.svg)](https://expo.dev/)
+[![React Native](https://img.shields.io/badge/React%20Native-0.86-61dafb.svg)](https://reactnative.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg)](https://www.typescriptlang.org/)
 [![NativeWind](https://img.shields.io/badge/NativeWind-v4-38bdf8.svg)](https://www.nativewind.dev/)
 
@@ -24,23 +24,30 @@ to be **fast, private, and always available** — even with no connection at the
 The whole app runs **offline-first**: the database lives on your device and is the single
 source of truth. There is no spinner waiting on a server to log a set.
 
-metri asks for a **free account** on first launch — email and password, or Google / GitHub.
-No payment, no card, no trial: the account identifies you so your training can sync across
-devices, and it stays free.
+metri needs **no account**: local mode runs the full app — every feature and update — with
+your data living only in on-device SQLite. A **free account** (email and password, or Google /
+GitHub; no payment, no card, no trial) is optional and adds account security, manual
+**export/import** of your data (JSON, documented schema + a copy-paste AI prompt that fills it
+from your described history), and profile restore on reinstall. **Premium** adds automatic
+cloud sync across unlimited devices. Creating the account later adopts your local profile in
+place — everything you already logged survives.
 
-> **Create it in the app, or ahead of time at
+> **Create the account in the app, or ahead of time at
 > [metri.info/sign-up](https://metri.info/sign-up)** ([español](https://metri.info/es/registrarse)).
 > It is the same account either way — the app authenticates against the web backend, so the
 > credentials you register in the browser work directly on your phone.
 
-The [web app](https://metri.info) itself is the opposite — its calculators and guides are
-open to everyone with no sign-up at all.
+The [web app](https://metri.info) calculators and guides are equally open to everyone with no
+sign-up at all.
 
 - **Instant logging** — the UI reads straight from on-device SQLite, no network round-trips.
 - **Your data stays yours** — nothing leaves the phone until you turn on cloud sync, an
   opt-in Premium feature. Progress photos are never uploaded.
 - **Built for lifters** — 16 calculators, an evidence-based knowledge base, and a training
-  tracker with routines, history and reminders.
+  tracker: programs with phases and splits scheduled by weekday and time, drag-and-drop editing,
+  session logging with history, adherence and per-split reminders.
+- **Deliberate by design** — irreversible actions are press-and-hold, edits are saved explicitly,
+  dates follow your preferred format, and any training day can be shared as a brand card.
 
 > **Status:** **open beta on Android**, distributed as a direct APK download from
 > [metri.info/download](https://metri.info/download) while the Play Store listing is
@@ -65,7 +72,7 @@ open to everyone with no sign-up at all.
 
 | Layer           | Technology                            | Purpose                                            |
 | --------------- | ------------------------------------- | -------------------------------------------------- |
-| Framework       | Expo SDK 56 + React Native 0.85       | Single codebase for iOS and Android                |
+| Framework       | Expo SDK 57 + React Native 0.86       | Single codebase for iOS and Android                |
 | Language        | TypeScript (strict)                   | Type safety across the project                     |
 | Navigation      | Expo Router                           | File-based routing                                 |
 | Styling         | NativeWind v4                         | Tailwind CSS for React Native                      |
@@ -76,8 +83,9 @@ open to everyone with no sign-up at all.
 | Build           | expo-dev-client                       | Development build (required by MMKV)               |
 | Hygiene         | ESLint · Prettier · knip · secretlint | Linting, formatting, dead-code and secret scanning |
 
-Deferred to a later phase: authentication (Better Auth), a cloud database for multi-device
-sync (PostgreSQL on Neon, or libSQL on Turso), and the sync engine.
+Accounts are optional and live on the metri.info backend (Better Auth); Premium cloud sync is
+the engine described in [`docs/sync.md`](./docs/sync.md). Unit and repo tests run on Vitest, the
+latter against the real migrations on an in-memory sql.js database (`src/test/sqlite.ts`).
 
 ---
 
@@ -86,7 +94,7 @@ sync (PostgreSQL on Neon, or libSQL on Turso), and the sync engine.
 **Prerequisites**
 
 - Node.js (LTS) and [Bun](https://bun.sh) >= 1.3
-- **JDK 17** (required by the React Native 0.85 Android toolchain — see below)
+- **JDK 17** (required by the React Native Android toolchain — see below)
 - Xcode (iOS) and/or Android Studio (Android SDK + an emulator or a device)
 
 MMKV uses native code, so the app runs on a **development build**, not Expo Go.
@@ -107,9 +115,10 @@ or changing the app icon / `app.json` / `metro.config.js` requires a rebuild.
 ## Running from Scratch / Resetting Local Data
 
 metri keeps **training data on-device** (SQLite + MMKV), so wiping the app's storage makes the next
-launch re-run migrations from an empty database and re-seed the exercise catalog. The account itself
-lives on the web backend, and so does anything already pushed by Premium cloud sync — neither is
-cleared by a reinstall.
+launch re-run migrations from an empty database and re-seed the exercise catalog. A server account
+(if you created one) lives on the web backend, and so does anything already pushed by Premium cloud
+sync — neither is cleared by a reinstall. Local-mode data has no server copy: a wipe is final unless
+you exported it first.
 
 ```bash
 # Android — uninstall removes the app + its SQLite/MMKV data, then reinstall
@@ -138,7 +147,7 @@ bunx expo run:android            # or: bunx expo run:ios
 bun run db:generate
 ```
 
-> No env vars are needed to build or run. Accounts live on the metri.info backend (Better Auth) —
+> No env vars are needed to build or run. Optional accounts live on the metri.info backend (Better Auth) —
 > there is no local admin seed. The only optional variable is `EXPO_PUBLIC_AUTH_URL` to point a dev
 > build at a different backend origin (documented in `app.config.ts`). Crash reporting (Sentry) is
 > configured in `src/lib/telemetry.ts` — the DSN is a public client key hardcoded there (empty =
@@ -153,7 +162,7 @@ so here is the exact, working setup on macOS (Apple Silicon).
 
 ### 1. Install JDK 17
 
-React Native 0.85 pins its Gradle/Kotlin toolchain to **Java 17**. Newer JDKs (21, 24) can
+React Native pins its Gradle/Kotlin toolchain to **Java 17**. Newer JDKs (21, 24) can
 _run_ Gradle but are not accepted for the compile toolchain.
 
 ```bash
@@ -234,20 +243,27 @@ In-app, SVGs are imported as components via `react-native-svg-transformer` (conf
 ```
 metri/
 ├── src/
-│   ├── app/                 # Expo Router screens
-│   │   ├── _layout.tsx      # Root layout: theme, runs DB migrations on launch
-│   │   └── index.tsx        # Home screen (renders the SVG brand logo)
-│   ├── db/
-│   │   ├── schema.ts        # Drizzle schema (SQLite) — plumbing only for now
-│   │   ├── client.ts        # SQLite connection + Drizzle instance
-│   │   └── migrations/      # Generated SQL migrations (do not edit by hand)
-│   ├── lib/
-│   │   └── storage.ts       # MMKV instance and typed settings helpers
-│   ├── types/
-│   │   └── svg.d.ts         # Ambient types for *.svg component imports
+│   ├── app/                 # Expo Router screens (file-based routes)
+│   │   ├── _layout.tsx      # Root providers; runs migrations + seed on launch
+│   │   ├── (auth)/          # Sign in / sign up / local-only setup
+│   │   ├── (tabs)/          # Home, Train, Metrics, Nutrition, Explore
+│   │   ├── training/        # Program detail, start flow, editors, workout session
+│   │   ├── calculators/, docs/, progress/   # Tools, knowledge base, photos
+│   │   └── plan.tsx, profile.tsx, notifications.tsx, …
+│   ├── components/
+│   │   ├── ui/              # Shared primitives (Button, Sheet, HoldButton, Stepper, ShareCard…)
+│   │   ├── icons/           # Iconoir barrel — the only icon import surface
+│   │   └── TopBar.tsx       # Floating navbar pill
+│   ├── db/                  # Drizzle schema, SQLite client, generated migrations
+│   ├── features/            # Domain modules: training, auth, sync, plan (export/import),
+│   │                        # notifications, calculators, widget, legal, …
+│   ├── i18n/                # en.ts / es.ts dictionaries + provider
+│   ├── lib/                 # MMKV settings, dates, telemetry, small hooks
+│   ├── test/                # sql.js harness for repo tests
+│   ├── theme/               # Theme tokens + provider
 │   └── global.css           # Tailwind directives + font variables
-├── assets/
-│   └── images/              # SVG brand sources + generated launcher icons, splash, favicon
+├── docs/sync.md             # Sync protocol (mobile half)
+├── assets/images/           # SVG brand sources + generated launcher icons, splash, favicon
 ├── tailwind.config.js       # Brand palette (lime accent on cool dark "ink")
 ├── drizzle.config.ts        # Drizzle Kit config (SQLite, expo driver)
 ├── metro.config.js          # NativeWind + SVG transformer + .sql resolver
@@ -282,8 +298,9 @@ Database migrations are generated with Drizzle Kit and applied automatically on 
 bun start              # Start the Metro dev server
 bun run android        # Build + run on Android
 bun run ios            # Build + run on iOS
+bun run web            # Metro for the web target
 bun run verify         # format:check + lint + typecheck + test + i18n:check + deadcode
-bun run test           # vitest — unit tests (pure logic: calculators math, more to come)
+bun run test           # vitest — pure-logic units + repo tests on sql.js (real migrations)
 bun run ci             # verify + secrets:scan + doctor — mirrors the GitHub CI quality job (pre-push hook)
 bun run typecheck      # tsc --noEmit
 bun run lint           # ESLint (expo lint)
@@ -386,10 +403,15 @@ the beta download after a fix that does not warrant a version bump.
 
 ## Roadmap
 
-1. Define the domain model (exercises, workouts, sets, body metrics) and migrations.
-2. Build the core logging flow and history.
-3. Add progress metrics (estimated 1RM, weekly volume, PRs).
-4. Add authentication and cloud sync (Better Auth + remote database).
+Shipped: domain model and migrations, session logging and history, progress metrics, accounts and
+Premium cloud sync, scheduled programs with the editor redesign.
+
+Next:
+
+1. Curated "Recommended by metri" programs (the section is wired, the seed list is empty).
+2. Navbar titles on nested screens outside training (profile, plan, legal, docs, progress).
+3. Confirm the web sync endpoint accepts the new `workout_days` schedule columns.
+4. Ship the share card in the next APK (it depends on native modules, so OTA cannot deliver it).
 
 ---
 
