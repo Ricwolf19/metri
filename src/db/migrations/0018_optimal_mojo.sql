@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD `auth_kind` text DEFAULT 'remote' NOT NULL;

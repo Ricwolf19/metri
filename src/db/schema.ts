@@ -32,10 +32,15 @@ export type Sex = 'male' | 'female';
 /** Activity level keys — multipliers live in `@/features/bmr/calc`. */
 export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
 
+/** Whether this row mirrors a Better Auth account or lives only on-device. */
+export type AuthKind = 'local' | 'remote';
+
 export const users = sqliteTable('users', {
   id: text('id').primaryKey(),
-  email: text('email').notNull().unique(),
-  username: text('username').notNull().unique(),
+  // NULL for local-only users; the anchor key when a remote account exists.
+  email: text('email').unique(),
+  // 'local' rows never sync or revalidate; a later sign-in adopts the row in place (AGENTS.md).
+  authKind: text('auth_kind').$type<AuthKind>().notNull().default('remote'),
 
   // No credential material lives here. Authentication is Better Auth against the
   // metri.info backend; this row is only the local mirror of that account.
@@ -143,22 +148,9 @@ export type ProgressPhoto = typeof progressPhotos.$inferSelect;
  * ──────────────────────────────────────────────────────────────────────────── */
 
 export type ExerciseCategory =
-  | 'chest'
-  | 'back'
-  | 'legs'
-  | 'shoulders'
-  | 'arms'
-  | 'core'
-  | 'full_body'
-  | 'cardio';
+  'chest' | 'back' | 'legs' | 'shoulders' | 'arms' | 'core' | 'full_body' | 'cardio';
 export type Equipment =
-  | 'barbell'
-  | 'dumbbell'
-  | 'machine'
-  | 'cable'
-  | 'bodyweight'
-  | 'kettlebell'
-  | 'other';
+  'barbell' | 'dumbbell' | 'machine' | 'cable' | 'bodyweight' | 'kettlebell' | 'other';
 
 /** Global exercise library. Seeded staples have `userId` NULL; user-made ones set it. */
 export const exercises = sqliteTable(
@@ -183,9 +175,6 @@ export const exercises = sqliteTable(
 export type Exercise = typeof exercises.$inferSelect;
 export type NewExercise = typeof exercises.$inferInsert;
 
-export type ProgramDifficulty = 'beginner' | 'intermediate' | 'advanced';
-export type ProgramGoal = 'strength' | 'hypertrophy' | 'powerbuilding' | 'endurance';
-
 export const programs = sqliteTable(
   'programs',
   {
@@ -193,8 +182,9 @@ export const programs = sqliteTable(
     name: text('name').notNull(),
     description: text('description'),
     durationWeeks: integer('duration_weeks'),
-    difficulty: text('difficulty').$type<ProgramDifficulty>(),
-    goal: text('goal').$type<ProgramGoal>(),
+    // Retired (unused by the app); kept because `programs` is synced and the wire format is add-only.
+    difficulty: text('difficulty'),
+    goal: text('goal'),
     isCustom: integer('is_custom', { mode: 'boolean' }).notNull().default(false),
     /** Author of a custom program; NULL for seeded templates. */
     userId: text('user_id'),
@@ -238,6 +228,10 @@ export const workoutDays = sqliteTable(
     name: text('name').notNull(),
     focusMuscles: text('focus_muscles', { mode: 'json' }).$type<string[]>(),
     orderIndex: integer('order_index').notNull().default(0),
+    // Enrolled copy only; weekday is expo-numbered — @see AGENTS.md#conventions.
+    // startMinute: minutes after local midnight (0–1439), one integer that sorts naturally.
+    weekday: integer('weekday'),
+    startMinute: integer('start_minute'),
     userProgramId: text('user_program_id'),
     createdAt: tsMs('created_at').notNull().default(NOW_MS),
     updatedAt: tsMs('updated_at'),
@@ -425,7 +419,16 @@ export type NewSetLog = typeof setLogs.$inferInsert;
 /** Trained as planned · deliberate rest · missed a planned session. */
 export type TrainingDayStatus = 'trained' | 'rest' | 'skipped';
 /** Why a planned session was missed — powers the "why not" legend. */
-export type SkipReason = 'sick' | 'busy' | 'travel' | 'injury' | 'fatigue' | 'deload' | 'other';
+export const SKIP_REASONS = [
+  'sick',
+  'busy',
+  'travel',
+  'injury',
+  'fatigue',
+  'deload',
+  'other',
+] as const;
+export type SkipReason = (typeof SKIP_REASONS)[number];
 
 /**
  * One row per user per calendar day recording whether they trained. This is the

@@ -127,6 +127,27 @@
       "when": 1785811439932,
       "tag": "0017_orange_colonel_america",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1789591387023,
+      "tag": "0018_optimal_mojo",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1789591392721,
+      "tag": "0019_next_cable",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1789602412826,
+      "tag": "0020_easy_nehzno",
+      "breakpoints": true
     }
   ]
 }

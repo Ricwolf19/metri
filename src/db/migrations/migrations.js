@@ -19,6 +19,9 @@ import m0014 from './0014_purge_legacy_password_hashes.sql';
 import m0015 from './0015_drop_legacy_password_columns.sql';
 import m0016 from './0016_bent_shiver_man.sql';
 import m0017 from './0017_orange_colonel_america.sql';
+import m0018 from './0018_optimal_mojo.sql';
+import m0019 from './0019_next_cable.sql';
+import m0020 from './0020_easy_nehzno.sql';
 
   export default {
     journal,
@@ -40,7 +43,10 @@ m0013,
 m0014,
 m0015,
 m0016,
-m0017
+m0017,
+m0018,
+m0019,
+m0020
     }
   }
   
