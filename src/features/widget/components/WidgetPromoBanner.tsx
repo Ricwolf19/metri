@@ -1,53 +1,71 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { requestPinWidget } from 'react-native-android-widget';
 
 import { SmartphoneIcon, XIcon } from '@/components/icons';
-import { FadeInUp } from '@/components/ui';
+import { Button, FadeInUp } from '@/components/ui';
 import { useT } from '@/i18n';
 import { storage } from '@/lib/storage';
 import { useTheme } from '@/theme/theme-context';
 
 import { useWidgetInstalled } from '../useWidgetInstalled';
 
-const DISMISSED_KEY = 'widget.promoDismissed';
+const SNOOZE_KEY = 'widget.promoSnoozedUntil';
+const SNOOZE_MS = 14 * 86_400_000;
 
-/**
- * Home banner pitching the (in-development) Android home-screen widget. Shows
- * only when we positively know the widget is absent; the library exposes no
- * programmatic pin request, so the copy walks the user through adding it.
- * Dismissal is permanent (MMKV).
- */
+/** Pitches the Android widget with a one-tap pin. Shows only when the widget is known absent
+ * (`useWidgetInstalled` re-polls on foreground, so a pin hides it). Dismiss snoozes 14 days — it returns on purpose. */
 export const WidgetPromoBanner = () => {
   const t = useT();
   const { brand } = useTheme();
   const installed = useWidgetInstalled();
-  const [dismissed, setDismissed] = useState(() => storage.getBoolean(DISMISSED_KEY) ?? false);
+  // Snooze check once per mount (initializer) keeps render pure.
+  const [hidden, setHidden] = useState(() => Date.now() < (storage.getNumber(SNOOZE_KEY) ?? 0));
+  const [pinUnsupported, setPinUnsupported] = useState(false);
 
-  if (installed !== false || dismissed) return null;
+  if (installed !== false || hidden) return null;
+
+  const snooze = () => {
+    storage.set(SNOOZE_KEY, Date.now() + SNOOZE_MS);
+    setHidden(true);
+  };
+
+  const onPin = async () => {
+    // False = platform/launcher can't pin programmatically; fall back to the
+    // long-press instructions instead of a dead button.
+    const accepted = await requestPinWidget({ widgetName: 'Metri' }).catch(() => false);
+    if (!accepted) setPinUnsupported(true);
+  };
 
   return (
     <FadeInUp delay={90}>
-      <View className="mt-4 flex-row items-center rounded-card border border-brand/30 bg-brand/10 p-4">
-        <View className="mr-3 h-11 w-11 items-center justify-center rounded-field bg-brand/15">
-          <SmartphoneIcon color={brand} size={22} />
+      <View className="mt-4 rounded-card border border-brand/30 bg-brand/10 p-4">
+        <View className="flex-row items-center">
+          <View className="mr-3 h-11 w-11 items-center justify-center rounded-field bg-brand/15">
+            <SmartphoneIcon color={brand} size={22} />
+          </View>
+          <View className="flex-1 pr-2">
+            <Text className="text-sm font-sans-semibold text-ink-50">
+              {t('home.widgetPromoTitle')}
+            </Text>
+            <Text className="mt-0.5 text-xs text-ink-400">
+              {t(pinUnsupported ? 'home.widgetPromoManual' : 'home.widgetPromoBody')}
+            </Text>
+          </View>
+          <Pressable
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.cancel')}
+            onPress={snooze}
+          >
+            <XIcon color="#71717a" size={18} />
+          </Pressable>
         </View>
-        <View className="flex-1 pr-2">
-          <Text className="text-sm font-sans-semibold text-ink-50">
-            {t('home.widgetPromoTitle')}
-          </Text>
-          <Text className="mt-0.5 text-xs text-ink-400">{t('home.widgetPromoBody')}</Text>
-        </View>
-        <Pressable
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={t('common.cancel')}
-          onPress={() => {
-            storage.set(DISMISSED_KEY, true);
-            setDismissed(true);
-          }}
-        >
-          <XIcon color="#71717a" size={18} />
-        </Pressable>
+        {pinUnsupported ? null : (
+          <View className="mt-3">
+            <Button variant="brand" label={t('home.widgetPromoAdd')} size="sm" onPress={onPin} />
+          </View>
+        )}
       </View>
     </FadeInUp>
   );
