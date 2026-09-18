@@ -45,7 +45,8 @@ sign-up at all.
   opt-in Premium feature. Progress photos are never uploaded.
 - **Built for lifters** — 16 calculators, an evidence-based knowledge base, and a training
   tracker: programs with phases and splits scheduled by weekday and time, drag-and-drop editing,
-  session logging with history, adherence and per-split reminders.
+  session logging with history, adherence and per-split reminders. Two ready-made programs
+  (Metri Foundations and Metri Progression) and per-exercise technique guides ship built in.
 - **Deliberate by design** — irreversible actions are press-and-hold, edits are saved explicitly,
   dates follow your preferred format, and any training day can be shared as a brand card.
 

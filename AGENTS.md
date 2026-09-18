@@ -114,6 +114,12 @@ Read `docs/sync.md` before touching `src/features/sync/`. Non-negotiables:
   `refreshTrainingWeekdays` from the current phase) can break a streak or raise the catch-up banner;
   unlogged unplanned days are neutral, and with no schedule every unlogged day breaks. Finishing a
   workout marks the day; manual marking in the Day Detail sheet is the fallback for any past date.
+- **Seed ids are a contract.** Catalog exercise ids and preset template ids (`metri-foundations`,
+  `metri-progression`) are referenced by user history and enrolled copies. `seedTraining` is
+  versioned in `app_meta`; removing a built-in exercise goes through the demote-or-delete
+  migration in `seed.ts` (never a bare delete), and retired template ids (pb-2-0, ul-4, fb-3)
+  are never reused. Bilingual catalog/preset copy lives in content modules
+  (`exercise-content.ts`, `programs/index.ts`), not the i18n dictionaries.
 - Conventional Commits (commitlint); husky runs lint-staged pre-commit and `bun run ci` pre-push.
 
 ## CI & release (sideloaded beta — no store pushes a binary for you)
