@@ -29,6 +29,7 @@ export const SettingKeys = {
   dismissedAnnouncements: 'announcements.dismissed',
   notificationsEnabled: 'settings.notificationsEnabled',
   localBannerSnoozedUntil: 'settings.localBannerSnoozedUntil',
+  widgetPromoSnoozedUntil: 'widget.promoSnoozedUntil',
   sessionUserId: 'auth.userId',
 } as const;
 
@@ -58,6 +59,13 @@ export const settings = {
   },
   snoozeLocalBanner(days = 14) {
     storage.set(SettingKeys.localBannerSnoozedUntil, Date.now() + days * 86_400_000);
+  },
+  // Home widget promo snooze deadline (epoch ms).
+  getWidgetPromoSnoozedUntil(): number {
+    return storage.getNumber(SettingKeys.widgetPromoSnoozedUntil) ?? 0;
+  },
+  snoozeWidgetPromo(days = 14) {
+    storage.set(SettingKeys.widgetPromoSnoozedUntil, Date.now() + days * 86_400_000);
   },
   getClockFormat(): ClockFormat {
     return (storage.getString(SettingKeys.clock) as ClockFormat) ?? '24';

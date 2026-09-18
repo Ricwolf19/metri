@@ -5,13 +5,10 @@ import { requestPinWidget } from 'react-native-android-widget';
 import { SmartphoneIcon, XIcon } from '@/components/icons';
 import { Button, FadeInUp } from '@/components/ui';
 import { useT } from '@/i18n';
-import { storage } from '@/lib/storage';
+import { settings } from '@/lib/storage';
 import { useTheme } from '@/theme/theme-context';
 
 import { useWidgetInstalled } from '../useWidgetInstalled';
-
-const SNOOZE_KEY = 'widget.promoSnoozedUntil';
-const SNOOZE_MS = 14 * 86_400_000;
 
 /** Pitches the Android widget with a one-tap pin. Shows only when the widget is known absent
  * (`useWidgetInstalled` re-polls on foreground, so a pin hides it). Dismiss snoozes 14 days — it returns on purpose. */
@@ -20,13 +17,13 @@ export const WidgetPromoBanner = () => {
   const { brand } = useTheme();
   const installed = useWidgetInstalled();
   // Snooze check once per mount (initializer) keeps render pure.
-  const [hidden, setHidden] = useState(() => Date.now() < (storage.getNumber(SNOOZE_KEY) ?? 0));
+  const [hidden, setHidden] = useState(() => Date.now() < settings.getWidgetPromoSnoozedUntil());
   const [pinUnsupported, setPinUnsupported] = useState(false);
 
   if (installed !== false || hidden) return null;
 
   const snooze = () => {
-    storage.set(SNOOZE_KEY, Date.now() + SNOOZE_MS);
+    settings.snoozeWidgetPromo();
     setHidden(true);
   };
 
