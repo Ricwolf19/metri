@@ -8,8 +8,9 @@ import { Card, FadeInUp, GridTile, PressableScale, Screen } from '@/components/u
 import { AnnouncementModal } from '@/features/announcements/AnnouncementModal';
 import { useAuth } from '@/features/auth/auth-context';
 import { getQuickAction, type QuickAction } from '@/features/home/quick-actions';
+import { LocalModeBanner } from '@/features/plan/LocalModeBanner';
 import { PremiumIntroModal } from '@/features/premium/PremiumIntroModal';
-import { TodayAdherence } from '@/features/training/components/TodayAdherence';
+import { AdherenceCatchupBanner } from '@/features/training/components/AdherenceCatchupBanner';
 import { WeekStrip } from '@/features/training/components/WeekStrip';
 import { WidgetPromoBanner } from '@/features/widget/components/WidgetPromoBanner';
 import { useI18n, useT } from '@/i18n';
@@ -50,10 +51,13 @@ const Home = () => {
       <PremiumIntroModal />
       <AnnouncementModal />
 
-      {/* Today's check-in + the recent weeks at a glance */}
+      <LocalModeBanner />
+
+      {/* Adherence closes itself now (sessions + schedule); only unresolved
+          planned days from the past week ask here. */}
       <FadeInUp>
         <View className="gap-3">
-          <TodayAdherence />
+          <AdherenceCatchupBanner />
           <WeekStrip />
         </View>
       </FadeInUp>

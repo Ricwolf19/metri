@@ -140,7 +140,7 @@ export const TrainingCalendar = () => {
               <Pressable
                 onPress={() => !cell.future && setSelected(cell.key)}
                 style={{ backgroundColor: colorFor(cell) }}
-                className="h-8 w-8 items-center justify-center rounded-md"
+                className="h-8 w-8 items-center justify-center rounded-field"
               >
                 <Text
                   style={{ color: textFor(cell) }}

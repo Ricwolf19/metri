@@ -1,19 +1,32 @@
-import { and, eq, gte, lt } from 'drizzle-orm';
+import { and, asc, eq, gte, lt, sql } from 'drizzle-orm';
 
 import { db } from '@/db/client';
-import { setLogs, users, workoutDays, workoutLogs } from '@/db/schema';
+import { exercises, setLogs, users, workoutDays, workoutLogs } from '@/db/schema';
 
 /**
  * Everything the app recorded on a calendar day — the data behind the day
  * detail sheet. Extensible by design: future feeds (weigh-ins, measurements)
  * add a field here + a block in the sheet, nothing else changes.
  */
+export type LoggedSet = {
+  setNumber: number;
+  weightKg: number;
+  reps: number;
+  rir: number | null;
+  rpe: number | null;
+  isFailure: boolean;
+};
+
+type LoggedExercise = { exerciseId: string; name: string; sets: LoggedSet[] };
+
 type WorkoutDaySummary = {
   logId: string;
   dayName: string;
   durationSeconds: number | null;
   setCount: number;
   volumeKg: number;
+  /** Working sets grouped by exercise, in logging order. */
+  exercises: LoggedExercise[];
 };
 
 export type DayDetail = {
@@ -46,16 +59,38 @@ export const getDayDetail = (userId: string, dateKey: string): DayDetail => {
 
   const workouts: WorkoutDaySummary[] = logs.map(({ log, day }) => {
     const sets = db
-      .select()
+      .select({ set: setLogs, exerciseName: exercises.name })
       .from(setLogs)
+      .leftJoin(exercises, eq(exercises.id, setLogs.exerciseId))
       .where(and(eq(setLogs.workoutLogId, log.id), eq(setLogs.isWarmup, false)))
+      // Set numbers restart per exercise, so insertion order (rowid) is the
+      // only tie-break that keeps exercises in the order they were logged.
+      .orderBy(asc(setLogs.createdAt), sql`${setLogs}.rowid`)
       .all();
+    const byExercise = new Map<string, LoggedExercise>();
+    for (const { set, exerciseName } of sets) {
+      const entry = byExercise.get(set.exerciseId) ?? {
+        exerciseId: set.exerciseId,
+        name: exerciseName ?? '—',
+        sets: [],
+      };
+      entry.sets.push({
+        setNumber: set.setNumber,
+        weightKg: set.weightKg,
+        reps: set.reps,
+        rir: set.rir,
+        rpe: set.rpe,
+        isFailure: set.isFailure,
+      });
+      byExercise.set(set.exerciseId, entry);
+    }
     return {
       logId: log.id,
       dayName: day?.name ?? '—',
       durationSeconds: log.durationSeconds,
       setCount: sets.length,
-      volumeKg: Math.round(sets.reduce((sum, s) => sum + s.weightKg * s.reps, 0)),
+      volumeKg: Math.round(sets.reduce((sum, { set }) => sum + set.weightKg * set.reps, 0)),
+      exercises: [...byExercise.values()],
     };
   });
 

@@ -9,7 +9,7 @@ import { Card, FadeInUp, PressableScale, Screen } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { CalcChart } from '@/features/calculators/components/CalcChart';
 import type { CalcChart as Chart } from '@/features/calculators/types';
-import { computeStreak } from '@/features/training/adherence.repo';
+import { computeStreak, getActiveTrainingWeekdays } from '@/features/training/adherence.repo';
 import { TrainingCalendar } from '@/features/training/components/TrainingCalendar';
 import { bucketVolume, loggedExercises, weeklyVolumeQuery } from '@/features/training/stats.repo';
 import { useT } from '@/i18n';
@@ -60,7 +60,7 @@ const Metrics = () => {
     })),
   };
 
-  const streak = userId ? computeStreak(userId) : 0;
+  const streak = userId ? computeStreak(userId, getActiveTrainingWeekdays(userId)) : 0;
   const exercisesLogged = userId ? loggedExercises(userId).slice(0, 6) : [];
 
   if (!user) return null;

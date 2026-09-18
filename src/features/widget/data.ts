@@ -4,6 +4,7 @@ import { db } from '@/db/client';
 import { users } from '@/db/schema';
 import {
   computeStreak,
+  getActiveTrainingWeekdays,
   dayQuery,
   localDateKey,
   rangeDaysQuery,
@@ -38,7 +39,7 @@ export const computeWidgetSnapshot = (): WidgetSnapshot | null => {
   return {
     tdee: row?.tdee ?? null,
     trainedToday: day?.status === 'trained',
-    streak: computeStreak(userId, today),
+    streak: computeStreak(userId, getActiveTrainingWeekdays(userId), today),
     week,
     locale: settings.getLocale() ?? 'en',
     updatedAt: Date.now(),
