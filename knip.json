@@ -2,8 +2,5 @@
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "entry": ["src/app/**/*.{ts,tsx}", "src/db/migrations/migrations.js"],
   "project": ["src/**/*.{ts,tsx,js}"],
-  "ignoreDependencies": [
-    "babel-plugin-inline-import",
-    "@secretlint/secretlint-rule-preset-recommend"
-  ]
+  "ignoreDependencies": ["@secretlint/secretlint-rule-preset-recommend"]
 }
