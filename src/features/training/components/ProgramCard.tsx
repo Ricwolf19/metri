@@ -4,7 +4,8 @@ import { Text, View } from 'react-native';
 import { PlaySolidIcon } from '@/components/icons';
 import { Button, Card, PressableScale } from '@/components/ui';
 import type { Program } from '@/db/schema';
-import { useT } from '@/i18n';
+import { presetProgramCopy } from '@/features/training/programs';
+import { useI18n, useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
 type Props = { program: Program };
@@ -13,7 +14,9 @@ type Props = { program: Program };
 export const ProgramCard = ({ program }: Props) => {
   const router = useRouter();
   const t = useT();
+  const { locale } = useI18n();
   const { brandContrast } = useTheme();
+  const preset = presetProgramCopy(program.id, locale);
 
   return (
     <PressableScale
@@ -24,7 +27,7 @@ export const ProgramCard = ({ program }: Props) => {
       <Card className="h-44 justify-between">
         <View>
           <Text className="text-base font-sans-semibold text-ink-50" numberOfLines={1}>
-            {program.name}
+            {preset?.name ?? program.name}
           </Text>
           <Text
             className={[
@@ -33,7 +36,7 @@ export const ProgramCard = ({ program }: Props) => {
             ].join(' ')}
             numberOfLines={2}
           >
-            {program.description || t('training.noDescription')}
+            {preset?.description ?? (program.description || t('training.noDescription'))}
           </Text>
         </View>
         <Button

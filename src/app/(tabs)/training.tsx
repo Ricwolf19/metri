@@ -17,6 +17,7 @@ import {
 } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { ProgramCard } from '@/features/training/components/ProgramCard';
+import { presetProgramCopy } from '@/features/training/programs';
 import { SplitRow } from '@/features/training/components/SplitRow';
 import { abandonEnrollment, setEnrollmentPosition } from '@/features/training/enroll';
 import { WEEKDAY_KEY } from '@/features/training/labels';
@@ -31,7 +32,7 @@ import {
 } from '@/features/training/schedule';
 import { activeWorkoutQuery, startWorkout } from '@/features/training/session.repo';
 import { useEnrollment } from '@/features/training/useEnrollment';
-import { useT } from '@/i18n';
+import { useI18n, useT } from '@/i18n';
 import { useClockFormat } from '@/lib/useClockFormat';
 import { useTheme } from '@/theme/theme-context';
 
@@ -39,6 +40,7 @@ import { useTheme } from '@/theme/theme-context';
 const Training = () => {
   const router = useRouter();
   const t = useT();
+  const { locale } = useI18n();
   const toast = useToast();
   const { user } = useAuth();
   const { brand } = useTheme();
@@ -75,7 +77,7 @@ const Training = () => {
     if (enrollment.currentRoutineId !== structure.currentRoutine.id) {
       setEnrollmentPosition(enrollment.id, structure.currentRoutine.id, enrollment.currentWeek);
     }
-    const workout = startWorkout(user.id, enrollment.id, dayId, enrollment.currentWeek);
+    const workout = startWorkout(user.id, enrollment.id, dayId, enrollment.currentWeek, locale);
     router.push({ pathname: '/training/workout/[id]', params: { id: workout.id } });
   };
 
@@ -126,7 +128,9 @@ const Training = () => {
       {loaded && enrollment && structure?.program ? (
         <FadeInUp delay={60}>
           <Card>
-            <Text className="text-xl font-sans-bold text-ink-50">{structure.program.name}</Text>
+            <Text className="text-xl font-sans-bold text-ink-50">
+              {presetProgramCopy(structure.program.id, locale)?.name ?? structure.program.name}
+            </Text>
             <Text className="mt-0.5 text-sm text-ink-400">
               {structure.currentRoutine ? `${structure.currentRoutine.name} · ` : ''}
               {t('training.weekOf', { week: structure.programWeek, total: structure.totalWeeks })}

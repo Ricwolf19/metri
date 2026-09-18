@@ -12,7 +12,10 @@ import {
   type UserProgram,
 } from '@/db/schema';
 import { recordDeletion } from '@/features/sync/tombstones';
+import type { Locale } from '@/i18n';
 import { randomId } from '@/lib/crypto';
+
+import { presetDayName, presetRoutineName } from './programs';
 
 import {
   deriveTrainingWeekdays,
@@ -55,6 +58,8 @@ export const enrollInProgram = (
   userId: string,
   programId: string,
   schedule: ScheduleEntry[],
+  /** Preset copy lands in the clone in this language (caller's UI locale). */
+  locale: Locale = 'en',
 ): UserProgram => {
   const [program] = db.select().from(programs).where(eq(programs.id, programId)).all();
   if (!program) throw new Error('Program not found.');
@@ -126,12 +131,14 @@ export const enrollInProgram = (
     return id;
   };
 
+  // Preset templates carry bilingual copy; the user's clone takes the strings
+  // in the caller's locale at enroll time (raw, theirs to edit, from then on).
   for (const r of tplRoutines) {
     db.insert(routines)
       .values({
         id: copyId(r.id),
         programId: r.programId,
-        name: r.name,
+        name: presetRoutineName(programId, r.id, r.name, locale),
         orderIndex: r.orderIndex,
         durationWeeks: r.durationWeeks,
         userProgramId,
@@ -145,7 +152,7 @@ export const enrollInProgram = (
       .values({
         id: copyId(d.id),
         routineId: idMap.get(d.routineId)!,
-        name: d.name,
+        name: presetDayName(programId, d.routineId, d.id, d.name, locale),
         focusMuscles: d.focusMuscles,
         orderIndex: d.orderIndex,
         weekday: entry?.weekday ?? null,

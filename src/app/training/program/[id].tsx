@@ -16,12 +16,13 @@ import {
   useToast,
 } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
+import { presetDayName, presetProgramCopy, presetRoutineName } from '@/features/training/programs';
 import { deleteProgramTree } from '@/features/training/authoring.repo';
 import { activeEnrollmentQuery } from '@/features/training/enroll';
 import { WEEKDAY_KEY } from '@/features/training/labels';
 import { getProgram, getProgramTree } from '@/features/training/programs.repo';
 import { formatClockTime } from '@/features/training/schedule';
-import { useT } from '@/i18n';
+import { useI18n, useT } from '@/i18n';
 import { useClockFormat } from '@/lib/useClockFormat';
 
 /** Program detail: phases/splits (schedule shown when active), Start / Continue / Switch, Edit + hold-to-delete for the owner. */
@@ -29,6 +30,7 @@ const ProgramDetail = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const t = useT();
+  const { locale } = useI18n();
   const toast = useToast();
   const dialog = useDialog();
   const { user } = useAuth();
@@ -50,6 +52,8 @@ const ProgramDetail = () => {
   );
 
   if (!program || !user) return <Redirect href="/training" />;
+
+  const preset = presetProgramCopy(program.id, locale);
 
   const mine = program.isCustom && program.userId === user.id;
   const totalWeeks = tree.routines.reduce((sum, r) => sum + r.durationWeeks, 0);
@@ -91,7 +95,7 @@ const ProgramDetail = () => {
         <TopBar
           showBack
           showAvatar={false}
-          title={program.name}
+          title={preset?.name ?? program.name}
           subtitle={t('training.phasesWeeks', { phases: tree.routines.length, weeks: totalWeeks })}
         />
       }
@@ -103,7 +107,7 @@ const ProgramDetail = () => {
             program.description ? 'text-ink-300' : 'text-ink-500',
           ].join(' ')}
         >
-          {program.description || t('training.noDescription')}
+          {preset?.description ?? (program.description || t('training.noDescription'))}
         </Text>
       </FadeInUp>
 
@@ -113,7 +117,9 @@ const ProgramDetail = () => {
           <FadeInUp key={routine.id} delay={i * 60}>
             <Card>
               <View className="flex-row items-center justify-between">
-                <Text className="text-base font-sans-semibold text-ink-50">{routine.name}</Text>
+                <Text className="text-base font-sans-semibold text-ink-50">
+                  {presetRoutineName(program.id, routine.id, routine.name, locale)}
+                </Text>
                 <Text className="text-xs text-ink-400">
                   {t('training.weeks', { count: routine.durationWeeks })}
                 </Text>
@@ -126,7 +132,9 @@ const ProgramDetail = () => {
                       : null;
                   const row = (
                     <View className="flex-row items-center rounded-field bg-ink-850 px-3 py-2">
-                      <Text className="flex-1 text-sm text-ink-100">{day.name}</Text>
+                      <Text className="flex-1 text-sm text-ink-100">
+                        {presetDayName(program.id, routine.id, day.id, day.name, locale)}
+                      </Text>
                       {schedule ? <Text className="text-xs text-ink-400">{schedule}</Text> : null}
                       {enrolledHere ? (
                         <View className="ml-1">

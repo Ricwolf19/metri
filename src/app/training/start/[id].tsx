@@ -27,7 +27,7 @@ import {
   type ScheduleEntry,
   type StartProblem,
 } from '@/features/training/schedule';
-import { useT, type TFunction } from '@/i18n';
+import { useI18n, useT, type TFunction } from '@/i18n';
 import { captureError } from '@/lib/telemetry';
 
 type DraftEntry = { weekday?: number; startMinute?: number };
@@ -63,6 +63,7 @@ const StartProgram = () => {
   const { id, switch: switching } = useLocalSearchParams<{ id: string; switch?: string }>();
   const router = useRouter();
   const t = useT();
+  const { locale } = useI18n();
   const toast = useToast();
   const dialog = useDialog();
   const { user } = useAuth();
@@ -120,7 +121,7 @@ const StartProgram = () => {
     try {
       db.transaction(() => {
         if (enrollment) abandonEnrollment(enrollment.id);
-        enrollInProgram(user.id, programId, entries);
+        enrollInProgram(user.id, programId, entries, locale);
       });
       void syncTrainingReminder(user.id, { enable: true });
       toast.success(t('training.enrolledToast'));
