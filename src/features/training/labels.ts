@@ -1,5 +1,8 @@
 import type { Equipment, ExerciseCategory, IntensityType } from '@/db/schema';
+import type { Locale } from '@/i18n';
 import type { TranslationKey } from '@/i18n/en';
+
+import { EXERCISE_NAMES } from './exercise-content';
 
 export const CATEGORY_KEY: Record<ExerciseCategory, TranslationKey> = {
   chest: 'category.chest',
@@ -55,3 +58,7 @@ export const weekdayLetter = (locale: string, weekday: number): string =>
 export const DAY_LETTERS: Record<string, string[]> = Object.fromEntries(
   Object.keys(LETTER).map((locale) => [locale, DAY_ORDER.map((w) => weekdayLetter(locale, w))]),
 );
+
+/** Localized catalog name for seeded exercises; customs pass through raw. */
+export const exerciseDisplayName = (ex: { id: string; name: string }, locale: Locale): string =>
+  EXERCISE_NAMES[ex.id]?.[locale] ?? ex.name;

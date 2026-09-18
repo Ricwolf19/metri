@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull, notInArray } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import {
@@ -6,27 +6,30 @@ import {
   exercises,
   programs,
   routines,
+  setLogs,
+  userPrograms,
   weekConfigs,
   workoutDayExercises,
   workoutDays,
+  workoutLogs,
 } from '@/db/schema';
 
 import { EXERCISE_SEEDS } from './exercises.seed';
-import { PROGRAM_SEEDS, WEEK_PROGRESSION, type ProgramSeed } from './programs';
+import { PROGRAM_SEEDS, type ProgramSeed } from './programs';
 
 /**
  * Seed the global exercise library and the built-in program templates.
  *
- * Like `seedAdmin`, this runs INSIDE the app (the SQLite DB lives on the device)
- * and is idempotent: a version flag in `app_meta` short-circuits re-runs, and
- * every insert uses deterministic ids + `onConflictDoNothing`, so bumping
- * `SEED_VERSION` safely back-fills new rows without duplicating existing ones.
+ * Runs INSIDE the app (the SQLite DB lives on the device) and is idempotent: a
+ * version flag in `app_meta` short-circuits re-runs, and every insert uses
+ * deterministic ids + conflict handling, so bumping `SEED_VERSION` safely
+ * migrates existing installs without duplicating rows.
  *
- * All seeded rows are TEMPLATES (`userProgramId` is null). Enrolling deep-copies
- * them into user-owned rows — that lives in the Phase-2 workout engine.
+ * All seeded rows are TEMPLATES (`userProgramId` null, `userId` null).
+ * Enrolling deep-copies them into user-owned rows.
  */
 const SEED_KEY = 'training_seed_version';
-const SEED_VERSION = '3';
+const SEED_VERSION = '4';
 
 const alreadySeeded = (): boolean => {
   const [row] = db.select().from(appMeta).where(eq(appMeta.key, SEED_KEY)).all();
@@ -77,6 +80,86 @@ const cleanupRetiredTemplates = (): void => {
     .run();
 };
 
+/**
+ * v4: the catalog was re-curated. Old built-ins that survive get their
+ * fields refreshed in place (same id → history keeps meaning). Old built-ins
+ * NOT in the new catalog stop being built-in: rows referenced by any program
+ * slot or logged set are DEMOTED to that user's custom exercise (they keep
+ * working and start syncing as the user's own); unreferenced rows are deleted.
+ */
+const migrateLegacyExercises = (): void => {
+  const keepIds = EXERCISE_SEEDS.map((e) => e.id);
+  const legacy = db
+    .select({ id: exercises.id })
+    .from(exercises)
+    .where(and(eq(exercises.isCustom, false), notInArray(exercises.id, keepIds)))
+    .all()
+    .map((r) => r.id);
+  if (!legacy.length) return;
+
+  for (const id of legacy) {
+    const [slotRef] = db
+      .select({ userProgramId: workoutDayExercises.userProgramId })
+      .from(workoutDayExercises)
+      .where(eq(workoutDayExercises.exerciseId, id))
+      .limit(1)
+      .all();
+    const [logRef] = db
+      .select({ id: setLogs.id, workoutLogId: setLogs.workoutLogId })
+      .from(setLogs)
+      .where(eq(setLogs.exerciseId, id))
+      .limit(1)
+      .all();
+
+    if (!slotRef && !logRef) {
+      db.delete(exercises).where(eq(exercises.id, id)).run();
+      continue;
+    }
+    // Owner of the referencing data. Slots on custom/enrolled trees and set
+    // logs both trace to a user; a single-user device makes this exact, and on
+    // a multi-user device the first referencing user adopts it (edge accepted).
+    const ownerId = findReferencingUser(id);
+    db.update(exercises)
+      .set({ isCustom: true, userId: ownerId, updatedAt: new Date() })
+      .where(eq(exercises.id, id))
+      .run();
+  }
+};
+
+/** First user whose data references the exercise (set logs win — most direct). */
+const findReferencingUser = (exerciseId: string): string | null => {
+  const [viaLog] = db
+    .select({ userId: workoutLogs.userId })
+    .from(setLogs)
+    .innerJoin(workoutLogs, eq(workoutLogs.id, setLogs.workoutLogId))
+    .where(eq(setLogs.exerciseId, exerciseId))
+    .limit(1)
+    .all();
+  if (viaLog) return viaLog.userId;
+
+  // Enrolled-copy slots carry the enrollment; walk it to its owner.
+  const [viaEnrolled] = db
+    .select({ userId: userPrograms.userId })
+    .from(workoutDayExercises)
+    .innerJoin(userPrograms, eq(userPrograms.id, workoutDayExercises.userProgramId))
+    .where(eq(workoutDayExercises.exerciseId, exerciseId))
+    .limit(1)
+    .all();
+  if (viaEnrolled) return viaEnrolled.userId;
+
+  // Custom-authored template slots: day → routine → program → creator.
+  const [viaCustom] = db
+    .select({ userId: programs.userId })
+    .from(workoutDayExercises)
+    .innerJoin(workoutDays, eq(workoutDays.id, workoutDayExercises.workoutDayId))
+    .innerJoin(routines, eq(routines.id, workoutDays.routineId))
+    .innerJoin(programs, eq(programs.id, routines.programId))
+    .where(eq(workoutDayExercises.exerciseId, exerciseId))
+    .limit(1)
+    .all();
+  return viaCustom?.userId ?? null;
+};
+
 const seedExercises = (): void => {
   for (const ex of EXERCISE_SEEDS) {
     db.insert(exercises)
@@ -87,11 +170,23 @@ const seedExercises = (): void => {
         primaryMuscles: ex.primaryMuscles,
         secondaryMuscles: ex.secondaryMuscles,
         equipment: ex.equipment,
-        instructions: ex.instructions,
         imageUrl: null,
         isCustom: false,
       })
-      .onConflictDoNothing()
+      .onConflictDoUpdate({
+        target: exercises.id,
+        // Refresh catalog fields on reused ids; never touch custom rows (their
+        // ids are random, they can't collide with seed ids).
+        set: {
+          name: ex.name,
+          category: ex.category,
+          primaryMuscles: ex.primaryMuscles,
+          secondaryMuscles: ex.secondaryMuscles,
+          equipment: ex.equipment,
+          isCustom: false,
+          updatedAt: new Date(),
+        },
+      })
       .run();
   }
 };
@@ -116,7 +211,7 @@ const seedProgram = (p: ProgramSeed): void => {
         programId: p.id,
         name: routine.name,
         orderIndex: routine.orderIndex,
-        durationWeeks: WEEK_PROGRESSION.length,
+        durationWeeks: 4,
       })
       .onConflictDoNothing()
       .run();
@@ -135,7 +230,8 @@ const seedProgram = (p: ProgramSeed): void => {
         .run();
 
       day.exercises.forEach((slot, slotIndex) => {
-        const slotId = `${dayId}-${slot.exerciseId}`;
+        // Index-prefixed: a day may legitimately repeat a base exercise (variants).
+        const slotId = `${dayId}-${slotIndex + 1}-${slot.exerciseId}`;
         db.insert(workoutDayExercises)
           .values({
             id: slotId,
@@ -145,25 +241,27 @@ const seedProgram = (p: ProgramSeed): void => {
             defaultRestSeconds: slot.restSeconds,
             notes: slot.notes ?? null,
             badges: slot.badges ?? null,
+            alternativeExerciseIds: slot.alternativeExerciseIds ?? null,
           })
           .onConflictDoNothing()
           .run();
 
-        WEEK_PROGRESSION.forEach((step, weekIndex) => {
+        slot.weeks.forEach((week, weekIndex) => {
           const weekNumber = weekIndex + 1;
           db.insert(weekConfigs)
             .values({
               id: `${slotId}-w${weekNumber}`,
               workoutDayExerciseId: slotId,
               weekNumber,
-              sets: slot.sets,
-              reps: slot.reps,
-              repsMax: slot.repsMax ?? null,
-              rirMin: step.rirMin,
-              rirMax: step.rirMax,
-              toFailure: step.toFailure,
-              restSeconds: slot.restSeconds,
-              intensityType: step.intensityType,
+              sets: week.sets,
+              reps: week.reps,
+              repsMax: week.repsMax ?? null,
+              rirMin: week.rirMin ?? null,
+              rirMax: week.rirMax ?? null,
+              toFailure: week.toFailure ?? false,
+              restSeconds: week.restSeconds,
+              intensityType: 'rir',
+              setGroups: week.setGroups ?? null,
             })
             .onConflictDoNothing()
             .run();
@@ -177,6 +275,7 @@ export const seedTraining = async (): Promise<void> => {
   if (alreadySeeded()) return;
 
   cleanupRetiredTemplates();
+  migrateLegacyExercises();
   seedExercises();
   for (const program of PROGRAM_SEEDS) seedProgram(program);
 

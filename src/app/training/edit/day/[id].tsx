@@ -35,7 +35,8 @@ import {
 import { WeekdayChips } from '@/features/training/components/WeekdayChips';
 import { MUSCLES, MUSCLE_REGIONS, knownMuscles, muscleKey } from '@/features/training/muscles';
 import { syncTrainingReminder } from '@/features/training/reminders';
-import { useT } from '@/i18n';
+import { exerciseDisplayName } from '@/features/training/labels';
+import { useI18n, useT } from '@/i18n';
 import { useReorderedList } from '@/lib/useReorderedList';
 import { useBusyThen } from '@/lib/useBusyThen';
 import { useTheme } from '@/theme/theme-context';
@@ -52,6 +53,7 @@ const EditDay = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const t = useT();
+  const { locale } = useI18n();
   const toast = useToast();
   const { user } = useAuth();
   const { brand } = useTheme();
@@ -207,7 +209,7 @@ const EditDay = () => {
         keyExtractor={(row) => row.slot.id}
         renderItem={({ item }) => (
           <ReorderRow
-            title={item.exercise.name}
+            title={exerciseDisplayName(item.exercise, locale)}
             subtitle={item.slot.badges?.length ? item.slot.badges.join(' · ') : undefined}
             dragLabel={t('editor.dragHandle')}
             onPress={() =>

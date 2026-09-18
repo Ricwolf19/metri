@@ -1,19 +1,36 @@
-import type { IntensityType } from '@/db/schema';
+import type { SetGroup } from '@/db/schema';
 
 /**
  * Shared shape for a seeded program template. A program is a list of routines
- * (phases), each a list of days, each a list of exercise slots. Slots carry a
- * base set/rep scheme; the seed runner expands each into per-week `week_configs`
- * using a `WeekStep[]` progression (RIR ramp).
+ * (phases), each a list of days, each a list of exercise slots. Every slot
+ * carries its EXPLICIT four-week prescription — there is no global
+ * progression expansion.
  */
 
-type SlotSeed = {
-  exerciseId: string;
+/** One routine-relative week for a slot. `setGroups` (top set + back-off)
+ * overrides the flat scheme when present; no RIR and no `toFailure` means the
+ * seed data must say one or the other explicitly. */
+export type WeekSeed = {
   sets: number;
   reps: number;
   repsMax?: number;
+  rirMin?: number;
+  rirMax?: number;
+  toFailure?: boolean;
   restSeconds: number;
+  setGroups?: SetGroup[];
+};
+
+export type SlotSeed = {
+  exerciseId: string;
+  /** Exactly 4 entries, week 1 → 4. */
+  weeks: WeekSeed[];
+  /** Default rest shown on the slot (per-week rests still win in-session). */
+  restSeconds: number;
+  /** Interchangeable options ("deadlift or sumo") — catalog ids. */
+  alternativeExerciseIds?: string[];
   notes?: string;
+  /** ≤5 chips, ≤24 chars (authoring limits) — pauses, grips, variants. */
   badges?: string[];
 };
 
@@ -39,19 +56,3 @@ export type ProgramSeed = {
   durationWeeks: number;
   routines: RoutineSeed[];
 };
-
-/** Routine-relative week prescription; the last week is an intensification. */
-export type WeekStep = {
-  rirMin: number | null;
-  rirMax: number | null;
-  toFailure: boolean;
-  intensityType: IntensityType;
-};
-
-/** Standard 4-week RIR ramp: 3-4 → 2-3 → 1-2 → failure/test. */
-export const WEEK_PROGRESSION: WeekStep[] = [
-  { rirMin: 3, rirMax: 4, toFailure: false, intensityType: 'rir' },
-  { rirMin: 2, rirMax: 3, toFailure: false, intensityType: 'rir' },
-  { rirMin: 1, rirMax: 2, toFailure: false, intensityType: 'rir' },
-  { rirMin: 0, rirMax: 0, toFailure: true, intensityType: 'rir' },
-];

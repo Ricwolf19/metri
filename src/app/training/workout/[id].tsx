@@ -39,7 +39,7 @@ import {
   type SessionSummary,
 } from '@/features/training/session.repo';
 import { syncTrainingReminder } from '@/features/training/reminders';
-import { useT, type TFunction } from '@/i18n';
+import { useI18n, useT, type TFunction } from '@/i18n';
 import { settings, type Units } from '@/lib/storage';
 import { useTheme } from '@/theme/theme-context';
 
@@ -367,6 +367,7 @@ const ExerciseCard = ({ workoutLogId, planned, sets, unit, lastWeek, onLogged }:
 
 const WorkoutSession = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { locale } = useI18n();
   const router = useRouter();
   const t = useT();
   const dialog = useDialog();
@@ -410,7 +411,7 @@ const WorkoutSession = () => {
     setRest((prev) => ({ key: (prev?.key ?? 0) + 1, seconds: restSeconds, endsAtLabel }));
   };
 
-  const finish = () => setSummary(sessionSummary(log.id));
+  const finish = () => setSummary(sessionSummary(log.id, locale));
 
   // Finish work is synchronous; show the overlay first so the tap gets visible feedback.
   const closeSummary = () => {

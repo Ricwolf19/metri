@@ -6,13 +6,14 @@ import { DumbbellIcon, FlameIcon } from '@/components/icons';
 import { Button, ScrollArea, Sheet, ShareCard, useToast } from '@/components/ui';
 import type { SkipReason, TrainingDayStatus } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
-import { useT, type TFunction, type TranslationKey } from '@/i18n';
+import { useI18n, useT, type TFunction, type TranslationKey } from '@/i18n';
 import { settings, type Units } from '@/lib/storage';
 import { useDateFormat } from '@/lib/useDateFormat';
 import { useTodayKey } from '@/lib/useTodayKey';
 import { useShareCard } from '@/lib/useShareCard';
 import { useTheme } from '@/theme/theme-context';
 
+import { exerciseDisplayName } from '../labels';
 import { dayQuery, markTrainingDay } from '../adherence.repo';
 import { getDayDetail, type LoggedSet } from '../day-events';
 import { fromKg } from '../progression';
@@ -47,6 +48,7 @@ export const DayDetailSheet = ({
   onClose: () => void;
 }) => {
   const t = useT();
+  const { locale } = useI18n();
   const toast = useToast();
   const { user } = useAuth();
   const { brand } = useTheme();
@@ -59,6 +61,8 @@ export const DayDetailSheet = ({
   const adherence = adherenceRows[0] ?? null;
 
   const detail = useMemo(() => (user && date ? getDayDetail(user.id, date) : null), [user, date]);
+  const displayName = (ex: { exerciseId: string; name: string }) =>
+    exerciseDisplayName({ id: ex.exerciseId, name: ex.name }, locale);
   const [marking, setMarking] = useState(false);
   const [askingReason, setAskingReason] = useState(false);
 
@@ -128,7 +132,7 @@ export const DayDetailSheet = ({
               <View className="mt-3 gap-2 border-t border-ink-800 pt-3">
                 {w.exercises.map((ex) => (
                   <View key={ex.exerciseId}>
-                    <Text className="text-sm font-sans-medium text-ink-100">{ex.name}</Text>
+                    <Text className="text-sm font-sans-medium text-ink-100">{displayName(ex)}</Text>
                     <View className="mt-1 flex-row flex-wrap gap-1.5">
                       {ex.sets.map((s) => (
                         <View
@@ -177,13 +181,13 @@ export const DayDetailSheet = ({
                 .flatMap((w) => w.exercises)
                 .slice(0, 8)
                 .map((ex) => ({
-                  label: ex.name.slice(0, 6),
+                  label: displayName(ex).slice(0, 6),
                   value: ex.sets.reduce((n, s) => n + s.weightKg * s.reps, 0),
                 }))}
               lines={workouts
                 .flatMap((w) => w.exercises)
                 .slice(0, 6)
-                .map((ex) => `${ex.name} · ${ex.sets.map(setLabel).join(', ')}`)}
+                .map((ex) => `${displayName(ex)} · ${ex.sets.map(setLabel).join(', ')}`)}
               footer={t('share.footer')}
             />
             <View className="mt-3 w-full">

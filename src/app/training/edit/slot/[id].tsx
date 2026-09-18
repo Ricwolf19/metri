@@ -32,8 +32,8 @@ import {
   type ConfigValues,
 } from '@/features/training/authoring.repo';
 import { getExercise } from '@/features/training/exercises.repo';
-import { INTENSITY_KEY } from '@/features/training/labels';
-import { useT } from '@/i18n';
+import { INTENSITY_KEY, exerciseDisplayName } from '@/features/training/labels';
+import { useI18n, useT } from '@/i18n';
 
 type WeekDraft = { weekNumber: number; values: ConfigValues; setGroups: SetGroup[] | null };
 
@@ -61,6 +61,7 @@ const REST_MAX = 600;
 const EditSlot = () => {
   const { id, fresh } = useLocalSearchParams<{ id: string; fresh?: string }>();
   const t = useT();
+  const { locale } = useI18n();
   const router = useRouter();
   const toast = useToast();
   const { user } = useAuth();
@@ -171,7 +172,14 @@ const EditSlot = () => {
       scroll
       edges={['top']}
       contentClassName="px-5 pb-10"
-      header={<TopBar showBack showAvatar={false} title={exercise.name} subtitle={day?.name} />}
+      header={
+        <TopBar
+          showBack
+          showAvatar={false}
+          title={exerciseDisplayName(exercise, locale)}
+          subtitle={day?.name}
+        />
+      }
       footer={
         <Button variant="brand" label={t('editor.save')} disabled={!dirty} onPress={saveAndClose} />
       }
@@ -325,7 +333,9 @@ const EditSlot = () => {
                       key={altId}
                       className="flex-row items-center gap-1.5 rounded-full bg-ink-800 px-3 py-1.5"
                     >
-                      <Text className="text-xs font-sans-medium text-ink-200">{alt.name}</Text>
+                      <Text className="text-xs font-sans-medium text-ink-200">
+                        {exerciseDisplayName(alt, locale)}
+                      </Text>
                       <Pressable onPress={() => removeAlternative(altId)} hitSlop={6}>
                         <XIcon color="#71717a" size={13} />
                       </Pressable>

@@ -1,6 +1,9 @@
 import { and, asc, desc, eq } from 'drizzle-orm';
 
 import { db } from '@/db/client';
+import type { Locale } from '@/i18n';
+
+import { exerciseDisplayName } from './labels';
 import {
   exercises,
   setLogs,
@@ -67,12 +70,15 @@ export const startWorkout = (
   userProgramId: string,
   workoutDayId: string,
   weekNumber: number,
+  /** Snapshot names freeze in this language (caller's UI locale). */
+  locale: Locale = 'en',
 ): WorkoutLog => {
   const plannedSnapshot: PlannedSlot[] = getSessionSlots(workoutDayId, weekNumber).map(
     ({ slot, exercise, config }) => ({
       slotId: slot.id,
       exerciseId: exercise.id,
-      name: exercise.name,
+      // Frozen at session start in the user's locale (snapshots never re-resolve).
+      name: exerciseDisplayName(exercise, locale),
       setGroups: expandPrescription(config),
       restSeconds: config?.restSeconds ?? slot.defaultRestSeconds ?? null,
       badges: slot.badges ?? [],
@@ -284,7 +290,7 @@ export type SessionSummary = {
 
 /** Post-workout summary: volume, working sets, duration, and simple PRs (a
  * session top weight beating everything logged before it). */
-export const sessionSummary = (logId: string): SessionSummary => {
+export const sessionSummary = (logId: string, locale: Locale = 'en'): SessionSummary => {
   const log = getWorkout(logId);
   const rows = db
     .select()
@@ -322,7 +328,7 @@ export const sessionSummary = (logId: string): SessionSummary => {
         .from(exercises)
         .where(eq(exercises.id, exerciseId))
         .all();
-      if (ex) prs.push(ex.name);
+      if (ex) prs.push(exerciseDisplayName({ id: exerciseId, name: ex.name }, locale));
     }
   }
   return { volumeKg, setCount: rows.length, durationSeconds, prs };

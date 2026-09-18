@@ -24,8 +24,8 @@ import {
   deleteCustomExercise,
   exercisesQuery,
 } from '@/features/training/exercises.repo';
-import { CATEGORY_KEY, EQUIPMENT_KEY } from '@/features/training/labels';
-import { useT } from '@/i18n';
+import { CATEGORY_KEY, EQUIPMENT_KEY, exerciseDisplayName } from '@/features/training/labels';
+import { useI18n, useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
 const CATEGORIES = Object.keys(CATEGORY_KEY) as ExerciseCategory[];
@@ -34,6 +34,7 @@ const ExercisePicker = () => {
   const { dayId, altFor } = useLocalSearchParams<{ dayId: string; altFor?: string }>();
   const router = useRouter();
   const t = useT();
+  const { locale } = useI18n();
   const toast = useToast();
   const { user } = useAuth();
   const { brand } = useTheme();
@@ -51,8 +52,10 @@ const ExercisePicker = () => {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return q ? exercises.filter((e) => e.name.toLowerCase().includes(q)) : exercises;
-  }, [exercises, search]);
+    return q
+      ? exercises.filter((e) => exerciseDisplayName(e, locale).toLowerCase().includes(q))
+      : exercises;
+  }, [exercises, search, locale]);
 
   if (!user || !day || typeof dayId !== 'string') return <Redirect href="/training" />;
 
@@ -212,7 +215,9 @@ const ExercisePicker = () => {
               <PressableScale key={e.id} onPress={() => pick(e.id)}>
                 <Card className="flex-row items-center py-3">
                   <View className="flex-1">
-                    <Text className="text-base font-sans-semibold text-ink-50">{e.name}</Text>
+                    <Text className="text-base font-sans-semibold text-ink-50">
+                      {exerciseDisplayName(e, locale)}
+                    </Text>
                     <Text className="mt-0.5 text-xs text-ink-400">
                       {t(CATEGORY_KEY[e.category])}
                       {e.isCustom ? ` · ${t('editor.custom')}` : ''}
