@@ -1,25 +1,5 @@
-import type {
-  Equipment,
-  ExerciseCategory,
-  IntensityType,
-  ProgramDifficulty,
-  ProgramGoal,
-} from '@/db/schema';
+import type { Equipment, ExerciseCategory, IntensityType } from '@/db/schema';
 import type { TranslationKey } from '@/i18n/en';
-
-/** i18n keys for program goal / difficulty enum values. */
-export const GOAL_KEY: Record<ProgramGoal, TranslationKey> = {
-  strength: 'training.goal.strength',
-  hypertrophy: 'training.goal.hypertrophy',
-  powerbuilding: 'training.goal.powerbuilding',
-  endurance: 'training.goal.endurance',
-};
-
-export const DIFFICULTY_KEY: Record<ProgramDifficulty, TranslationKey> = {
-  beginner: 'training.diff.beginner',
-  intermediate: 'training.diff.intermediate',
-  advanced: 'training.diff.advanced',
-};
 
 export const CATEGORY_KEY: Record<ExerciseCategory, TranslationKey> = {
   chest: 'category.chest',
@@ -48,8 +28,30 @@ export const INTENSITY_KEY: Record<IntensityType, TranslationKey> = {
   percentage: 'intensity.percentage',
 };
 
-/** Monday-first single-letter weekday headers (display-only). */
-export const DAY_LETTERS: Record<string, string[]> = {
-  en: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
-  es: ['L', 'M', 'M', 'J', 'V', 'S', 'D'],
+/** i18n keys by expo weekday. */
+export const WEEKDAY_KEY: Record<number, TranslationKey> = {
+  1: 'weekday.sun',
+  2: 'weekday.mon',
+  3: 'weekday.tue',
+  4: 'weekday.wed',
+  5: 'weekday.thu',
+  6: 'weekday.fri',
+  7: 'weekday.sat',
 };
+
+/** Monday-first expo weekday numbers, for chip rows. */
+export const DAY_ORDER = [2, 3, 4, 5, 6, 7, 1];
+
+// Single source for weekday initials (expo numbering).
+const LETTER: Record<string, Record<number, string>> = {
+  en: { 1: 'S', 2: 'M', 3: 'T', 4: 'W', 5: 'T', 6: 'F', 7: 'S' },
+  es: { 1: 'D', 2: 'L', 3: 'M', 4: 'M', 5: 'J', 6: 'V', 7: 'S' },
+};
+
+export const weekdayLetter = (locale: string, weekday: number): string =>
+  (LETTER[locale] ?? LETTER.en)[weekday];
+
+/** Monday-first single-letter headers (calendar / week strip). */
+export const DAY_LETTERS: Record<string, string[]> = Object.fromEntries(
+  Object.keys(LETTER).map((locale) => [locale, DAY_ORDER.map((w) => weekdayLetter(locale, w))]),
+);

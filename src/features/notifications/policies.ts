@@ -4,6 +4,7 @@ import { es } from '@/i18n/es';
 import { settings } from '@/lib/storage';
 
 import { NOTIFICATION_EVENTS, type EventConfig, type NotificationEvent } from './events';
+import { isDailyAtOneTime, scheduleEntries } from './schedule-entries';
 import {
   cancelNotifications,
   ensureNotificationPermission,
@@ -35,20 +36,18 @@ export const syncNotificationEvents = async (): Promise<void> => {
 
     if (!masterOn) continue;
     const cfg = getEventConfig(event);
-    if (!cfg.enabled || !cfg.weekdays.length) continue;
+    const entries = scheduleEntries(cfg);
+    if (!cfg.enabled || !entries.length) continue;
 
     const granted = await ensureNotificationPermission();
     if (!granted) return; // no permission — nothing else can schedule either
 
     const content = { title: dict[event.notifTitleKey], body: dict[event.notifBodyKey] };
-    const ids =
-      cfg.weekdays.length === 7
-        ? [await scheduleDaily('reminders', cfg.hour, cfg.minute, content)]
-        : await Promise.all(
-            cfg.weekdays.map((weekday) =>
-              scheduleWeekly('reminders', weekday, cfg.hour, cfg.minute, content),
-            ),
-          );
+    const ids = isDailyAtOneTime(entries)
+      ? [await scheduleDaily('reminders', entries[0].hour, entries[0].minute, content)]
+      : await Promise.all(
+          entries.map((e) => scheduleWeekly('reminders', e.weekday, e.hour, e.minute, content)),
+        );
     settings.setEventIds(event.id, ids);
   }
 };

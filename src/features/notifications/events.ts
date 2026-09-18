@@ -16,6 +16,9 @@ export type EventConfig = {
   minute: number;
   /** Days it fires; all 7 = daily. */
   weekdays: number[];
+  /** Program-driven events: one explicit (weekday, time) per scheduled split.
+   * When present it replaces `hour`/`minute` × `weekdays`. */
+  schedule?: { weekday: number; hour: number; minute: number }[];
 };
 
 export type NotificationEvent = {

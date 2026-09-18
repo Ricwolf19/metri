@@ -1,4 +1,4 @@
-import type { IntensityType, ProgramDifficulty, ProgramGoal } from '@/db/schema';
+import type { IntensityType } from '@/db/schema';
 
 /**
  * Shared shape for a seeded program template. A program is a list of routines
@@ -37,8 +37,6 @@ export type ProgramSeed = {
   name: string;
   description: string;
   durationWeeks: number;
-  difficulty: ProgramDifficulty;
-  goal: ProgramGoal;
   routines: RoutineSeed[];
 };
 

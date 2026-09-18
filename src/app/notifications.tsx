@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { TopBar } from '@/components/TopBar';
 import { Card, Screen, ScreenTitle, Switch, TimePicker } from '@/components/ui';
@@ -9,19 +9,12 @@ import {
   type NotificationEvent,
 } from '@/features/notifications/events';
 import { getEventConfig, syncNotificationEvents } from '@/features/notifications/policies';
-import { useI18n, useT } from '@/i18n';
+import { WeekdayChips } from '@/features/training/components/WeekdayChips';
+import { useT } from '@/i18n';
 import { settings } from '@/lib/storage';
-
-// Monday-first single letters, mapped to expo weekday numbers (1=Sun…7=Sat).
-const DAY_ORDER = [2, 3, 4, 5, 6, 7, 1];
-const DAY_LABELS: Record<string, string[]> = {
-  en: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
-  es: ['L', 'M', 'M', 'J', 'V', 'S', 'D'],
-};
 
 const EventCard = ({ event }: { event: NotificationEvent }) => {
   const t = useT();
-  const { locale } = useI18n();
   const [cfg, setCfg] = useState<EventConfig>(() => getEventConfig(event));
   const clock = settings.getClockFormat();
 
@@ -39,8 +32,6 @@ const EventCard = ({ event }: { event: NotificationEvent }) => {
     update({ weekdays: next });
   };
 
-  const labels = DAY_LABELS[locale] ?? DAY_LABELS.en;
-
   return (
     <Card>
       <View className="flex-row items-center justify-between">
@@ -51,34 +42,16 @@ const EventCard = ({ event }: { event: NotificationEvent }) => {
         <Switch value={cfg.enabled} onValueChange={(enabled) => update({ enabled })} />
       </View>
 
-      {cfg.enabled ? (
+      {cfg.enabled && cfg.schedule?.length ? (
         <View className="mt-4 border-t border-ink-800 pt-4">
-          {/* Days */}
-          <View className="mb-4 flex-row justify-between">
-            {DAY_ORDER.map((weekday, i) => {
-              const active = cfg.weekdays.includes(weekday);
-              return (
-                <Pressable
-                  key={weekday}
-                  onPress={() => toggleDay(weekday)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
-                  className={[
-                    'h-9 w-9 items-center justify-center rounded-full border',
-                    active ? 'border-brand/40 bg-brand/15' : 'border-ink-700 bg-ink-800',
-                  ].join(' ')}
-                >
-                  <Text
-                    className={[
-                      'text-xs font-sans-semibold',
-                      active ? 'text-brand' : 'text-ink-400',
-                    ].join(' ')}
-                  >
-                    {labels[i]}
-                  </Text>
-                </Pressable>
-              );
-            })}
+          <Text className="text-xs leading-5 text-ink-400">
+            {t('notifEvent.trainingFollowsProgram')}
+          </Text>
+        </View>
+      ) : cfg.enabled ? (
+        <View className="mt-4 border-t border-ink-800 pt-4">
+          <View className="mb-4">
+            <WeekdayChips selected={cfg.weekdays} onPress={toggleDay} size="sm" />
           </View>
           {/* Time */}
           <TimePicker

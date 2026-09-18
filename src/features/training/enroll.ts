@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import {
@@ -14,13 +14,32 @@ import {
 import { recordDeletion } from '@/features/sync/tombstones';
 import { randomId } from '@/lib/crypto';
 
+import {
+  deriveTrainingWeekdays,
+  isScheduleComplete,
+  validateProgramForStart,
+  type ProgramTree,
+  type ScheduleEntry,
+  type StartProblem,
+} from './schedule';
+
 /** Live query of the user's enrollment (active or paused), so the UI reacts to enroll/finish. */
 export const activeEnrollmentQuery = (userId: string) =>
   db
     .select()
     .from(userPrograms)
-    .where(and(eq(userPrograms.userId, userId), ne(userPrograms.status, 'abandoned')))
+    .where(and(eq(userPrograms.userId, userId), inArray(userPrograms.status, ['active', 'paused'])))
     .orderBy(desc(userPrograms.createdAt));
+
+/** Thrown when a template cannot start; `problems` is what the UI lists. */
+export class StartValidationError extends Error {
+  readonly problems: StartProblem[];
+  constructor(problems: StartProblem[]) {
+    super('Program is not ready to start.');
+    this.name = 'StartValidationError';
+    this.problems = problems;
+  }
+}
 
 /**
  * Enroll a user in a template program by **deep-copying** its structure into
@@ -28,11 +47,14 @@ export const activeEnrollmentQuery = (userId: string) =>
  * mutated, so later customization stays isolated to this user's copy. The
  * `user_programs` row is written LAST — it's the commit point, so a failure
  * mid-copy leaves only orphan rows that are never queried.
+ *
+ * `schedule` is keyed by TEMPLATE day id and must cover every split; the
+ * weekday + time land on the copied days (templates stay schedule-free).
  */
 export const enrollInProgram = (
   userId: string,
   programId: string,
-  trainingWeekdays?: number[],
+  schedule: ScheduleEntry[],
 ): UserProgram => {
   const [program] = db.select().from(programs).where(eq(programs.id, programId)).all();
   if (!program) throw new Error('Program not found.');
@@ -46,7 +68,6 @@ export const enrollInProgram = (
     .where(and(eq(routines.programId, programId), isNull(routines.userProgramId)))
     .orderBy(asc(routines.orderIndex))
     .all();
-  if (tplRoutines.length === 0) throw new Error('Program has no routines to enroll.');
 
   const tplDays = db
     .select()
@@ -83,6 +104,20 @@ export const enrollInProgram = (
         .all()
     : [];
 
+  const tree: ProgramTree = {
+    routines: tplRoutines.map((r) => ({
+      ...r,
+      days: tplDays
+        .filter((d) => d.routineId === r.id)
+        .sort((a, b) => a.orderIndex - b.orderIndex)
+        .map((d) => ({ ...d, slotCount: tplSlots.filter((s) => s.workoutDayId === d.id).length })),
+    })),
+  };
+  const problems = validateProgramForStart(tree);
+  if (problems.length) throw new StartValidationError(problems);
+  if (!isScheduleComplete(tree, schedule)) throw new Error('Schedule is incomplete.');
+  const scheduleByDay = new Map(schedule.map((e) => [e.dayId, e]));
+
   // template id -> fresh copy id, so child rows can re-point at their new parent.
   const idMap = new Map<string, string>();
   const copyId = (templateId: string): string => {
@@ -105,6 +140,7 @@ export const enrollInProgram = (
   }
 
   for (const d of tplDays) {
+    const entry = scheduleByDay.get(d.id);
     db.insert(workoutDays)
       .values({
         id: copyId(d.id),
@@ -112,6 +148,8 @@ export const enrollInProgram = (
         name: d.name,
         focusMuscles: d.focusMuscles,
         orderIndex: d.orderIndex,
+        weekday: entry?.weekday ?? null,
+        startMinute: entry?.startMinute ?? null,
         userProgramId,
       })
       .run();
@@ -164,7 +202,13 @@ export const enrollInProgram = (
       startedAt: new Date(),
       currentRoutineId: idMap.get(tplRoutines[0].id)!,
       currentWeek: 1,
-      trainingWeekdays: trainingWeekdays ?? null,
+      trainingWeekdays: deriveTrainingWeekdays(
+        tree.routines[0].days.map((d) => ({
+          ...d,
+          weekday: scheduleByDay.get(d.id)?.weekday ?? null,
+          startMinute: scheduleByDay.get(d.id)?.startMinute ?? null,
+        })),
+      ),
     })
     .returning()
     .all();
@@ -244,6 +288,27 @@ export const setEnrollmentPosition = (
 ): void => {
   db.update(userPrograms)
     .set({ currentRoutineId, currentWeek, updatedAt: new Date() })
+    .where(eq(userPrograms.id, userProgramId))
+    .run();
+  refreshTrainingWeekdays(userProgramId);
+};
+
+/** Re-derive `training_weekdays` from the current phase's splits; call on phase change or live-copy reschedule. */
+export const refreshTrainingWeekdays = (userProgramId: string): void => {
+  const [enrollment] = db
+    .select({ currentRoutineId: userPrograms.currentRoutineId })
+    .from(userPrograms)
+    .where(eq(userPrograms.id, userProgramId))
+    .all();
+  if (!enrollment?.currentRoutineId) return;
+  const days = db
+    .select()
+    .from(workoutDays)
+    .where(eq(workoutDays.routineId, enrollment.currentRoutineId))
+    .all();
+  const weekdays = deriveTrainingWeekdays(days);
+  db.update(userPrograms)
+    .set({ trainingWeekdays: weekdays.length ? weekdays : null, updatedAt: new Date() })
     .where(eq(userPrograms.id, userProgramId))
     .run();
 };

@@ -3,52 +3,30 @@ import { useState } from 'react';
 import { View } from 'react-native';
 
 import { TopBar } from '@/components/TopBar';
-import {
-  Button,
-  Card,
-  Input,
-  Screen,
-  ScreenTitle,
-  Select,
-  type SelectItem,
-  useToast,
-} from '@/components/ui';
+import { Button, Card, Input, Screen } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { createCustomProgram } from '@/features/training/authoring.repo';
-import { DIFFICULTY_KEY, GOAL_KEY } from '@/features/training/labels';
 import { useT } from '@/i18n';
-import type { ProgramDifficulty, ProgramGoal } from '@/db/schema';
+
+const MIN_NAME = 3;
 
 const NewProgram = () => {
   const router = useRouter();
   const t = useT();
-  const toast = useToast();
   const { user } = useAuth();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [difficulty, setDifficulty] = useState<ProgramDifficulty>();
-  const [goal, setGoal] = useState<ProgramGoal>();
 
   if (!user) return null;
 
-  const difficultyItems: SelectItem<ProgramDifficulty>[] = (
-    Object.keys(DIFFICULTY_KEY) as ProgramDifficulty[]
-  ).map((d) => ({ value: d, label: t(DIFFICULTY_KEY[d]) }));
-  const goalItems: SelectItem<ProgramGoal>[] = (Object.keys(GOAL_KEY) as ProgramGoal[]).map(
-    (g) => ({
-      value: g,
-      label: t(GOAL_KEY[g]),
-    }),
-  );
+  const valid = name.trim().length >= MIN_NAME;
 
   const create = () => {
-    if (name.trim().length < 3) return toast.error(t('editor.programName'));
+    if (!valid) return;
     const program = createCustomProgram(user.id, {
       name: name.trim(),
       description: description.trim() || null,
-      difficulty: difficulty ?? null,
-      goal: goal ?? null,
     });
     router.replace({ pathname: '/training/edit/program/[id]', params: { id: program.id } });
   };
@@ -58,10 +36,8 @@ const NewProgram = () => {
       scroll
       edges={['top']}
       contentClassName="px-5 pb-10"
-      header={<TopBar showBack showAvatar={false} />}
+      header={<TopBar showBack showAvatar={false} title={t('editor.newProgram')} />}
     >
-      <ScreenTitle title={t('editor.newProgram')} />
-
       <Card>
         <View className="gap-4">
           <Input
@@ -78,23 +54,9 @@ const NewProgram = () => {
             placeholder={t('editor.descriptionPh')}
             multiline
           />
-          <Select
-            label={t('editor.difficulty')}
-            items={difficultyItems}
-            value={difficulty}
-            onChange={setDifficulty}
-            placeholder="—"
-          />
-          <Select
-            label={t('editor.goal')}
-            items={goalItems}
-            value={goal}
-            onChange={setGoal}
-            placeholder="—"
-          />
         </View>
         <View className="mt-6">
-          <Button label={t('editor.create')} onPress={create} disabled={name.trim().length < 3} />
+          <Button variant="brand" label={t('editor.create')} onPress={create} disabled={!valid} />
         </View>
       </Card>
     </Screen>

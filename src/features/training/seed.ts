@@ -103,8 +103,6 @@ const seedProgram = (p: ProgramSeed): void => {
       name: p.name,
       description: p.description,
       durationWeeks: p.durationWeeks,
-      difficulty: p.difficulty,
-      goal: p.goal,
       isCustom: false,
     })
     .onConflictDoNothing()

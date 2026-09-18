@@ -1,5 +1,6 @@
 import { FlexWidget, ImageWidget, TextWidget } from 'react-native-android-widget';
 
+import { weekdayLetter } from '@/features/training/labels';
 import type { LocaleCode } from '@/lib/storage';
 
 import type { WeekDay, WidgetSnapshot } from './snapshot';
@@ -25,11 +26,6 @@ const COLORS = {
   accent: '#bef82b',
 } as const;
 
-const WEEKDAY_LETTERS = {
-  es: ['D', 'L', 'M', 'M', 'J', 'V', 'S'],
-  en: ['S', 'M', 'T', 'W', 'T', 'F', 'S'],
-} as const;
-
 const MONTHS = {
   es: ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'],
   en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
@@ -49,7 +45,7 @@ const dateLabel = (locale: LocaleCode): string => {
 
 const dayLetter = (date: string, locale: LocaleCode): string => {
   const [y, m, d] = date.split('-').map(Number);
-  return WEEKDAY_LETTERS[locale][new Date(y, m - 1, d).getDay()];
+  return weekdayLetter(locale, new Date(y, m - 1, d).getDay() + 1);
 };
 
 const badgeLabel = (locale: LocaleCode, trained: boolean): string => {

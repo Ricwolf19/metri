@@ -16,6 +16,7 @@ import {
   SegmentedControl,
   useDialog,
   type Segment,
+  BlockingOverlay,
 } from '@/components/ui';
 import type { PlannedSlot, SetGroup, SetLog } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
@@ -37,9 +38,13 @@ import {
   swapSnapshotExercise,
   type SessionSummary,
 } from '@/features/training/session.repo';
+import { syncTrainingReminder } from '@/features/training/reminders';
 import { useT, type TFunction } from '@/i18n';
 import { settings, type Units } from '@/lib/storage';
 import { useTheme } from '@/theme/theme-context';
+
+// Lets the blocking overlay paint before the synchronous finish work.
+const OVERLAY_PAINT_MS = 50;
 
 const UNIT_SEGMENTS: Segment<Units>[] = [
   { value: 'kg', label: 'kg' },
@@ -104,7 +109,7 @@ const SetRow = ({ index, row, logged, active, unit, prefill, onLog }: RowProps) 
 
   if (logged) {
     return (
-      <View className="flex-row items-center rounded-lg bg-ink-850 px-3 py-2">
+      <View className="flex-row items-center rounded-field bg-ink-850 px-3 py-2">
         <View className="mr-3 h-5 w-5 items-center justify-center rounded-full bg-brand">
           <CheckIcon color="#08090d" size={13} />
         </View>
@@ -145,7 +150,7 @@ const SetRow = ({ index, row, logged, active, unit, prefill, onLog }: RowProps) 
   return (
     <View
       className={[
-        'rounded-lg px-3 py-2',
+        'rounded-field px-3 py-2',
         active ? 'border border-brand/30 bg-ink-850' : 'bg-ink-850/50',
       ].join(' ')}
     >
@@ -375,6 +380,7 @@ const WorkoutSession = () => {
     null,
   );
   const [summary, setSummary] = useState<SessionSummary | null>(null);
+  const [finishing, setFinishing] = useState(false);
 
   const day = workoutDayId ? getWorkoutDay(workoutDayId) : null;
   const { data: sets } = useLiveQuery(setLogsQuery(typeof id === 'string' ? id : ''));
@@ -406,26 +412,26 @@ const WorkoutSession = () => {
 
   const finish = () => setSummary(sessionSummary(log.id));
 
+  // Finish work is synchronous; show the overlay first so the tap gets visible feedback.
   const closeSummary = () => {
-    finishWorkout(log.id);
-    setSummary(null);
-    router.replace('/training');
+    setFinishing(true);
+    setTimeout(() => {
+      finishWorkout(log.id);
+      void syncTrainingReminder(log.userId);
+      setSummary(null);
+      router.replace('/training');
+    }, OVERLAY_PAINT_MS);
   };
 
   const cancel = () =>
-    dialog.show({
+    dialog.confirm({
       title: t('training.cancelConfirm'),
-      actions: [
-        { label: t('common.cancel'), style: 'cancel' },
-        {
-          label: t('training.cancelWorkout'),
-          style: 'destructive',
-          onPress: () => {
-            abandonWorkout(log.id);
-            router.replace('/training');
-          },
-        },
-      ],
+      confirmLabel: t('training.cancelWorkout'),
+      destructive: true,
+      onConfirm: () => {
+        abandonWorkout(log.id);
+        router.replace('/training');
+      },
     });
 
   return (
@@ -498,8 +504,9 @@ const WorkoutSession = () => {
           />
         ) : null}
         <Button
+          variant="brand"
           label={t('training.finish')}
-          leftIcon={<CheckIcon color="#09090b" size={18} />}
+          leftIcon={<CheckIcon color="#08090d" size={18} />}
           onPress={finish}
         />
       </View>
@@ -556,6 +563,7 @@ const WorkoutSession = () => {
           </View>
         </View>
       </Modal>
+      <BlockingOverlay visible={finishing} label={t('training.finishing')} />
     </Screen>
   );
 };

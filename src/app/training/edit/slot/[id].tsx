@@ -1,130 +1,158 @@
-import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
-import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { MinusIcon, PlusIcon, XIcon } from '@/components/icons';
+import { XIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import {
   Button,
   Card,
+  HoldButton,
   Input,
   Screen,
-  ScreenTitle,
+  SectionLabel,
   SegmentedControl,
+  Stepper,
   Switch,
   type Segment,
   useToast,
+  useUnsavedGuard,
 } from '@/components/ui';
-import type { IntensityType, WeekConfig, SetGroup } from '@/db/schema';
+import type { IntensityType, SetGroup, WeekConfig } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
 import {
   MAX_BADGES,
   MAX_BADGE_LEN,
-  configsQuery,
-  copyWeekConfigToAll,
+  deleteSlot,
+  getDay,
   getSlot,
+  getSlotConfigs,
+  saveSlotDraft,
   setSlotAlternatives,
-  setSlotBadges,
-  setWeekSetGroups,
-  updateSlot,
-  upsertWeekConfig,
   type ConfigValues,
 } from '@/features/training/authoring.repo';
 import { getExercise } from '@/features/training/exercises.repo';
 import { INTENSITY_KEY } from '@/features/training/labels';
 import { useT } from '@/i18n';
-import { useTheme } from '@/theme/theme-context';
 
-const toValues = (c: WeekConfig): ConfigValues => ({
-  sets: c.sets,
-  reps: c.reps,
-  repsMax: c.repsMax,
-  rirMin: c.rirMin,
-  rirMax: c.rirMax,
-  toFailure: c.toFailure,
-  restSeconds: c.restSeconds,
-  intensityType: c.intensityType,
-  intensityValue: c.intensityValue,
+type WeekDraft = { weekNumber: number; values: ConfigValues; setGroups: SetGroup[] | null };
+
+const toWeekDraft = (c: WeekConfig): WeekDraft => ({
+  weekNumber: c.weekNumber,
+  values: {
+    sets: c.sets,
+    reps: c.reps,
+    repsMax: c.repsMax,
+    rirMin: c.rirMin,
+    rirMax: c.rirMax,
+    toFailure: c.toFailure,
+    restSeconds: c.restSeconds,
+    intensityType: c.intensityType,
+    intensityValue: c.intensityValue,
+  },
+  setGroups: c.setGroups ?? null,
 });
 
-const NumRow = ({
-  label,
-  display,
-  onDec,
-  onInc,
-}: {
-  label: string;
-  display: string;
-  onDec: () => void;
-  onInc: () => void;
-}) => {
-  const { brand } = useTheme();
-  const btn =
-    'h-10 w-10 items-center justify-center rounded-field border border-ink-700 bg-ink-800';
-  return (
-    <View className="flex-row items-center justify-between py-1.5">
-      <Text className="text-sm text-ink-200">{label}</Text>
-      <View className="flex-row items-center gap-3">
-        <Pressable onPress={onDec} className={btn} accessibilityRole="button">
-          <MinusIcon color={brand} size={16} />
-        </Pressable>
-        <Text className="min-w-9 text-center text-base font-sans-semibold text-ink-50">
-          {display}
-        </Text>
-        <Pressable onPress={onInc} className={btn} accessibilityRole="button">
-          <PlusIcon color={brand} size={16} />
-        </Pressable>
-      </View>
-    </View>
-  );
-};
+const REST_MIN = 30;
+const REST_MAX = 600;
 
+/** Slot editor: draft written in one Save. A fresh slot (`fresh=1`) is deleted if the user leaves
+ * unsaved, so no half-configured exercise reaches a workout. */
 const EditSlot = () => {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, fresh } = useLocalSearchParams<{ id: string; fresh?: string }>();
   const t = useT();
   const router = useRouter();
   const toast = useToast();
   const { user } = useAuth();
 
-  const slot = typeof id === 'string' ? getSlot(id) : null;
+  const slotId = typeof id === 'string' ? id : '';
+  const isFresh = fresh === '1';
+  const [slot] = useState(() => (slotId ? getSlot(slotId) : null));
   const exercise = slot ? getExercise(slot.exerciseId) : null;
-  const { data: configs } = useLiveQuery(configsQuery(typeof id === 'string' ? id : ''));
+  const day = slot ? getDay(slot.workoutDayId) : null;
 
   const [week, setWeek] = useState(1);
   const [rest, setRest] = useState(slot?.defaultRestSeconds ?? 120);
   const [badges, setBadges] = useState<string[]>(slot?.badges ?? []);
   const [badgeInput, setBadgeInput] = useState('');
+  const [weeks, setWeeks] = useState<WeekDraft[]>(() =>
+    slotId ? getSlotConfigs(slotId).map(toWeekDraft) : [],
+  );
+  const [alternatives, setAlternatives] = useState<string[]>(slot?.alternativeExerciseIds ?? []);
+  // The picker appends alternatives and comes back; re-read them on focus.
+  useFocusEffect(
+    useCallback(() => {
+      if (slotId) setAlternatives(getSlot(slotId)?.alternativeExerciseIds ?? []);
+    }, [slotId]),
+  );
+  const [dirty, setDirty] = useState(isFresh);
 
-  if (!user || !slot || !exercise || typeof id !== 'string') return <Redirect href="/training" />;
+  const save = () => {
+    if (!slot) return false;
+    saveSlotDraft(slot.id, { defaultRestSeconds: rest, badges, weeks });
+    setDirty(false);
+    toast.success(t('editor.savedToast'));
+    return true;
+  };
 
-  const scope = slot.userProgramId;
-  const cfg = configs.find((c) => c.weekNumber === week) ?? configs[0] ?? null;
-  const weeks = configs.length;
+  const guard = useUnsavedGuard({
+    dirty,
+    onSave: save,
+    onDiscard: () => {
+      if (isFresh && slot) deleteSlot(slot.id);
+    },
+  });
+  const saveAndClose = () => {
+    if (save()) guard.leave(() => router.back());
+  };
 
+  if (!user || !slot || !exercise || !slotId) return <Redirect href="/training" />;
+
+  const cfg = weeks.find((w) => w.weekNumber === week) ?? weeks[0] ?? null;
+
+  const patchWeek = (weekNumber: number, patch: Partial<WeekDraft>) => {
+    setWeeks((prev) => prev.map((w) => (w.weekNumber === weekNumber ? { ...w, ...patch } : w)));
+    setDirty(true);
+  };
   const patch = (p: Partial<ConfigValues>) => {
+    if (cfg) patchWeek(cfg.weekNumber, { values: { ...cfg.values, ...p } });
+  };
+  const applyToAll = () => {
     if (!cfg) return;
-    upsertWeekConfig(slot.id, cfg.weekNumber, scope, { ...toValues(cfg), ...p });
+    setWeeks((prev) =>
+      prev.map((w) => ({ ...w, values: { ...cfg.values }, setGroups: cfg.setGroups })),
+    );
+    setDirty(true);
+    toast.success(t('editor.applyToAll'));
   };
 
   const setRestTo = (next: number) => {
-    const r = Math.max(30, Math.min(600, next));
-    setRest(r);
-    updateSlot(slot.id, { defaultRestSeconds: r });
+    setRest(next);
+    setDirty(true);
   };
-
   const addBadge = () => {
     const v = badgeInput.trim().slice(0, MAX_BADGE_LEN);
     if (!v || badges.length >= MAX_BADGES) return;
-    const next = [...badges, v];
-    setBadges(next);
-    setSlotBadges(slot.id, next);
+    setBadges([...badges, v]);
     setBadgeInput('');
+    setDirty(true);
   };
   const removeBadge = (i: number) => {
-    const next = badges.filter((_, j) => j !== i);
-    setBadges(next);
-    setSlotBadges(slot.id, next);
+    setBadges(badges.filter((_, j) => j !== i));
+    setDirty(true);
+  };
+  // Alternatives are structural: the picker appends immediately, removal too.
+  const removeAlternative = (altId: string) => {
+    const next = alternatives.filter((x) => x !== altId);
+    setAlternatives(next);
+    setSlotAlternatives(slot.id, next);
+  };
+
+  const remove = () => {
+    setDirty(false);
+    deleteSlot(slot.id);
+    toast.info(t('editor.deletedToast'));
+    guard.leave(() => router.back());
   };
 
   const intensityItems: Segment<IntensityType>[] = (
@@ -136,246 +164,160 @@ const EditSlot = () => {
     patch({ intensityType: type, intensityValue });
   };
 
+  const v = cfg?.values ?? null;
+
   return (
     <Screen
       scroll
       edges={['top']}
       contentClassName="px-5 pb-10"
-      header={<TopBar showBack showAvatar={false} />}
+      header={<TopBar showBack showAvatar={false} title={exercise.name} subtitle={day?.name} />}
+      footer={
+        <Button variant="brand" label={t('editor.save')} disabled={!dirty} onPress={saveAndClose} />
+      }
     >
-      <ScreenTitle title={exercise.name} />
-
-      {/* Week selector */}
-      {weeks > 1 ? (
+      {weeks.length > 1 ? (
         <View className="mb-4 flex-row flex-wrap gap-2">
-          {Array.from({ length: weeks }, (_, i) => i + 1).map((w) => (
-            <Pressable
-              key={w}
-              onPress={() => setWeek(w)}
-              className={[
-                'rounded-full border px-3.5 py-1.5',
-                w === (cfg?.weekNumber ?? 1)
-                  ? 'border-brand/40 bg-brand/15'
-                  : 'border-ink-700 bg-ink-800',
-              ].join(' ')}
-            >
-              <Text
+          {weeks.map((w) => {
+            const active = w.weekNumber === (cfg?.weekNumber ?? 1);
+            return (
+              <Pressable
+                key={w.weekNumber}
+                onPress={() => setWeek(w.weekNumber)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
                 className={[
-                  'text-xs font-sans-semibold',
-                  w === (cfg?.weekNumber ?? 1) ? 'text-brand' : 'text-ink-300',
+                  'rounded-full border px-3.5 py-1.5',
+                  active ? 'border-brand/40 bg-brand/15' : 'border-ink-700 bg-ink-800',
                 ].join(' ')}
               >
-                {t('editor.week', { n: w })}
-              </Text>
-            </Pressable>
-          ))}
+                <Text
+                  className={[
+                    'text-xs font-sans-semibold',
+                    active ? 'text-brand' : 'text-ink-300',
+                  ].join(' ')}
+                >
+                  {t('editor.week', { n: w.weekNumber })}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
       ) : null}
 
-      {cfg ? (
+      {cfg && v ? (
         <Card>
           <Text className="mb-1 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
             {t('editor.prescription')}
           </Text>
-          <NumRow
+          <Stepper
             label={t('editor.sets')}
-            display={`${cfg.sets}`}
-            onDec={() => patch({ sets: Math.max(1, cfg.sets - 1) })}
-            onInc={() => patch({ sets: cfg.sets + 1 })}
+            value={v.sets}
+            min={1}
+            onChange={(n) => patch({ sets: n })}
           />
-          <NumRow
+          <Stepper
             label={t('editor.reps')}
-            display={`${cfg.reps}`}
-            onDec={() => patch({ reps: Math.max(1, cfg.reps - 1) })}
-            onInc={() => patch({ reps: cfg.reps + 1 })}
+            value={v.reps}
+            min={1}
+            onChange={(n) => patch({ reps: n })}
           />
-          <NumRow
+          <Stepper
             label={t('editor.repsMax')}
-            display={cfg.repsMax ? `${cfg.repsMax}` : '—'}
-            onDec={() => {
-              const n = (cfg.repsMax ?? 0) - 1;
-              patch({ repsMax: n > cfg.reps ? n : null });
-            }}
-            onInc={() => patch({ repsMax: Math.max(cfg.reps + 1, (cfg.repsMax ?? cfg.reps) + 1) })}
+            value={v.repsMax ?? v.reps}
+            min={v.reps}
+            format={(n) => (n > v.reps ? `${n}` : '—')}
+            onChange={(n) => patch({ repsMax: n > v.reps ? n : null })}
           />
 
           <View className="my-3 h-px bg-ink-800" />
 
           <View className="flex-row items-center justify-between py-1">
             <Text className="text-sm text-ink-200">{t('editor.toFailure')}</Text>
-            <Switch value={cfg.toFailure} onValueChange={(v) => patch({ toFailure: v })} />
+            <Switch value={v.toFailure} onValueChange={(on) => patch({ toFailure: on })} />
           </View>
 
-          {!cfg.toFailure ? (
+          {!v.toFailure ? (
             <>
               <Text className="mb-2 mt-3 font-mono-medium text-[11px] uppercase tracking-wider text-ink-400">
                 {t('editor.intensity')}
               </Text>
               <SegmentedControl
                 segments={intensityItems}
-                value={cfg.intensityType}
+                value={v.intensityType}
                 onChange={changeIntensity}
               />
-              {cfg.intensityType === 'rir' ? (
+              {v.intensityType === 'rir' ? (
                 <>
-                  <NumRow
-                    label={`${t('intensity.rir')} min`}
-                    display={`${cfg.rirMin ?? 0}`}
-                    onDec={() => patch({ rirMin: Math.max(0, (cfg.rirMin ?? 0) - 1) })}
-                    onInc={() => patch({ rirMin: Math.min(5, (cfg.rirMin ?? 0) + 1) })}
+                  <Stepper
+                    label={t('editor.rirMin')}
+                    value={v.rirMin ?? 0}
+                    min={0}
+                    max={5}
+                    onChange={(n) => patch({ rirMin: n, rirMax: Math.max(n, v.rirMax ?? n) })}
                   />
-                  <NumRow
-                    label={`${t('intensity.rir')} max`}
-                    display={`${cfg.rirMax ?? cfg.rirMin ?? 0}`}
-                    onDec={() =>
-                      patch({ rirMax: Math.max(cfg.rirMin ?? 0, (cfg.rirMax ?? 0) - 1) })
-                    }
-                    onInc={() =>
-                      patch({ rirMax: Math.min(5, (cfg.rirMax ?? cfg.rirMin ?? 0) + 1) })
-                    }
+                  <Stepper
+                    label={t('editor.rirMax')}
+                    value={v.rirMax ?? v.rirMin ?? 0}
+                    min={v.rirMin ?? 0}
+                    max={5}
+                    onChange={(n) => patch({ rirMax: n })}
                   />
                 </>
-              ) : cfg.intensityType === 'rpe' ? (
-                <NumRow
+              ) : v.intensityType === 'rpe' ? (
+                <Stepper
                   label={t('intensity.rpe')}
-                  display={`${cfg.intensityValue ?? 8}`}
-                  onDec={() =>
-                    patch({ intensityValue: Math.max(5, (cfg.intensityValue ?? 8) - 1) })
-                  }
-                  onInc={() =>
-                    patch({ intensityValue: Math.min(10, (cfg.intensityValue ?? 8) + 1) })
-                  }
+                  value={v.intensityValue ?? 8}
+                  min={5}
+                  max={10}
+                  onChange={(n) => patch({ intensityValue: n })}
                 />
               ) : (
-                <NumRow
+                <Stepper
                   label={t('intensity.percentage')}
-                  display={`${cfg.intensityValue ?? 70}%`}
-                  onDec={() =>
-                    patch({ intensityValue: Math.max(30, (cfg.intensityValue ?? 70) - 5) })
-                  }
-                  onInc={() =>
-                    patch({ intensityValue: Math.min(100, (cfg.intensityValue ?? 70) + 5) })
-                  }
+                  value={v.intensityValue ?? 70}
+                  min={30}
+                  max={100}
+                  step={5}
+                  format={(n) => `${n}%`}
+                  onChange={(n) => patch({ intensityValue: n })}
                 />
               )}
             </>
           ) : null}
 
-          {weeks > 1 ? (
+          {weeks.length > 1 ? (
             <View className="mt-5">
               <Button
                 label={t('editor.applyToAll')}
                 variant="secondary"
                 size="sm"
-                onPress={() => {
-                  copyWeekConfigToAll(slot.id, cfg.weekNumber);
-                  toast.success(t('editor.applyToAll'));
-                }}
+                onPress={applyToAll}
               />
             </View>
           ) : null}
         </Card>
       ) : null}
 
-      {/* Rest */}
       <Card className="mt-4">
-        <NumRow
+        <Stepper
           label={t('editor.restSeconds')}
-          display={`${rest}s`}
-          onDec={() => setRestTo(rest - 15)}
-          onInc={() => setRestTo(rest + 15)}
+          value={rest}
+          min={REST_MIN}
+          max={REST_MAX}
+          step={15}
+          format={(n) => `${n}s`}
+          onChange={setRestTo}
         />
       </Card>
 
-      {/* Advanced scheme — top set + back-off for the selected week */}
-      {cfg ? (
+      {cfg && v ? (
         <>
-          <Text className="mb-1 mt-7 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
-            {t('editor.advancedScheme')}
-          </Text>
+          <SectionLabel label={t('editor.alternatives')} className="mb-1 mt-7" />
           <Card>
-            <View className="flex-row items-center justify-between">
-              <View className="flex-1 pr-4">
-                <Text className="text-base font-sans-semibold text-ink-50">
-                  {t('editor.topSetToggle')}
-                </Text>
-                <Text className="mt-0.5 text-xs leading-5 text-ink-400">
-                  {t('editor.topSetHint')}
-                </Text>
-              </View>
-              <Switch
-                value={!!cfg.setGroups?.length}
-                onValueChange={(on) =>
-                  setWeekSetGroups(
-                    slot.id,
-                    cfg.weekNumber,
-                    on
-                      ? [
-                          { sets: 1, reps: cfg.reps, rirMin: 0, rirMax: 0 },
-                          { sets: Math.max(cfg.sets - 1, 1), reps: cfg.reps, rirMin: 3, rirMax: 4 },
-                        ]
-                      : null,
-                  )
-                }
-              />
-            </View>
-            {cfg.setGroups?.length ? (
-              <View className="mt-4 gap-4 border-t border-ink-800 pt-4">
-                {cfg.setGroups.map((g, gi) => {
-                  const update = (patchGroup: Partial<SetGroup>) => {
-                    const next = cfg.setGroups!.map((x, xi) =>
-                      xi === gi ? { ...x, ...patchGroup } : x,
-                    );
-                    setWeekSetGroups(slot.id, cfg.weekNumber, next);
-                  };
-                  return (
-                    <View key={gi}>
-                      <Text className="mb-1 font-mono-medium text-[11px] uppercase tracking-wider text-brand">
-                        {gi === 0 ? t('training.topSet') : t('training.backOff')}
-                      </Text>
-                      <NumRow
-                        label={t('editor.sets')}
-                        display={`${g.sets}`}
-                        onDec={() => update({ sets: Math.max(1, g.sets - 1) })}
-                        onInc={() => update({ sets: g.sets + 1 })}
-                      />
-                      <NumRow
-                        label={t('editor.reps')}
-                        display={`${g.reps}`}
-                        onDec={() => update({ reps: Math.max(1, g.reps - 1) })}
-                        onInc={() => update({ reps: g.reps + 1 })}
-                      />
-                      <NumRow
-                        label="RIR"
-                        display={`${g.rirMin ?? 0}-${g.rirMax ?? g.rirMin ?? 0}`}
-                        onDec={() =>
-                          update({
-                            rirMin: Math.max(0, (g.rirMin ?? 0) - 1),
-                            rirMax: Math.max(0, (g.rirMax ?? 0) - 1),
-                          })
-                        }
-                        onInc={() =>
-                          update({
-                            rirMin: Math.min(5, (g.rirMin ?? 0) + 1),
-                            rirMax: Math.min(5, (g.rirMax ?? 0) + 1),
-                          })
-                        }
-                      />
-                    </View>
-                  );
-                })}
-              </View>
-            ) : null}
-          </Card>
-
-          {/* Alternatives */}
-          <Text className="mb-1 mt-7 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
-            {t('editor.alternatives')}
-          </Text>
-          <Card>
-            {(slot.alternativeExerciseIds ?? []).length ? (
+            {alternatives.length ? (
               <View className="mb-3 flex-row flex-wrap gap-2">
-                {(slot.alternativeExerciseIds ?? []).map((altId) => {
+                {alternatives.map((altId) => {
                   const alt = getExercise(altId);
                   if (!alt) return null;
                   return (
@@ -384,15 +326,7 @@ const EditSlot = () => {
                       className="flex-row items-center gap-1.5 rounded-full bg-ink-800 px-3 py-1.5"
                     >
                       <Text className="text-xs font-sans-medium text-ink-200">{alt.name}</Text>
-                      <Pressable
-                        onPress={() =>
-                          setSlotAlternatives(
-                            slot.id,
-                            (slot.alternativeExerciseIds ?? []).filter((x) => x !== altId),
-                          )
-                        }
-                        hitSlop={6}
-                      >
+                      <Pressable onPress={() => removeAlternative(altId)} hitSlop={6}>
                         <XIcon color="#71717a" size={13} />
                       </Pressable>
                     </View>
@@ -417,10 +351,7 @@ const EditSlot = () => {
         </>
       ) : null}
 
-      {/* Badges */}
-      <Text className="mb-1 mt-7 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
-        {t('editor.badges')}
-      </Text>
+      <SectionLabel label={t('editor.badges')} className="mb-1 mt-7" />
       <Text className="mb-2 text-[11px] text-ink-500">{t('editor.badgesHint')}</Text>
       <Card>
         {badges.length ? (
@@ -453,10 +384,14 @@ const EditSlot = () => {
                 returnKeyType="done"
               />
             </View>
-            <Button label={t('editor.addBadge')} size="sm" onPress={addBadge} />
+            <Button label={t('editor.addBadge')} fullWidth={false} onPress={addBadge} />
           </View>
         ) : null}
       </Card>
+
+      <View className="mt-8">
+        <HoldButton label={t('editor.deleteSlot')} onComplete={remove} />
+      </View>
     </Screen>
   );
 };

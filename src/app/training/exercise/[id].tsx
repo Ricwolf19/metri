@@ -10,8 +10,9 @@ import type { CalcChart as Chart } from '@/features/calculators/types';
 import { getExercise } from '@/features/training/exercises.repo';
 import { fromKg } from '@/features/training/progression';
 import { exerciseHistory, topSetByWeek } from '@/features/training/stats.repo';
-import { useI18n, useT } from '@/i18n';
+import { useT } from '@/i18n';
 import { settings, type Units } from '@/lib/storage';
+import { useDateFormat } from '@/lib/useDateFormat';
 import { useTheme } from '@/theme/theme-context';
 
 /** "100×6,6,5" when the weight holds, "100×6 · 95×8" when it varies. */
@@ -31,7 +32,7 @@ const ExerciseHistory = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const t = useT();
-  const { locale } = useI18n();
+  const { dayMonth } = useDateFormat();
   const { brand } = useTheme();
   const unit = settings.getUnits();
 
@@ -51,11 +52,7 @@ const ExerciseHistory = () => {
     })),
   };
 
-  const dateLabel = (d: Date) =>
-    d.toLocaleDateString(locale === 'es' ? 'es-MX' : 'en-US', {
-      day: 'numeric',
-      month: 'short',
-    });
+  const dateLabel = dayMonth;
 
   return (
     <Screen scroll contentClassName="px-5 pb-10" header={<TopBar showBack />}>

@@ -1,18 +1,18 @@
-import { and, asc, eq, gt, inArray } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, isNull } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import {
   exercises,
   programs,
   routines,
+  userPrograms,
   weekConfigs,
   workoutDayExercises,
   workoutDays,
   type IntensityType,
   type Program,
-  type ProgramDifficulty,
-  type ProgramGoal,
   type Routine,
+  type SetGroup,
   type WeekConfig,
   type WorkoutDay,
   type WorkoutDayExercise,
@@ -20,15 +20,21 @@ import {
 import { recordDeletion } from '@/features/sync/tombstones';
 import { randomId } from '@/lib/crypto';
 
-import { SPLIT_SCAFFOLDS, type SplitSize } from './splits';
+import { refreshTrainingWeekdays } from './enroll';
+
+/** Template rows (`null`) vs the live copy of one enrollment. */
+const scoped = (column: typeof routines.userProgramId, userProgramId: string | null) =>
+  userProgramId == null ? isNull(column) : eq(column, userProgramId);
 
 /* ── Reactive queries (for useLiveQuery in the editor) ───────────────────────── */
 
-export const routinesQuery = (programId: string) =>
+// Routine copies keep the template's `programId`, so every routine read must be
+// scoped or the template editor would list the live copy's phases too.
+export const routinesQuery = (programId: string, userProgramId: string | null = null) =>
   db
     .select()
     .from(routines)
-    .where(eq(routines.programId, programId))
+    .where(and(eq(routines.programId, programId), scoped(routines.userProgramId, userProgramId)))
     .orderBy(asc(routines.orderIndex));
 
 export const daysQuery = (routineId: string) =>
@@ -45,13 +51,6 @@ export const slotsQuery = (dayId: string) =>
     .innerJoin(exercises, eq(exercises.id, workoutDayExercises.exerciseId))
     .where(eq(workoutDayExercises.workoutDayId, dayId))
     .orderBy(asc(workoutDayExercises.orderIndex));
-
-export const configsQuery = (slotId: string) =>
-  db
-    .select()
-    .from(weekConfigs)
-    .where(eq(weekConfigs.workoutDayExerciseId, slotId))
-    .orderBy(asc(weekConfigs.weekNumber));
 
 /**
  * Authoring repo — CRUD for user-built (and live-editable) program trees. Pure
@@ -96,8 +95,6 @@ const DEFAULT_CONFIG: ConfigValues = {
 export type ProgramInput = {
   name: string;
   description?: string | null;
-  difficulty?: ProgramDifficulty | null;
-  goal?: ProgramGoal | null;
   durationWeeks?: number | null;
 };
 
@@ -109,8 +106,6 @@ export const createCustomProgram = (userId: string, input: ProgramInput): Progra
       id: randomId(),
       name: input.name,
       description: input.description ?? null,
-      difficulty: input.difficulty ?? null,
-      goal: input.goal ?? null,
       durationWeeks: input.durationWeeks ?? null,
       isCustom: true,
       userId,
@@ -126,8 +121,6 @@ export const updateProgram = (programId: string, patch: Partial<ProgramInput>): 
     .set({
       ...(patch.name !== undefined ? { name: patch.name } : {}),
       ...(patch.description !== undefined ? { description: patch.description } : {}),
-      ...(patch.difficulty !== undefined ? { difficulty: patch.difficulty } : {}),
-      ...(patch.goal !== undefined ? { goal: patch.goal } : {}),
       ...(patch.durationWeeks !== undefined ? { durationWeeks: patch.durationWeeks } : {}),
       updatedAt: new Date(),
     })
@@ -135,12 +128,29 @@ export const updateProgram = (programId: string, patch: Partial<ProgramInput>): 
     .run();
 };
 
-/** Delete a template program and every template-scoped row beneath it. */
-export const deleteProgramTree = (programId: string): void => {
+/**
+ * Delete a template program and every template-scoped row beneath it. Refuses
+ * (returns false) while an active/paused enrollment still points at it — the
+ * live copy shares `programId`, and the enrollment would be left headless.
+ */
+export const deleteProgramTree = (programId: string): boolean => {
+  const inUse = db
+    .select({ id: userPrograms.id })
+    .from(userPrograms)
+    .where(
+      and(
+        eq(userPrograms.programId, programId),
+        inArray(userPrograms.status, ['active', 'paused']),
+      ),
+    )
+    .limit(1)
+    .all();
+  if (inUse.length) return false;
+
   const rts = db
     .select({ id: routines.id })
     .from(routines)
-    .where(eq(routines.programId, programId))
+    .where(and(eq(routines.programId, programId), isNull(routines.userProgramId)))
     .all()
     .map((r) => r.id);
   const dys = rts.length
@@ -172,7 +182,7 @@ export const deleteProgramTree = (programId: string): void => {
   if (dys.length)
     db.delete(workoutDayExercises).where(inArray(workoutDayExercises.workoutDayId, dys)).run();
   if (rts.length) db.delete(workoutDays).where(inArray(workoutDays.routineId, rts)).run();
-  db.delete(routines).where(eq(routines.programId, programId)).run();
+  if (rts.length) db.delete(routines).where(inArray(routines.id, rts)).run();
   db.delete(programs).where(eq(programs.id, programId)).run();
 
   recordDeletion('week_configs', cfgIds);
@@ -180,6 +190,7 @@ export const deleteProgramTree = (programId: string): void => {
   recordDeletion('workout_days', dys);
   recordDeletion('routines', rts);
   recordDeletion('programs', programId);
+  return true;
 };
 
 /* ── Routine (phase / "Cara") ────────────────────────────────────────────────── */
@@ -189,11 +200,11 @@ export const getRoutine = (id: string): Routine | null => {
   return row ?? null;
 };
 
-const routineSiblings = (programId: string): Routine[] =>
+const routineSiblings = (programId: string, userProgramId: string | null): Routine[] =>
   db
     .select()
     .from(routines)
-    .where(eq(routines.programId, programId))
+    .where(and(eq(routines.programId, programId), scoped(routines.userProgramId, userProgramId)))
     .orderBy(asc(routines.orderIndex))
     .all();
 
@@ -202,7 +213,7 @@ export const addRoutine = (
   userProgramId: string | null,
   input: { name: string; durationWeeks?: number },
 ): Routine => {
-  const orderIndex = routineSiblings(programId).length;
+  const orderIndex = routineSiblings(programId, userProgramId).length;
   const [row] = db
     .insert(routines)
     .values({
@@ -234,6 +245,25 @@ export const updateRoutine = (
 };
 
 export const deleteRoutine = (routineId: string): void => {
+  const routine = getRoutine(routineId);
+  // On a live copy the enrollment may point at this phase: move it to the
+  // first remaining sibling first, so nothing dangles.
+  if (routine?.userProgramId) {
+    const [enrollment] = db
+      .select({ currentRoutineId: userPrograms.currentRoutineId })
+      .from(userPrograms)
+      .where(eq(userPrograms.id, routine.userProgramId))
+      .all();
+    if (enrollment?.currentRoutineId === routineId) {
+      const next = routineSiblings(routine.programId, routine.userProgramId).find(
+        (r) => r.id !== routineId,
+      );
+      db.update(userPrograms)
+        .set({ currentRoutineId: next?.id ?? null, currentWeek: 1, updatedAt: new Date() })
+        .where(eq(userPrograms.id, routine.userProgramId))
+        .run();
+    }
+  }
   const dys = db
     .select({ id: workoutDays.id })
     .from(workoutDays)
@@ -243,6 +273,7 @@ export const deleteRoutine = (routineId: string): void => {
   for (const dayId of dys) deleteDay(dayId);
   db.delete(routines).where(eq(routines.id, routineId)).run();
   recordDeletion('routines', routineId);
+  if (routine?.userProgramId) refreshTrainingWeekdays(routine.userProgramId);
 };
 
 /* ── Day (split) ─────────────────────────────────────────────────────────────── */
@@ -281,21 +312,33 @@ export const addDay = (
   return row;
 };
 
-export const updateDay = (
-  dayId: string,
-  patch: { name?: string; focusMuscles?: string[] | null },
-): void => {
+export type DayPatch = {
+  name?: string;
+  focusMuscles?: string[] | null;
+  /** Schedule fields are meaningful on the live copy only. */
+  weekday?: number | null;
+  startMinute?: number | null;
+};
+
+export const updateDay = (dayId: string, patch: DayPatch): void => {
   db.update(workoutDays)
     .set({
       ...(patch.name !== undefined ? { name: patch.name } : {}),
       ...(patch.focusMuscles !== undefined ? { focusMuscles: patch.focusMuscles } : {}),
+      ...(patch.weekday !== undefined ? { weekday: patch.weekday } : {}),
+      ...(patch.startMinute !== undefined ? { startMinute: patch.startMinute } : {}),
       updatedAt: new Date(),
     })
     .where(eq(workoutDays.id, dayId))
     .run();
+  if (patch.weekday !== undefined) {
+    const day = getDay(dayId);
+    if (day?.userProgramId) refreshTrainingWeekdays(day.userProgramId);
+  }
 };
 
 export const deleteDay = (dayId: string): void => {
+  const day = getDay(dayId);
   const slts = db
     .select({ id: workoutDayExercises.id })
     .from(workoutDayExercises)
@@ -317,17 +360,7 @@ export const deleteDay = (dayId: string): void => {
   recordDeletion('week_configs', cfgIds);
   recordDeletion('workout_day_exercises', slts);
   recordDeletion('workout_days', dayId);
-};
-
-/** Populate a routine with the empty days of a 3/4/5-day split. */
-export const applySplitScaffold = (
-  routineId: string,
-  userProgramId: string | null,
-  split: SplitSize,
-): void => {
-  for (const seed of SPLIT_SCAFFOLDS[split]) {
-    addDay(routineId, userProgramId, { name: seed.name, focusMuscles: seed.focusMuscles });
-  }
+  if (day?.userProgramId) refreshTrainingWeekdays(day.userProgramId);
 };
 
 /* ── Slot (exercise in a day) ────────────────────────────────────────────────── */
@@ -380,22 +413,6 @@ export const addSlot = (
   return slot;
 };
 
-export const updateSlot = (
-  slotId: string,
-  patch: { defaultRestSeconds?: number | null; notes?: string | null },
-): void => {
-  db.update(workoutDayExercises)
-    .set({
-      ...(patch.defaultRestSeconds !== undefined
-        ? { defaultRestSeconds: patch.defaultRestSeconds }
-        : {}),
-      ...(patch.notes !== undefined ? { notes: patch.notes } : {}),
-      updatedAt: new Date(),
-    })
-    .where(eq(workoutDayExercises.id, slotId))
-    .run();
-};
-
 /** Set the interchangeable alternatives for a slot ("deadlift or sumo"). */
 export const setSlotAlternatives = (slotId: string, exerciseIds: string[]): void => {
   db.update(workoutDayExercises)
@@ -404,31 +421,36 @@ export const setSlotAlternatives = (slotId: string, exerciseIds: string[]): void
     .run();
 };
 
-/** Set (or clear) a week's multi-group prescription (top set + back-off). */
-export const setWeekSetGroups = (
-  slotId: string,
-  weekNumber: number,
-  groups: import('@/db/schema').SetGroup[] | null,
-): void => {
-  db.update(weekConfigs)
-    .set({ setGroups: groups, updatedAt: new Date() })
-    .where(
-      and(eq(weekConfigs.workoutDayExerciseId, slotId), eq(weekConfigs.weekNumber, weekNumber)),
-    )
-    .run();
+/** Everything the slot editor buffers and writes back in one Save. */
+export type SlotDraft = {
+  defaultRestSeconds: number;
+  badges: string[];
+  weeks: { weekNumber: number; values: ConfigValues; setGroups: SetGroup[] | null }[];
 };
 
-/** Set the coaching badges for a slot (validates count + length). */
-export const setSlotBadges = (slotId: string, badges: string[]): void => {
-  const clean = badges
+const cleanBadges = (badges: string[]): string[] =>
+  badges
     .map((b) => b.trim())
     .filter(Boolean)
     .slice(0, MAX_BADGES)
     .map((b) => b.slice(0, MAX_BADGE_LEN));
+
+/** Persist a slot draft: rest + badges on the slot, then every week's prescription. */
+export const saveSlotDraft = (slotId: string, draft: SlotDraft): void => {
+  const slot = getSlot(slotId);
+  if (!slot) return;
+  const badges = cleanBadges(draft.badges);
   db.update(workoutDayExercises)
-    .set({ badges: clean.length ? clean : null, updatedAt: new Date() })
+    .set({
+      defaultRestSeconds: draft.defaultRestSeconds,
+      badges: badges.length ? badges : null,
+      updatedAt: new Date(),
+    })
     .where(eq(workoutDayExercises.id, slotId))
     .run();
+  for (const week of draft.weeks) {
+    upsertWeekConfig(slotId, week.weekNumber, slot.userProgramId, week.values, week.setGroups);
+  }
 };
 
 export const deleteSlot = (slotId: string): void => {
@@ -446,7 +468,7 @@ export const deleteSlot = (slotId: string): void => {
 
 /* ── Prescription (week configs) ─────────────────────────────────────────────── */
 
-const getSlotConfigs = (slotId: string): WeekConfig[] =>
+export const getSlotConfigs = (slotId: string): WeekConfig[] =>
   db
     .select()
     .from(weekConfigs)
@@ -455,12 +477,14 @@ const getSlotConfigs = (slotId: string): WeekConfig[] =>
     .all();
 
 /** Insert or update the prescription for one (slot, week). */
-export const upsertWeekConfig = (
+const upsertWeekConfig = (
   slotId: string,
   weekNumber: number,
   userProgramId: string | null,
   values: ConfigValues,
+  setGroups?: SetGroup[] | null,
 ): void => {
+  const groups = setGroups === undefined ? {} : { setGroups };
   const [existing] = db
     .select({ id: weekConfigs.id })
     .from(weekConfigs)
@@ -470,7 +494,7 @@ export const upsertWeekConfig = (
     .all();
   if (existing) {
     db.update(weekConfigs)
-      .set({ ...values, updatedAt: new Date() })
+      .set({ ...values, ...groups, updatedAt: new Date() })
       .where(eq(weekConfigs.id, existing.id))
       .run();
   } else {
@@ -480,22 +504,10 @@ export const upsertWeekConfig = (
         workoutDayExerciseId: slotId,
         weekNumber,
         ...values,
+        ...groups,
         userProgramId,
       })
       .run();
-  }
-};
-
-/** Copy one week's prescription onto every week of the routine. */
-export const copyWeekConfigToAll = (slotId: string, weekNumber: number): void => {
-  const configs = getSlotConfigs(slotId);
-  const source = configs.find((c) => c.weekNumber === weekNumber);
-  if (!source) return;
-  const values = extractValues(source);
-  const weeks = weeksForSlot(slotId);
-  for (let w = 1; w <= weeks; w++) {
-    if (w === weekNumber) continue;
-    upsertWeekConfig(slotId, w, source.userProgramId, values);
   }
 };
 
@@ -512,12 +524,16 @@ const syncWeekConfigsForRoutine = (routineId: string): void => {
     for (const slot of slotSiblings(day.id)) {
       const configs = getSlotConfigs(slot.id);
       const byWeek = new Map(configs.map((c) => [c.weekNumber, c]));
-      // Drop overflow weeks.
-      db.delete(weekConfigs)
-        .where(
-          and(eq(weekConfigs.workoutDayExerciseId, slot.id), gt(weekConfigs.weekNumber, weeks)),
-        )
-        .run();
+      // Drop overflow weeks (tombstoned: week_configs is synced).
+      const overflow = configs.filter((c) => c.weekNumber > weeks).map((c) => c.id);
+      if (overflow.length) {
+        db.delete(weekConfigs)
+          .where(
+            and(eq(weekConfigs.workoutDayExerciseId, slot.id), gt(weekConfigs.weekNumber, weeks)),
+          )
+          .run();
+        recordDeletion('week_configs', overflow);
+      }
       // Fill gaps up to the new length.
       let prev = byWeek.get(1) ? extractValues(byWeek.get(1)!) : { ...DEFAULT_CONFIG };
       for (let w = 1; w <= weeks; w++) {
@@ -532,61 +548,49 @@ const syncWeekConfigsForRoutine = (routineId: string): void => {
   }
 };
 
-/* ── Reorder (chevron up/down swaps orderIndex) ──────────────────────────────── */
+/* ── Reorder (drag & drop writes the whole order) ──────────────────────────── */
 
-type Ordered = { id: string; orderIndex: number };
-const neighbor = <T extends Ordered>(siblings: T[], id: string, dir: -1 | 1): [T, T] | null => {
-  const i = siblings.findIndex((s) => s.id === id);
-  const j = i + dir;
-  if (i < 0 || j < 0 || j >= siblings.length) return null;
-  return [siblings[i], siblings[j]];
-};
+// Each writer is guarded by the parent id (and scope for routines, whose copies
+// share `programId`) so a stale id list can never renumber another tree.
 
-export const moveRoutine = (routineId: string, dir: -1 | 1): void => {
-  const r = getRoutine(routineId);
-  if (!r) return;
-  const pair = neighbor(routineSiblings(r.programId), routineId, dir);
-  if (!pair) return;
+export const reorderRoutines = (
+  programId: string,
+  userProgramId: string | null,
+  orderedIds: string[],
+): void => {
   const now = new Date();
-  db.update(routines)
-    .set({ orderIndex: pair[1].orderIndex, updatedAt: now })
-    .where(eq(routines.id, pair[0].id))
-    .run();
-  db.update(routines)
-    .set({ orderIndex: pair[0].orderIndex, updatedAt: now })
-    .where(eq(routines.id, pair[1].id))
-    .run();
+  orderedIds.forEach((id, orderIndex) => {
+    db.update(routines)
+      .set({ orderIndex, updatedAt: now })
+      .where(
+        and(
+          eq(routines.id, id),
+          eq(routines.programId, programId),
+          scoped(routines.userProgramId, userProgramId),
+        ),
+      )
+      .run();
+  });
 };
 
-export const moveDay = (dayId: string, dir: -1 | 1): void => {
-  const d = getDay(dayId);
-  if (!d) return;
-  const pair = neighbor(daySiblings(d.routineId), dayId, dir);
-  if (!pair) return;
+export const reorderDays = (routineId: string, orderedIds: string[]): void => {
   const now = new Date();
-  db.update(workoutDays)
-    .set({ orderIndex: pair[1].orderIndex, updatedAt: now })
-    .where(eq(workoutDays.id, pair[0].id))
-    .run();
-  db.update(workoutDays)
-    .set({ orderIndex: pair[0].orderIndex, updatedAt: now })
-    .where(eq(workoutDays.id, pair[1].id))
-    .run();
+  orderedIds.forEach((id, orderIndex) => {
+    db.update(workoutDays)
+      .set({ orderIndex, updatedAt: now })
+      .where(and(eq(workoutDays.id, id), eq(workoutDays.routineId, routineId)))
+      .run();
+  });
 };
 
-export const moveSlot = (slotId: string, dir: -1 | 1): void => {
-  const s = getSlot(slotId);
-  if (!s) return;
-  const pair = neighbor(slotSiblings(s.workoutDayId), slotId, dir);
-  if (!pair) return;
-  db.update(workoutDayExercises)
-    .set({ orderIndex: pair[1].orderIndex, updatedAt: new Date() })
-    .where(eq(workoutDayExercises.id, pair[0].id))
-    .run();
-  db.update(workoutDayExercises)
-    .set({ orderIndex: pair[0].orderIndex, updatedAt: new Date() })
-    .where(eq(workoutDayExercises.id, pair[1].id))
-    .run();
+export const reorderSlots = (dayId: string, orderedIds: string[]): void => {
+  const now = new Date();
+  orderedIds.forEach((id, orderIndex) => {
+    db.update(workoutDayExercises)
+      .set({ orderIndex, updatedAt: now })
+      .where(and(eq(workoutDayExercises.id, id), eq(workoutDayExercises.workoutDayId, dayId)))
+      .run();
+  });
 };
 
 /* ── Internals ───────────────────────────────────────────────────────────────── */
@@ -608,9 +612,4 @@ const weeksForDay = (dayId: string): number => {
   if (!day) return 1;
   const routine = getRoutine(day.routineId);
   return routine?.durationWeeks ?? 1;
-};
-
-const weeksForSlot = (slotId: string): number => {
-  const slot = getSlot(slotId);
-  return slot ? weeksForDay(slot.workoutDayId) : 1;
 };

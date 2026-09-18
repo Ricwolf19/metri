@@ -8,13 +8,12 @@ import { TopBar } from '@/components/TopBar';
 import {
   Button,
   Card,
+  HoldButton,
   Input,
   PressableScale,
   Screen,
-  ScreenTitle,
   Select,
   type SelectItem,
-  useDialog,
   useToast,
 } from '@/components/ui';
 import type { Equipment, ExerciseCategory } from '@/db/schema';
@@ -36,7 +35,6 @@ const ExercisePicker = () => {
   const router = useRouter();
   const t = useT();
   const toast = useToast();
-  const dialog = useDialog();
   const { user } = useAuth();
   const { brand } = useTheme();
 
@@ -58,6 +56,13 @@ const ExercisePicker = () => {
 
   if (!user || !day || typeof dayId !== 'string') return <Redirect href="/training" />;
 
+  // A new slot goes straight into its editor (replace: back lands on the
+  // split, and leaving without saving deletes the fresh slot again).
+  const openFresh = (exerciseId: string) => {
+    const slot = addSlot(dayId, day.userProgramId, exerciseId);
+    router.replace({ pathname: '/training/edit/slot/[id]', params: { id: slot.id, fresh: '1' } });
+  };
+
   const pick = (exerciseId: string) => {
     if (typeof altFor === 'string') {
       // Alternative mode: append to the slot's interchangeable list.
@@ -67,24 +72,13 @@ const ExercisePicker = () => {
       router.back();
       return;
     }
-    addSlot(dayId, day.userProgramId, exerciseId);
-    router.back();
+    openFresh(exerciseId);
   };
 
-  const confirmDeleteExercise = (exerciseId: string) =>
-    dialog.show({
-      title: t('editor.confirmDelete'),
-      actions: [
-        { label: t('common.cancel'), style: 'cancel' },
-        {
-          label: t('editor.delete'),
-          style: 'destructive',
-          onPress: () => {
-            if (!deleteCustomExercise(exerciseId, user.id)) toast.error(t('editor.inUse'));
-          },
-        },
-      ],
-    });
+  const removeExercise = (exerciseId: string) => {
+    if (!deleteCustomExercise(exerciseId, user.id)) toast.error(t('editor.inUse'));
+    else toast.info(t('editor.deletedToast'));
+  };
 
   const createAndPick = () => {
     if (newName.trim().length < 2) return toast.error(t('editor.exerciseName'));
@@ -93,8 +87,11 @@ const ExercisePicker = () => {
       category: newCategory,
       equipment: newEquipment ?? null,
     });
-    addSlot(dayId, day.userProgramId, ex.id);
-    router.back();
+    if (typeof altFor === 'string') {
+      pick(ex.id);
+      return;
+    }
+    openFresh(ex.id);
   };
 
   const categoryItems: SelectItem<ExerciseCategory>[] = CATEGORIES.map((c) => ({
@@ -110,10 +107,10 @@ const ExercisePicker = () => {
       scroll
       edges={['top']}
       contentClassName="px-5 pb-10"
-      header={<TopBar showBack showAvatar={false} />}
+      header={
+        <TopBar showBack showAvatar={false} title={t('editor.pickExercise')} subtitle={day.name} />
+      }
     >
-      <ScreenTitle title={t('editor.pickExercise')} />
-
       {creating ? (
         <Card className="gap-4">
           <Input
@@ -222,13 +219,13 @@ const ExercisePicker = () => {
                     </Text>
                   </View>
                   {e.isCustom && e.userId === user.id ? (
-                    <Pressable
-                      onPress={() => confirmDeleteExercise(e.id)}
-                      hitSlop={8}
-                      className="mr-3"
-                    >
-                      <TrashIcon color="#ef4444" size={18} />
-                    </Pressable>
+                    <View className="mr-3">
+                      <HoldButton
+                        icon={<TrashIcon color="#ef4444" size={16} />}
+                        accessibilityLabel={t('editor.deleteExercise')}
+                        onComplete={() => removeExercise(e.id)}
+                      />
+                    </View>
                   ) : null}
                   <PlusIcon color={brand} size={20} />
                 </Card>
