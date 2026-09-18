@@ -8,14 +8,14 @@ import { setTelemetryUser } from '@/lib/telemetry';
 
 import { authClient } from './auth-client';
 import { pushProfile, restoreRemoteProfile } from './profile-sync';
-import { can as canFeature, type Feature } from './entitlements';
+import { can as canFeature, getTier, type Feature, type Tier } from './entitlements';
 import {
+  adoptLocalUser,
   completeOnboarding,
+  createLocalUser,
   findById,
-  updateAccount,
   updateProfile,
   upsertRemoteUser,
-  type AccountUpdate,
   type ProfileUpdate,
 } from './users.repo';
 
@@ -32,9 +32,10 @@ type AuthContextValue = {
     password: string,
     name?: string,
   ) => Promise<{ needsVerification: boolean }>;
+  /** Start using the app with a device-only user — no server account at all. */
+  startLocal: (displayName: string) => Promise<void>;
   signOut: () => void;
   updateMyProfile: (patch: ProfileUpdate) => void;
-  updateMyAccount: (patch: AccountUpdate) => Promise<void>;
   changeMyPassword: (current: string, next: string) => Promise<void>;
   finishOnboarding: (patch: ProfileUpdate) => void;
   reload: () => void;
@@ -43,6 +44,9 @@ type AuthContextValue = {
   isPremium: boolean;
   /** Feature-gate check derived from the user's plan (entitlements). */
   can: (feature: Feature) => boolean;
+  isLocalOnly: boolean;
+  hasServerAccount: boolean;
+  tier: Tier;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -75,17 +79,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (res.error) {
         throw new Error(res.error.message ?? 'Cloud sign-in failed.');
       }
-      // Anchor on-device data to a local row mirroring the remote account, caching
-      // the server-set entitlement plan for offline reads.
-      const local = await upsertRemoteUser({
+      // Adopt-first: a local-only user's row becomes the mirror (same id — AGENTS.md); otherwise anchor by email.
+      const currentId = session.getUserId();
+      const current = currentId ? findById(currentId) : null;
+      const remote = {
         email: res.data.user.email,
         displayName: res.data.user.name,
         plan: (res.data.user as { plan?: string }).plan,
-      });
+      };
+      const local =
+        current?.authKind === 'local'
+          ? (adoptLocalUser(current.id, remote) ?? (await upsertRemoteUser(remote)))
+          : await upsertRemoteUser(remote);
       session.setUserId(local.id);
       // Restore the account profile (metrics + preferences) before first render:
-      // a reinstall then lands on Home greeted, not on onboarding.
+      // a reinstall then lands on Home greeted, not on onboarding. For a freshly
+      // adopted local user the server has nothing yet — push our profile up.
       const restored = await restoreRemoteProfile(local.id);
+      if (current?.authKind === 'local' && !restored) {
+        const adopted = findById(local.id);
+        if (adopted) pushProfile(adopted);
+      }
       // The restore writes preferences straight to MMKV, but the i18n provider
       // holds the locale in React state — re-apply it or the whole UI (including
       // the "restored" toast) stays in the pre-sign-in language until relaunch.
@@ -106,9 +120,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (res.error) {
       throw new Error(res.error.message ?? 'Cloud sign-up failed.');
     }
-    // The backend requires email verification, so no session is issued yet —
-    // the user must verify before signing in.
-    return { needsVerification: !res.data.token };
+    // Usually no session yet (email verification; adopt happens on the later sign-in).
+    // If one IS issued, anchor/adopt now so a local user upgrades in one step.
+    if (!res.data.token) return { needsVerification: true };
+    const currentId = session.getUserId();
+    const current = currentId ? findById(currentId) : null;
+    const remote = {
+      email: res.data.user.email,
+      displayName: res.data.user.name,
+      plan: (res.data.user as { plan?: string }).plan,
+    };
+    const local =
+      current?.authKind === 'local'
+        ? (adoptLocalUser(current.id, remote) ?? (await upsertRemoteUser(remote)))
+        : await upsertRemoteUser(remote);
+    session.setUserId(local.id);
+    const adopted = findById(local.id);
+    if (adopted) {
+      pushProfile(adopted);
+      setUser(adopted);
+    }
+    return { needsVerification: false };
   }, []);
 
   const signOut = useCallback(() => {
@@ -129,14 +161,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [user],
   );
 
-  const updateMyAccount = useCallback(
-    async (patch: AccountUpdate) => {
-      if (!user) return;
-      const next = await updateAccount(user.id, patch);
-      setUser(next);
-    },
-    [user],
-  );
+  const startLocal = useCallback(async (displayName: string) => {
+    const local = await createLocalUser({ displayName });
+    // Same MMKV key the widget's headless handler reads.
+    session.setUserId(local.id);
+    setUser(local);
+  }, []);
 
   const changeMyPassword = useCallback(async (current: string, next: string) => {
     // Passwords live on the remote Better Auth account (the local hash is a
@@ -172,6 +202,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const revalidate = useCallback(async () => {
     const before = session.getUserId();
     if (!before) return;
+    // Local users have no server session; an empty getSession() would read as "signed out remotely".
+    if (findById(before)?.authKind === 'local') return;
 
     // Offline or unreachable resolves to null and is treated as "keep the local
     // session" — only an explicit no-session response signs the user out.
@@ -214,7 +246,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const hasRole = useCallback((role: UserRole) => user?.role === role, [user]);
   const can = useCallback((feature: Feature) => canFeature(user?.plan, feature), [user]);
-  const isPremium = user?.plan === 'premium';
+  const isPremium = canFeature(user?.plan, 'sync');
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -223,26 +255,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       isAuthenticated: !!user,
       signInRemote,
       signUpRemote,
+      startLocal,
       signOut,
       updateMyProfile,
-      updateMyAccount,
       changeMyPassword,
       finishOnboarding,
       reload,
       hasRole,
       isPremium,
       can,
+      isLocalOnly: user?.authKind === 'local',
+      hasServerAccount: user?.authKind === 'remote',
+      tier: getTier(user),
     }),
     [
       user,
       isReady,
       signInRemote,
       signUpRemote,
+      startLocal,
       signOut,
       isPremium,
       can,
       updateMyProfile,
-      updateMyAccount,
       changeMyPassword,
       finishOnboarding,
       reload,

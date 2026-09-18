@@ -15,9 +15,9 @@ import { settings } from '@/lib/storage';
 export const PremiumIntroModal = () => {
   const t = useT();
   const router = useRouter();
-  const { user, isPremium } = useAuth();
+  const { user, isPremium, hasServerAccount } = useAuth();
   const [visible, setVisible] = useState(
-    () => !!user && !isPremium && !settings.hasSeenPremiumIntro(),
+    () => !!user && hasServerAccount && !isPremium && !settings.hasSeenPremiumIntro(),
   );
 
   const close = () => {
@@ -45,7 +45,7 @@ export const PremiumIntroModal = () => {
             variant="brand"
             onPress={() => {
               close();
-              router.push('/premium');
+              router.push('/plan');
             }}
           />
           <Button label={t('premium.introDismiss')} variant="ghost" onPress={close} />

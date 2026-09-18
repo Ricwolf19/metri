@@ -90,8 +90,9 @@ export const restoreRemoteProfile = async (userId: string): Promise<boolean> => 
   }
 };
 
-/** Push the current local profile + preferences to the web (fire-and-forget). */
+/** Push profile + preferences to the web (fire-and-forget); no-op for local users. */
 export const pushProfile = (user: PublicUser): void => {
+  if (user.authKind !== 'remote') return;
   void fetch(`${API_URL}/api/profile`, {
     method: 'PUT',
     headers: headers(),

@@ -4,9 +4,11 @@ import { useAuth } from '@/features/auth/auth-context';
 
 /** Auth flow — bounce to the app if already signed in. */
 const AuthLayout = () => {
-  const { isReady, isAuthenticated } = useAuth();
+  const { isReady, isAuthenticated, isLocalOnly } = useAuth();
 
-  if (isReady && isAuthenticated) {
+  // Local-only users must reach this group to link the account that adopts their data;
+  // only server-backed sessions bounce to the app.
+  if (isReady && isAuthenticated && !isLocalOnly) {
     return <Redirect href="/(tabs)" />;
   }
 

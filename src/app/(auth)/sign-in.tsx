@@ -2,14 +2,15 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { BrandLogo, Button, Input, Screen, useToast } from '@/components/ui';
+import { BrandMark, Button, Input, Screen, useToast } from '@/components/ui';
+import { TopBar } from '@/components/TopBar';
 import { useAuth } from '@/features/auth/auth-context';
 import { useT } from '@/i18n';
 import { captureError } from '@/lib/telemetry';
 import { LocaleToggle } from '@/i18n/LocaleToggle';
 
 const SignIn = () => {
-  const { signInRemote } = useAuth();
+  const { signInRemote, isLocalOnly } = useAuth();
   const toast = useToast();
   const router = useRouter();
   const t = useT();
@@ -41,13 +42,23 @@ const SignIn = () => {
   };
 
   return (
-    <Screen scroll contentClassName="grow justify-center px-6 py-10">
-      <View className="absolute right-6 top-3 z-10">
-        <LocaleToggle />
-      </View>
+    <Screen
+      scroll
+      contentClassName="grow justify-center px-6 py-10"
+      // Local users come here to link an account and must be able to leave;
+      // iOS has no system back, so show the chevron.
+      header={
+        isLocalOnly ? <TopBar showBack showAvatar={false} right={<LocaleToggle />} /> : undefined
+      }
+    >
+      {isLocalOnly ? null : (
+        <View className="absolute right-6 top-3 z-10">
+          <LocaleToggle />
+        </View>
+      )}
 
       <View className="items-center">
-        <BrandLogo width={160} />
+        <BrandMark size={96} />
       </View>
 
       <Text className="mt-6 text-center text-2xl font-sans-bold text-ink-50">
@@ -83,7 +94,7 @@ const SignIn = () => {
 
         <Text className="text-xs text-ink-500">{t('auth.cloudNote')}</Text>
 
-        <Button label={t('auth.signIn')} onPress={onSubmit} loading={loading} />
+        <Button variant="brand" label={t('auth.signIn')} onPress={onSubmit} loading={loading} />
       </View>
 
       <Pressable
@@ -93,6 +104,15 @@ const SignIn = () => {
       >
         <Text className="text-sm text-ink-300">{t('auth.newHere')} </Text>
         <Text className="text-sm font-sans-semibold text-brand">{t('auth.createAccount')}</Text>
+      </Pressable>
+
+      {/* The open-source promise: the full app works with no account at all. */}
+      <Pressable
+        onPress={() => router.push('/(auth)/local-setup')}
+        className="mt-4 items-center"
+        accessibilityRole="button"
+      >
+        <Text className="text-sm font-sans-semibold text-ink-300">{t('auth.continueWithout')}</Text>
       </Pressable>
     </Screen>
   );

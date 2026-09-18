@@ -4,7 +4,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { CheckIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
-import { BrandLogo, Button, Input, Screen, ScreenTitle, useToast } from '@/components/ui';
+import { BrandMark, Button, Input, Screen, ScreenTitle, useToast } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { useT } from '@/i18n';
 import { captureError } from '@/lib/telemetry';
@@ -76,13 +76,12 @@ const SignUp = () => {
       contentClassName="grow px-5 pb-10"
       header={<TopBar showBack showAvatar={false} right={<LocaleToggle />} />}
     >
+      <View className="mb-4 items-center">
+        <BrandMark size={72} />
+      </View>
       <ScreenTitle title={t('auth.createTitle')} subtitle={t('auth.cloudNote')} />
 
-      <View className="mb-6 mt-1 items-center">
-        <BrandLogo width={120} />
-      </View>
-
-      <View className="gap-4">
+      <View className="gap-3">
         <Input
           label={t('auth.name')}
           value={displayName}
@@ -134,7 +133,7 @@ const SignUp = () => {
         >
           <View
             className={[
-              'h-6 w-6 items-center justify-center rounded-md border',
+              'h-6 w-6 items-center justify-center rounded-field border',
               acceptedTerms ? 'border-brand bg-brand' : 'border-ink-500 bg-transparent',
             ].join(' ')}
           >
@@ -147,6 +146,7 @@ const SignUp = () => {
         </Pressable>
 
         <Button
+          variant="brand"
           label={t('auth.createCta')}
           onPress={onSubmit}
           loading={loading}

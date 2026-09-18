@@ -16,6 +16,8 @@ import {
   type Segment,
   useDialog,
   useToast,
+  Select,
+  type SelectItem,
 } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { RoleBadge } from '@/features/auth/components/RoleBadge';
@@ -26,6 +28,8 @@ import { deletePhotoFiles, persistAvatar } from '@/features/photos/media';
 import { LOCALES, useI18n, type Locale } from '@/i18n';
 import { settings, type ClockFormat } from '@/lib/storage';
 import { ThemeSelect } from '@/theme/ThemeSelect';
+import { DATE_FORMATS, formatDate, type DateFormat } from '@/lib/date-format';
+import { useDateFormat } from '@/lib/useDateFormat';
 import { useTheme } from '@/theme/theme-context';
 
 const MetricRow = ({ label, value }: { label: string; value: string }) => {
@@ -38,7 +42,7 @@ const MetricRow = ({ label, value }: { label: string; value: string }) => {
 };
 
 const Profile = () => {
-  const { user, isPremium, updateMyProfile, updateMyAccount, signOut } = useAuth();
+  const { user, isPremium, isLocalOnly, tier, updateMyProfile, signOut } = useAuth();
   const { t, locale, setLocale } = useI18n();
   const { brand } = useTheme();
   const toast = useToast();
@@ -46,33 +50,22 @@ const Profile = () => {
   const router = useRouter();
 
   const [name, setName] = useState(user?.displayName ?? '');
-  const [username, setUsername] = useState(user?.username ?? '');
   const [saving, setSaving] = useState(false);
 
   const [clock, setClock] = useState<ClockFormat>(settings.getClockFormat());
+  const dateFormat = useDateFormat();
+  const [sampleDate] = useState(() => new Date());
   if (!user) return null;
 
-  const dirty =
-    name.trim() !== (user.displayName ?? '') || username.trim().toLowerCase() !== user.username;
+  const dirty = name.trim() !== (user.displayName ?? '');
 
-  const saveAccount = async () => {
+  const saveAccount = () => {
     if (!user) return;
     if (!name.trim()) return toast.error(t('profile.errNameEmpty'));
-    if (username.trim().length < 3) return toast.error(t('auth.errUsername'));
-
     setSaving(true);
-    try {
-      const nextUsername = username.trim().toLowerCase();
-      if (nextUsername !== user.username) {
-        await updateMyAccount({ username: nextUsername });
-      }
-      updateMyProfile({ displayName: name.trim() });
-      toast.success(t('profile.accountUpdatedToast'));
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : t('auth.errUsername'));
-    } finally {
-      setSaving(false);
-    }
+    updateMyProfile({ displayName: name.trim() });
+    toast.success(t('profile.accountUpdatedToast'));
+    setSaving(false);
   };
 
   const onSignOut = () => {
@@ -124,6 +117,16 @@ const Profile = () => {
     if (user) pushProfile(user);
   };
   const hasMetrics = typeof user.age === 'number';
+  // Every preset shows today's date in that shape, so the choice is concrete.
+  const dateFormatItems: SelectItem<DateFormat>[] = DATE_FORMATS.map((f) => ({
+    value: f,
+    label:
+      f === 'system'
+        ? `${t('dateFormat.system')} · ${formatDate(sampleDate, f, locale)}`
+        : f === 'full'
+          ? `${t('dateFormat.full')} · ${formatDate(sampleDate, f, locale)}`
+          : formatDate(sampleDate, f, locale),
+  }));
 
   return (
     <Screen
@@ -142,12 +145,12 @@ const Profile = () => {
           </View>
         </Pressable>
         <Text className="mt-3 text-xl font-sans-bold text-ink-50">
-          {name || user.displayName || user.email}
+          {name || user.displayName || user.email || t('plan.tier.local')}
         </Text>
-        <Text className="mb-3 text-sm text-ink-400">{user.email}</Text>
+        <Text className="mb-3 text-sm text-ink-400">{user.email ?? t('profile.localAccount')}</Text>
         <View className="flex-row items-center gap-2">
           <RoleBadge role={user.role} />
-          {user.plan === 'premium' ? (
+          {isPremium ? (
             <View className="flex-row items-center gap-1 rounded-full bg-brand/10 px-2.5 py-1">
               <StarIcon color={brand} size={11} />
               <Text className="font-mono-medium text-xs uppercase tracking-wider text-brand">
@@ -158,15 +161,15 @@ const Profile = () => {
         </View>
       </Card>
 
-      {/* Premium upsell / status */}
-      <PressableScale onPress={() => router.push('/premium')} className="mt-7">
+      {/* Plan status — always shows the current tier; details live on /plan. */}
+      <PressableScale onPress={() => router.push('/plan')} className="mt-7">
         <Card className="flex-row items-center border-brand/30 bg-brand/10">
           <View className="mr-4 h-11 w-11 items-center justify-center rounded-field bg-brand">
             <StarIcon color="#08090d" size={20} />
           </View>
           <View className="flex-1 pr-2">
             <Text className="text-base font-sans-semibold text-ink-50">
-              {user.plan === 'premium' ? t('plan.premium') : t('premium.upsellRow')}
+              {t('plan.currentTier', { tier: t(`plan.tier.${tier}`) })}
             </Text>
             <Text className="mt-0.5 text-sm text-ink-400">{t('premium.upsellSub')}</Text>
           </View>
@@ -192,25 +195,20 @@ const Profile = () => {
             onChangeText={setName}
             autoCapitalize="words"
           />
-          <Input
-            label={t('auth.username')}
-            value={username}
-            onChangeText={setUsername}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
           {/* Email is the cloud-account identity — managed on metri.info, read-only here. */}
-          <Input
-            label={t('auth.email')}
-            value={user.email}
-            editable={false}
-            className="text-ink-400"
-            hint={t('profile.emailLocked')}
-          />
+          {user.email ? (
+            <Input
+              label={t('auth.email')}
+              value={user.email}
+              disabled
+              hint={t('profile.emailLocked')}
+            />
+          ) : null}
         </View>
 
         <View className="mt-5">
           <Button
+            variant="brand"
             label={t('common.saveChanges')}
             onPress={saveAccount}
             loading={saving}
@@ -219,20 +217,25 @@ const Profile = () => {
         </View>
       </Card>
 
-      {/* Password — managed on the web (single auth surface, like the email). */}
-      <Text className="mb-2 mt-7 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
-        {t('profile.security')}
-      </Text>
-      <Card>
-        <Text className="text-sm leading-6 text-ink-300">{t('profile.passwordWeb')}</Text>
-        <Pressable
-          onPress={() => Linking.openURL('https://metri.info')}
-          accessibilityRole="link"
-          className="mt-3 self-start"
-        >
-          <Text className="text-sm font-sans-semibold text-brand">metri.info</Text>
-        </Pressable>
-      </Card>
+      {/* Password — managed on the web (single auth surface, like the email).
+          Local users have no credentials anywhere, so the section hides. */}
+      {isLocalOnly ? null : (
+        <>
+          <Text className="mb-2 mt-7 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
+            {t('profile.security')}
+          </Text>
+          <Card>
+            <Text className="text-sm leading-6 text-ink-300">{t('profile.passwordWeb')}</Text>
+            <Pressable
+              onPress={() => Linking.openURL('https://metri.info')}
+              accessibilityRole="link"
+              className="mt-3 self-start"
+            >
+              <Text className="text-sm font-sans-semibold text-brand">metri.info</Text>
+            </Pressable>
+          </Card>
+        </>
+      )}
 
       {/* Feedback — ideas & bug reports straight to the team (beta lifeline). */}
       <Text className="mb-2 mt-7 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
@@ -273,6 +276,14 @@ const Profile = () => {
         <SegmentedControl segments={clockSegments} value={clock} onChange={onClockChange} />
       </Card>
 
+      {/* Date format */}
+      <Text className="mb-2 mt-7 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
+        {t('dateFormat.title')}
+      </Text>
+      <Card>
+        <Select items={dateFormatItems} value={dateFormat.format} onChange={dateFormat.setFormat} />
+      </Card>
+
       {/* Body metrics */}
       <Text className="mb-2 mt-7 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
         {t('profile.bodyMetrics')}
@@ -306,14 +317,23 @@ const Profile = () => {
         </View>
       </Card>
 
-      {/* Sign out */}
+      {/* Sign out — or, for local users, the account upgrade CTA: signing out
+          of a device-only profile would just orphan their data. */}
       <View className="mt-8">
-        <Button
-          label={t('profile.signOut')}
-          variant="danger"
-          onPress={onSignOut}
-          leftIcon={<LogOutIcon color="#f87171" size={18} />}
-        />
+        {isLocalOnly ? (
+          <Button
+            label={t('profile.createAccountCta')}
+            variant="secondary"
+            onPress={() => router.push('/(auth)/sign-up')}
+          />
+        ) : (
+          <Button
+            label={t('profile.signOut')}
+            variant="danger"
+            onPress={onSignOut}
+            leftIcon={<LogOutIcon color="#f87171" size={18} />}
+          />
+        )}
       </View>
 
       <View className="mt-6 flex-row items-center justify-center gap-3">

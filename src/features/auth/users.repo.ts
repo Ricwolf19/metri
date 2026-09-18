@@ -18,46 +18,66 @@ const findRawByEmail = (email: string): User | null => {
   return row ?? null;
 };
 
-const findRawByUsername = (username: string): User | null => {
-  const [row] = db
-    .select()
-    .from(users)
-    .where(eq(users.username, username.trim().toLowerCase()))
-    .all();
-  return row ?? null;
-};
-
 type CreateUserInput = {
-  email: string;
-  username: string;
+  email?: string;
   displayName?: string;
+  authKind?: NewUser['authKind'];
   role?: NewUser['role'];
   avatarColor?: string;
 };
 
-/** Create the local mirror row for an account. Takes no password — credentials
- * are held by Better Auth on the server and never reach the device. */
+/** Create a user row. No password: credentials stay with Better Auth (AGENTS.md); local rows have none. */
 const createUser = async (input: CreateUserInput): Promise<PublicUser> => {
-  const email = input.email.trim().toLowerCase();
-  const username = input.username.trim().toLowerCase();
-
-  if (findRawByEmail(email)) throw new Error('That email is already registered.');
-  if (findRawByUsername(username)) throw new Error('That username is taken.');
+  const email = input.email?.trim().toLowerCase() || null;
+  if (email && findRawByEmail(email)) throw new Error('That email is already registered.');
 
   const [row] = db
     .insert(users)
     .values({
       id: randomId(),
       email,
-      username,
+      authKind: input.authKind ?? 'remote',
       role: input.role ?? 'user',
-      displayName: input.displayName?.trim() || username,
+      displayName: input.displayName?.trim() || email?.split('@')[0] || 'metri user',
       avatarColor: input.avatarColor,
     })
     .returning()
     .all();
 
   return toPublic(row);
+};
+
+/** Device-only user: no email, no server counterpart, full app locally. */
+export const createLocalUser = (input: { displayName: string }): Promise<PublicUser> =>
+  createUser({ displayName: input.displayName, authKind: 'local' });
+
+/** Upgrade path (AGENTS.md): the local row becomes the remote mirror in place. A stale mirror already
+ * holding that email is detached (email cleared) and its data left as an orphan — no merge, by design. */
+export const adoptLocalUser = (
+  localId: string,
+  input: { email: string; displayName?: string | null; plan?: string | null },
+): PublicUser | null => {
+  const email = input.email.trim().toLowerCase();
+  const stale = findRawByEmail(email);
+  if (stale && stale.id !== localId) {
+    db.update(users)
+      .set({ email: null, authKind: 'local', updatedAt: new Date() })
+      .where(eq(users.id, stale.id))
+      .run();
+  }
+  const [row] = db
+    .update(users)
+    .set({
+      email,
+      authKind: 'remote',
+      plan: input.plan === 'premium' ? 'premium' : 'free',
+      ...(input.displayName ? { displayName: input.displayName } : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, localId))
+    .returning()
+    .all();
+  return row ? toPublic(row) : null;
 };
 
 /** Public lookup by email (null if none). */
@@ -83,14 +103,8 @@ export const upsertRemoteUser = async (input: {
     if (existing.plan !== plan) return setUserPlan(existing.id, plan) ?? existing;
     return existing;
   }
-  const base =
-    input.email
-      .split('@')[0]
-      .replace(/[^a-z0-9_]/gi, '')
-      .toLowerCase() || 'user';
   const created = await createUser({
     email: input.email,
-    username: `${base}-${randomId().slice(0, 4)}`,
     displayName: input.displayName ?? undefined,
   });
   return setUserPlan(created.id, plan) ?? created;
@@ -164,30 +178,6 @@ export const saveBmr = (id: string, snap: BmrSnapshot): PublicUser | null => {
     .returning()
     .all();
   return row ? toPublic(row) : null;
-};
-
-/** No email here on purpose: the server owns it, and `upsertRemoteUser` anchors
- * the local row by it — a locally-diverged email would mint a duplicate row on
- * the next revalidation. The username is a device-local handle, free to change. */
-export type AccountUpdate = { username?: string };
-
-export const updateAccount = async (id: string, patch: AccountUpdate): Promise<PublicUser> => {
-  const set: Partial<User> = {};
-
-  if (patch.username !== undefined) {
-    const username = patch.username.trim().toLowerCase();
-    const existing = findRawByUsername(username);
-    if (existing && existing.id !== id) throw new Error('That username is taken.');
-    set.username = username;
-  }
-
-  const [row] = db
-    .update(users)
-    .set({ ...set, updatedAt: new Date() })
-    .where(eq(users.id, id))
-    .returning()
-    .all();
-  return toPublic(row);
 };
 
 /** Save onboarding metrics and stamp the user as onboarded. */
