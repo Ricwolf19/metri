@@ -14,7 +14,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
 import { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
+import { LogBox, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { initialWindowMetrics, SafeAreaProvider } from 'react-native-safe-area-context';
@@ -29,6 +29,13 @@ import { seedTraining } from '@/features/training/seed';
 import { I18nProvider, useI18n } from '@/i18n';
 import { initTelemetry, wrapRoot } from '@/lib/telemetry';
 import { ThemeProvider, useTheme } from '@/theme/theme-context';
+
+// expo-router 57's useLinking fork resolves the initial-URL promise before the
+// navigation container mounts (visible on scheme/widget launches), firing a
+// dev-only "state update on a component that hasn't mounted yet" warning from
+// inside the library. Fixed upstream in router 58 — drop this on the SDK 58
+// upgrade. Dev-only: LogBox does not exist in release builds.
+LogBox.ignoreLogs([/state update on a component that hasn't mounted yet/]);
 
 // Before anything renders, so startup crashes are captured too.
 initTelemetry();
