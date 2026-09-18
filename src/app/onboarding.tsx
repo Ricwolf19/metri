@@ -156,7 +156,7 @@ const Onboarding = () => {
         />
 
         <View className="mt-2 gap-3">
-          <Button label={t('onb.finish')} onPress={() => persist(true)} />
+          <Button variant="brand" label={t('onb.finish')} onPress={() => persist(true)} />
           <Button label={t('common.skip')} variant="ghost" onPress={() => persist(false)} />
         </View>
       </View>

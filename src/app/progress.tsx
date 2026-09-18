@@ -85,7 +85,7 @@ const Progress = () => {
       scroll
       edges={['top']}
       contentClassName="px-5 pb-8"
-      header={<TopBar right={addButton} />}
+      header={<TopBar showBack showAvatar={false} right={addButton} />}
     >
       <ScreenTitle title={t('photos.title')} subtitle={t('photos.subtitle')} />
 
@@ -98,7 +98,7 @@ const Progress = () => {
             </Text>
             <Text className="mt-1 text-center text-sm text-ink-400">{t('photos.emptyBody')}</Text>
             <View className="mt-5 w-full">
-              <Button label={t('photos.add')} onPress={onAdd} />
+              <Button variant="brand" label={t('photos.add')} onPress={onAdd} />
             </View>
           </Card>
         </FadeInUp>

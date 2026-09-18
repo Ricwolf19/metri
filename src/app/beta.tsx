@@ -106,8 +106,8 @@ const Beta = () => {
       <View className="mt-4 gap-2">
         <Button
           label={t('beta.apkCta')}
-          variant="brand"
-          leftIcon={<DownloadIcon color="#08090d" size={18} />}
+          variant="secondary"
+          leftIcon={<DownloadIcon color={brand} size={18} />}
           onPress={() => open(betaLinks.apk)}
         />
         <Button

@@ -87,7 +87,7 @@ const Faq = () => {
         <View className="mt-4">
           <Button
             label={t('faq.feedbackCta')}
-            variant="brand"
+            variant="secondary"
             onPress={() => open(betaLinks.feedback)}
           />
         </View>
