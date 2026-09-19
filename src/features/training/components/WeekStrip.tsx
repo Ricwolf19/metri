@@ -9,6 +9,7 @@ import { useTheme } from '@/theme/theme-context';
 
 import { localDateKey, rangeDaysQuery } from '../adherence.repo';
 import { DAY_LETTERS } from '../labels';
+import { adherenceDot } from '../adherence-colors';
 import { DayDetailSheet } from './DayDetailSheet';
 
 const WEEKS_BACK = 8;
@@ -43,7 +44,7 @@ const trailingDays = (): Day[] => {
 export const WeekStrip = () => {
   const { user } = useAuth();
   const { locale } = useI18n();
-  const { brand } = useTheme();
+  const theme = useTheme();
   const scrollRef = useRef<ScrollView>(null);
   const [selected, setSelected] = useState<string | null>(null);
 
@@ -57,12 +58,7 @@ export const WeekStrip = () => {
   const byDate = new Map(data.map((d) => [d.date, d.status as TrainingDayStatus]));
   const labels = DAY_LETTERS[locale] ?? DAY_LETTERS.en;
 
-  const dotColor = (status: TrainingDayStatus | undefined): string => {
-    if (status === 'trained') return brand;
-    if (status === 'rest') return '#52525b';
-    if (status === 'skipped') return 'rgba(239,68,68,0.8)';
-    return 'transparent';
-  };
+  const dotColor = (status: TrainingDayStatus | undefined) => adherenceDot(theme, status);
 
   return (
     <View className="rounded-card border border-ink-700 bg-ink-850 py-3">

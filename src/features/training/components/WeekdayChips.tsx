@@ -3,6 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 import { useI18n, useT } from '@/i18n';
 
 import { DAY_ORDER, WEEKDAY_KEY, weekdayLetter } from '../labels';
+import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 
 type Props = {
   /** Selected expo weekdays; one entry for single-select callers. */
@@ -36,6 +37,7 @@ export const WeekdayChips = ({ selected, onPress, size = 'md' }: Props) => {
             ].join(' ')}
           >
             <Text
+              maxFontSizeMultiplier={CONTROL_FONT_SCALE}
               className={[text, 'font-sans-semibold', active ? 'text-brand' : 'text-ink-400'].join(
                 ' ',
               )}

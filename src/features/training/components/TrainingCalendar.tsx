@@ -6,9 +6,10 @@ import { ChevronLeftIcon, ChevronRightIcon } from '@/components/icons';
 import { Card } from '@/components/ui';
 import type { TrainingDayStatus } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
-import { useI18n } from '@/i18n';
+import { useI18n, useT, type TranslationKey } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
+import { adherenceCell, adherenceDot } from '../adherence-colors';
 import { DAY_LETTERS } from '../labels';
 import { localDateKey, monthDaysQuery } from '../adherence.repo';
 import { DayDetailSheet } from './DayDetailSheet';
@@ -54,11 +55,18 @@ const shiftMonth = (ym: string, delta: number): string => {
 
 type Cell = { day: number; key: string; status?: TrainingDayStatus; future: boolean } | null;
 
-/** Monthly consistency heatmap. Green = trained, muted = rest, red = missed. */
+const LEGEND: { status: TrainingDayStatus; key: TranslationKey }[] = [
+  { status: 'trained', key: 'adherence.trained' },
+  { status: 'rest', key: 'adherence.rest' },
+  { status: 'skipped', key: 'adherence.skipped' },
+];
+
+/** Monthly consistency calendar: brand = trained, gray = rest, red = missed (colours from `adherence-colors`). */
 export const TrainingCalendar = () => {
   const { user } = useAuth();
   const { locale } = useI18n();
-  const { brand } = useTheme();
+  const theme = useTheme();
+  const t = useT();
   const [ym, setYm] = useState(currentYm);
   const [selected, setSelected] = useState<string | null>(null);
 
@@ -82,17 +90,8 @@ export const TrainingCalendar = () => {
 
   const atCurrentMonth = ym >= currentYm();
 
-  const colorFor = (cell: NonNullable<Cell>): string => {
-    if (cell.status === 'trained') return brand;
-    if (cell.status === 'rest') return '#3f3f46'; // ink-700
-    if (cell.status === 'skipped') return 'rgba(239,68,68,0.65)';
-    return cell.future ? 'transparent' : '#18181b'; // ink-850 for empty past days
-  };
-  const textFor = (cell: NonNullable<Cell>): string => {
-    if (cell.status === 'trained') return '#09090b';
-    if (cell.key === today) return brand;
-    return cell.future ? '#3f3f46' : '#71717a';
-  };
+  const paint = (cell: NonNullable<Cell>) =>
+    adherenceCell(theme, { status: cell.status, today: cell.key === today, future: cell.future });
 
   const months = MONTHS[locale] ?? MONTHS.en;
   const weekdays = DAY_LETTERS[locale] ?? DAY_LETTERS.en;
@@ -139,17 +138,28 @@ export const TrainingCalendar = () => {
             {cell ? (
               <Pressable
                 onPress={() => !cell.future && setSelected(cell.key)}
-                style={{ backgroundColor: colorFor(cell) }}
+                style={{ backgroundColor: paint(cell).fill }}
                 className="h-8 w-8 items-center justify-center rounded-field"
               >
                 <Text
-                  style={{ color: textFor(cell) }}
+                  style={{ color: paint(cell).text }}
                   className={['text-[11px]', cell.status ? 'font-sans-semibold' : ''].join(' ')}
                 >
                   {cell.day}
                 </Text>
               </Pressable>
             ) : null}
+          </View>
+        ))}
+      </View>
+      <View className="mt-3 flex-row flex-wrap gap-x-4 gap-y-1">
+        {LEGEND.map((item) => (
+          <View key={item.status} className="flex-row items-center gap-1.5">
+            <View
+              style={{ backgroundColor: adherenceDot(theme, item.status) }}
+              className="h-2.5 w-2.5 rounded-full"
+            />
+            <Text className="text-[11px] text-ink-400">{t(item.key)}</Text>
           </View>
         ))}
       </View>
