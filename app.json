@@ -51,6 +51,20 @@
         }
       ],
       [
+        "react-native-notify-kit",
+        {
+          "android": {
+            "icons": [
+              {
+                "name": "ic_notification",
+                "path": "./assets/images/notification-icon.png",
+                "type": "small"
+              }
+            ]
+          }
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "Metri uses your photos to save progress pictures.",
