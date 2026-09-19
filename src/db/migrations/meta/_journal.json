@@ -148,6 +148,13 @@
       "when": 1789602412826,
       "tag": "0020_easy_nehzno",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1789859114752,
+      "tag": "0021_reflective_rockslide",
+      "breakpoints": true
     }
   ]
 }

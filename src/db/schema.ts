@@ -463,6 +463,39 @@ export const trainingDays = sqliteTable(
 export type TrainingDay = typeof trainingDays.$inferSelect;
 export type NewTrainingDay = typeof trainingDays.$inferInsert;
 
+/**
+ * Body measurements over time — the history `users` deliberately does not keep
+ * (that row holds only the latest snapshot, which BMR/TDEE read).
+ *
+ * Deliberately a wide "metrics for a day" row rather than a `body_weights`
+ * table: girths and, later, nutrition targets extend it by adding columns
+ * instead of forking a near-identical table per metric. Every measure is
+ * nullable — a user who only ever weighs in leaves the rest null.
+ *
+ * `date` is the **device-local** day as 'YYYY-MM-DD', matching `training_days`,
+ * and is unique per user: one row per day, re-weighing updates it.
+ */
+export const bodyMetrics = sqliteTable(
+  'body_metrics',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(),
+    date: text('date').notNull(),
+    weightKg: real('weight_kg'),
+    bodyFatPct: real('body_fat_pct'),
+    note: text('note'),
+    createdAt: tsMs('created_at').notNull().default(NOW_MS),
+    updatedAt: tsMs('updated_at').notNull().default(NOW_MS),
+  },
+  (t) => [
+    index('idx_body_metrics_user').on(t.userId),
+    uniqueIndex('idx_body_metrics_user_date').on(t.userId, t.date),
+  ],
+);
+
+export type BodyMetric = typeof bodyMetrics.$inferSelect;
+export type NewBodyMetric = typeof bodyMetrics.$inferInsert;
+
 /* ── Sync (premium: SQLite ↔ Neon delta sync) ──────────────────────────────── */
 
 /**

@@ -30,7 +30,12 @@ export const SettingKeys = {
   notificationsEnabled: 'settings.notificationsEnabled',
   localBannerSnoozedUntil: 'settings.localBannerSnoozedUntil',
   widgetPromoSnoozedUntil: 'widget.promoSnoozedUntil',
+  docsPromoSnoozedUntil: 'docs.promoSnoozedUntil',
   sessionUserId: 'auth.userId',
+  // One-shot: seed body_metrics from progress-photo weights (see body-metrics.repo).
+  bodyMetricsBackfilled: 'body.metricsBackfilled',
+  // In-flight rest timer (see features/training/rest-state).
+  activeRest: 'training.activeRest',
 } as const;
 
 export const settings = {
@@ -46,6 +51,12 @@ export const settings = {
   },
   setLocale(locale: LocaleCode) {
     storage.set(SettingKeys.locale, locale);
+  },
+  hasBackfilledBodyMetrics(): boolean {
+    return storage.getBoolean(SettingKeys.bodyMetricsBackfilled) ?? false;
+  },
+  markBodyMetricsBackfilled() {
+    storage.set(SettingKeys.bodyMetricsBackfilled, true);
   },
   getThemePreference(): ThemePreference {
     return (storage.getString(SettingKeys.theme) as ThemePreference) ?? 'dark';
@@ -66,6 +77,13 @@ export const settings = {
   },
   snoozeWidgetPromo(days = 14) {
     storage.set(SettingKeys.widgetPromoSnoozedUntil, Date.now() + days * 86_400_000);
+  },
+  // "Read the guides" banner snooze deadline (epoch ms).
+  getDocsPromoSnoozedUntil(): number {
+    return storage.getNumber(SettingKeys.docsPromoSnoozedUntil) ?? 0;
+  },
+  snoozeDocsPromo(days = 30) {
+    storage.set(SettingKeys.docsPromoSnoozedUntil, Date.now() + days * 86_400_000);
   },
   getClockFormat(): ClockFormat {
     return (storage.getString(SettingKeys.clock) as ClockFormat) ?? '24';

@@ -3,9 +3,9 @@ import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { Text, View } from 'react-native';
 
-import { CameraIcon, ChevronRightIcon, FlameIcon } from '@/components/icons';
+import { CameraIcon, ChevronRightIcon, FlameIcon, GraphUpIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
-import { Card, FadeInUp, PressableScale, Screen } from '@/components/ui';
+import { Card, FadeInUp, PressableScale, Screen, SectionLabel, Stat } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { CalcChart } from '@/features/calculators/components/CalcChart';
 import type { CalcChart as Chart } from '@/features/calculators/types';
@@ -14,20 +14,6 @@ import { TrainingCalendar } from '@/features/training/components/TrainingCalenda
 import { bucketVolume, loggedExercises, weeklyVolumeQuery } from '@/features/training/stats.repo';
 import { useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
-
-const Stat = ({ label, value, unit }: { label: string; value: string; unit?: string }) => (
-  <View className="flex-1">
-    <Text className="font-mono-medium text-xs uppercase tracking-wider text-ink-400">{label}</Text>
-    <View className="mt-1 flex-row items-baseline">
-      <Text className="text-2xl font-sans-bold text-ink-50">{value}</Text>
-      {unit ? <Text className="ml-1 text-sm text-ink-400">{unit}</Text> : null}
-    </View>
-  </View>
-);
-
-const SectionLabel = ({ text }: { text: string }) => (
-  <Text className="mb-2 mt-7 text-sm font-sans-semibold text-ink-200">{text}</Text>
-);
 
 const fmtVol = (v: number): string => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : `${v}`);
 
@@ -87,7 +73,7 @@ const Metrics = () => {
       {/* Weekly volume trend */}
       {hasVolume ? (
         <FadeInUp delay={60}>
-          <SectionLabel text={t('home.trend')} />
+          <SectionLabel label={t('home.trend')} />
           <Card>
             <Text className="mb-3 text-xs text-ink-400">{t('home.weeklyVolume')}</Text>
             <CalcChart chart={volumeChart} />
@@ -97,14 +83,14 @@ const Metrics = () => {
 
       {/* Consistency calendar */}
       <FadeInUp delay={90}>
-        <SectionLabel text={t('adherence.section')} />
+        <SectionLabel label={t('adherence.section')} />
         <TrainingCalendar />
       </FadeInUp>
 
       {/* Per-exercise history */}
       {exercisesLogged.length ? (
         <>
-          <SectionLabel text={t('metrics.exHistory')} />
+          <SectionLabel label={t('metrics.exHistory')} />
           <Card className="gap-0 py-1">
             {exercisesLogged.map((e, i) => (
               <PressableScale
@@ -134,7 +120,7 @@ const Metrics = () => {
       ) : null}
 
       {/* Energy profile */}
-      <SectionLabel text={t('home.energy')} />
+      <SectionLabel label={t('home.energy')} />
       {hasBmr ? (
         <Card>
           <View className="mb-4 flex-row items-center">
@@ -173,6 +159,24 @@ const Metrics = () => {
           </PressableScale>
         </Card>
       )}
+
+      {/* Analytics */}
+      <View className="mt-7">
+        <PressableScale onPress={() => router.push('/analytics')}>
+          <Card className="flex-row items-center">
+            <View className="mr-4 h-11 w-11 items-center justify-center rounded-field bg-brand/15">
+              <GraphUpIcon color={brand} size={22} />
+            </View>
+            <View className="flex-1 pr-2">
+              <Text className="text-base font-sans-semibold text-ink-50">
+                {t('stats.openAnalytics')}
+              </Text>
+              <Text className="mt-0.5 text-sm text-ink-400">{t('stats.openAnalyticsSub')}</Text>
+            </View>
+            <ChevronRightIcon color="#71717a" />
+          </Card>
+        </PressableScale>
+      </View>
 
       {/* Progress photos */}
       <View className="mt-7">
