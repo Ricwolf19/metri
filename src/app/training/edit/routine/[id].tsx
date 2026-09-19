@@ -13,6 +13,7 @@ import {
   Input,
   ReorderRow,
   Screen,
+  SectionLabel,
   Stepper,
   useDialog,
   useToast,
@@ -121,12 +122,7 @@ const EditRoutine = () => {
           onChange={setWeeksTo}
         />
       </Card>
-      <View className="mb-2 mt-7 flex-row items-center justify-between">
-        <Text className="font-mono-medium text-xs uppercase tracking-wider text-ink-400">
-          {t('editor.splits')}
-        </Text>
-        <Text className="text-[11px] text-ink-500">{t('editor.splitsSub')}</Text>
-      </View>
+      <SectionLabel label={t('editor.splits')} hint={t('editor.splitsSub')} />
       {items.length === 0 ? (
         <Card className="mb-2 items-center py-6">
           <Text className="text-sm text-ink-400">{t('editor.noSplits')}</Text>

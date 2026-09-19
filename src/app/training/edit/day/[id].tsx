@@ -160,7 +160,7 @@ const EditDay = () => {
         ) : null}
       </Card>
 
-      <SectionLabel label={t('editor.exercises')} />
+      <SectionLabel label={t('editor.exercises')} hint={t('editor.exercisesSub')} />
       {items.length === 0 ? (
         <Card className="mb-2 items-center py-6">
           <Text className="text-sm text-ink-400">{t('editor.noExercises')}</Text>

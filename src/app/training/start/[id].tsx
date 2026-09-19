@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { TopBar } from '@/components/TopBar';
-import { Button, Card, Screen, useDialog, useToast } from '@/components/ui';
+import { Button, Card, Screen, SectionLabel, useDialog, useToast } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import {
   DEFAULT_START_MINUTE,
@@ -192,14 +192,11 @@ const StartProgram = () => {
       <Text className="mb-4 text-sm leading-6 text-ink-300">{t('start.scheduleBody')}</Text>
       {tree.routines.map((routine) => (
         <View key={routine.id} className="mb-6">
-          <View className="mb-2 flex-row items-baseline justify-between">
-            <Text className="font-mono-medium text-xs uppercase tracking-wider text-ink-400">
-              {routine.name}
-            </Text>
-            <Text className="text-[11px] text-ink-500">
-              {t('training.weeks', { count: routine.durationWeeks })}
-            </Text>
-          </View>
+          <SectionLabel
+            className="mt-0"
+            label={routine.name}
+            hint={t('training.weeks', { count: routine.durationWeeks })}
+          />
           <View className="gap-3">
             {routine.days.map((day) => {
               const v = valueOf(day.id);

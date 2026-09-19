@@ -13,6 +13,7 @@ import {
   Input,
   ReorderRow,
   Screen,
+  SectionLabel,
   useDialog,
   useToast,
   useUnsavedGuard,
@@ -112,12 +113,7 @@ const EditProgram = () => {
           multiline
         />
       </Card>
-      <View className="mb-2 mt-7 flex-row items-center justify-between">
-        <Text className="font-mono-medium text-xs uppercase tracking-wider text-ink-400">
-          {t('editor.phases')}
-        </Text>
-        <Text className="text-[11px] text-ink-500">{t('editor.phasesSub')}</Text>
-      </View>
+      <SectionLabel label={t('editor.phases')} hint={t('editor.phasesSub')} />
       {items.length === 0 ? (
         <Card className="mb-2 items-center py-6">
           <Text className="text-sm text-ink-400">{t('editor.noPhases')}</Text>

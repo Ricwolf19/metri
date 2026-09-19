@@ -327,6 +327,60 @@ export const EXERCISE_CONTENT: Record<string, Record<Locale, ExerciseContent>> =
       ],
     },
   },
+  'sumo-deadlift': {
+    es: {
+      summary:
+        'Peso muerto sumo: **pies anchos y puntas hacia fuera**, manos por dentro de las rodillas y torso más vertical que en el convencional. Cue principal: tensa la barra y **separa el suelo con los pies** — es empujar, no tirar.',
+      setup: [
+        'Postura ancha, bastante más abierta que los hombros, con las **puntas de los pies hacia fuera**; las espinillas quedan casi verticales y pegadas a la barra.',
+        'Agarra la barra con las **manos por dentro de las rodillas**, con los brazos colgando rectos.',
+        'Cadera **más baja que en el convencional** y torso más vertical: saca pecho, saca nalga y mantén la espalda neutra antes de mover nada.',
+        'Las **rodillas siguen la línea de los pies**: abre la cadera hacia fuera y no dejes que se metan hacia dentro.',
+        'Calzado plano o descalzo, igual que en el convencional.',
+      ],
+      execution: [
+        '**Tensa la barra** primero: haz fuerza sin que se despegue del suelo hasta notar todo el cuerpo rígido.',
+        'Piensa en **separar el suelo** con los pies, empujando hacia fuera y hacia abajo; cadera y pecho suben a la vez.',
+        'Cuando la barra pasa la rodilla, lleva la cadera hacia la barra y termina de pie, sin inclinarte hacia atrás.',
+        'Baja por el mismo camino: primero cadera atrás, y las rodillas se flexionan cuando la barra ya las ha pasado.',
+      ],
+      mistakes: [
+        '**Rodillas hacia dentro** al despegar: pierdes fuerza y cargas la rodilla; empuja las rodillas hacia las puntas de los pies.',
+        '**Cadera que sube antes que el pecho**: convierte el sumo en un convencional mal hecho; tensa más y sé más deliberado al empujar.',
+        '**Tirar con los brazos** o con la espalda en lugar de empujar el suelo.',
+        '**Postura demasiado ancha** para tu movilidad de cadera: si no puedes mantener las espinillas verticales y la espalda neutra, cierra un poco los pies.',
+      ],
+      notes: [
+        'Recorrido más corto y más trabajo de cuádriceps y aductores que el convencional; suele ir mejor a gente con fémur largo o poca movilidad para mantener la espalda neutra desde abajo. Elige el que te deje empujar con mejor técnica.',
+      ],
+    },
+    en: {
+      summary:
+        'Sumo deadlift: **wide stance, toes out**, hands inside the knees and a more upright torso than the conventional pull. Main cue: tension the bar and **push the floor apart** with your feet — it is pushing, not pulling.',
+      setup: [
+        'Wide stance, well beyond shoulder width, with the **toes pointing out**; the shins end up almost vertical and against the bar.',
+        'Grip the bar with the **hands inside the knees**, arms hanging straight.',
+        'Hips **lower than in the conventional deadlift** and torso more vertical: chest out, butt out, neutral back before anything moves.',
+        'The **knees track the toes**: open the hips outward and never let the knees cave in.',
+        'Flat shoes or barefoot, same as the conventional pull.',
+      ],
+      execution: [
+        '**Tension the bar** first: apply force without lifting it off the floor until the whole body feels rigid.',
+        'Think about **spreading the floor apart** with your feet, pushing out and down; hips and chest rise together.',
+        'Once the bar passes the knees, drive the hips to the bar and finish standing tall, without leaning back.',
+        'Lower along the same path: hips back first, knees bending only once the bar has passed them.',
+      ],
+      mistakes: [
+        '**Knees caving in** off the floor: you lose force and load the knee; push the knees toward the toes.',
+        '**Hips shooting up before the chest**: it turns the sumo into a badly done conventional; tension more and be more deliberate as you push.',
+        '**Pulling with the arms** or the back instead of pushing the floor.',
+        '**A stance too wide** for your hip mobility: if you cannot keep the shins vertical and the back neutral, bring the feet in a little.',
+      ],
+      notes: [
+        'Shorter range and more quad and adductor work than the conventional pull; it tends to suit people with long femurs or limited mobility to hold a neutral back from the floor. Pick whichever lets you push with better technique.',
+      ],
+    },
+  },
   'romanian-deadlift': {
     es: {
       summary:
@@ -620,6 +674,50 @@ export const EXERCISE_CONTENT: Record<string, Record<Locale, ExerciseContent>> =
       mistakes: [],
       notes: [
         "When you're handling a lot of weight (more than half your body weight), it's **normal to lean back a little as you pull**. Very different is, from the start, intending to use momentum to be able to lift more weight.",
+      ],
+    },
+  },
+  'hammer-curl': {
+    es: {
+      summary:
+        'Curl martillo: flexión de codo con **agarre neutro** (palmas enfrentadas). Cue principal: codos pegados al costado, **extensión completa abajo** y subida sin balanceo.',
+      setup: [
+        'De pie o sentado, con una mancuerna en cada mano y las palmas mirando hacia el cuerpo, como si sostuvieras un martillo.',
+        'Codos a los lados del torso, ligeramente por delante de la cadera, y hombros atrás; esa posición no cambia durante la serie.',
+      ],
+      execution: [
+        'Sube la mancuerna flexionando solo el codo hasta que el antebrazo quede casi vertical; la muñeca no gira en ningún momento.',
+        'Baja controlando hasta **estirar del todo** el brazo antes de la siguiente repetición.',
+        'Puedes alternar brazos o subir los dos a la vez; lo importante es que cada rep sea completa.',
+      ],
+      mistakes: [
+        '**Balancear el torso** o impulsar con la cadera: le quitas trabajo al bíceps y al braquial.',
+        '**Adelantar los codos** al subir: convierte el curl en una elevación frontal de hombro.',
+        '**Bajar a medias**: sin extensión completa pierdes la parte del recorrido que más carga el braquiorradial.',
+      ],
+      notes: [
+        'El agarre neutro reparte el trabajo entre bíceps, braquial y braquiorradial, por eso suele permitir algo más de peso que el curl con barra. Buena opción cuando el curl supinado molesta la muñeca.',
+      ],
+    },
+    en: {
+      summary:
+        'Hammer curl: elbow flexion with a **neutral grip** (palms facing each other). Main cue: elbows pinned to your sides, **full extension at the bottom** and no swinging on the way up.',
+      setup: [
+        'Standing or seated, a dumbbell in each hand with the palms facing your body, as if holding a hammer.',
+        'Elbows at the sides of the torso, slightly ahead of the hips, shoulders back; that position does not change during the set.',
+      ],
+      execution: [
+        'Curl by bending only the elbow until the forearm is almost vertical; the wrist never rotates.',
+        'Lower under control until the arm is **fully straight** before the next rep.',
+        'Alternate arms or curl both at once; what matters is that every rep is complete.',
+      ],
+      mistakes: [
+        '**Swinging the torso** or driving with the hips: it takes work away from the biceps and brachialis.',
+        '**Letting the elbows drift forward** on the way up: it turns the curl into a front raise.',
+        '**Stopping halfway down**: without full extension you lose the part of the range that loads the brachioradialis most.',
+      ],
+      notes: [
+        'The neutral grip shares the work between biceps, brachialis and brachioradialis, which is why it usually allows a bit more weight than the barbell curl. A good option when supinated curls bother the wrist.',
       ],
     },
   },

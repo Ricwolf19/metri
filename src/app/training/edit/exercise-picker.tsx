@@ -1,6 +1,5 @@
-import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { PlusIcon, TrashIcon } from '@/components/icons';
@@ -10,7 +9,6 @@ import {
   Card,
   HoldButton,
   Input,
-  PressableScale,
   Screen,
   Select,
   type SelectItem,
@@ -19,13 +17,10 @@ import {
 import type { Equipment, ExerciseCategory } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
 import { addSlot, getDay, getSlot, setSlotAlternatives } from '@/features/training/authoring.repo';
-import {
-  createCustomExercise,
-  deleteCustomExercise,
-  exercisesQuery,
-} from '@/features/training/exercises.repo';
-import { CATEGORY_KEY, EQUIPMENT_KEY, exerciseDisplayName } from '@/features/training/labels';
-import { useI18n, useT } from '@/i18n';
+import { ExerciseList } from '@/features/training/components/ExerciseList';
+import { createCustomExercise, deleteCustomExercise } from '@/features/training/exercises.repo';
+import { CATEGORY_KEY, EQUIPMENT_KEY } from '@/features/training/labels';
+import { useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
 const CATEGORIES = Object.keys(CATEGORY_KEY) as ExerciseCategory[];
@@ -34,28 +29,17 @@ const ExercisePicker = () => {
   const { dayId, altFor } = useLocalSearchParams<{ dayId: string; altFor?: string }>();
   const router = useRouter();
   const t = useT();
-  const { locale } = useI18n();
   const toast = useToast();
   const { user } = useAuth();
   const { brand } = useTheme();
 
   const day = typeof dayId === 'string' ? getDay(dayId) : null;
-  const [search, setSearch] = useState('');
-  const [category, setCategory] = useState<ExerciseCategory | undefined>();
-  const { data: exercises } = useLiveQuery(exercisesQuery(user?.id ?? '', category));
 
   // New-exercise inline form.
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [newCategory, setNewCategory] = useState<ExerciseCategory>('chest');
   const [newEquipment, setNewEquipment] = useState<Equipment>();
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return q
-      ? exercises.filter((e) => exerciseDisplayName(e, locale).toLowerCase().includes(q))
-      : exercises;
-  }, [exercises, search, locale]);
 
   if (!user || !day || typeof dayId !== 'string') return <Redirect href="/training" />;
 
@@ -149,95 +133,34 @@ const ExercisePicker = () => {
           </View>
         </Card>
       ) : (
-        <>
-          <Input
-            value={search}
-            onChangeText={setSearch}
-            placeholder={t('editor.searchExercises')}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-
-          {/* Category filter */}
-          <View className="mt-3 flex-row flex-wrap gap-2">
+        <ExerciseList
+          userId={user.id}
+          onPick={(e) => pick(e.id)}
+          rowIcon={<PlusIcon color={brand} size={20} />}
+          above={
             <Pressable
-              onPress={() => setCategory(undefined)}
-              className={[
-                'rounded-full border px-3 py-1.5',
-                category === undefined
-                  ? 'border-brand/40 bg-brand/15'
-                  : 'border-ink-700 bg-ink-800',
-              ].join(' ')}
+              onPress={() => setCreating(true)}
+              accessibilityRole="button"
+              className="mt-4 flex-row items-center justify-center rounded-field border border-brand/30 bg-brand/10 py-3"
             >
-              <Text
-                className={[
-                  'text-xs font-sans-medium',
-                  category === undefined ? 'text-brand' : 'text-ink-300',
-                ].join(' ')}
-              >
-                {t('common.all')}
+              <PlusIcon color={brand} size={18} />
+              <Text className="ml-1.5 text-sm font-sans-semibold text-brand">
+                {t('editor.newExercise')}
               </Text>
             </Pressable>
-            {CATEGORIES.map((c) => (
-              <Pressable
-                key={c}
-                onPress={() => setCategory(c)}
-                className={[
-                  'rounded-full border px-3 py-1.5',
-                  category === c ? 'border-brand/40 bg-brand/15' : 'border-ink-700 bg-ink-800',
-                ].join(' ')}
-              >
-                <Text
-                  className={[
-                    'text-xs font-sans-medium',
-                    category === c ? 'text-brand' : 'text-ink-300',
-                  ].join(' ')}
-                >
-                  {t(CATEGORY_KEY[c])}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <Pressable
-            onPress={() => setCreating(true)}
-            accessibilityRole="button"
-            className="mt-4 flex-row items-center justify-center rounded-field border border-brand/30 bg-brand/10 py-3"
-          >
-            <PlusIcon color={brand} size={18} />
-            <Text className="ml-1.5 text-sm font-sans-semibold text-brand">
-              {t('editor.newExercise')}
-            </Text>
-          </Pressable>
-
-          <View className="mt-4 gap-2">
-            {filtered.map((e) => (
-              <PressableScale key={e.id} onPress={() => pick(e.id)}>
-                <Card className="flex-row items-center py-3">
-                  <View className="flex-1">
-                    <Text className="text-base font-sans-semibold text-ink-50">
-                      {exerciseDisplayName(e, locale)}
-                    </Text>
-                    <Text className="mt-0.5 text-xs text-ink-400">
-                      {t(CATEGORY_KEY[e.category])}
-                      {e.isCustom ? ` · ${t('editor.custom')}` : ''}
-                    </Text>
-                  </View>
-                  {e.isCustom && e.userId === user.id ? (
-                    <View className="mr-3">
-                      <HoldButton
-                        icon={<TrashIcon color="#ef4444" size={16} />}
-                        accessibilityLabel={t('editor.deleteExercise')}
-                        onComplete={() => removeExercise(e.id)}
-                      />
-                    </View>
-                  ) : null}
-                  <PlusIcon color={brand} size={20} />
-                </Card>
-              </PressableScale>
-            ))}
-          </View>
-        </>
+          }
+          trailing={(e) =>
+            e.isCustom && e.userId === user.id ? (
+              <View className="mr-3">
+                <HoldButton
+                  icon={<TrashIcon color="#ef4444" size={16} />}
+                  accessibilityLabel={t('editor.deleteExercise')}
+                  onComplete={() => removeExercise(e.id)}
+                />
+              </View>
+            ) : null
+          }
+        />
       )}
     </Screen>
   );
