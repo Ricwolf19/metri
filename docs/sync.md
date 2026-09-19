@@ -125,8 +125,8 @@ Every one of these guards was a real bug:
    doesn't throw `no such column` on an older device, and a crafted key isn't a
    SQL-injection primitive.
 3. **Secondary unique indexes need `EXTRA_UNIQUE`.** `on conflict(id)` doesn't
-   cover a table with another unique index (`training_days` on
-   `(user_id, date)`): two devices can create the same logical row under
+   cover a table with another unique index (`training_days` and `body_metrics`,
+   both on `(user_id, date)`): two devices can create the same logical row under
    different ids. The apply clears the local squatter first — inside a SQLite
    transaction with the insert, and only after its own LWW check, so an older
    remote row can't destroy a newer local one.

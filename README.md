@@ -25,10 +25,9 @@ The whole app runs **offline-first**: the database lives on your device and is t
 source of truth. There is no spinner waiting on a server to log a set.
 
 metri needs **no account**: local mode runs the full app — every feature and update — with
-your data living only in on-device SQLite. A **free account** (email and password, or Google /
-GitHub; no payment, no card, no trial) is optional and adds account security, manual
-**export/import** of your data (JSON, documented schema + a copy-paste AI prompt that fills it
-from your described history), and profile restore on reinstall. **Premium** adds automatic
+your data living only in on-device SQLite. **Export and import are unconditional** — no account,
+no Premium, no exceptions. A **free account** (email and password; no payment, no card, no trial)
+is optional and adds account security and profile restore on reinstall. **Premium** adds automatic
 cloud sync across unlimited devices. Creating the account later adopts your local profile in
 place — everything you already logged survives.
 
@@ -42,11 +41,15 @@ sign-up at all.
 
 - **Instant logging** — the UI reads straight from on-device SQLite, no network round-trips.
 - **Your data stays yours** — nothing leaves the phone until you turn on cloud sync, an
-  opt-in Premium feature. Progress photos are never uploaded.
+  opt-in Premium feature. Progress photos are never uploaded, and a one-tap export is always
+  available (see [Your data](#your-data)).
 - **Built for lifters** — 16 calculators, an evidence-based knowledge base, and a training
   tracker: programs with phases and splits scheduled by weekday and time, drag-and-drop editing,
-  session logging with history, adherence and per-split reminders. Two ready-made programs
-  (Metri Foundations and Metri Progression) and per-exercise technique guides ship built in.
+  session logging with warm-ups and history, adherence and per-split reminders. Two ready-made
+  programs (Metri Foundations and Metri Progression) and per-exercise technique guides ship built in.
+- **Analytics that follow the plan** — an interactive body map (volume balance, estimated fatigue,
+  training recency) you can tap muscle by muscle, plus the numbers behind it: planned-vs-actual RIR,
+  hard sets, monthly sessions and a body-weight trend. Fatigue is shown as the estimate it is.
 - **Deliberate by design** — irreversible actions are press-and-hold, edits are saved explicitly,
   dates follow your preferred format, and any training day can be shared as a brand card.
 
@@ -54,48 +57,50 @@ sign-up at all.
 > [metri.info/download](https://metri.info/download) while the Play Store listing is
 > prepared. iOS is not available yet — Apple requires TestFlight for betas.
 
-## Table of Contents
+---
 
-- [Tech Stack](#tech-stack)
-- [Quick Start](#quick-start)
-- [Local Android Setup (the full story)](#local-android-setup-the-full-story)
-- [Brand & Assets](#brand--assets)
-- [Project Structure](#project-structure)
-- [Architecture Notes](#architecture-notes)
-- [Scripts](#scripts)
-- [CI & Release Pipeline](#ci--release-pipeline)
-- [Roadmap](#roadmap)
-- [License](#license)
+## Your data
+
+Two promises, and they are enforced in code rather than in copy:
+
+**You can always take your data out.** The export button is available to every user, including
+one who has never created an account. It produces a single JSON file — programs, routines,
+sessions, every logged set, adherence history, reminders and your progress-photo timeline — in a
+[documented schema](./AGENTS.md). Importing it back is equally unconditional. If metri ever
+disappears, your training history does not go with it.
+
+**Your data is private by default.** The database lives on your device and is the source of
+truth. Nothing is uploaded until you explicitly enable Premium cloud sync, and even then the
+server stores opaque rows it never reads. Progress photos and reminders are never synced at
+all; photo exports carry the dates, weights and notes, never the image files or their paths.
+Crash reporting is anonymous (account id only, no personal data) and switches off entirely
+without a DSN.
+
+**What we charge for.** Only cloud sync today, and future add-ons such as a watch app — never
+access to your own data, and never a feature you already had. Anything that would make your
+history harder to leave with is off the table.
 
 ---
 
-## Tech Stack
+## Tech stack
 
-| Layer           | Technology                            | Purpose                                            |
-| --------------- | ------------------------------------- | -------------------------------------------------- |
-| Framework       | Expo SDK 57 + React Native 0.86       | Single codebase for iOS and Android                |
-| Language        | TypeScript (strict)                   | Type safety across the project                     |
-| Navigation      | Expo Router                           | File-based routing                                 |
-| Styling         | NativeWind v4                         | Tailwind CSS for React Native                      |
-| Local DB        | expo-sqlite + Drizzle ORM             | Offline-first source of truth, with live queries   |
-| Fast storage    | MMKV                                  | Synchronous reads for settings and caches          |
-| Vector graphics | react-native-svg                      | In-app logo and iconography from SVG sources       |
-| Package manager | Bun                                   | Install and script runner                          |
-| Build           | expo-dev-client                       | Development build (required by MMKV)               |
-| Hygiene         | ESLint · Prettier · knip · secretlint | Linting, formatting, dead-code and secret scanning |
-
-Accounts are optional and live on the metri.info backend (Better Auth); Premium cloud sync is
-the engine described in [`docs/sync.md`](./docs/sync.md). Unit and repo tests run on Vitest, the
-latter against the real migrations on an in-memory sql.js database (`src/test/sqlite.ts`).
+- **Expo + React Native** with Expo Router, TypeScript strict, NativeWind (Tailwind) — one codebase
+  for Android and iOS, running on a development build (native modules: MMKV, notifications).
+- **Offline-first data**: expo-sqlite + Drizzle ORM with live queries as the single source of truth;
+  MMKV for settings and hot-path flags.
+- **Accounts and sync** on the metri.info backend (Better Auth); Premium cloud sync is described in
+  [`docs/sync.md`](./docs/sync.md).
+- **Quality gate**: ESLint, Prettier, knip, secretlint and Vitest (pure logic plus repo tests
+  against the real migrations on sql.js), all behind `bun run verify`.
 
 ---
 
-## Quick Start
+## Quick start
 
 **Prerequisites**
 
 - Node.js (LTS) and [Bun](https://bun.sh) >= 1.3
-- **JDK 17** (required by the React Native Android toolchain — see below)
+- **JDK 17** (required by the React Native Android toolchain — see [`docs/android-setup.md`](./docs/android-setup.md))
 - Xcode (iOS) and/or Android Studio (Android SDK + an emulator or a device)
 
 MMKV uses native code, so the app runs on a **development build**, not Expo Go.
@@ -113,306 +118,15 @@ or changing the app icon / `app.json` / `metro.config.js` requires a rebuild.
 
 ---
 
-## Running from Scratch / Resetting Local Data
-
-metri keeps **training data on-device** (SQLite + MMKV), so wiping the app's storage makes the next
-launch re-run migrations from an empty database and re-seed the exercise catalog. A server account
-(if you created one) lives on the web backend, and so does anything already pushed by Premium cloud
-sync — neither is cleared by a reinstall. Local-mode data has no server copy: a wipe is final unless
-you exported it first.
-
-```bash
-# Android — uninstall removes the app + its SQLite/MMKV data, then reinstall
-adb uninstall com.ricwolf19.metri
-bunx expo run:android            # migrations + training seed run automatically on first launch
-
-# iOS simulator
-xcrun simctl uninstall booted com.ricwolf19.metri
-bunx expo run:ios
-```
-
-You can also clear data without uninstalling: Android → Settings → Apps → Metri → Storage → **Clear
-storage**; iOS → long-press the app → **Remove App**.
-
-**Full native rebuild** — needed after changing the app icon, **splash screen**, `app.json`, or adding
-a native module (an OTA update is not enough):
-
-```bash
-bunx expo prebuild --clean
-bunx expo run:android            # or: bunx expo run:ios
-```
-
-**Regenerate SQL migrations** after editing `src/db/schema.ts` (the new file applies on next launch):
-
-```bash
-bun run db:generate
-```
-
-> No env vars are needed to build or run. Optional accounts live on the metri.info backend (Better Auth) —
-> there is no local admin seed. The only optional variable is `EXPO_PUBLIC_AUTH_URL` to point a dev
-> build at a different backend origin (documented in `app.config.ts`). Crash reporting (Sentry) is
-> configured in `src/lib/telemetry.ts` — the DSN is a public client key hardcoded there (empty =
-> disabled); `SENTRY_AUTH_TOKEN` exists only as a CI/EAS secret for source-map uploads.
-
----
-
-## Local Android Setup (the full story)
-
-The Android build needs a specific JVM. Getting this wrong produces a confusing Gradle crash,
-so here is the exact, working setup on macOS (Apple Silicon).
-
-### 1. Install JDK 17
-
-React Native pins its Gradle/Kotlin toolchain to **Java 17**. Newer JDKs (21, 24) can
-_run_ Gradle but are not accepted for the compile toolchain.
-
-```bash
-brew install openjdk@17
-```
-
-Point `JAVA_HOME` at it (in `~/.zshrc`), and open a **new terminal** afterwards:
-
-```bash
-export JAVA_HOME="/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home"
-export PATH="$JAVA_HOME/bin:$PATH"
-```
-
-Verify: `java -version` should report `17.x`.
-
-### 2. Tell Gradle where the JDK is
-
-Homebrew installs `openjdk@17` _keg-only_, so Gradle's auto-detection can't find it. Add a
-**global** `~/.gradle/gradle.properties` (lives outside the repo, survives `expo prebuild`):
-
-```properties
-org.gradle.java.installations.paths=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
-org.gradle.java.installations.auto-download=false
-```
-
-### 3. Android SDK
-
-Ensure `ANDROID_HOME` points at your SDK (in `~/.zshrc`):
-
-```bash
-export ANDROID_HOME="$HOME/Library/Android/sdk"
-export PATH="$PATH:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator"
-```
-
-### Troubleshooting: `JvmVendorSpec ... IBM_SEMERU`
-
-```
-Could not initialize class org.gradle.toolchains.foojay.DistributionsKt
-> NoSuchFieldError: ... JvmVendorSpec ... IBM_SEMERU
-```
-
-This means no local JDK 17 was found, so Gradle tried to **auto-download** a toolchain via
-the bundled `foojay` plugin (v0.5.0), which is incompatible with Gradle 9. Fixing steps 1–2
-above (install JDK 17 + `auto-download=false`) resolves it. If a stale daemon lingers, run
-`cd android && ./gradlew --stop` and rebuild.
-
-### Running wirelessly
-
-Wireless debugging works on Android: pair the device over Wi-Fi with
-`adb pair <ip:port>` / `adb connect <ip:port>` (Developer Options → Wireless debugging), then
-`bunx expo run:android` installs to it like a USB device and Metro reloads over the network.
-
----
-
-## Brand & Assets
-
-The brand mark is a lime **dumbbell** rendered as bars, paired with the `metri` wordmark, on a
-near-black background. SVG sources live in `assets/images/`; the launcher PNGs in
-`assets/images/` are generated from them (e.g. with `rsvg-convert -w 1024 -h 1024 …`).
-
-| File                                | What it is                               | Used for                             |
-| ----------------------------------- | ---------------------------------------- | ------------------------------------ |
-| `assets/images/metri.svg`           | Full logo (mark + wordmark) on dark bg   | Master / reference                   |
-| `assets/images/metri-logo.svg`      | Mark + wordmark, transparent, tight crop | In-app cover (`src/app/index.tsx`)   |
-| `assets/images/metri-icon.svg`      | Dumbbell mark only, black background     | App launcher icon                    |
-| `assets/images/metri-icon-mono.svg` | Dumbbell mark, white on transparent      | Android 13+ themed (monochrome) icon |
-
-Palette: lime accent `#bef82b` on a cool, blue-tinted dark "ink" scale (app background
-`#0b0d12`). See `tailwind.config.js`.
-
-In-app, SVGs are imported as components via `react-native-svg-transformer` (configured in
-`metro.config.js`), e.g. `import MetriLogo from '@/assets/images/metri-logo.svg'`.
-
----
-
-## Project Structure
-
-```
-metri/
-├── src/
-│   ├── app/                 # Expo Router screens (file-based routes)
-│   │   ├── _layout.tsx      # Root providers; runs migrations + seed on launch
-│   │   ├── (auth)/          # Sign in / sign up / local-only setup
-│   │   ├── (tabs)/          # Home, Train, Metrics, Nutrition, Explore
-│   │   ├── training/        # Program detail, start flow, editors, workout session
-│   │   ├── calculators/, docs/, progress/   # Tools, knowledge base, photos
-│   │   └── plan.tsx, profile.tsx, notifications.tsx, …
-│   ├── components/
-│   │   ├── ui/              # Shared primitives (Button, Sheet, HoldButton, Stepper, ShareCard…)
-│   │   ├── icons/           # Iconoir barrel — the only icon import surface
-│   │   └── TopBar.tsx       # Floating navbar pill
-│   ├── db/                  # Drizzle schema, SQLite client, generated migrations
-│   ├── features/            # Domain modules: training, auth, sync, plan (export/import),
-│   │                        # notifications, calculators, widget, legal, …
-│   ├── i18n/                # en.ts / es.ts dictionaries + provider
-│   ├── lib/                 # MMKV settings, dates, telemetry, small hooks
-│   ├── test/                # sql.js harness for repo tests
-│   ├── theme/               # Theme tokens + provider
-│   └── global.css           # Tailwind directives + font variables
-├── docs/sync.md             # Sync protocol (mobile half)
-├── assets/images/           # SVG brand sources + generated launcher icons, splash, favicon
-├── tailwind.config.js       # Brand palette (lime accent on cool dark "ink")
-├── drizzle.config.ts        # Drizzle Kit config (SQLite, expo driver)
-├── metro.config.js          # NativeWind + SVG transformer + .sql resolver
-├── babel.config.js          # NativeWind preset + Drizzle inline SQL import
-├── knip.json                # Dead-code / unused-dependency config
-└── app.json                 # Expo app config (icons, plugins, updates)
-```
-
----
-
-## Architecture Notes
-
-The app is offline-first. SQLite on the device is the source of truth; the UI reacts to it
-through Drizzle's `useLiveQuery`, so no global state library is needed. MMKV holds small,
-synchronously-read values (units, theme, caches) and does not replace the relational store.
-
-| Decision                                        | Rationale                                                       |
-| ----------------------------------------------- | --------------------------------------------------------------- |
-| Drizzle over a heavier ORM                      | Thin query builder, generates plain SQL, raw `sql` escape hatch |
-| SQLite live queries over Zustand/TanStack Query | The database drives the UI; fewer moving parts                  |
-| MMKV alongside SQLite                           | Synchronous reads for the hot path; SQLite for relational data  |
-| Bun                                             | Fast installs and scripts; supported by Expo and EAS            |
-
-Database migrations are generated with Drizzle Kit and applied automatically on launch by
-`useMigrations` in the root layout.
-
----
-
-## Scripts
-
-```bash
-bun start              # Start the Metro dev server
-bun run android        # Build + run on Android
-bun run ios            # Build + run on iOS
-bun run web            # Metro for the web target
-bun run verify         # format:check + lint + typecheck + test + i18n:check + deadcode
-bun run test           # vitest — pure-logic units + repo tests on sql.js (real migrations)
-bun run ci             # verify + secrets:scan + doctor — mirrors the GitHub CI quality job (pre-push hook)
-bun run typecheck      # tsc --noEmit
-bun run lint           # ESLint (expo lint)
-bun run format         # Prettier write
-bun run deadcode       # knip — unused files, exports and dependencies (fails the gate)
-bun run i18n:check     # fail on i18n dictionary keys that no source file references
-bun run secrets:scan   # secretlint over the repo
-bun run db:generate    # Generate SQL migrations from the Drizzle schema
-bun run db:studio      # Open Drizzle Studio
-bun run doctor         # expo-doctor health check
-```
-
----
-
-## CI & Release Pipeline
-
-Four workflows in `.github/workflows/`. Every Expo step is guarded on `EXPO_TOKEN` and skips
-cleanly when the secret is absent, so forks and fresh clones do not fail red.
-
-| Workflow             | Trigger                                            | What it does                                                                |
-| -------------------- | -------------------------------------------------- | --------------------------------------------------------------------------- |
-| `ci.yml`             | PR to `main`                                       | `format:check`, `lint`, `typecheck`, `secrets:scan`, `expo-doctor`          |
-| `eas-update.yml`     | push to `main`                                     | Publishes an OTA JS update to the `beta` channel                            |
-| `release-please.yml` | push to `main`                                     | Maintains the release PR; on merge, tags the release and calls the APK job  |
-| `apk-beta.yml`       | `workflow_call` from release-please, or manual run | Cloud-builds the APK and publishes it to the `apk-beta` rolling pre-release |
-
-All four share `.github/actions/setup-repo` (Node 22 + Bun + cached `bun install --frozen-lockfile`).
-
-### Secrets
-
-- **`EXPO_TOKEN`** — Expo access token. Required by `eas-update.yml` and `apk-beta.yml`.
-- **`GITHUB_TOKEN`** — provided by Actions. `apk-beta.yml` scopes it to `contents: write` at the job
-  level so it can upload the release asset; the repo default is read-only.
-
-### Release flow
-
-1. Conventional Commits land on `main`. Each push publishes an OTA update, so JS-only changes reach
-   installed builds without a new APK.
-2. release-please keeps a release PR open with the changelog and the version bumps. It rewrites
-   `package.json`, `CHANGELOG.md` and `app.json` → `$.expo.version` (configured as an `extra-files`
-   jsonpath in `release-please-config.json`).
-3. Merging that PR creates the tag and the GitHub release, which sets `release_created=true` and
-   invokes `apk-beta.yml`.
-4. The APK is built on EAS with the `preview` profile and uploaded to the `apk-beta` pre-release,
-   alongside a `metri.apk.sha256` checksum for manual verification.
-
-Testers see the whole story in the app itself: a dismissable banner on Home routes to `/beta`
-(`src/app/beta.tsx`), which shows the running version, explains automatic vs. manual updates, and
-walks through installing a new APK. Dismissal is stored per version, so the banner returns on the
-next release.
-
-### Load-bearing details
-
-- **`eas build --output` only works for local builds.** On a cloud build the CLI aborts with
-  `--output is allowed only for local builds`. `apk-beta.yml` therefore runs the build with `--json`
-  and downloads `artifacts.applicationArchiveUrl` with `curl`. Do not "simplify" it back to
-  `--output`.
-- **OTA updates target the channel, not the branch.** `eas update --auto` publishes to an EAS branch
-  named after the git branch (`main`), but EAS links a channel to a branch of the _same name_ — so
-  the `beta` channel baked into the APK would never see those updates. Publishing with
-  `--channel beta` lets EAS resolve the branch on its side. Verify the mapping with
-  `eas channel:view beta`.
-- **The channel is baked into the APK at build time.** `eas.json` → `preview` → `channel: beta` is
-  what installed builds listen on. The profile keeps EAS's scaffolding name; the channel is named for
-  what it actually is, a public beta. Renaming the channel orphans every existing install until its
-  owner manually re-downloads, so treat it as immutable once testers are out there.
-- **`runtimeVersion` follows the `fingerprint` policy**, with `fingerprint.config.js` skipping
-  `ExpoConfigVersions` and `ExpoConfigExtraSection`. That combination is deliberate: the app is
-  sideloaded, so nothing pushes a new APK to anyone. Under the old `appVersion` policy every release
-  froze existing installs out of OTA silently. With the fingerprint, the runtime version tracks the
-  _native_ layer only — JS-only releases keep reaching every install, and a native change correctly
-  cuts them off until they grab the new APK. Neither skip is in @expo/fingerprint's defaults:
-  without `ExpoConfigVersions` the release bump alone would change the hash, and without
-  `ExpoConfigExtraSection` the env-dependent `extra.apiUrl` made the _same commit_ produce different
-  runtime versions in different contexts.
-- **The API URL defaults to production.** `app.config.ts` only picks the dev URL (`10.0.2.2`, the
-  emulator's host loopback) when `NODE_ENV` is explicitly `development` — which the Expo dev server
-  sets. The config is also evaluated in contexts with no `NODE_ENV` at all (the EAS builder's
-  manifest step, `eas update` in CI), and the first beta APK shipped pointing at the emulator's
-  localhost because the old code treated "not production" as "development". Belt and braces, the
-  `preview`/`production` build profiles and the OTA workflow also pin `EXPO_PUBLIC_AUTH_URL`.
-- **The `apk-beta` tag and the `metri.apk` asset name are a public contract.** metri.info hard-codes
-  `releases/download/apk-beta/metri.apk`. Renaming either breaks the download page.
-- **The release body is written by hand** (EN + ES install instructions) and must survive rebuilds,
-  so the workflow only replaces the assets (`gh release upload --clobber`) and never edits the notes.
-- **release-please cannot trigger a workflow via `release: published`.** The release is created with
-  `GITHUB_TOKEN`, and GitHub does not fire workflows from token-generated events — hence the explicit
-  `workflow_call`.
-- **Every APK must be signed by the same key.** EAS generates the Android keystore on the first
-  non-interactive cloud build and reuses it after that. An APK signed with a different key cannot be
-  installed over an existing one — testers would have to uninstall first, which erases the local
-  SQLite/MMKV data. Back the keystore up (`eas credentials -p android`).
-
-### Rebuilding the APK without cutting a release
-
-`apk-beta.yml` also exposes a manual button — **Actions → Beta APK → Run workflow** — for refreshing
-the beta download after a fix that does not warrant a version bump.
-
----
-
-## Roadmap
-
-Shipped: domain model and migrations, session logging and history, progress metrics, accounts and
-Premium cloud sync, scheduled programs with the editor redesign.
-
-Next:
-
-1. Curated "Recommended by metri" programs (the section is wired, the seed list is empty).
-2. Navbar titles on nested screens outside training (profile, plan, legal, docs, progress).
-3. Confirm the web sync endpoint accepts the new `workout_days` schedule columns.
-4. Ship the share card in the next APK (it depends on native modules, so OTA cannot deliver it).
+## Documentation
+
+| Document                                           | What it covers                                                                               |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| [`AGENTS.md`](./AGENTS.md)                         | Layout, commands, architecture invariants and conventions for contributors and coding agents |
+| [`docs/android-setup.md`](./docs/android-setup.md) | JDK 17 + Gradle setup on macOS, resetting local data, running wirelessly                     |
+| [`docs/release.md`](./docs/release.md)             | CI workflows, secrets, release flow, OTA vs APK rules                                        |
+| [`docs/sync.md`](./docs/sync.md)                   | Premium cloud sync: protocol, engine invariants, UI indicators                               |
+| [`docs/brand.md`](./docs/brand.md)                 | Logo sources, launcher assets, palette                                                       |
 
 ---
 
