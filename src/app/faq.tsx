@@ -2,15 +2,11 @@ import { Linking, Text, View } from 'react-native';
 
 import { ExternalLinkIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
-import { Button, Card, Screen, ScreenTitle } from '@/components/ui';
+import { Button, Card, Screen, ScreenTitle, SectionLabel, TextLink } from '@/components/ui';
 import { betaLinks } from '@/features/beta/links';
 import { useRouter } from 'expo-router';
 import { useT, type TranslationKey } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
-
-const SectionLabel = ({ text }: { text: string }) => (
-  <Text className="mb-2 mt-7 text-sm font-sans-semibold text-ink-200">{text}</Text>
-);
 
 const QA = ({ q, a }: { q: string; a: string }) => (
   <View>
@@ -55,7 +51,7 @@ const Faq = () => {
       <ScreenTitle title={t('faq.title')} />
 
       {/* Sync ring */}
-      <SectionLabel text={t('faq.ringTitle')} />
+      <SectionLabel label={t('faq.ringTitle')} />
       <Card className="gap-2.5">
         <Text className="text-sm leading-6 text-ink-300">{t('faq.ringBody')}</Text>
         {RING.map(({ color, key }) => (
@@ -67,21 +63,26 @@ const Faq = () => {
       </Card>
 
       {/* Plans */}
-      <SectionLabel text={t('faq.plansTitle')} />
+      <SectionLabel label={t('faq.plansTitle')} />
       <Card className="gap-4">
         <QA q={t('faq.planFreeQ')} a={t('faq.planFreeA')} />
         <QA q={t('faq.planPremiumQ')} a={t('faq.planPremiumA')} />
       </Card>
 
       {/* Web vs mobile */}
-      <SectionLabel text={t('faq.platformsTitle')} />
+      <SectionLabel label={t('faq.platformsTitle')} />
       <Card className="gap-4">
         <QA q={t('faq.webQ')} a={t('faq.webA')} />
         <QA q={t('faq.mobileQ')} a={t('faq.mobileA')} />
+        <TextLink
+          size="base"
+          label={t('faq.fullFaq')}
+          onPress={() => router.push({ pathname: '/docs/[id]', params: { id: 'app-faq' } })}
+        />
       </Card>
 
       {/* Feedback */}
-      <SectionLabel text={t('faq.feedbackTitle')} />
+      <SectionLabel label={t('faq.feedbackTitle')} />
       <Card>
         <Text className="text-sm leading-6 text-ink-300">{t('faq.feedbackBody')}</Text>
         <View className="mt-4">
@@ -94,7 +95,7 @@ const Faq = () => {
       </Card>
 
       {/* Links */}
-      <SectionLabel text={t('faq.linksTitle')} />
+      <SectionLabel label={t('faq.linksTitle')} />
       <View className="gap-2">
         <Button
           label={t('faq.linkWeb')}

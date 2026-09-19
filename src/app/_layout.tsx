@@ -15,6 +15,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
 import { useEffect, useState } from 'react';
 import { LogBox, Text, View } from 'react-native';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { initialWindowMetrics, SafeAreaProvider } from 'react-native-safe-area-context';
@@ -24,6 +25,11 @@ import { db } from '@/db/client';
 import migrations from '@/db/migrations/migrations';
 import { AuthProvider } from '@/features/auth/auth-context';
 import { syncNotificationEvents } from '@/features/notifications/policies';
+import {
+  initRestNotifications,
+  openInitialRestNotification,
+  subscribeRestEvents,
+} from '@/features/notifications/rest-notification';
 import { initNotifications } from '@/features/notifications/service';
 import { seedTraining } from '@/features/training/seed';
 import { I18nProvider, useI18n } from '@/i18n';
@@ -82,6 +88,10 @@ const RootLayout = () => {
     void initNotifications()
       .then(() => syncNotificationEvents())
       .catch(() => {});
+    void initRestNotifications()
+      .then(() => openInitialRestNotification())
+      .catch(() => {});
+    return subscribeRestEvents();
   }, []);
 
   // Seed the built-in training catalog (exercise library + suggested programs)
@@ -119,9 +129,12 @@ const RootLayout = () => {
             <ThemeProvider>
               <AuthProvider>
                 <ToastProvider>
-                  <DialogProvider>
-                    <ThemedStack />
-                  </DialogProvider>
+                  {/* Sheets host here: under the toast, above the stack. */}
+                  <BottomSheetModalProvider>
+                    <DialogProvider>
+                      <ThemedStack />
+                    </DialogProvider>
+                  </BottomSheetModalProvider>
                 </ToastProvider>
               </AuthProvider>
             </ThemeProvider>

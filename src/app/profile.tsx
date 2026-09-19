@@ -117,16 +117,14 @@ const Profile = () => {
     if (user) pushProfile(user);
   };
   const hasMetrics = typeof user.age === 'number';
-  // Every preset shows today's date in that shape, so the choice is concrete.
-  const dateFormatItems: SelectItem<DateFormat>[] = DATE_FORMATS.map((f) => ({
-    value: f,
-    label:
-      f === 'system'
-        ? `${t('dateFormat.system')} · ${formatDate(sampleDate, f, locale)}`
-        : f === 'full'
-          ? `${t('dateFormat.full')} · ${formatDate(sampleDate, f, locale)}`
-          : formatDate(sampleDate, f, locale),
-  }));
+  // Every preset shows today's date in that shape, so the choice is concrete;
+  // names stay one word so the value fits the trigger on narrow phones.
+  const dateFormatItems: SelectItem<DateFormat>[] = DATE_FORMATS.map((f) => {
+    const sample = formatDate(sampleDate, f, locale);
+    const name =
+      f === 'system' ? t('dateFormat.system') : f === 'full' ? t('dateFormat.full') : null;
+    return { value: f, label: name ? `${name} · ${sample}` : sample };
+  });
 
   return (
     <Screen

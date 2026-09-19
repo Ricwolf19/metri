@@ -8,18 +8,12 @@ import {
   MailIcon,
 } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
-import { Button, Card, Screen, ScreenTitle } from '@/components/ui';
+import { Button, Card, Screen, ScreenTitle, SectionLabel } from '@/components/ui';
 import { betaLinks } from '@/features/beta/links';
 import { useRouter } from 'expo-router';
 import { useT } from '@/i18n';
 import { APP_VERSION } from '@/lib/env';
 import { useTheme } from '@/theme/theme-context';
-
-const SectionLabel = ({ text }: { text: string }) => (
-  <Text className="mb-2 mt-7 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
-    {text}
-  </Text>
-);
 
 const Bullet = ({ text }: { text: string }) => (
   <View className="flex-row items-start gap-3">
@@ -85,14 +79,14 @@ const Beta = () => {
       </Card>
 
       {/* Automatic vs manual updates */}
-      <SectionLabel text={t('beta.updatesTitle')} />
+      <SectionLabel label={t('beta.updatesTitle')} />
       <Card className="gap-3">
         <Bullet text={t('beta.updatesAuto')} />
         <Bullet text={t('beta.updatesManual')} />
       </Card>
 
       {/* Manual install walkthrough */}
-      <SectionLabel text={t('beta.installTitle')} />
+      <SectionLabel label={t('beta.installTitle')} />
       <Card className="gap-4">
         <Step n={1} text={t('beta.installStep1')} />
         <Step n={2} text={t('beta.installStep2')} />

@@ -7,11 +7,12 @@ import { TopBar } from '@/components/TopBar';
 import { Card, FadeInUp, GridTile, PressableScale, Screen } from '@/components/ui';
 import { AnnouncementModal } from '@/features/announcements/AnnouncementModal';
 import { useAuth } from '@/features/auth/auth-context';
-import { getQuickAction, type QuickAction } from '@/features/home/quick-actions';
+import { DEFAULT_PINNED, getQuickAction, type QuickAction } from '@/features/home/quick-actions';
 import { LocalModeBanner } from '@/features/plan/LocalModeBanner';
 import { PremiumIntroModal } from '@/features/premium/PremiumIntroModal';
 import { AdherenceCatchupBanner } from '@/features/training/components/AdherenceCatchupBanner';
 import { WeekStrip } from '@/features/training/components/WeekStrip';
+import { DocsPromoBanner } from '@/features/docs/DocsPromoBanner';
 import { WidgetPromoBanner } from '@/features/widget/components/WidgetPromoBanner';
 import { useI18n, useT } from '@/i18n';
 import { settings } from '@/lib/storage';
@@ -27,12 +28,14 @@ const Home = () => {
   const t = useT();
   const { locale } = useI18n();
 
-  // Pinned quick actions live in MMKV; none by default — the invite card below
-  // explains how to add them. Re-read on focus so edits show on return.
-  const [pinnedIds, setPinnedIds] = useState<string[]>(() => settings.getPinnedActions() ?? []);
+  // Pinned quick actions live in MMKV; the starter set shows until the user
+  // customizes (an explicit empty list shows the invite card). Re-read on focus.
+  const [pinnedIds, setPinnedIds] = useState<string[]>(
+    () => settings.getPinnedActions() ?? DEFAULT_PINNED,
+  );
   useFocusEffect(
     useCallback(() => {
-      setPinnedIds(settings.getPinnedActions() ?? []);
+      setPinnedIds(settings.getPinnedActions() ?? DEFAULT_PINNED);
     }, []),
   );
   const pinned = pinnedIds
@@ -63,6 +66,7 @@ const Home = () => {
       </FadeInUp>
 
       <WidgetPromoBanner />
+      <DocsPromoBanner />
 
       {/* Quick access — user-curated shortcuts */}
       <View className="mb-3 mt-8 flex-row items-center justify-between">

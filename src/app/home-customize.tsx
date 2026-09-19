@@ -5,7 +5,7 @@ import { CheckIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import { GridTile, Screen, ScreenTitle } from '@/components/ui';
 import { TOPICS } from '@/features/explore/topics';
-import { getQuickActions, type QuickAction } from '@/features/home/quick-actions';
+import { DEFAULT_PINNED, getQuickActions, type QuickAction } from '@/features/home/quick-actions';
 import { useI18n, useT } from '@/i18n';
 import { settings } from '@/lib/storage';
 
@@ -28,7 +28,9 @@ const PinBadge = ({ active }: { active: boolean }) => (
 const HomeCustomize = () => {
   const t = useT();
   const { locale } = useI18n();
-  const [pinned, setPinned] = useState<string[]>(() => settings.getPinnedActions() ?? []);
+  const [pinned, setPinned] = useState<string[]>(
+    () => settings.getPinnedActions() ?? DEFAULT_PINNED,
+  );
 
   const catalogue = getQuickActions(locale);
 

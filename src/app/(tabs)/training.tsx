@@ -121,7 +121,7 @@ const Training = () => {
       {!loaded ? (
         <View className="gap-3">
           <Skeleton className="h-40" />
-          <Skeleton className="h-44" />
+          <Skeleton className="h-40" />
         </View>
       ) : null}
 

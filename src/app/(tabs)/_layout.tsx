@@ -31,6 +31,7 @@ import { useAutoSync } from '@/features/sync/useAutoSync';
 import { useWidgetSync } from '@/features/widget/useWidgetSync';
 import { useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
+import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 
 const TAB_BAR = {
   dark: { active: '#bef82b', inactive: '#71717a', pill: 'rgba(190,248,43,0.13)' },
@@ -129,7 +130,12 @@ const FloatingTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) =
             className="flex-1 items-center rounded-full py-0.5"
           >
             {options.tabBarIcon?.({ focused, color, size: 20 })}
-            <Text style={{ color }} className="mt-0.5 font-sans-medium text-[9px]">
+            <Text
+              style={{ color }}
+              numberOfLines={1}
+              maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+              className="mt-0.5 font-sans-medium text-[9px]"
+            >
               {options.title}
             </Text>
           </Pressable>

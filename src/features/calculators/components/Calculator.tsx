@@ -11,6 +11,7 @@ import {
   ScreenTitle,
   SegmentedControl,
   Select,
+  TextLink,
   useToast,
 } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
@@ -314,9 +315,16 @@ export const Calculator = ({ id, docId }: { id: CalcId; docId?: string }) => {
           <Text className="mb-2 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
             {t('calc.formula')}
           </Text>
-          <Card padded className="bg-ink-850">
-            <Text className="font-mono text-xs leading-5 text-ink-200">{content.formula}</Text>
+          <Card padded surface="sunken">
+            <Text className="font-mono text-[13px] leading-5 text-ink-100">{content.formula}</Text>
           </Card>
+          {docId ? (
+            <TextLink
+              className="mt-2"
+              label={t('calc.readGuide')}
+              onPress={() => router.push({ pathname: '/docs/[id]', params: { id: docId } })}
+            />
+          ) : null}
         </View>
       ) : null}
       <Section title={t('calc.howTitle')} paragraphs={content.how} />
