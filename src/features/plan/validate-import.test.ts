@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { validateImport } from './validate-import';
 
 // Builder: a valid v2 document; each case overrides only what it breaks.
+// v3 differs only by an export-only `progressPhotos` key, so both must pass.
 const doc = (data: Record<string, unknown> = {}, overrides: Record<string, unknown> = {}) => ({
   app: 'metri',
   exportVersion: 2,
@@ -17,6 +18,7 @@ describe('validateImport — envelope', () => {
     ['wrong app', doc({}, { app: 'other' }), 'invalid'],
     ['missing version', doc({}, { exportVersion: undefined }), 'invalid'],
     ['old version', doc({}, { exportVersion: 1 }), 'version'],
+    ['future version', doc({}, { exportVersion: 4 }), 'version'],
     ['data not an object', doc({}, { data: 'x' }), 'invalid'],
     ['table not an array', doc({ programs: {} }), 'invalid'],
   ])('rejects %s', (_, input, reason) => {
@@ -26,6 +28,18 @@ describe('validateImport — envelope', () => {
   it('accepts a valid document and treats absent tables as empty', () => {
     expect(validateImport(doc({ programs: [{ id: 'p1', name: 'PPL' }] }))).toEqual({ ok: true });
     expect(validateImport(doc())).toEqual({ ok: true });
+  });
+
+  it.each([2, 3])('accepts export version %i', (exportVersion) => {
+    expect(validateImport(doc({}, { exportVersion }))).toEqual({ ok: true });
+  });
+
+  it('ignores the export-only progressPhotos key a v3 file carries', () => {
+    const v3 = doc(
+      { progressPhotos: [{ id: 'ph1', takenAt: 0, weightKg: 80, note: null }] },
+      { exportVersion: 3 },
+    );
+    expect(validateImport(v3)).toEqual({ ok: true });
   });
 });
 

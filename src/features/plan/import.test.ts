@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   exercises,
   programs,
+  progressPhotos,
   routines,
   setLogs,
   trainingDays,
@@ -133,6 +134,62 @@ describe('validateImport against a real export', () => {
     seedWorld(U1);
     const doc = JSON.parse(JSON.stringify(buildExport(U1)));
     expect(validateImport(doc)).toEqual({ ok: true });
+  });
+});
+
+describe('buildExport — data freedom guarantees', () => {
+  beforeEach(() => {
+    wipe();
+    db.delete(progressPhotos).run();
+    seedWorld(U1);
+  });
+
+  it('ships photo metadata but never the on-device file paths', () => {
+    db.insert(progressPhotos)
+      .values({
+        id: `${U1}-ph`,
+        userId: U1,
+        uri: 'file:///data/user/0/app/photo.jpg',
+        thumbUri: 'file:///data/user/0/app/thumb.jpg',
+        takenAt: new Date('2026-09-01T08:00:00Z'),
+        weightKg: 80.5,
+        note: 'morning',
+      })
+      .run();
+
+    const doc = JSON.parse(JSON.stringify(buildExport(U1)));
+
+    expect(doc.exportVersion).toBe(3);
+    expect(doc.data.progressPhotos).toHaveLength(1);
+    const [photo] = doc.data.progressPhotos;
+    // The weight/date timeline is extractable...
+    expect(photo).toMatchObject({ weightKg: 80.5, note: 'morning' });
+    // ...while the binaries and their device paths stay on the device.
+    expect(photo).not.toHaveProperty('uri');
+    expect(photo).not.toHaveProperty('thumbUri');
+    expect(JSON.stringify(doc)).not.toContain('file:///');
+  });
+
+  it('round-trips into another LOCAL user — export never requires an account', () => {
+    const local2 = 'u-local-2';
+    db.insert(users).values({ id: local2, email: null, authKind: 'local' }).run();
+
+    const doc = JSON.parse(JSON.stringify(buildExport(U1)));
+    expect(validateImport(doc)).toEqual({ ok: true });
+    const summary = importUserData(local2, doc);
+
+    expect(summary.programs).toBe(1);
+    const [prog] = db.select().from(programs).where(eq(programs.userId, local2)).all();
+    expect(prog.id).not.toBe(`${U1}-p`);
+  });
+
+  it('still imports a v2 file, which has no progressPhotos key', () => {
+    const v3 = JSON.parse(JSON.stringify(buildExport(U1)));
+    const { progressPhotos: _dropped, ...data } = v3.data;
+    const v2 = { ...v3, exportVersion: 2, data };
+
+    expect(validateImport(v2)).toEqual({ ok: true });
+    expect(importUserData(U1, v2).programs).toBe(1);
   });
 });
 

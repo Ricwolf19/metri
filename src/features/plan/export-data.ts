@@ -2,8 +2,10 @@ import { eq, inArray, isNull, and } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import {
+  bodyMetrics,
   exercises,
   programs,
+  progressPhotos,
   reminders,
   routines,
   setLogs,
@@ -16,10 +18,14 @@ import {
   workoutLogs,
 } from '@/db/schema';
 
-const EXPORT_VERSION = 2;
+const EXPORT_VERSION = 3;
 
 /** Everything the user owns as one JSON document. Identity/entitlement fields and device paths are
- * excluded; ids ship for in-file integrity and are regenerated on import. */
+ * excluded; ids ship for in-file integrity and are regenerated on import.
+ *
+ * `progressPhotos` carries **metadata only** (the image files never leave the device, and the
+ * on-disk paths are meaningless elsewhere). It ships so the weight/date timeline is extractable —
+ * it is deliberately absent from IMPORT_TABLES, since a row without its file is unusable. */
 export const buildExport = (userId: string) => {
   const [u] = db.select().from(users).where(eq(users.id, userId)).all();
 
@@ -95,6 +101,17 @@ export const buildExport = (userId: string) => {
         : [],
       trainingDays: db.select().from(trainingDays).where(eq(trainingDays.userId, userId)).all(),
       reminders: db.select().from(reminders).where(eq(reminders.userId, userId)).all(),
+      bodyMetrics: db.select().from(bodyMetrics).where(eq(bodyMetrics.userId, userId)).all(),
+      progressPhotos: db
+        .select({
+          id: progressPhotos.id,
+          takenAt: progressPhotos.takenAt,
+          weightKg: progressPhotos.weightKg,
+          note: progressPhotos.note,
+        })
+        .from(progressPhotos)
+        .where(eq(progressPhotos.userId, userId))
+        .all(),
     },
   };
 };

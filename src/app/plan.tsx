@@ -17,8 +17,13 @@ import { useTheme } from '@/theme/theme-context';
 const CONTACT_EMAIL = 'rhtc19@gmail.com';
 
 const TIER_BULLETS: Record<Tier, TranslationKey[]> = {
-  local: ['plan.bulletAllFree', 'plan.bulletDeviceOnly', 'plan.bulletNoBackup'],
-  free: ['plan.bulletSecurity', 'plan.bulletExportImport', 'plan.bulletWebPerks'],
+  local: [
+    'plan.bulletAllFree',
+    'plan.bulletExportImport',
+    'plan.bulletDeviceOnly',
+    'plan.bulletNoBackup',
+  ],
+  free: ['plan.bulletSecurity', 'plan.bulletWebPerks'],
   premium: ['plan.bulletSync', 'plan.bulletDevices', 'plan.bulletFuture'],
 };
 
@@ -55,14 +60,15 @@ const TierCard = ({ cardTier, current }: { cardTier: Tier; current: boolean }) =
   );
 };
 
-/** Plan hub: current tier, what each tier adds, export/import + AI import prompt (server accounts).
- * Local users see the tools gated with an explanation, never a paywall — the app is fully free. */
+/** Plan hub: current tier, what each tier adds, export/import + AI import prompt.
+ * Export and import are unconditional — no account, no tier. The user's data is never held
+ * hostage; sync is the only paid capability (@see entitlements.ts). */
 const Plan = () => {
   const t = useT();
   const { brand } = useTheme();
   const { locale } = useI18n();
   const router = useRouter();
-  const { user, tier, isPremium, hasServerAccount } = useAuth();
+  const { user, tier, isPremium } = useAuth();
   const toast = useToast();
 
   const onExport = async () => {
@@ -110,47 +116,30 @@ const Plan = () => {
       <Text className="mb-2 mt-8 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
         {t('plan.dataTitle')}
       </Text>
-      {hasServerAccount ? (
-        <View className="gap-3">
-          <Card>
-            <Text className="text-base font-sans-semibold text-ink-50">
-              {t('plan.exportTitle')}
-            </Text>
-            <Text className="mt-1 text-sm leading-6 text-ink-400">{t('plan.exportBody')}</Text>
-            <View className="mt-4">
-              <Button label={t('premium.exportCta')} variant="secondary" onPress={onExport} />
-            </View>
-          </Card>
-          <Card>
-            <Text className="text-base font-sans-semibold text-ink-50">
-              {t('plan.importTitle')}
-            </Text>
-            <View className="mt-3">
-              <ImportPanel userId={user?.id ?? ''} />
-            </View>
-          </Card>
-          <Card>
-            <Text className="text-base font-sans-semibold text-ink-50">
-              {t('plan.aiPromptTitle')}
-            </Text>
-            <Text className="mt-1 text-sm leading-6 text-ink-400">{t('plan.aiPromptBody')}</Text>
-            <View className="mt-4">
-              <Button label={t('plan.aiPromptCopy')} variant="secondary" onPress={onCopyPrompt} />
-            </View>
-          </Card>
-        </View>
-      ) : (
+      <View className="gap-3">
         <Card>
-          <Text className="text-sm leading-6 text-ink-300">{t('plan.localGateBody')}</Text>
+          <Text className="text-base font-sans-semibold text-ink-50">{t('plan.exportTitle')}</Text>
+          <Text className="mt-1 text-sm leading-6 text-ink-400">{t('plan.exportBody')}</Text>
           <View className="mt-4">
-            <Button
-              label={t('profile.createAccountCta')}
-              variant="secondary"
-              onPress={() => router.push('/(auth)/sign-up')}
-            />
+            <Button label={t('premium.exportCta')} variant="secondary" onPress={onExport} />
           </View>
         </Card>
-      )}
+        <Card>
+          <Text className="text-base font-sans-semibold text-ink-50">{t('plan.importTitle')}</Text>
+          <View className="mt-3">
+            <ImportPanel userId={user?.id ?? ''} />
+          </View>
+        </Card>
+        <Card>
+          <Text className="text-base font-sans-semibold text-ink-50">
+            {t('plan.aiPromptTitle')}
+          </Text>
+          <Text className="mt-1 text-sm leading-6 text-ink-400">{t('plan.aiPromptBody')}</Text>
+          <View className="mt-4">
+            <Button label={t('plan.aiPromptCopy')} variant="secondary" onPress={onCopyPrompt} />
+          </View>
+        </Card>
+      </View>
 
       {/* How to get Premium (beta: manual grant) */}
       {isPremium ? null : (

@@ -11,7 +11,7 @@ _Last updated: September 2026._
 
 ## Privacy
 
-metri is **free and open source**, and **no account is required**: local mode runs the full app with your data only on this phone — we store nothing about you at all. A **free account** (email and password, or Google / GitHub) is optional; it adds account security, lets you export/import your data between devices, and restores your profile on reinstall. If you create one, we store your email and name to identify it. Creating an account later keeps everything you logged locally. There is no payment, no card and no trial for any of this.
+metri is **free and open source**, and **no account is required**: local mode runs the full app with your data only on this phone — we store nothing about you at all. Exporting and importing your data is always available — no account, no Premium. A **free account** (email and password) is optional; it adds account security and restores your profile on reinstall. If you create one, we store your email and name to identify it. Creating an account later keeps everything you logged locally. There is no payment, no card and no trial for any of this.
 
 With or without an account, metri is **offline-first**. Your profile, body metrics, reminders, training history and progress photos live **only on this device** — in a local database and local files. We do **not** sell your data.
 
@@ -46,7 +46,7 @@ _Última actualización: septiembre de 2026._
 
 ## Privacidad
 
-metri es **gratis y open source**, y **no requiere cuenta**: el modo local ejecuta la app completa con tus datos solo en este teléfono — no guardamos absolutamente nada sobre ti. Una **cuenta gratuita** (correo y contraseña, o Google / GitHub) es opcional; añade seguridad, te permite exportar/importar tus datos entre dispositivos y restaura tu perfil al reinstalar. Si la creas, guardamos tu correo y tu nombre para identificarla. Crear la cuenta después conserva todo lo que registraste localmente. No hay pagos, ni tarjeta, ni periodo de prueba para nada de esto.
+metri es **gratis y open source**, y **no requiere cuenta**: el modo local ejecuta la app completa con tus datos solo en este teléfono — no guardamos absolutamente nada sobre ti. Exportar e importar tus datos está siempre disponible — sin cuenta y sin Premium. Una **cuenta gratuita** (correo y contraseña) es opcional; añade seguridad y restaura tu perfil al reinstalar. Si la creas, guardamos tu correo y tu nombre para identificarla. Crear la cuenta después conserva todo lo que registraste localmente. No hay pagos, ni tarjeta, ni periodo de prueba para nada de esto.
 
 Con o sin cuenta, metri es **offline-first**. Tu perfil, métricas corporales, recordatorios, historial de entrenamiento y fotos de progreso viven **solo en este dispositivo** — en una base de datos y archivos locales. **No** vendemos tus datos.
 

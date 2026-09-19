@@ -2,6 +2,7 @@ import { getTableColumns } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import {
+  bodyMetrics,
   exercises,
   programs,
   reminders,
@@ -31,6 +32,7 @@ const TABLES: Record<ImportTable, Parameters<typeof getTableColumns>[0]> = {
   setLogs,
   trainingDays,
   reminders,
+  bodyMetrics,
 };
 
 type Row = Record<string, unknown>;
@@ -95,9 +97,10 @@ export const importUserData = (
         }
 
         const insert = tx.insert(schema).values(value as never);
-        // training_days is unique per (user, date) — skip days already logged.
-        if (table === 'trainingDays') insert.onConflictDoNothing().run();
-        else insert.run();
+        // Unique per (user, date) — an existing day always wins over the file.
+        if (table === 'trainingDays' || table === 'bodyMetrics') {
+          insert.onConflictDoNothing().run();
+        } else insert.run();
         summary[table] += 1;
       }
     }

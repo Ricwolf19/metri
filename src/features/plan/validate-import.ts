@@ -6,6 +6,10 @@ type ImportIssue = { table: string; index: number; field: string };
 export type ImportValidation =
   { ok: true } | { ok: false; reason: 'invalid' | 'version'; issues?: ImportIssue[] };
 
+/** Versions this build can restore. v3 only *adds* export-only `progressPhotos` metadata, so a v2
+ * file is still a valid v3 minus that key — both import identically. */
+const SUPPORTED_IMPORT_VERSIONS = [2, 3] as const;
+
 export const IMPORT_TABLES = [
   'exercises',
   'programs',
@@ -18,6 +22,7 @@ export const IMPORT_TABLES = [
   'setLogs',
   'trainingDays',
   'reminders',
+  'bodyMetrics',
 ] as const;
 
 export type ImportTable = (typeof IMPORT_TABLES)[number];
@@ -40,6 +45,7 @@ const REQUIRED: Record<ImportTable, FieldSpec> = {
   setLogs: { workoutLogId: 'string', exerciseId: 'string', weightKg: 'number', reps: 'number' },
   trainingDays: { date: 'string', status: ['trained', 'rest', 'skipped'] },
   reminders: { title: 'string' },
+  bodyMetrics: { date: 'string' },
 };
 
 const rowIssues = (table: ImportTable, row: unknown, index: number): ImportIssue[] => {
@@ -63,7 +69,9 @@ export const validateImport = (raw: unknown): ImportValidation => {
   if (doc.app !== 'metri' || typeof doc.exportVersion !== 'number') {
     return { ok: false, reason: 'invalid' };
   }
-  if (doc.exportVersion !== 2) return { ok: false, reason: 'version' };
+  if (!SUPPORTED_IMPORT_VERSIONS.includes(doc.exportVersion as 2 | 3)) {
+    return { ok: false, reason: 'version' };
+  }
   if (typeof doc.data !== 'object' || doc.data === null) return { ok: false, reason: 'invalid' };
 
   const data = doc.data as Record<string, unknown>;
