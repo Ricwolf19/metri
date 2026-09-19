@@ -33,11 +33,11 @@ export const TOPICS: ExploreTopic[] = [
   {
     key: 'explore.topicCardio',
     calcs: ['heartrate'],
-    docCategories: ['recovery'],
+    docCategories: ['recovery', 'cardio'],
   },
   {
     key: 'explore.topicBasics',
     calcs: [],
-    docCategories: ['getting-started', 'calculators', 'glossary'],
+    docCategories: ['getting-started', 'app', 'calculators', 'glossary'],
   },
 ];

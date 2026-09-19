@@ -1,8 +1,11 @@
 export type DocCategory =
   | 'getting-started'
+  /** Using the app itself: modules, tips, UI conventions, FAQ. */
+  | 'app'
   | 'calculators'
   | 'nutrition'
   | 'training'
+  | 'cardio'
   | 'recovery'
   | 'supplements'
   | 'progress'

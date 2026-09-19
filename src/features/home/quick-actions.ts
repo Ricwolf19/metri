@@ -1,7 +1,7 @@
 import type { Href } from 'expo-router';
 import type { ComponentType } from 'react';
 
-import { BookIcon, CameraIcon, type IconProps } from '@/components/icons';
+import { BookIcon, CameraIcon, DumbbellIcon, type IconProps } from '@/components/icons';
 import { CALC_META, calcShortTitle } from '@/features/calculators/registry';
 import { getDocs } from '@/features/docs';
 import type { Locale } from '@/i18n';
@@ -35,6 +35,15 @@ const LEGACY_IDS: Record<string, string> = {
   ffmi: 'calc-ffmi',
 };
 
+/** What Home shows until the user customizes: the four starter guides + the exercise library. */
+export const DEFAULT_PINNED = [
+  'doc-welcome',
+  'doc-measuring-progress',
+  'doc-macros',
+  'doc-progressive-overload',
+  'exercises',
+];
+
 export const getQuickActions = (locale: Locale): QuickAction[] => [
   ...CALC_META.map(({ id, icon }) => ({
     id: `calc-${id}`,
@@ -51,6 +60,13 @@ export const getQuickActions = (locale: Locale): QuickAction[] => [
     kind: 'doc' as const,
     docCategory: doc.category,
   })),
+  {
+    id: 'exercises',
+    title: locale === 'es' ? 'Ejercicios' : 'Exercises',
+    href: '/training/exercises',
+    icon: DumbbellIcon,
+    kind: 'other' as const,
+  },
   {
     id: 'progress',
     title: locale === 'es' ? 'Fotos de progreso' : 'Progress photos',
