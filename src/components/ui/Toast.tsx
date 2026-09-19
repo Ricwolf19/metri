@@ -59,7 +59,7 @@ type ToastContextValue = {
 const ToastContext = createContext<ToastContextValue | null>(null);
 
 // Notification-like: long enough to read and act on; swipe dismisses sooner.
-const DURATION_MS = 10_000;
+const DURATION_MS = 7_500;
 
 // Swipe-release thresholds: distance or flick velocity dismisses.
 const DISMISS_DX = 80;

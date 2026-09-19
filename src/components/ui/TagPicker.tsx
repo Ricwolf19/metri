@@ -8,6 +8,8 @@ import { Button } from './Button';
 import { ScrollArea } from './ScrollArea';
 import { Sheet } from './Sheet';
 
+import { CONTROL_FONT_SCALE } from './typography';
+
 type TagItem = { value: string; label: string };
 export type TagSection = { title: string; items: TagItem[] };
 
@@ -58,18 +60,29 @@ export const TagPicker = ({ label, sections, value, onChange, placeholder, doneL
           <View className="flex-1 flex-row flex-wrap gap-1.5">
             {selected.map((v) => (
               <View key={v} className="rounded-full bg-brand/15 px-2.5 py-1">
-                <Text className="text-xs font-sans-medium text-brand">{labelOf.get(v)}</Text>
+                <Text
+                  maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+                  className="text-xs font-sans-medium text-brand"
+                >
+                  {labelOf.get(v)}
+                </Text>
               </View>
             ))}
           </View>
         ) : (
-          <Text className="flex-1 text-base text-ink-400">{placeholder ?? ''}</Text>
+          <Text
+            numberOfLines={1}
+            maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+            className="flex-1 text-base text-ink-400"
+          >
+            {placeholder ?? ''}
+          </Text>
         )}
         <ChevronDownIcon color="#71717a" size={18} />
       </Pressable>
 
       <Sheet visible={open} onClose={() => setOpen(false)}>
-        <ScrollArea maxHeight={420}>
+        <ScrollArea inSheet>
           {sections.map((section) => (
             <View key={section.title} className="mb-2">
               <Text className="mb-1 mt-2 px-2 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
@@ -99,10 +112,10 @@ export const TagPicker = ({ label, sections, value, onChange, placeholder, doneL
               })}
             </View>
           ))}
+          <View className="mt-3">
+            <Button variant="brand" label={doneLabel} onPress={done} />
+          </View>
         </ScrollArea>
-        <View className="mt-3">
-          <Button variant="brand" label={doneLabel} onPress={done} />
-        </View>
       </Sheet>
     </View>
   );

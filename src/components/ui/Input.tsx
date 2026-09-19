@@ -1,6 +1,8 @@
 import { forwardRef, useEffect, useRef, useState } from 'react';
 import { Pressable, Text, TextInput, View, type TextInputProps } from 'react-native';
 
+import { CONTROL_FONT_SCALE } from './typography';
+
 type Props = TextInputProps & {
   label?: string;
   error?: string;
@@ -72,7 +74,10 @@ export const Input = forwardRef<TextInput, Props>(function Input(
   return (
     <View className="w-full">
       {label ? (
-        <Text className="mb-1.5 font-mono-medium text-xs uppercase tracking-wider text-ink-300">
+        <Text
+          maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+          className="mb-1.5 font-mono-medium text-xs uppercase tracking-wider text-ink-300"
+        >
           {label}
         </Text>
       ) : null}
@@ -92,6 +97,7 @@ export const Input = forwardRef<TextInput, Props>(function Input(
       >
         <TextInput
           ref={ref}
+          maxFontSizeMultiplier={CONTROL_FONT_SCALE}
           placeholderTextColor="#71717a"
           selectionColor="#bef82b"
           // Masking happens in JS above; the native flag would hide the tail too.

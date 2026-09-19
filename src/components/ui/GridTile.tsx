@@ -5,6 +5,8 @@ import { Pressable, Text, View } from 'react-native';
 import type { IconProps } from '@/components/icons';
 import { useTheme } from '@/theme/theme-context';
 
+import { CONTROL_FONT_SCALE } from './typography';
+
 export type Tile = {
   id: string;
   title: string;
@@ -42,7 +44,11 @@ export const GridTile = ({ tile }: { tile: Tile }) => {
         </View>
         {tile.badge}
       </View>
-      <Text numberOfLines={2} className="mt-3 text-sm font-sans-semibold leading-5 text-ink-50">
+      <Text
+        numberOfLines={2}
+        maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+        className="mt-3 min-h-10 text-sm font-sans-semibold leading-5 text-ink-50"
+      >
         {tile.title}
       </Text>
     </Pressable>

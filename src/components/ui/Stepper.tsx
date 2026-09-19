@@ -3,6 +3,8 @@ import { Pressable, Text, View } from 'react-native';
 import { MinusIcon, PlusIcon } from '@/components/icons';
 import { useTheme } from '@/theme/theme-context';
 
+import { CONTROL_FONT_SCALE } from './typography';
+
 type Props = {
   label?: string;
   value: number;
@@ -51,7 +53,10 @@ export const Stepper = ({
         >
           <MinusIcon color={brand} size={18} />
         </Pressable>
-        <Text className="min-w-14 text-center text-xl font-sans-bold text-ink-50">
+        <Text
+          maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+          className="min-w-14 text-center text-xl font-sans-bold text-ink-50"
+        >
           {format(value)}
         </Text>
         <Pressable

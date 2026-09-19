@@ -13,8 +13,11 @@ remapProps(KeyboardAwareScrollView, {
   contentContainerClassName: 'contentContainerStyle',
 });
 
-/** Content clearance under the floating pill: offset 2 + pill 58 + gap; pill bottom = insets.top + HEADER_PILL_BOTTOM. */
+/** Content clearance under the floating pill: offset 2 + pill 52–58 + gap; pill bottom = insets.top + HEADER_PILL_BOTTOM.
+ * Scroll screens keep it tight so content slides under the pill; static screens (list editors,
+ * own scroll views) cannot, so they get the full gap. */
 const HEADER_CLEARANCE = 66;
+const HEADER_CLEARANCE_STATIC = HEADER_CLEARANCE + 12;
 /** Bottom edge of the floating pill (toasts anchor to it). */
 export const HEADER_PILL_BOTTOM = 60;
 
@@ -67,7 +70,9 @@ export const Screen = ({
     };
   }, [shown, insets.top]);
 
-  const clearance = floating ? <View style={{ height: HEADER_CLEARANCE }} /> : null;
+  const clearance = floating ? (
+    <View style={{ height: scroll ? HEADER_CLEARANCE : HEADER_CLEARANCE_STATIC }} />
+  ) : null;
 
   const body = scroll ? (
     <KeyboardAwareScrollView

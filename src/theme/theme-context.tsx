@@ -23,6 +23,8 @@ type ThemeContextValue = {
   brand: string;
   /** Text/icon color that sits on a brand fill. */
   brandContrast: string;
+  /** Muted icon color (ink-400) for chevrons and secondary glyphs. */
+  muted: string;
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -76,6 +78,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       accent: scheme === 'dark' ? '#bef82b' : '#65a30d',
       brand: scheme === 'dark' ? '#bef82b' : '#4d7c0f',
       brandContrast: scheme === 'dark' ? '#08090d' : '#f7fee7',
+      muted: '#71717a',
     };
   }, [preference, scheme, setPreference]);
 

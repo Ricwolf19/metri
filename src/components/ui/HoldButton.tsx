@@ -11,6 +11,8 @@ import Animated, {
 
 import { useT } from '@/i18n';
 
+import { CONTROL_FONT_SCALE } from './typography';
+
 type Variant = 'danger' | 'secondary';
 type Size = 'sm' | 'md';
 
@@ -109,7 +111,12 @@ export const HoldButton = ({
       {chip ? (
         icon
       ) : (
-        <Text className={['text-sm font-sans-semibold', LABEL[variant]].join(' ')}>{label}</Text>
+        <Text
+          maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+          className={['text-sm font-sans-semibold', LABEL[variant]].join(' ')}
+        >
+          {label}
+        </Text>
       )}
     </Pressable>
   );

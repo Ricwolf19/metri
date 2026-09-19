@@ -4,6 +4,8 @@ import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { usePressScale } from '@/lib/usePressScale';
 import { useTheme } from '@/theme/theme-context';
 
+import { CONTROL_FONT_SCALE } from './typography';
+
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 type Variant = 'brand' | 'secondary' | 'outline' | 'ghost' | 'danger';
@@ -102,6 +104,7 @@ export const Button = ({
         <>
           {leftIcon ? <View className="mr-2">{leftIcon}</View> : null}
           <Text
+            maxFontSizeMultiplier={CONTROL_FONT_SCALE}
             className={[
               'shrink text-center',
               'font-sans-semibold',

@@ -9,6 +9,7 @@ import { SyncRing } from '@/features/sync/SyncRing';
 import { HeaderMenu } from './HeaderMenu';
 import { BookIcon, ChevronLeftIcon, FlaskIcon, HelpIcon } from './icons';
 import { Avatar } from './ui/Avatar';
+import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 
 type Props = {
   showBack?: boolean;
@@ -124,6 +125,7 @@ export const TopBar = ({
         <View className="min-w-0 flex-1 justify-center">
           <Text
             numberOfLines={1}
+            maxFontSizeMultiplier={CONTROL_FONT_SCALE}
             accessibilityRole="header"
             className={[
               'font-sans-semibold text-ink-50',
@@ -133,7 +135,11 @@ export const TopBar = ({
             {title}
           </Text>
           {subtitle ? (
-            <Text numberOfLines={1} className="text-[11px] leading-[14px] text-ink-400">
+            <Text
+              numberOfLines={1}
+              maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+              className="text-[11px] leading-[14px] text-ink-400"
+            >
               {subtitle}
             </Text>
           ) : null}

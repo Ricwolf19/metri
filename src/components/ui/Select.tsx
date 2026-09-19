@@ -6,6 +6,7 @@ import { useTheme } from '@/theme/theme-context';
 
 import { ScrollArea } from './ScrollArea';
 import { Sheet } from './Sheet';
+import { CONTROL_FONT_SCALE } from './typography';
 
 export type SelectItem<T extends string> = { value: T; label: string };
 
@@ -17,12 +18,11 @@ type Props<T extends string> = {
   placeholder?: string;
 };
 
-const LIST_MAX_HEIGHT = 380;
-
 /**
  * Themed dropdown for fields with more options than fit a SegmentedControl
- * (e.g. activity level, MET activity). Trigger mirrors the Input surface; the
- * option list opens in a bottom sheet and hints when it scrolls.
+ * (e.g. activity level, MET activity). Trigger mirrors the Input surface and
+ * clamps the value to one line; the option list opens in a bottom sheet (labels
+ * may wrap there) and hints when it scrolls.
  */
 export const Select = <T extends string>({
   label,
@@ -32,13 +32,16 @@ export const Select = <T extends string>({
   placeholder,
 }: Props<T>) => {
   const [open, setOpen] = useState(false);
-  const { brand } = useTheme();
+  const { brand, muted } = useTheme();
   const selected = items.find((i) => i.value === value);
 
   return (
     <View className="w-full">
       {label ? (
-        <Text className="mb-1.5 font-mono-medium text-xs uppercase tracking-wider text-ink-300">
+        <Text
+          maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+          className="mb-1.5 font-mono-medium text-xs uppercase tracking-wider text-ink-300"
+        >
           {label}
         </Text>
       ) : null}
@@ -47,21 +50,29 @@ export const Select = <T extends string>({
         onPress={() => setOpen(true)}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
-        className="h-11 w-full flex-row items-center justify-between rounded-field border border-ink-600 bg-ink-900 px-4"
+        className="min-h-11 w-full flex-row items-center rounded-field border border-ink-600 bg-ink-900 px-4 py-2.5"
       >
-        <Text className={selected ? 'text-base text-ink-50' : 'text-base text-ink-400'}>
+        <Text
+          numberOfLines={1}
+          maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+          className={['min-w-0 flex-1 text-base', selected ? 'text-ink-50' : 'text-ink-400'].join(
+            ' ',
+          )}
+        >
           {selected?.label ?? placeholder ?? ''}
         </Text>
-        <ChevronDownIcon color="#71717a" size={18} />
+        <View className="ml-2 shrink-0">
+          <ChevronDownIcon color={muted} size={18} />
+        </View>
       </Pressable>
 
       <Sheet visible={open} onClose={() => setOpen(false)}>
-        {label ? (
-          <Text className="mb-1 px-2 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
-            {label}
-          </Text>
-        ) : null}
-        <ScrollArea maxHeight={LIST_MAX_HEIGHT}>
+        <ScrollArea inSheet>
+          {label ? (
+            <Text className="mb-1 px-2 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
+              {label}
+            </Text>
+          ) : null}
           {items.map((item) => {
             const active = item.value === value;
             return (
@@ -77,7 +88,7 @@ export const Select = <T extends string>({
               >
                 <Text
                   className={[
-                    'text-base',
+                    'flex-1 pr-3 text-base',
                     active ? 'font-sans-semibold text-ink-50' : 'text-ink-200',
                   ].join(' ')}
                 >

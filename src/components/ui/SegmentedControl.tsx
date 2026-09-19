@@ -1,5 +1,7 @@
 import { Pressable, Text, View } from 'react-native';
 
+import { CONTROL_FONT_SCALE } from './typography';
+
 export type Segment<T extends string> = { value: T; label: string };
 
 type Props<T extends string> = {
@@ -41,6 +43,7 @@ export const SegmentedControl = <T extends string>({
                   "Muy activo") never wrap mid-word on narrow screens. */}
               <Text
                 numberOfLines={1}
+                maxFontSizeMultiplier={CONTROL_FONT_SCALE}
                 adjustsFontSizeToFit
                 minimumFontScale={0.7}
                 style={{ textAlign: 'center' }}
