@@ -27,9 +27,13 @@ import { PROGRAM_SEEDS, type ProgramSeed } from './programs';
  *
  * All seeded rows are TEMPLATES (`userProgramId` null, `userId` null).
  * Enrolling deep-copies them into user-owned rows.
+ *
+ * v5 rewrites catalog muscle values onto the canonical `MuscleHead` vocabulary
+ * (`quadriceps`→`quads`, `core`→`abs`). `seedExercises` refreshes those columns
+ * on conflict, so the bump alone migrates existing installs — no id changes.
  */
 const SEED_KEY = 'training_seed_version';
-const SEED_VERSION = '4';
+const SEED_VERSION = '5';
 
 const alreadySeeded = (): boolean => {
   const [row] = db.select().from(appMeta).where(eq(appMeta.key, SEED_KEY)).all();

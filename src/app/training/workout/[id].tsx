@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { useKeepAwake } from 'expo-keep-awake';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
@@ -23,6 +23,11 @@ import { useAuth } from '@/features/auth/auth-context';
 import { lbToKg } from '@/features/bmr/calc';
 import { fromKg } from '@/features/training/progression';
 import { RestTimer } from '@/features/training/components/RestTimer';
+import { endRest, extendRest, startRest } from '@/features/notifications/rest-notification';
+import { ensureNotificationPermission } from '@/features/notifications/service';
+import { restState, useActiveRest } from '@/features/training/rest-state';
+import { nextSetSummary, type NextSet } from '@/features/training/rest-summary';
+import { formatClockTime } from '@/features/training/schedule';
 import { getExercise } from '@/features/training/exercises.repo';
 import { getWorkoutDay } from '@/features/training/programs.repo';
 import {
@@ -39,8 +44,10 @@ import {
   type SessionSummary,
 } from '@/features/training/session.repo';
 import { syncTrainingReminder } from '@/features/training/reminders';
+import { warmupRamp } from '@/features/training/warmup';
 import { useI18n, useT, type TFunction } from '@/i18n';
 import { settings, type Units } from '@/lib/storage';
+import { useClockFormat } from '@/lib/useClockFormat';
 import { useTheme } from '@/theme/theme-context';
 
 // Lets the blocking overlay paint before the synchronous finish work.
@@ -92,13 +99,16 @@ type RowProps = {
   active: boolean;
   unit: Units;
   prefill: { weightKg: number | null; reps: number };
+  /** Warm-up rows log to the same table flagged `isWarmup`, and are excluded
+   * from volume, PRs, e1RM and progression everywhere downstream. */
+  warmup?: boolean;
   onLog: (weightKg: number, reps: number, opts: { rir: number | null; failure: boolean }) => void;
 };
 
 /** A single set row: compact confirmed line when done, inputs + big ✓ when
  * pending. The ACTIVE row also shows the round-step adjust strip (±5 / ±1) —
  * fine-grained loads are typed directly into the input. */
-const SetRow = ({ index, row, logged, active, unit, prefill, onLog }: RowProps) => {
+const SetRow = ({ index, row, logged, active, unit, prefill, warmup, onLog }: RowProps) => {
   const t = useT();
   const [weight, setWeight] = useState(() =>
     prefill.weightKg != null ? String(fromKg(prefill.weightKg, unit)) : '',
@@ -107,13 +117,20 @@ const SetRow = ({ index, row, logged, active, unit, prefill, onLog }: RowProps) 
   const [rir, setRir] = useState('');
   const [failure, setFailure] = useState(false);
 
+  const rowLabel = warmup ? t('training.warmupShort') : String(index + 1);
+
   if (logged) {
     return (
       <View className="flex-row items-center rounded-field bg-ink-850 px-3 py-2">
-        <View className="mr-3 h-5 w-5 items-center justify-center rounded-full bg-brand">
+        <View
+          className={[
+            'mr-3 h-5 w-5 items-center justify-center rounded-full',
+            warmup ? 'bg-ink-600' : 'bg-brand',
+          ].join(' ')}
+        >
           <CheckIcon color="#08090d" size={13} />
         </View>
-        <Text className="w-8 text-xs font-sans-semibold text-ink-400">{index + 1}</Text>
+        <Text className="w-8 text-xs font-sans-semibold text-ink-400">{rowLabel}</Text>
         <Text className="flex-1 text-sm font-sans-medium text-ink-100">
           {fromKg(logged.weightKg, unit)} {unit} × {logged.reps}
           {logged.rir != null ? ` · RIR ${logged.rir}` : ''}
@@ -151,7 +168,11 @@ const SetRow = ({ index, row, logged, active, unit, prefill, onLog }: RowProps) 
     <View
       className={[
         'rounded-field px-3 py-2',
-        active ? 'border border-brand/30 bg-ink-850' : 'bg-ink-850/50',
+        warmup
+          ? 'border border-dashed border-ink-700 bg-ink-850/40'
+          : active
+            ? 'border border-brand/30 bg-ink-850'
+            : 'bg-ink-850/50',
       ].join(' ')}
     >
       {row?.groupLabel ? (
@@ -160,7 +181,7 @@ const SetRow = ({ index, row, logged, active, unit, prefill, onLog }: RowProps) 
         </Text>
       ) : null}
       <View className="flex-row items-center gap-2">
-        <Text className="w-8 text-xs font-sans-semibold text-ink-400">{index + 1}</Text>
+        <Text className="w-8 text-xs font-sans-semibold text-ink-400">{rowLabel}</Text>
         <View className="flex-1">
           <Input
             value={weight}
@@ -189,7 +210,8 @@ const SetRow = ({ index, row, logged, active, unit, prefill, onLog }: RowProps) 
         </Pressable>
       </View>
 
-      {active ? (
+      {/* Effort inputs are meaningless on a warm-up — it is submaximal by definition. */}
+      {active && !warmup ? (
         <View className="mt-2 flex-row items-center gap-2">
           {[
             { label: '-5', act: () => bump('w', -5) },
@@ -249,18 +271,32 @@ type CardProps = {
   sets: SetLog[];
   unit: Units;
   lastWeek: SetLog[];
-  onLogged: (restSeconds: number) => void;
+  onLogged: (info: { restSeconds: number; slotId: string; doneCount: number }) => void;
+  /** Scroll target when the screen opens from the rest notification. */
+  focused: boolean;
+  onFocusLayout: (y: number) => void;
 };
 
-const ExerciseCard = ({ workoutLogId, planned, sets, unit, lastWeek, onLogged }: CardProps) => {
+const ExerciseCard = ({
+  workoutLogId,
+  planned,
+  sets,
+  unit,
+  lastWeek,
+  onLogged,
+  focused,
+  onFocusLayout,
+}: CardProps) => {
   const t = useT();
   const router = useRouter();
   const dialog = useDialog();
   const { brand } = useTheme();
   const [extraRows, setExtraRows] = useState(0);
+  const [warmupRows, setWarmupRows] = useState(0);
 
   const rows = useMemo(() => expandRows(planned.setGroups, t), [planned.setGroups, t]);
   const working = sets.filter((s) => !s.isWarmup);
+  const warmups = sets.filter((s) => s.isWarmup);
   const doneCount = working.length;
   const totalRows = Math.max(rows.length, doneCount) + extraRows;
 
@@ -274,6 +310,12 @@ const ExerciseCard = ({ workoutLogId, planned, sets, unit, lastWeek, onLogged }:
     if (prior) return { weightKg: prior.weightKg, reps: rows[i]?.reps ?? prior.reps };
     return { weightKg: suggested, reps: rows[i]?.reps ?? 8 };
   };
+
+  // Ramp toward the first working set, whatever that set is going to weigh.
+  const firstWorkingKg = lastWeek[0]?.weightKg ?? suggested;
+  const ramp = useMemo(() => warmupRamp(firstWorkingKg), [firstWorkingKg]);
+  const warmupPrefill = (i: number): { weightKg: number | null; reps: number } =>
+    ramp[i] ?? ramp[ramp.length - 1] ?? { weightKg: null, reps: 5 };
 
   const pickAlternative = () => {
     if (!planned.alternativeExerciseIds.length) return;
@@ -299,7 +341,10 @@ const ExerciseCard = ({ workoutLogId, planned, sets, unit, lastWeek, onLogged }:
     : null;
 
   return (
-    <Card className="mb-3">
+    <Card
+      className="mb-3"
+      onLayout={focused ? (e) => onFocusLayout(e.nativeEvent.layout.y) : undefined}
+    >
       <Pressable
         onPress={() =>
           router.push({ pathname: '/training/exercise/[id]', params: { id: planned.exerciseId } })
@@ -327,6 +372,35 @@ const ExerciseCard = ({ workoutLogId, planned, sets, unit, lastWeek, onLogged }:
 
       {lastWeekLine ? <Text className="mt-2 text-xs text-ink-400">{lastWeekLine}</Text> : null}
 
+      {/* Warm-ups sit above the working sets, the order they are performed in.
+       * They never advance `doneCount` and never start the prescribed rest. */}
+      {warmups.length || warmupRows ? (
+        <View className="mt-3 gap-1.5">
+          {Array.from({ length: warmups.length + warmupRows }, (_, i) => (
+            <SetRow
+              key={warmups[i]?.id ?? `warmup-${i}`}
+              index={i}
+              row={null}
+              logged={warmups[i] ?? null}
+              active={i === warmups.length}
+              unit={unit}
+              warmup
+              prefill={warmupPrefill(i)}
+              onLog={(weightKg, reps) => {
+                logSet({
+                  workoutLogId,
+                  exerciseId: planned.exerciseId,
+                  weightKg,
+                  reps,
+                  isWarmup: true,
+                });
+                setWarmupRows((n) => Math.max(0, n - 1));
+              }}
+            />
+          ))}
+        </View>
+      ) : null}
+
       <View className="mt-3 gap-1.5">
         {Array.from({ length: totalRows }, (_, i) => (
           <SetRow
@@ -347,26 +421,40 @@ const ExerciseCard = ({ workoutLogId, planned, sets, unit, lastWeek, onLogged }:
                 rir: opts.rir,
                 isFailure: opts.failure,
               });
-              onLogged(planned.restSeconds ?? 120);
+              onLogged({
+                restSeconds: planned.restSeconds ?? 120,
+                slotId: planned.slotId,
+                doneCount: doneCount + 1,
+              });
             }}
           />
         ))}
       </View>
 
-      <Pressable
-        onPress={() => setExtraRows((n) => n + 1)}
-        accessibilityRole="button"
-        className="mt-2 flex-row items-center justify-center gap-1 py-1.5"
-      >
-        <PlusIcon color={brand} size={14} />
-        <Text className="text-xs font-sans-semibold text-brand">{t('training.extraSet')}</Text>
-      </Pressable>
+      <View className="mt-2 flex-row items-center justify-center gap-4">
+        <Pressable
+          onPress={() => setWarmupRows((n) => n + 1)}
+          accessibilityRole="button"
+          className="flex-row items-center gap-1 py-1.5"
+        >
+          <PlusIcon color="#71717a" size={14} />
+          <Text className="text-xs font-sans-semibold text-ink-400">{t('training.warmupSet')}</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setExtraRows((n) => n + 1)}
+          accessibilityRole="button"
+          className="flex-row items-center gap-1 py-1.5"
+        >
+          <PlusIcon color={brand} size={14} />
+          <Text className="text-xs font-sans-semibold text-brand">{t('training.extraSet')}</Text>
+        </Pressable>
+      </View>
     </Card>
   );
 };
 
 const WorkoutSession = () => {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, slot: focusSlot } = useLocalSearchParams<{ id: string; slot?: string }>();
   const { locale } = useI18n();
   const router = useRouter();
   const t = useT();
@@ -374,12 +462,19 @@ const WorkoutSession = () => {
   const { user } = useAuth();
   useKeepAwake();
 
+  // A rest left behind by another session is stale: drop it and its notification.
+  useEffect(() => {
+    const current = restState.get();
+    if (current && current.workoutId !== id) void endRest();
+  }, [id]);
+
   const log = typeof id === 'string' ? getWorkout(id) : null;
   const workoutDayId = log?.workoutDayId ?? null;
   const [unit, setUnit] = useState<Units>(settings.getUnits());
-  const [rest, setRest] = useState<{ key: number; seconds: number; endsAtLabel: string } | null>(
-    null,
-  );
+  const activeRest = useActiveRest();
+  const rest = activeRest?.workoutId === log?.id ? activeRest : null;
+  const clock = useClockFormat();
+  const scrollRef = useRef<ComponentRef<typeof KeyboardAwareScrollView>>(null);
   const [summary, setSummary] = useState<SessionSummary | null>(null);
   const [finishing, setFinishing] = useState(false);
 
@@ -403,12 +498,53 @@ const WorkoutSession = () => {
   const planned = log.plannedSnapshot ?? [];
   const setsFor = (exerciseId: string) => sets.filter((s) => s.exerciseId === exerciseId);
 
-  // End-time label computed when the rest STARTS (an event, not render — the
-  // compiler rightly rejects reading the clock during render).
-  const onLogged = (restSeconds: number) => {
-    const d = new Date(Date.now() + restSeconds * 1000);
-    const endsAtLabel = `${`${d.getHours()}`.padStart(2, '0')}:${`${d.getMinutes()}`.padStart(2, '0')}:${`${d.getSeconds()}`.padStart(2, '0')}`;
-    setRest((prev) => ({ key: (prev?.key ?? 0) + 1, seconds: restSeconds, endsAtLabel }));
+  const nextSetLine = (next: NextSet): string => {
+    if (next.kind === 'done') return t('training.restLast');
+    const key = next.kind === 'same' ? 'training.restNext' : 'training.restNextNew';
+    return t(key, {
+      exercise: next.exerciseName,
+      n: next.setNumber,
+      total: next.setTotal,
+      reps: next.reps,
+    });
+  };
+
+  // Rest copy is frozen at start (an event, not render) so the lock-screen
+  // notification can be redrawn headlessly without i18n.
+  const onLogged = ({
+    restSeconds,
+    slotId,
+    doneCount,
+  }: {
+    restSeconds: number;
+    slotId: string;
+    doneCount: number;
+  }) => {
+    const startedAt = Date.now();
+    const endsAt = startedAt + restSeconds * 1000;
+    const ends = new Date(endsAt);
+    const next = nextSetLine(
+      nextSetSummary(planned, slotId, doneCount, (exerciseId) => setsFor(exerciseId).length),
+    );
+    const endsLabel = t('training.restEndsAt', {
+      time: formatClockTime(ends.getHours() * 60 + ends.getMinutes(), clock),
+    });
+    const rest = {
+      workoutId: log.id,
+      slotId,
+      startedAt,
+      endsAt,
+      copy: {
+        restingTitle: t('training.restOngoingTitle'),
+        restingBody: `${next} · ${endsLabel}`,
+        overTitle: t('training.restDoneTitle'),
+        overBody: next,
+        skipLabel: t('training.skip'),
+        plus30Label: t('training.restPlus30'),
+        plus60Label: t('training.restPlus1'),
+      },
+    };
+    void ensureNotificationPermission().finally(() => startRest(rest));
   };
 
   const finish = () => setSummary(sessionSummary(log.id, locale));
@@ -418,6 +554,7 @@ const WorkoutSession = () => {
     setFinishing(true);
     setTimeout(() => {
       finishWorkout(log.id);
+      void endRest();
       void syncTrainingReminder(log.userId);
       setSummary(null);
       router.replace('/training');
@@ -431,6 +568,7 @@ const WorkoutSession = () => {
       destructive: true,
       onConfirm: () => {
         abandonWorkout(log.id);
+        void endRest();
         router.replace('/training');
       },
     });
@@ -457,6 +595,7 @@ const WorkoutSession = () => {
       }
     >
       <KeyboardAwareScrollView
+        ref={scrollRef}
         className="flex-1"
         contentContainerClassName="px-5 pb-2"
         bottomOffset={24}
@@ -485,6 +624,10 @@ const WorkoutSession = () => {
               unit={unit}
               lastWeek={lastWeekBySlot.get(p.slotId) ?? []}
               onLogged={onLogged}
+              focused={p.slotId === focusSlot}
+              onFocusLayout={(y) =>
+                scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: false })
+              }
             />
           ))
         )}
@@ -493,15 +636,10 @@ const WorkoutSession = () => {
       <View className="gap-3 px-5 pb-2 pt-3">
         {rest ? (
           <RestTimer
-            key={rest.key}
-            seconds={rest.seconds}
-            label={t('training.rest')}
-            skipLabel={t('training.skip')}
-            notifyTitle={t('training.restDoneTitle')}
-            notifyBody={t('training.restDoneBody')}
-            ongoingTitle={t('training.restOngoingTitle')}
-            ongoingBody={t('training.restOngoingBody', { time: rest.endsAtLabel })}
-            onDone={() => setRest(null)}
+            key={rest.startedAt}
+            endsAt={rest.endsAt}
+            onExtend={(seconds) => void extendRest(seconds)}
+            onDone={() => void endRest()}
           />
         ) : null}
         <Button

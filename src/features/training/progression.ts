@@ -27,6 +27,22 @@ export const deriveProgramWeek = (
 export const totalProgramWeeks = (routines: Routine[]): number =>
   routines.reduce((sum, r) => sum + r.durationWeeks, 0);
 
+/**
+ * Estimated 1RM (Epley: `w × (1 + reps/30)`).
+ *
+ * Accurate enough in the 1–12 rep range and increasingly optimistic beyond it,
+ * so high-rep sets are refused rather than silently inflating a PR chart.
+ */
+const EPLEY_MAX_REPS = 12;
+
+export const estimate1Rm = (weightKg: number, reps: number): number | null => {
+  if (!(weightKg > 0) || !(reps > 0) || reps > EPLEY_MAX_REPS) return null;
+  return weightKg * (1 + reps / 30);
+};
+
+/** Inverse of {@link estimate1Rm}: the load that yields `reps` at a given e1RM. */
+export const weightForReps = (oneRmKg: number, reps: number): number => oneRmKg / (1 + reps / 30);
+
 /** Round a suggested load to the nearest usable plate increment (2.5 kg). */
 export const roundToPlate = (weightKg: number, increment = 2.5): number =>
   Math.max(0, Math.round(weightKg / increment) * increment);

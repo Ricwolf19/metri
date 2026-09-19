@@ -24,7 +24,7 @@ import { recordDeletion } from '@/features/sync/tombstones';
 
 import { localDateKey, markTrainingDay } from './adherence.repo';
 import { advanceUserProgram } from './enroll';
-import { roundToPlate } from './progression';
+import { estimate1Rm, roundToPlate, weightForReps } from './progression';
 
 /* ── Active session ──────────────────────────────────────────────────────── */
 
@@ -361,7 +361,8 @@ export const suggestedWeight = (
     .all();
 
   if (!last) return null;
-  const estimated1Rm = last.weightKg * (1 + last.reps / 30);
-  const totalReps = targetReps + targetRir;
-  return roundToPlate(estimated1Rm / (1 + totalReps / 30));
+  // A high-rep last set gives no usable estimate; let the user enter the load.
+  const estimated1Rm = estimate1Rm(last.weightKg, last.reps);
+  if (estimated1Rm == null) return null;
+  return roundToPlate(weightForReps(estimated1Rm, targetReps + targetRir));
 };

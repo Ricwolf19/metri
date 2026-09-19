@@ -1,5 +1,7 @@
 import type { Equipment, ExerciseCategory } from '@/db/schema';
 
+import type { MuscleHead } from './muscles';
+
 /**
  * Built-in exercise catalog: the movements the app teaches and programs with —
  * a curated library plus the support movements the preset programs prescribe.
@@ -15,8 +17,8 @@ export type ExerciseSeed = {
   id: string;
   name: string;
   category: ExerciseCategory;
-  primaryMuscles: string[];
-  secondaryMuscles: string[];
+  primaryMuscles: MuscleHead[];
+  secondaryMuscles: MuscleHead[];
   equipment: Equipment;
 };
 
@@ -26,8 +28,8 @@ export const EXERCISE_SEEDS: ExerciseSeed[] = [
     id: 'barbell-back-squat',
     name: 'Squat',
     category: 'legs',
-    primaryMuscles: ['quadriceps', 'glutes'],
-    secondaryMuscles: ['hamstrings', 'core'],
+    primaryMuscles: ['quads', 'glutes'],
+    secondaryMuscles: ['hamstrings', 'abs'],
     equipment: 'barbell',
   },
   {
@@ -67,7 +69,7 @@ export const EXERCISE_SEEDS: ExerciseSeed[] = [
     name: 'Sumo Deadlift',
     category: 'back',
     primaryMuscles: ['glutes', 'hamstrings'],
-    secondaryMuscles: ['lower_back', 'quadriceps'],
+    secondaryMuscles: ['lower_back', 'quads'],
     equipment: 'barbell',
   },
   {
@@ -106,7 +108,7 @@ export const EXERCISE_SEEDS: ExerciseSeed[] = [
     id: 'leg-press',
     name: 'Leg Press',
     category: 'legs',
-    primaryMuscles: ['quadriceps', 'glutes'],
+    primaryMuscles: ['quads', 'glutes'],
     secondaryMuscles: ['hamstrings'],
     equipment: 'machine',
   },
@@ -114,7 +116,7 @@ export const EXERCISE_SEEDS: ExerciseSeed[] = [
     id: 'leg-extension',
     name: 'Leg Extension',
     category: 'legs',
-    primaryMuscles: ['quadriceps'],
+    primaryMuscles: ['quads'],
     secondaryMuscles: [],
     equipment: 'machine',
   },
@@ -277,7 +279,7 @@ export const EXERCISE_SEEDS: ExerciseSeed[] = [
     id: 'hack-squat',
     name: 'Hack Squat',
     category: 'legs',
-    primaryMuscles: ['quadriceps'],
+    primaryMuscles: ['quads'],
     secondaryMuscles: ['glutes'],
     equipment: 'machine',
   },
@@ -285,7 +287,7 @@ export const EXERCISE_SEEDS: ExerciseSeed[] = [
     id: 'bulgarian-split-squat',
     name: 'Bulgarian Split Squat',
     category: 'legs',
-    primaryMuscles: ['quadriceps', 'glutes'],
+    primaryMuscles: ['quads', 'glutes'],
     secondaryMuscles: ['hamstrings'],
     equipment: 'dumbbell',
   },
