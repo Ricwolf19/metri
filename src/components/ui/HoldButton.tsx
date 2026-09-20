@@ -1,5 +1,11 @@
 import { useState } from 'react';
-import { Pressable, Text, View, type AccessibilityActionEvent } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  Text,
+  View,
+  type AccessibilityActionEvent,
+} from 'react-native';
 import Animated, {
   Easing,
   cancelAnimation,
@@ -10,6 +16,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { useT } from '@/i18n';
+import { useTheme } from '@/theme/theme-context';
 
 import { CONTROL_FONT_SCALE } from './typography';
 
@@ -20,7 +27,8 @@ type Props = {
   label?: string;
   /** Chip mode (40×40) for a delete inside a list row; omit `label`. */
   icon?: React.ReactNode;
-  onComplete: () => void;
+  /** A returned promise keeps the button in its spinner state until it settles. */
+  onComplete: () => void | Promise<unknown>;
   variant?: Variant;
   size?: Size;
   durationMs?: number;
@@ -29,6 +37,8 @@ type Props = {
 };
 
 const HOLD_MS = 900;
+// Lets the spinner frame paint before the (possibly heavy, synchronous) action runs.
+const PAINT_MS = 50;
 
 const CONTAINER: Record<Variant, string> = {
   danger: 'border border-red-500/40 bg-red-500/10',
@@ -67,24 +77,32 @@ export const HoldButton = ({
   accessibilityLabel,
 }: Props) => {
   const t = useT();
+  const { muted } = useTheme();
   const progress = useSharedValue(0);
+  const [busy, setBusy] = useState(false);
   const [fill] = useState(() => makeFillController(progress, durationMs));
 
   const fillStyle = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }));
 
   const complete = () => {
+    if (busy) return;
     fill.reset();
-    onComplete();
+    setBusy(true);
+    setTimeout(() => {
+      const result = onComplete();
+      if (result instanceof Promise) void result.finally(() => setBusy(false));
+      else setBusy(false);
+    }, PAINT_MS);
   };
   const onAccessibilityAction = (e: AccessibilityActionEvent) => {
-    if (e.nativeEvent.actionName === 'activate') onComplete();
+    if (e.nativeEvent.actionName === 'activate') complete();
   };
 
   const chip = !label && !!icon;
 
   return (
     <Pressable
-      disabled={disabled}
+      disabled={disabled || busy}
       onPressIn={fill.start}
       onPressOut={fill.reset}
       onLongPress={complete}
@@ -92,7 +110,7 @@ export const HoldButton = ({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityHint={t('common.holdHint')}
-      accessibilityState={{ disabled: !!disabled }}
+      accessibilityState={{ disabled: !!disabled || busy }}
       accessibilityActions={[{ name: 'activate' }]}
       onAccessibilityAction={onAccessibilityAction}
       className={[
@@ -108,7 +126,9 @@ export const HoldButton = ({
       >
         <View className={`h-full w-full ${FILL[variant]}`} />
       </Animated.View>
-      {chip ? (
+      {busy ? (
+        <ActivityIndicator size="small" color={muted} />
+      ) : chip ? (
         icon
       ) : (
         <Text
