@@ -28,6 +28,7 @@ const CHANGE_TS: Record<SyncTable, string> = {
   set_logs: 'COALESCE(updated_at, created_at)',
   training_days: 'COALESCE(updated_at, created_at)',
   body_metrics: 'COALESCE(updated_at, created_at)',
+  exercise_settings: 'COALESCE(updated_at, created_at)',
 };
 
 const idsOf = (rows: Row[]): string[] => rows.map((r) => r.id as string);
@@ -98,6 +99,7 @@ const ownedIds = (userId: string): Record<SyncTable, string[]> => {
     set_logs: setIds,
     training_days: idsOf(all('select id from training_days where user_id = ?', [userId])),
     body_metrics: idsOf(all('select id from body_metrics where user_id = ?', [userId])),
+    exercise_settings: idsOf(all('select id from exercise_settings where user_id = ?', [userId])),
   };
 };
 
@@ -173,6 +175,7 @@ const tableColumns = (table: SyncTable): Set<string> => {
 const EXTRA_UNIQUE: Partial<Record<SyncTable, string[]>> = {
   training_days: ['user_id', 'date'],
   body_metrics: ['user_id', 'date'],
+  exercise_settings: ['user_id', 'exercise_id'],
 };
 
 const applyRow = (r: PulledRow): void => {

@@ -17,6 +17,7 @@ export const SYNC_TABLES = [
   'set_logs',
   'training_days',
   'body_metrics',
+  'exercise_settings',
 ] as const;
 
 export type SyncTable = (typeof SYNC_TABLES)[number];
