@@ -281,6 +281,23 @@ export const swapSnapshotExercise = (
     .run();
 };
 
+/** Persist a mid-session exercise reorder ("machine was taken, did legs first") —
+ * the reordered snapshot IS the record of how the session actually ran. */
+export const reorderSnapshot = (logId: string, orderedSlotIds: string[]): void => {
+  const log = getWorkout(logId);
+  if (!log?.plannedSnapshot) return;
+  // The order must be an exact permutation — anything else is a caller bug,
+  // and silently dropping a slot would lose planned work mid-session.
+  if (orderedSlotIds.length !== log.plannedSnapshot.length) return;
+  const bySlot = new Map(log.plannedSnapshot.map((p) => [p.slotId, p]));
+  const next = orderedSlotIds.flatMap((slotId) => bySlot.get(slotId) ?? []);
+  if (next.length !== log.plannedSnapshot.length) return;
+  db.update(workoutLogs)
+    .set({ plannedSnapshot: next, updatedAt: new Date() })
+    .where(eq(workoutLogs.id, logId))
+    .run();
+};
+
 export type SessionSummary = {
   volumeKg: number;
   setCount: number;

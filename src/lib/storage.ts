@@ -13,6 +13,8 @@ export const storage = createMMKV({ id: 'metri' });
 export type Units = 'kg' | 'lb';
 export type LocaleCode = 'en' | 'es';
 export type ThemePreference = 'system' | 'light' | 'dark';
+/** Live-workout rendering: every exercise in one scroll, one per screen, or dense (soon). */
+export type WorkoutLayout = 'list' | 'cards' | 'compact';
 /** How times are displayed across the app: 24-hour or 12-hour with AM/PM. */
 export type ClockFormat = '24' | '12';
 
@@ -29,6 +31,7 @@ export const SettingKeys = {
   dismissedAnnouncements: 'announcements.dismissed',
   notificationsEnabled: 'settings.notificationsEnabled',
   localBannerSnoozedUntil: 'settings.localBannerSnoozedUntil',
+  workoutLayout: 'settings.workoutLayout',
   widgetPromoSnoozedUntil: 'widget.promoSnoozedUntil',
   docsPromoSnoozedUntil: 'docs.promoSnoozedUntil',
   sessionUserId: 'auth.userId',
@@ -84,6 +87,12 @@ export const settings = {
   },
   snoozeDocsPromo(days = 30) {
     storage.set(SettingKeys.docsPromoSnoozedUntil, Date.now() + days * 86_400_000);
+  },
+  getWorkoutLayout(): WorkoutLayout {
+    return (storage.getString(SettingKeys.workoutLayout) as WorkoutLayout) ?? 'list';
+  },
+  setWorkoutLayout(layout: WorkoutLayout) {
+    storage.set(SettingKeys.workoutLayout, layout);
   },
   getClockFormat(): ClockFormat {
     return (storage.getString(SettingKeys.clock) as ClockFormat) ?? '24';

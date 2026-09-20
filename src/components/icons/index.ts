@@ -46,6 +46,8 @@ import {
   Menu,
   PlaySolid,
   Sparks,
+  List,
+  ViewGrid,
 } from 'iconoir-react-native';
 
 /** Square size in px (maps to width + height). Mirrors lucide's `size`. */
@@ -101,3 +103,5 @@ export const SmartphoneIcon = sized(SmartphoneDevice, 'SmartphoneIcon');
 export const DragHandleIcon = sized(Menu, 'DragHandleIcon');
 export const PlaySolidIcon = sized(PlaySolid, 'PlaySolidIcon');
 export const SparksIcon = sized(Sparks, 'SparksIcon');
+export const ListIcon = sized(List, 'ListIcon');
+export const ViewGridIcon = sized(ViewGrid, 'ViewGridIcon');
