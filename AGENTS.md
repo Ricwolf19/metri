@@ -169,6 +169,15 @@ Read `docs/sync.md` before touching `src/features/sync/`. Non-negotiables:
   migration in `seed.ts` (never a bare delete), and retired template ids (pb-2-0, ul-4, fb-3)
   are never reused. Bilingual catalog/preset copy lives in content modules
   (`exercise-content.ts`, `programs/index.ts`), not the i18n dictionaries.
+- **Unnamed phases/splits are stored as `''`, never a fake default name.** Every renderer falls
+  back to the localized slug (`phase-N`/`split-N`) via `routineDisplayName`/`dayDisplayName` in
+  `features/training/labels.ts` (orderIndex is 0-based, slugs are 1-based). Don't re-add
+  name-required validation to those editors and don't write generated names at create time.
+- **`assets/exercises/` is CC BY-SA 4.0 art** (Workout Guide / Everkinetic — provenance table in
+  its `ATTRIBUTION.md`). Keep that file, keep the visible credit line where frames render, and
+  add new frames as id-named files plus literal `require`s in `ExerciseFrames.tsx` (Metro only
+  bundles statically reachable assets). Custom exercises match visuals by name in
+  `exercise-visuals.ts`; no schema field is involved.
 - Conventional Commits (commitlint); husky runs lint-staged pre-commit and `bun run ci` pre-push.
 
 ## CI & release (sideloaded beta — no store pushes a binary for you)
