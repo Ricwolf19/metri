@@ -18,6 +18,7 @@ import {
   enrollInProgram,
 } from '@/features/training/enroll';
 import { db } from '@/db/client';
+import { dayDisplayName, routineDisplayName } from '@/features/training/labels';
 import { getProgram, getProgramTree } from '@/features/training/programs.repo';
 import { syncTrainingReminder } from '@/features/training/reminders';
 import {
@@ -37,9 +38,14 @@ const problemText = (t: TFunction, p: StartProblem): string => {
     case 'no_phases':
       return t('start.problem.noPhases');
     case 'phase_no_splits':
-      return t('start.problem.phaseNoSplits', { phase: p.routineName });
+      return t('start.problem.phaseNoSplits', {
+        phase: routineDisplayName({ name: p.routineName, orderIndex: p.routineOrder }, t),
+      });
     case 'split_no_exercises':
-      return t('start.problem.splitNoExercises', { phase: p.routineName, split: p.dayName });
+      return t('start.problem.splitNoExercises', {
+        phase: routineDisplayName({ name: p.routineName, orderIndex: p.routineOrder }, t),
+        split: dayDisplayName({ name: p.dayName, orderIndex: p.dayOrder }, t),
+      });
   }
 };
 
@@ -194,7 +200,7 @@ const StartProgram = () => {
         <View key={routine.id} className="mb-6">
           <SectionLabel
             className="mt-0"
-            label={routine.name}
+            label={routineDisplayName(routine, t)}
             hint={t('training.weeks', { count: routine.durationWeeks })}
           />
           <View className="gap-3">
@@ -203,7 +209,9 @@ const StartProgram = () => {
               const open = openTime === day.id;
               return (
                 <Card key={day.id}>
-                  <Text className="mb-3 text-base font-sans-semibold text-ink-50">{day.name}</Text>
+                  <Text className="mb-3 text-base font-sans-semibold text-ink-50">
+                    {dayDisplayName(day, t)}
+                  </Text>
                   <WeekdayChips
                     selected={v.weekday == null ? [] : [v.weekday]}
                     onPress={(weekday) => edit(day.id, { weekday })}

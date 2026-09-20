@@ -26,6 +26,7 @@ import {
   routinesQuery,
   updateProgram,
 } from '@/features/training/authoring.repo';
+import { routineDisplayName } from '@/features/training/labels';
 import { getProgram } from '@/features/training/programs.repo';
 import { useT } from '@/i18n';
 import { useReorderedList } from '@/lib/useReorderedList';
@@ -81,9 +82,8 @@ const EditProgram = () => {
   if (!user || !program || !programId) return <Redirect href="/training" />;
 
   const addPhase = () => {
-    const routine = addRoutine(programId, null, {
-      name: `${t('editor.phaseName')} ${items.length + 1}`,
-    });
+    // Created unnamed on purpose: the editor shows a "phase-N" fallback until the user names it.
+    const routine = addRoutine(programId, null, { name: '' });
     addThen(() =>
       router.push({ pathname: '/training/edit/routine/[id]', params: { id: routine.id } }),
     );
@@ -158,7 +158,7 @@ const EditProgram = () => {
         keyExtractor={(r) => r.id}
         renderItem={({ item }) => (
           <ReorderRow
-            title={item.name}
+            title={routineDisplayName(item, t)}
             subtitle={t('training.weeks', { count: item.durationWeeks })}
             dragLabel={t('editor.dragHandle')}
             onPress={() =>

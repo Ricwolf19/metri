@@ -1,5 +1,5 @@
 import type { Equipment, ExerciseCategory, IntensityType } from '@/db/schema';
-import type { Locale } from '@/i18n';
+import type { Locale, TFunction } from '@/i18n';
 import type { TranslationKey } from '@/i18n/en';
 
 import { EXERCISE_NAMES } from './exercise-content';
@@ -62,3 +62,13 @@ export const DAY_LETTERS: Record<string, string[]> = Object.fromEntries(
 /** Localized catalog name for seeded exercises; customs pass through raw. */
 export const exerciseDisplayName = (ex: { id: string; name: string }, locale: Locale): string =>
   EXERCISE_NAMES[ex.id]?.[locale] ?? ex.name;
+
+/** Unnamed phases render a slug fallback ("phase-2") instead of a stored fake name. */
+export const routineDisplayName = (
+  routine: { name: string; orderIndex: number },
+  t: TFunction,
+): string => routine.name.trim() || t('editor.phaseFallback', { n: routine.orderIndex + 1 });
+
+/** Unnamed splits render a slug fallback ("split-1"). */
+export const dayDisplayName = (day: { name: string; orderIndex: number }, t: TFunction): string =>
+  day.name.trim() || t('editor.splitFallback', { n: day.orderIndex + 1 });

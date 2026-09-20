@@ -22,6 +22,8 @@ type LoggedExercise = { exerciseId: string; name: string; sets: LoggedSet[] };
 type WorkoutDaySummary = {
   logId: string;
   dayName: string;
+  /** For the "split-N" display fallback when the split was never named. */
+  dayOrder: number | null;
   durationSeconds: number | null;
   setCount: number;
   volumeKg: number;
@@ -87,6 +89,7 @@ export const getDayDetail = (userId: string, dateKey: string): DayDetail => {
     return {
       logId: log.id,
       dayName: day?.name ?? '—',
+      dayOrder: day?.orderIndex ?? null,
       durationSeconds: log.durationSeconds,
       setCount: sets.length,
       volumeKg: Math.round(sets.reduce((sum, { set }) => sum + set.weightKg * set.reps, 0)),

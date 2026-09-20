@@ -28,6 +28,7 @@ import {
   reorderDays,
   updateRoutine,
 } from '@/features/training/authoring.repo';
+import { dayDisplayName, routineDisplayName } from '@/features/training/labels';
 import { knownMuscles, muscleKey } from '@/features/training/muscles';
 import { useT } from '@/i18n';
 import { useReorderedList } from '@/lib/useReorderedList';
@@ -61,11 +62,9 @@ const EditRoutine = () => {
   const dirty = name.trim() !== saved.name || weeks !== saved.weeks;
 
   const save = () => {
+    if (!routineId) return false;
+    // Empty is a valid name; every renderer falls back to the "phase-N" slug.
     const clean = name.trim();
-    if (clean.length < 2 || !routineId) {
-      toast.error(t('editor.nameRequired'));
-      return false;
-    }
     updateRoutine(routineId, { name: clean, durationWeeks: weeks });
     setName(clean);
     setSaved({ name: clean, weeks });
@@ -100,7 +99,7 @@ const EditRoutine = () => {
   };
 
   const addSplit = () => {
-    const day = addDay(routineId, scope, { name: `${t('editor.splitName')} ${items.length + 1}` });
+    const day = addDay(routineId, scope, { name: '' });
     addThen(() => router.push({ pathname: '/training/edit/day/[id]', params: { id: day.id } }));
   };
 
@@ -113,7 +112,12 @@ const EditRoutine = () => {
   const header = (
     <View>
       <Card className="gap-4">
-        <Input label={t('editor.phaseName')} value={name} onChangeText={setName} />
+        <Input
+          label={t('editor.phaseName')}
+          value={name}
+          onChangeText={setName}
+          placeholder={t('editor.phaseFallback', { n: routine.orderIndex + 1 })}
+        />
         <Stepper
           label={t('editor.weeks')}
           value={weeks}
@@ -154,7 +158,7 @@ const EditRoutine = () => {
         <TopBar
           showBack
           showAvatar={false}
-          title={name.trim() || routine.name}
+          title={name.trim() || routineDisplayName(routine, t)}
           subtitle={t('editor.phaseName')}
         />
       }
@@ -169,7 +173,7 @@ const EditRoutine = () => {
           const focus = knownMuscles(item.focusMuscles).map((m) => t(muscleKey(m)));
           return (
             <ReorderRow
-              title={item.name}
+              title={dayDisplayName(item, t)}
               subtitle={focus.length ? focus.join(' · ') : undefined}
               dragLabel={t('editor.dragHandle')}
               onPress={() =>

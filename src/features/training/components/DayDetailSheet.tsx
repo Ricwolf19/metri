@@ -14,7 +14,7 @@ import { useShareCard } from '@/lib/useShareCard';
 import { useTheme } from '@/theme/theme-context';
 
 import { adherenceDot } from '../adherence-colors';
-import { exerciseDisplayName } from '../labels';
+import { dayDisplayName, exerciseDisplayName } from '../labels';
 import { dayQuery, markTrainingDay } from '../adherence.repo';
 import { getDayDetail, type LoggedSet } from '../day-events';
 import { fromKg } from '../progression';
@@ -62,6 +62,8 @@ export const DayDetailSheet = ({
   const detail = useMemo(() => (user && date ? getDayDetail(user.id, date) : null), [user, date]);
   const displayName = (ex: { exerciseId: string; name: string }) =>
     exerciseDisplayName({ id: ex.exerciseId, name: ex.name }, locale);
+  const splitName = (w: { dayName: string; dayOrder: number | null }) =>
+    w.dayOrder != null ? dayDisplayName({ name: w.dayName, orderIndex: w.dayOrder }, t) : w.dayName;
   const [marking, setMarking] = useState(false);
   const [askingReason, setAskingReason] = useState(false);
 
@@ -117,7 +119,7 @@ export const DayDetailSheet = ({
                   <DumbbellIcon color={brand} size={18} />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-sm font-sans-semibold text-ink-50">{w.dayName}</Text>
+                  <Text className="text-sm font-sans-semibold text-ink-50">{splitName(w)}</Text>
                   <Text className="mt-0.5 text-xs text-ink-400">
                     {t('dayDetail.setsLine', {
                       count: w.setCount,
@@ -172,7 +174,7 @@ export const DayDetailSheet = ({
               <ShareCard
                 ref={ref}
                 eyebrow={t('share.trainingDay')}
-                title={workouts.map((w) => w.dayName).join(' + ')}
+                title={workouts.map((w) => splitName(w)).join(' + ')}
                 subtitle={title}
                 metrics={[
                   { label: t('share.volume'), value: `${fromKg(totalVolume, unit)} ${unit}` },

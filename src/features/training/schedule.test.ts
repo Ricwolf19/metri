@@ -19,7 +19,7 @@ import {
 const day = (id: string, routineId: string, slotCount: number, orderIndex = 0): TreeDay =>
   ({ id, routineId, name: id, orderIndex, slotCount }) as TreeDay;
 const routine = (id: string, days: TreeDay[]): TreeRoutine =>
-  ({ id, name: id, days }) as TreeRoutine;
+  ({ id, name: id, orderIndex: 0, days }) as TreeRoutine;
 const tree = (routines: TreeRoutine[]): ProgramTree => ({ routines });
 
 const scheduled = (
@@ -63,8 +63,10 @@ describe('validateProgramForStart', () => {
       kind: 'split_no_exercises',
       routineId: 'base',
       routineName: 'base',
+      routineOrder: 0,
       dayId: 'push',
       dayName: 'push',
+      dayOrder: 0,
     });
   });
 });

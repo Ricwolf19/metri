@@ -16,13 +16,15 @@ export type ProgramTree = { routines: TreeRoutine[] };
 
 export type StartProblem =
   | { kind: 'no_phases' }
-  | { kind: 'phase_no_splits'; routineId: string; routineName: string }
+  | { kind: 'phase_no_splits'; routineId: string; routineName: string; routineOrder: number }
   | {
       kind: 'split_no_exercises';
       routineId: string;
       routineName: string;
+      routineOrder: number;
       dayId: string;
       dayName: string;
+      dayOrder: number;
     };
 
 const MINUTES_PER_DAY = 1440;
@@ -34,7 +36,12 @@ export const validateProgramForStart = (tree: ProgramTree): StartProblem[] => {
   const problems: StartProblem[] = [];
   for (const routine of tree.routines) {
     if (routine.days.length === 0) {
-      problems.push({ kind: 'phase_no_splits', routineId: routine.id, routineName: routine.name });
+      problems.push({
+        kind: 'phase_no_splits',
+        routineId: routine.id,
+        routineName: routine.name,
+        routineOrder: routine.orderIndex,
+      });
       continue;
     }
     for (const day of routine.days) {
@@ -43,8 +50,10 @@ export const validateProgramForStart = (tree: ProgramTree): StartProblem[] => {
           kind: 'split_no_exercises',
           routineId: routine.id,
           routineName: routine.name,
+          routineOrder: routine.orderIndex,
           dayId: day.id,
           dayName: day.name,
+          dayOrder: day.orderIndex,
         });
       }
     }

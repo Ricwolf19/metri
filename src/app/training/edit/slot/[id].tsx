@@ -32,7 +32,7 @@ import {
   type ConfigValues,
 } from '@/features/training/authoring.repo';
 import { getExercise } from '@/features/training/exercises.repo';
-import { INTENSITY_KEY, exerciseDisplayName } from '@/features/training/labels';
+import { INTENSITY_KEY, dayDisplayName, exerciseDisplayName } from '@/features/training/labels';
 import { useI18n, useT } from '@/i18n';
 
 type WeekDraft = { weekNumber: number; values: ConfigValues; setGroups: SetGroup[] | null };
@@ -177,7 +177,7 @@ const EditSlot = () => {
           showBack
           showAvatar={false}
           title={exerciseDisplayName(exercise, locale)}
-          subtitle={day?.name}
+          subtitle={day ? dayDisplayName(day, t) : undefined}
         />
       }
       footer={
