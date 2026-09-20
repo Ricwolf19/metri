@@ -90,7 +90,10 @@ gather owned rows changed since watermark ─▶ POST /push ─▶ advance water
 
 - **Ownership filter** (`ownedIds`): only the user's rows leave the device —
   custom exercises/programs, any enrolled-copy tree, and the user's
-  logs/sets/enrollments/adherence. Seeded/shared content never syncs.
+  logs/sets/enrollments/adherence. Seeded/shared content never syncs: tables
+  that hold both (`exercises`, `warmup_routines`) select on `is_custom = 1`
+  rather than `user_id`, because the shipped rows carry a NULL `user_id` and
+  the local database only ever holds one person's data.
 - **Change detection** is per table via `CHANGE_TS` — `COALESCE(updated_at,
 created_at)` (some tables lack one of them) compared against the watermark.
 - Deletions ride along from `sync_deletions`.

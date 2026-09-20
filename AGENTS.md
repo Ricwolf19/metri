@@ -105,11 +105,18 @@ Read `docs/sync.md` before touching `src/features/sync/`. Non-negotiables:
   guard leaving with `useUnsavedGuard` (Save & leave / Discard / Cancel). Every irreversible action
   is a `<HoldButton>` (press-and-hold) — inline and inside dialogs (`style: 'destructive'` renders
   one). Toasts only for save/delete/start/abandon.
-- **Motion**: no springs, no bounce. Dialogs only fade (the Modal's own fade); sheets are `<Sheet>` on
-  `@gorhom/bottom-sheet` with timing configs (drag down closes, `snapPoints` + `expandable` let the
-  handle toggle full view); press feedback is a 110ms timing. Bounded lists that may overflow use
-  `<ScrollArea>` so the edge chevron hints there is more — inside a sheet it MUST be
-  `<ScrollArea inSheet>` (a plain ScrollView never receives the drag).
+- **Motion**: no springs, no bounce. Dialogs only fade (the Modal's own fade); sheets are `<Sheet>`,
+  a plain RN `Modal` with a timing rise + scrim fade; the handle drags between `snapPoints` (pull
+  down to close), scrim/handle tap/back close too. No third-party sheet: `@gorhom/bottom-sheet` was
+  removed after its content-sized modals opened invisible on device, and Select/TagPicker/the
+  session's effort picker cannot afford a surface that sometimes fails. **An overlay's resting
+  state must be visible without any animation running**: shared values start at the shown
+  position and effects only decorate. A Modal-hosted view whose visibility depended on an
+  effect-started reanimated animation opened invisible (touches landed, nothing drew) once the
+  React Compiler memoized it — verified on the emulator, so don't reintroduce that shape. Press
+  feedback is a 110ms timing. Bounded lists that may overflow use `<ScrollArea>` so the edge
+  chevron hints there is more — inside a sheet use `<ScrollArea inSheet>` (fills the sheet,
+  safe-area padded).
 - **Dates** render through `useDateFormat()` (user preset in Settings), never `toLocaleDateString`
   in a screen. Storage keys stay 'YYYY-MM-DD'.
 - **Section headers** are `<SectionLabel label hint>`; the hint always stacks below the label (a
@@ -129,6 +136,18 @@ Read `docs/sync.md` before touching `src/features/sync/`. Non-negotiables:
   the rest-over trigger shares the notification id so it replaces the countdown). Action presses
   can arrive headless — `index.js` registers the background handler — so those paths touch only
   MMKV and notifee. Scheduled reminders stay on `expo-notifications` (`service.ts`).
+- **Sound cues** go through `lib/sounds.ts` — the only module importing `expo-audio`. Players are
+  created once and kept (decoding on first play stutters), every call is try/caught (a cue must
+  never break a save) and the rest alarm loops until `stopAlarm()`. Notification sounds are a
+  separate path: bundled by the expo-notifications plugin (`app.json → sounds`) and named in the
+  notifee channel. **Android resolves them from `res/raw`, whose filenames allow no dashes** —
+  `rest_alarm.wav`, never `rest-alarm.wav`. The looping rest-over alert needs its OWN channel:
+  sound is fixed per channel on Android, so it cannot share one with the silent countdown.
+- **Notification events** (`features/notifications/events.ts`) are a fixed catalogue; each carries
+  a `tuning` (`toggle` | `program` | `frequency`) that decides what the settings card offers
+  beyond on/off. Times are the app's call, not a setting. `frequency` events schedule one entry
+  per (slot, weekday) from the rotating pool in `tips.ts`, so both locale pools must hold at
+  least `max(TIP_FREQUENCIES) × 7` entries or a week repeats itself (`tips.test.ts` enforces it).
 - **Program schedule** (weekday + start minute) lives on `workout_days` of the ENROLLED copy only;
   templates stay NULL. It is assigned in `/training/start/[id]` and `enrollInProgram` refuses an
   incomplete schedule or a tree that fails `validateProgramForStart`.
@@ -145,6 +164,12 @@ Read `docs/sync.md` before touching `src/features/sync/`. Non-negotiables:
   excludes them — volume, PRs, e1RM, progression and the muscle models — so a new aggregate must
   filter them too. They never start the prescribed rest and carry no RIR (submaximal by
   definition); `warmup.ts` only suggests the ramp, the lifter still confirms each row.
+- **Warm-up routines** (`warmup_routines`, synced) are a different thing: the work AROUND the
+  session, a flat ordered `steps` JSON, never a program tree. Shipped ones carry a NULL `user_id`
+  and `is_custom = 0`, are re-upserted by the seed (edit the copy in `warmup-content.ts` and it
+  lands on the next launch) and can only be copied, never edited or deleted; only `is_custom`
+  rows sync. The shipped content follows RAMP (raise, activate, mobilise, potentiate) and static
+  stretching stays after the session — don't "fix" that into a pre-lift stretch.
 - **Analytics.** Two muscle vocabularies coexist on purpose (`features/training/muscles.ts`):
   `MUSCLES` (coarse) is what a user tags a day with and is STORED in
   `workout_days.focus_muscles` — changing it drops user data; `MUSCLE_HEADS` (fine, ~19) is what an
@@ -198,8 +223,8 @@ Full walkthrough in `docs/release.md`. Breakable rules:
   `ExpoConfigExtraSection`). Don't revert to `appVersion`, don't delete the config — either strands
   every install from OTA.
 - **Native vs JS-only dependencies**: a native module (e.g. `react-native-view-shot`,
-  `expo-sharing`, `react-native-notify-kit`) changes the `runtimeVersion` fingerprint → needs a
-  new APK; JS-only libs (`react-native-reorderable-list`, `sql.js`,
+  `expo-sharing`, `react-native-notify-kit`, `expo-audio`) changes the `runtimeVersion`
+  fingerprint → needs a new APK; JS-only libs (`react-native-reorderable-list`, `sql.js`,
   `react-native-body-highlighter` — it draws on the `react-native-svg` already bundled) ship
   over OTA.
 - `app.config.ts` fails safe to the production API URL (dev URL only under
