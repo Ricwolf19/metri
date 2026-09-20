@@ -6,12 +6,14 @@ import { Text, View } from 'react-native';
 import { ChevronRightIcon, PlayIcon, PlusIcon, SparksIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import {
+  BlockingOverlay,
   Card,
   FadeInUp,
   HoldButton,
   PressableScale,
   Screen,
   Skeleton,
+  useDialog,
   useToast,
   SectionLabel,
 } from '@/components/ui';
@@ -30,11 +32,18 @@ import {
   weekdayOfDate,
   type ScheduledDay,
 } from '@/features/training/schedule';
-import { activeWorkoutQuery, startWorkout } from '@/features/training/session.repo';
+import {
+  activeWorkoutQuery,
+  completedDayIdsForWeek,
+  startWorkout,
+} from '@/features/training/session.repo';
 import { useEnrollment } from '@/features/training/useEnrollment';
 import { useI18n, useT } from '@/i18n';
 import { useClockFormat } from '@/lib/useClockFormat';
 import { useTheme } from '@/theme/theme-context';
+
+// Lets the overlay paint before the synchronous write.
+const OVERLAY_PAINT_MS = 50;
 
 /** Train tab: active program (today's splits + Play) first, then own programs, curated presets, create. */
 const Training = () => {
@@ -42,8 +51,9 @@ const Training = () => {
   const t = useT();
   const { locale } = useI18n();
   const toast = useToast();
+  const dialog = useDialog();
   const { user } = useAuth();
-  const { brand } = useTheme();
+  const { brand, muted } = useTheme();
   const clock = useClockFormat();
   const userId = user?.id ?? '';
 
@@ -54,6 +64,7 @@ const Training = () => {
   const activeWorkout = actives[0] ?? null;
 
   // Snapshot on focus: an overnight tab shows the right day without a clock read in render.
+  const [busy, setBusy] = useState<'starting' | 'abandoning' | null>(null);
   const [now, setNow] = useState(() => new Date());
   useFocusEffect(useCallback(() => setNow(new Date()), []));
   const today = weekdayOfDate(now);
@@ -74,20 +85,48 @@ const Training = () => {
       ? `${t(WEEKDAY_KEY[day.weekday])} · ${formatClockTime(day.startMinute, clock)}`
       : null;
 
+  // Both flows write a tree of rows synchronously; the overlay paints first so
+  // the tap never looks ignored.
+  const completed = enrollment
+    ? completedDayIdsForWeek(enrollment.id, enrollment.currentWeek)
+    : new Set<string>();
+
+  const begin = (dayId: string) => {
+    const routine = structure?.currentRoutine;
+    if (!enrollment || !routine) return;
+    setBusy('starting');
+    // Read through the captured row, not the live one: by the time the timer
+    // fires the query may have produced a different object.
+    setTimeout(() => {
+      if (enrollment.currentRoutineId !== routine.id) {
+        setEnrollmentPosition(enrollment.id, routine.id, enrollment.currentWeek);
+      }
+      const workout = startWorkout(user.id, enrollment.id, dayId, enrollment.currentWeek, locale);
+      setBusy(null);
+      router.push({ pathname: '/training/workout/[id]', params: { id: workout.id } });
+    }, OVERLAY_PAINT_MS);
+  };
+
+  // A split the plan already counts as done can be repeated, but not by accident.
   const startDay = (dayId: string) => {
-    if (!enrollment || !structure?.currentRoutine) return;
-    if (enrollment.currentRoutineId !== structure.currentRoutine.id) {
-      setEnrollmentPosition(enrollment.id, structure.currentRoutine.id, enrollment.currentWeek);
-    }
-    const workout = startWorkout(user.id, enrollment.id, dayId, enrollment.currentWeek, locale);
-    router.push({ pathname: '/training/workout/[id]', params: { id: workout.id } });
+    if (!completed.has(dayId)) return begin(dayId);
+    dialog.confirm({
+      title: t('training.redoTitle'),
+      message: t('training.redoBody'),
+      confirmLabel: t('training.redoConfirm'),
+      onConfirm: () => begin(dayId),
+    });
   };
 
   const abandon = () => {
     if (!enrollment) return;
-    abandonEnrollment(enrollment.id);
-    void syncTrainingReminder(user.id);
-    toast.info(t('training.abandonedToast'));
+    setBusy('abandoning');
+    setTimeout(() => {
+      abandonEnrollment(enrollment.id);
+      void syncTrainingReminder(user.id);
+      setBusy(null);
+      toast.info(t('training.abandonedToast'));
+    }, OVERLAY_PAINT_MS);
   };
 
   const playDisabled = !!activeWorkout;
@@ -152,6 +191,7 @@ const Training = () => {
                       name={dayDisplayName(day, t)}
                       label={scheduleLabel(day)}
                       emphasis="today"
+                      done={completed.has(day.id)}
                       disabled={playDisabled}
                       onPlay={() => startDay(day.id)}
                     />
@@ -178,6 +218,7 @@ const Training = () => {
                       name={dayDisplayName(day, t)}
                       label={scheduleLabel(day)}
                       emphasis="other"
+                      done={completed.has(day.id)}
                       disabled={playDisabled}
                       onPlay={() => startDay(day.id)}
                     />
@@ -244,6 +285,27 @@ const Training = () => {
           </Card>
         </PressableScale>
       </View>
+
+      {/* Around the session: the work most people skip, one tap from the plan. */}
+      <SectionLabel label={t('warmup.title')} className="mt-6" />
+      <PressableScale onPress={() => router.push('/training/warmups')}>
+        <Card className="flex-row items-center">
+          <View className="mr-4 h-11 w-11 items-center justify-center rounded-field bg-ink-800">
+            <SparksIcon color={muted} size={20} />
+          </View>
+          <View className="flex-1 pr-2">
+            <Text className="text-base font-sans-semibold text-ink-50">{t('warmup.sub')}</Text>
+            <Text className="mt-0.5 text-sm text-ink-400" numberOfLines={2}>
+              {t('warmup.trainHint')}
+            </Text>
+          </View>
+          <ChevronRightIcon color={muted} />
+        </Card>
+      </PressableScale>
+      <BlockingOverlay
+        visible={busy !== null}
+        label={busy === 'abandoning' ? t('training.abandoning') : t('training.startingWorkout')}
+      />
     </Screen>
   );
 };

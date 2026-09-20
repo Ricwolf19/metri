@@ -131,6 +131,23 @@ export const finishWorkout = (id: string, rating?: number, notes?: string): void
   advanceUserProgram(log.userProgramId);
 };
 
+/** Splits already completed in a program week — the plan says they are done. */
+export const completedDayIdsForWeek = (userProgramId: string, weekNumber: number): Set<string> =>
+  new Set(
+    db
+      .select({ dayId: workoutLogs.workoutDayId })
+      .from(workoutLogs)
+      .where(
+        and(
+          eq(workoutLogs.userProgramId, userProgramId),
+          eq(workoutLogs.weekNumber, weekNumber),
+          eq(workoutLogs.status, 'completed'),
+        ),
+      )
+      .all()
+      .map((r) => r.dayId),
+  );
+
 /** Discard a session and its sets (used to cancel a started-by-mistake workout). */
 export const abandonWorkout = (id: string): void => {
   const setIds = db

@@ -11,21 +11,25 @@ type Props = {
   /** `today` = the large brand Play; `other` = the compact chip. */
   emphasis: 'today' | 'other';
   disabled: boolean;
+  /** Already completed this program week: greyed, still tappable (with a warning upstream). */
+  done?: boolean;
   onPlay: () => void;
 };
 
 /** One split of the active program with its Play control. */
-export const SplitRow = ({ name, label, emphasis, disabled, onPlay }: Props) => {
+export const SplitRow = ({ name, label, emphasis, disabled, done = false, onPlay }: Props) => {
   const t = useT();
-  const { brand, brandContrast } = useTheme();
-  const today = emphasis === 'today';
+  const { brand, brandContrast, muted } = useTheme();
+  const today = emphasis === 'today' && !done;
 
   return (
     <View
       className={
         today
           ? 'flex-row items-center rounded-field border border-brand/30 bg-brand/10 py-3 pl-4 pr-3'
-          : 'flex-row items-center rounded-field border border-ink-600 bg-ink-850 py-2.5 pl-4 pr-2.5'
+          : done
+            ? 'flex-row items-center rounded-field border border-ink-700 bg-ink-850/50 py-2.5 pl-4 pr-2.5'
+            : 'flex-row items-center rounded-field border border-ink-600 bg-ink-850 py-2.5 pl-4 pr-2.5'
       }
     >
       <View className="flex-1">
@@ -33,12 +37,18 @@ export const SplitRow = ({ name, label, emphasis, disabled, onPlay }: Props) => 
           className={
             today
               ? 'text-lg font-sans-bold text-ink-50'
-              : 'text-base font-sans-semibold text-ink-50'
+              : done
+                ? 'text-base font-sans-semibold text-ink-500'
+                : 'text-base font-sans-semibold text-ink-50'
           }
         >
           {name}
         </Text>
-        {label ? <Text className="mt-0.5 text-xs text-ink-400">{label}</Text> : null}
+        {done ? (
+          <Text className="mt-0.5 text-xs text-ink-500">{t('training.doneThisWeek')}</Text>
+        ) : label ? (
+          <Text className="mt-0.5 text-xs text-ink-400">{label}</Text>
+        ) : null}
       </View>
       <Pressable
         onPress={onPlay}
@@ -47,11 +57,14 @@ export const SplitRow = ({ name, label, emphasis, disabled, onPlay }: Props) => 
         accessibilityLabel={t('training.playSplit', { name })}
         className={[
           'items-center justify-center rounded-full',
-          today ? 'h-14 w-14 bg-brand' : 'h-10 w-10 bg-brand/15',
+          today ? 'h-14 w-14 bg-brand' : done ? 'h-10 w-10 bg-ink-800' : 'h-10 w-10 bg-brand/15',
           disabled ? 'opacity-40' : '',
         ].join(' ')}
       >
-        <PlaySolidIcon color={today ? brandContrast : brand} size={today ? 24 : 16} />
+        <PlaySolidIcon
+          color={today ? brandContrast : done ? muted : brand}
+          size={today ? 24 : 16}
+        />
       </Pressable>
     </View>
   );
