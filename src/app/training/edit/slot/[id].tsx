@@ -7,54 +7,40 @@ import { TopBar } from '@/components/TopBar';
 import {
   Button,
   Card,
+  ChipRow,
+  DurationPicker,
   HoldButton,
-  Input,
   Screen,
   SectionLabel,
-  SegmentedControl,
   Stepper,
-  Switch,
-  type Segment,
+  type ChipItem,
   useToast,
   useUnsavedGuard,
 } from '@/components/ui';
-import type { IntensityType, SetGroup, WeekConfig } from '@/db/schema';
+import type { IntensityType } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
+import { BadgesEditor } from '@/features/training/components/BadgesEditor';
 import {
-  MAX_BADGES,
-  MAX_BADGE_LEN,
   deleteSlot,
   getDay,
   getSlot,
   getSlotConfigs,
   saveSlotDraft,
   setSlotAlternatives,
-  type ConfigValues,
 } from '@/features/training/authoring.repo';
 import { getExercise } from '@/features/training/exercises.repo';
 import { INTENSITY_KEY, dayDisplayName, exerciseDisplayName } from '@/features/training/labels';
+import {
+  DEFAULT_REST,
+  isComplete,
+  toFreshDraft,
+  toValues,
+  toWeekDraft,
+  type Method,
+  type WeekDraft,
+} from '@/features/training/slot-draft';
 import { useI18n, useT } from '@/i18n';
-
-type WeekDraft = { weekNumber: number; values: ConfigValues; setGroups: SetGroup[] | null };
-
-const toWeekDraft = (c: WeekConfig): WeekDraft => ({
-  weekNumber: c.weekNumber,
-  values: {
-    sets: c.sets,
-    reps: c.reps,
-    repsMax: c.repsMax,
-    rirMin: c.rirMin,
-    rirMax: c.rirMax,
-    toFailure: c.toFailure,
-    restSeconds: c.restSeconds,
-    intensityType: c.intensityType,
-    intensityValue: c.intensityValue,
-  },
-  setGroups: c.setGroups ?? null,
-});
-
-const REST_MIN = 30;
-const REST_MAX = 600;
+import { mmss } from '@/lib/duration';
 
 /** Slot editor: draft written in one Save. A fresh slot (`fresh=1`) is deleted if the user leaves
  * unsaved, so no half-configured exercise reaches a workout. */
@@ -73,12 +59,15 @@ const EditSlot = () => {
   const day = slot ? getDay(slot.workoutDayId) : null;
 
   const [week, setWeek] = useState(1);
-  const [rest, setRest] = useState(slot?.defaultRestSeconds ?? 120);
+  const [restOpen, setRestOpen] = useState(false);
   const [badges, setBadges] = useState<string[]>(slot?.badges ?? []);
-  const [badgeInput, setBadgeInput] = useState('');
-  const [weeks, setWeeks] = useState<WeekDraft[]>(() =>
-    slotId ? getSlotConfigs(slotId).map(toWeekDraft) : [],
-  );
+  const [weeks, setWeeks] = useState<WeekDraft[]>(() => {
+    if (!slotId) return [];
+    const fallback = slot?.defaultRestSeconds ?? DEFAULT_REST;
+    return getSlotConfigs(slotId).map((c) =>
+      isFresh ? toFreshDraft(c, fallback) : toWeekDraft(c, fallback),
+    );
+  });
   const [alternatives, setAlternatives] = useState<string[]>(slot?.alternativeExerciseIds ?? []);
   // The picker appends alternatives and comes back; re-read them on focus.
   useFocusEffect(
@@ -88,9 +77,23 @@ const EditSlot = () => {
   );
   const [dirty, setDirty] = useState(isFresh);
 
+  const allComplete = weeks.every(isComplete);
+
   const save = () => {
     if (!slot) return false;
-    saveSlotDraft(slot.id, { defaultRestSeconds: rest, badges, weeks });
+    if (!allComplete) {
+      toast.error(t('editor.completeWeeksHint'));
+      return false;
+    }
+    saveSlotDraft(slot.id, {
+      defaultRestSeconds: slot.defaultRestSeconds ?? DEFAULT_REST,
+      badges,
+      weeks: weeks.map((w) => ({
+        weekNumber: w.weekNumber,
+        values: toValues(w),
+        setGroups: w.setGroups,
+      })),
+    });
     setDirty(false);
     toast.success(t('editor.savedToast'));
     return true;
@@ -115,33 +118,16 @@ const EditSlot = () => {
     setWeeks((prev) => prev.map((w) => (w.weekNumber === weekNumber ? { ...w, ...patch } : w)));
     setDirty(true);
   };
-  const patch = (p: Partial<ConfigValues>) => {
-    if (cfg) patchWeek(cfg.weekNumber, { values: { ...cfg.values, ...p } });
+  const patch = (p: Partial<WeekDraft>) => {
+    if (cfg) patchWeek(cfg.weekNumber, p);
   };
   const applyToAll = () => {
     if (!cfg) return;
-    setWeeks((prev) =>
-      prev.map((w) => ({ ...w, values: { ...cfg.values }, setGroups: cfg.setGroups })),
-    );
+    setWeeks((prev) => prev.map((w) => ({ ...cfg, weekNumber: w.weekNumber })));
     setDirty(true);
     toast.success(t('editor.applyToAll'));
   };
 
-  const setRestTo = (next: number) => {
-    setRest(next);
-    setDirty(true);
-  };
-  const addBadge = () => {
-    const v = badgeInput.trim().slice(0, MAX_BADGE_LEN);
-    if (!v || badges.length >= MAX_BADGES) return;
-    setBadges([...badges, v]);
-    setBadgeInput('');
-    setDirty(true);
-  };
-  const removeBadge = (i: number) => {
-    setBadges(badges.filter((_, j) => j !== i));
-    setDirty(true);
-  };
   // Alternatives are structural: the picker appends immediately, removal too.
   const removeAlternative = (altId: string) => {
     const next = alternatives.filter((x) => x !== altId);
@@ -156,16 +142,21 @@ const EditSlot = () => {
     guard.leave(() => router.back());
   };
 
-  const intensityItems: Segment<IntensityType>[] = (
-    Object.keys(INTENSITY_KEY) as IntensityType[]
-  ).map((k) => ({ value: k, label: t(INTENSITY_KEY[k]) }));
+  const methodItems: ChipItem<Method>[] = [
+    { value: 'failure', label: t('editor.toFailure') },
+    ...(Object.keys(INTENSITY_KEY) as IntensityType[]).map((k) => ({
+      value: k,
+      label: t(INTENSITY_KEY[k]),
+    })),
+  ];
 
-  const changeIntensity = (type: IntensityType) => {
-    const intensityValue = type === 'rpe' ? 8 : type === 'percentage' ? 70 : null;
-    patch({ intensityType: type, intensityValue });
+  // Picking a method seeds its sub-values; the method choice is the deliberate act.
+  const changeMethod = (method: Method) => {
+    if (method === 'rir') patch({ method, rirMin: cfg?.rirMin ?? 2, rirMax: cfg?.rirMax ?? 3 });
+    else if (method === 'rpe') patch({ method, intensityValue: 8 });
+    else if (method === 'percentage') patch({ method, intensityValue: 70 });
+    else patch({ method, intensityValue: null });
   };
-
-  const v = cfg?.values ?? null;
 
   return (
     <Screen
@@ -181,13 +172,26 @@ const EditSlot = () => {
         />
       }
       footer={
-        <Button variant="brand" label={t('editor.save')} disabled={!dirty} onPress={saveAndClose} />
+        <View>
+          {dirty && !allComplete ? (
+            <Text className="mb-2 text-center text-xs text-ink-400">
+              {t('editor.completeWeeksHint')}
+            </Text>
+          ) : null}
+          <Button
+            variant="brand"
+            label={t('editor.save')}
+            disabled={!dirty || !allComplete}
+            onPress={saveAndClose}
+          />
+        </View>
       }
     >
       {weeks.length > 1 ? (
         <View className="mb-4 flex-row flex-wrap gap-2">
           {weeks.map((w) => {
             const active = w.weekNumber === (cfg?.weekNumber ?? 1);
+            const done = isComplete(w);
             return (
               <Pressable
                 key={w.weekNumber}
@@ -195,10 +199,15 @@ const EditSlot = () => {
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
                 className={[
-                  'rounded-full border px-3.5 py-1.5',
+                  'flex-row items-center gap-1.5 rounded-full border px-3.5 py-1.5',
                   active ? 'border-brand/40 bg-brand/15' : 'border-ink-700 bg-ink-800',
                 ].join(' ')}
               >
+                <View
+                  className={['h-1.5 w-1.5 rounded-full', done ? 'bg-brand' : 'bg-ink-600'].join(
+                    ' ',
+                  )}
+                />
                 <Text
                   className={[
                     'text-xs font-sans-semibold',
@@ -213,85 +222,114 @@ const EditSlot = () => {
         </View>
       ) : null}
 
-      {cfg && v ? (
+      {cfg ? (
         <Card>
+          {/* 1 — effort method: the measurement decision comes first. */}
+          <Text className="mb-2 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
+            {t('editor.intensity')}
+          </Text>
+          <ChipRow items={methodItems} value={cfg.method} onChange={changeMethod} />
+          {cfg.method === 'rir' ? (
+            <View className="mt-3 flex-row">
+              <View className="flex-1">
+                <Stepper
+                  label={t('editor.rirMin')}
+                  value={cfg.rirMin}
+                  min={0}
+                  max={5}
+                  onChange={(n) => patch({ rirMin: n, rirMax: Math.max(n, cfg.rirMax ?? n) })}
+                />
+              </View>
+              <View className="flex-1">
+                <Stepper
+                  label={t('editor.rirMax')}
+                  value={cfg.rirMax}
+                  min={cfg.rirMin ?? 0}
+                  max={5}
+                  onChange={(n) => patch({ rirMax: n })}
+                />
+              </View>
+            </View>
+          ) : cfg.method === 'rpe' ? (
+            <View className="mt-3">
+              <Stepper
+                label={t('intensity.rpe')}
+                value={cfg.intensityValue}
+                min={5}
+                max={10}
+                unsetSeed={8}
+                onChange={(n) => patch({ intensityValue: n })}
+              />
+            </View>
+          ) : cfg.method === 'percentage' ? (
+            <View className="mt-3">
+              <Stepper
+                label={t('intensity.percentage')}
+                value={cfg.intensityValue}
+                min={30}
+                max={100}
+                step={5}
+                unsetSeed={70}
+                format={(n) => `${n}%`}
+                onChange={(n) => patch({ intensityValue: n })}
+              />
+            </View>
+          ) : null}
+
+          <View className="my-4 h-px bg-ink-800" />
+
+          {/* 2 — prescription: sets and reps share a row instead of one long column. */}
           <Text className="mb-1 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
             {t('editor.prescription')}
           </Text>
-          <Stepper
-            label={t('editor.sets')}
-            value={v.sets}
-            min={1}
-            onChange={(n) => patch({ sets: n })}
-          />
-          <Stepper
-            label={t('editor.reps')}
-            value={v.reps}
-            min={1}
-            onChange={(n) => patch({ reps: n })}
-          />
+          <View className="flex-row">
+            <View className="flex-1">
+              <Stepper
+                label={t('editor.sets')}
+                value={cfg.sets}
+                min={1}
+                onChange={(n) => patch({ sets: n })}
+              />
+            </View>
+            <View className="flex-1">
+              <Stepper
+                label={t('editor.reps')}
+                value={cfg.reps}
+                min={1}
+                onChange={(n) => patch({ reps: n })}
+              />
+            </View>
+          </View>
           <Stepper
             label={t('editor.repsMax')}
-            value={v.repsMax ?? v.reps}
-            min={v.reps}
-            format={(n) => (n > v.reps ? `${n}` : '—')}
-            onChange={(n) => patch({ repsMax: n > v.reps ? n : null })}
+            value={cfg.reps == null ? null : (cfg.repsMax ?? cfg.reps)}
+            min={cfg.reps ?? 1}
+            format={(n) => (cfg.reps != null && n > cfg.reps ? `${n}` : '—')}
+            onChange={(n) => patch({ repsMax: cfg.reps != null && n > cfg.reps ? n : null })}
           />
 
-          <View className="my-3 h-px bg-ink-800" />
+          <View className="my-4 h-px bg-ink-800" />
 
-          <View className="flex-row items-center justify-between py-1">
-            <Text className="text-sm text-ink-200">{t('editor.toFailure')}</Text>
-            <Switch value={v.toFailure} onValueChange={(on) => patch({ toFailure: on })} />
+          {/* 3 — rest, per week (apply-to-all copies it with everything else). */}
+          <View className="flex-row items-center justify-between">
+            <Text className="font-mono-medium text-xs uppercase tracking-wider text-ink-400">
+              {t('editor.rest')}
+            </Text>
+            <Pressable
+              onPress={() => setRestOpen((v) => !v)}
+              accessibilityRole="button"
+              className="rounded-field border border-ink-700 bg-ink-800 px-4 py-2"
+            >
+              <Text className="font-mono text-base text-ink-50">{mmss(cfg.restSeconds)}</Text>
+            </Pressable>
           </View>
-
-          {!v.toFailure ? (
-            <>
-              <Text className="mb-2 mt-3 font-mono-medium text-[11px] uppercase tracking-wider text-ink-400">
-                {t('editor.intensity')}
-              </Text>
-              <SegmentedControl
-                segments={intensityItems}
-                value={v.intensityType}
-                onChange={changeIntensity}
+          {restOpen ? (
+            <View className="mt-3">
+              <DurationPicker
+                seconds={cfg.restSeconds}
+                onChange={(s) => patch({ restSeconds: Math.max(5, s) })}
               />
-              {v.intensityType === 'rir' ? (
-                <>
-                  <Stepper
-                    label={t('editor.rirMin')}
-                    value={v.rirMin ?? 0}
-                    min={0}
-                    max={5}
-                    onChange={(n) => patch({ rirMin: n, rirMax: Math.max(n, v.rirMax ?? n) })}
-                  />
-                  <Stepper
-                    label={t('editor.rirMax')}
-                    value={v.rirMax ?? v.rirMin ?? 0}
-                    min={v.rirMin ?? 0}
-                    max={5}
-                    onChange={(n) => patch({ rirMax: n })}
-                  />
-                </>
-              ) : v.intensityType === 'rpe' ? (
-                <Stepper
-                  label={t('intensity.rpe')}
-                  value={v.intensityValue ?? 8}
-                  min={5}
-                  max={10}
-                  onChange={(n) => patch({ intensityValue: n })}
-                />
-              ) : (
-                <Stepper
-                  label={t('intensity.percentage')}
-                  value={v.intensityValue ?? 70}
-                  min={30}
-                  max={100}
-                  step={5}
-                  format={(n) => `${n}%`}
-                  onChange={(n) => patch({ intensityValue: n })}
-                />
-              )}
-            </>
+            </View>
           ) : null}
 
           {weeks.length > 1 ? (
@@ -307,96 +345,54 @@ const EditSlot = () => {
         </Card>
       ) : null}
 
-      <Card className="mt-4">
-        <Stepper
-          label={t('editor.restSeconds')}
-          value={rest}
-          min={REST_MIN}
-          max={REST_MAX}
-          step={15}
-          format={(n) => `${n}s`}
-          onChange={setRestTo}
+      <SectionLabel label={t('editor.alternatives')} className="mb-1 mt-7" />
+      <Card>
+        {alternatives.length ? (
+          <View className="mb-3 flex-row flex-wrap gap-2">
+            {alternatives.map((altId) => {
+              const alt = getExercise(altId);
+              if (!alt) return null;
+              return (
+                <View
+                  key={altId}
+                  className="flex-row items-center gap-1.5 rounded-full bg-ink-800 px-3 py-1.5"
+                >
+                  <Text className="text-xs font-sans-medium text-ink-200">
+                    {exerciseDisplayName(alt, locale)}
+                  </Text>
+                  <Pressable onPress={() => removeAlternative(altId)} hitSlop={6}>
+                    <XIcon color="#71717a" size={13} />
+                  </Pressable>
+                </View>
+              );
+            })}
+          </View>
+        ) : (
+          <Text className="mb-3 text-xs text-ink-400">{t('editor.alternativesHint')}</Text>
+        )}
+        <Button
+          label={t('editor.addAlternative')}
+          variant="secondary"
+          size="sm"
+          onPress={() =>
+            router.push({
+              pathname: '/training/edit/exercise-picker',
+              params: { altFor: slot.id, dayId: slot.workoutDayId },
+            })
+          }
         />
       </Card>
-
-      {cfg && v ? (
-        <>
-          <SectionLabel label={t('editor.alternatives')} className="mb-1 mt-7" />
-          <Card>
-            {alternatives.length ? (
-              <View className="mb-3 flex-row flex-wrap gap-2">
-                {alternatives.map((altId) => {
-                  const alt = getExercise(altId);
-                  if (!alt) return null;
-                  return (
-                    <View
-                      key={altId}
-                      className="flex-row items-center gap-1.5 rounded-full bg-ink-800 px-3 py-1.5"
-                    >
-                      <Text className="text-xs font-sans-medium text-ink-200">
-                        {exerciseDisplayName(alt, locale)}
-                      </Text>
-                      <Pressable onPress={() => removeAlternative(altId)} hitSlop={6}>
-                        <XIcon color="#71717a" size={13} />
-                      </Pressable>
-                    </View>
-                  );
-                })}
-              </View>
-            ) : (
-              <Text className="mb-3 text-xs text-ink-400">{t('editor.alternativesHint')}</Text>
-            )}
-            <Button
-              label={t('editor.addAlternative')}
-              variant="secondary"
-              size="sm"
-              onPress={() =>
-                router.push({
-                  pathname: '/training/edit/exercise-picker',
-                  params: { altFor: slot.id, dayId: slot.workoutDayId },
-                })
-              }
-            />
-          </Card>
-        </>
-      ) : null}
 
       <SectionLabel label={t('editor.badges')} className="mb-1 mt-7" />
       <Text className="mb-2 text-[11px] text-ink-500">{t('editor.badgesHint')}</Text>
       <Card>
-        {badges.length ? (
-          <View className="mb-3 flex-row flex-wrap gap-2">
-            {badges.map((b, i) => (
-              <View
-                key={`${b}-${i}`}
-                className="flex-row items-center gap-1.5 rounded-full bg-ink-800 px-3 py-1.5"
-              >
-                <Text className="font-mono-medium text-[11px] uppercase tracking-wide text-ink-200">
-                  {b}
-                </Text>
-                <Pressable onPress={() => removeBadge(i)} hitSlop={6}>
-                  <XIcon color="#71717a" size={13} />
-                </Pressable>
-              </View>
-            ))}
-          </View>
-        ) : null}
-        {badges.length < MAX_BADGES ? (
-          <View className="flex-row items-end gap-2">
-            <View className="flex-1">
-              <Input
-                value={badgeInput}
-                onChangeText={setBadgeInput}
-                placeholder={t('editor.badgePh')}
-                maxLength={MAX_BADGE_LEN}
-                autoCapitalize="characters"
-                onSubmitEditing={addBadge}
-                returnKeyType="done"
-              />
-            </View>
-            <Button label={t('editor.addBadge')} fullWidth={false} onPress={addBadge} />
-          </View>
-        ) : null}
+        <BadgesEditor
+          value={badges}
+          onChange={(next) => {
+            setBadges(next);
+            setDirty(true);
+          }}
+        />
       </Card>
 
       <View className="mt-8">
