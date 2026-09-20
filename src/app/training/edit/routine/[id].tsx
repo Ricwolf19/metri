@@ -25,11 +25,12 @@ import {
   daysQuery,
   deleteRoutine,
   getRoutine,
+  dayMuscleHeads,
   reorderDays,
   updateRoutine,
 } from '@/features/training/authoring.repo';
 import { dayDisplayName, routineDisplayName } from '@/features/training/labels';
-import { knownMuscles, muscleKey } from '@/features/training/muscles';
+import { muscleHeadKey } from '@/features/training/muscles';
 import { useT } from '@/i18n';
 import { useReorderedList } from '@/lib/useReorderedList';
 import { useBusyThen } from '@/lib/useBusyThen';
@@ -170,7 +171,9 @@ const EditRoutine = () => {
         data={items}
         keyExtractor={(d) => d.id}
         renderItem={({ item }) => {
-          const focus = knownMuscles(item.focusMuscles).map((m) => t(muscleKey(m)));
+          const focus = dayMuscleHeads(item.id)
+            .slice(0, 4)
+            .map((h) => t(muscleHeadKey(h)));
           return (
             <ReorderRow
               title={dayDisplayName(item, t)}

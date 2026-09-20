@@ -14,10 +14,8 @@ import {
   ReorderRow,
   Screen,
   SectionLabel,
-  TagPicker,
   useToast,
   useUnsavedGuard,
-  type TagSection,
 } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import {
@@ -34,7 +32,7 @@ import {
   StartTimeField,
 } from '@/features/training/components/StartTimeField';
 import { WeekdayChips } from '@/features/training/components/WeekdayChips';
-import { MUSCLES, MUSCLE_REGIONS, knownMuscles, muscleKey } from '@/features/training/muscles';
+import { exerciseHeads, muscleHeadKey, type MuscleHead } from '@/features/training/muscles';
 import { syncTrainingReminder } from '@/features/training/reminders';
 import {
   dayDisplayName,
@@ -48,7 +46,6 @@ import { useTheme } from '@/theme/theme-context';
 
 type Draft = {
   name: string;
-  focus: string[];
   weekday: number | null;
   startMinute: number | null;
 };
@@ -72,7 +69,6 @@ const EditDay = () => {
 
   const initial: Draft = {
     name: day?.name ?? '',
-    focus: knownMuscles(day?.focusMuscles),
     weekday: day?.weekday ?? null,
     startMinute: day?.startMinute ?? null,
   };
@@ -89,7 +85,6 @@ const EditDay = () => {
     const name = draft.name.trim();
     updateDay(dayId, {
       name,
-      focusMuscles: draft.focus.length ? draft.focus : null,
       ...(live ? { weekday: draft.weekday, startMinute: draft.startMinute } : {}),
     });
     if (live && user) void syncTrainingReminder(user.id);
@@ -114,16 +109,13 @@ const EditDay = () => {
     guard.leave(() => router.back());
   };
 
-  const sections: TagSection[] = [
-    {
-      title: t('editor.regions'),
-      items: MUSCLE_REGIONS.map((m) => ({ value: m, label: t(muscleKey(m)) })),
-    },
-    {
-      title: t('editor.muscles'),
-      items: MUSCLES.map((m) => ({ value: m, label: t(muscleKey(m)) })),
-    },
-  ];
+  // The split's muscles are a fact of its exercises, not a manual tag list.
+  const muscles: MuscleHead[] = [];
+  for (const item of items) {
+    for (const h of exerciseHeads(item.exercise)) {
+      if (!muscles.includes(h)) muscles.push(h);
+    }
+  }
 
   const header = (
     <View>
@@ -134,14 +126,22 @@ const EditDay = () => {
           onChangeText={(name) => patch({ name })}
           placeholder={t('editor.splitFallback', { n: day.orderIndex + 1 })}
         />
-        <TagPicker
-          label={t('editor.focusMuscles')}
-          sections={sections}
-          value={draft.focus}
-          onChange={(focus) => patch({ focus })}
-          placeholder={t('editor.focusMusclesEmpty')}
-          doneLabel={t('common.done')}
-        />
+        {muscles.length ? (
+          <View>
+            <Text className="mb-1.5 font-mono-medium text-xs uppercase tracking-wider text-ink-300">
+              {t('editor.muscles')}
+            </Text>
+            <View className="flex-row flex-wrap gap-1.5">
+              {muscles.map((h) => (
+                <View key={h} className="rounded-full bg-ink-800 px-2.5 py-1">
+                  <Text className="text-[11px] font-sans-medium text-ink-300">
+                    {t(muscleHeadKey(h))}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
         {live ? (
           <View>
             <Text className="mb-1.5 font-mono-medium text-xs uppercase tracking-wider text-ink-300">

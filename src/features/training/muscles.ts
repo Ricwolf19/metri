@@ -1,41 +1,9 @@
 import type { ExerciseCategory } from '@/db/schema';
 import type { TranslationKey } from '@/i18n/en';
 
-/**
- * Preset focus tags for a split. Stored as slugs in `workout_days.focus_muscles`
- * and translated at render time, so switching language re-labels saved data.
- * Regions cover whole-body sessions; muscles are the usual groups.
- */
-export const MUSCLE_REGIONS = ['full_body', 'upper_body', 'lower_body'] as const;
-export const MUSCLES = [
-  'chest',
-  'back',
-  'shoulders',
-  'biceps',
-  'triceps',
-  'forearms',
-  'core',
-  'quads',
-  'hamstrings',
-  'glutes',
-  'calves',
-  'traps',
-] as const;
-
-export type MuscleSlug = (typeof MUSCLE_REGIONS)[number] | (typeof MUSCLES)[number];
-
-const ALL: readonly string[] = [...MUSCLE_REGIONS, ...MUSCLES];
-
-export const isMuscleSlug = (value: string): value is MuscleSlug => ALL.includes(value);
-
-export const muscleKey = (slug: MuscleSlug): TranslationKey => `muscle.${slug}`;
-
-/**
- * The known slugs of a stored list, in stored order. Legacy free-text values
- * ("pecho", "arms") are ignored here and dropped on the next explicit save.
- */
-export const knownMuscles = (stored: readonly string[] | null | undefined): MuscleSlug[] =>
-  (stored ?? []).filter(isMuscleSlug);
+// The coarse "focus muscles" vocabulary was retired with the manual split
+// picker — a split's muscles now derive from its exercises. Old
+// `workout_days.focus_muscles` values stay stored but are never read.
 
 /* ── Anatomical heads: the vocabulary of `exercises.primary/secondaryMuscles` ──
  *
@@ -99,10 +67,10 @@ export const knownHeads = (stored: readonly string[] | null | undefined): Muscle
 };
 
 /**
- * Last-resort heads for an exercise that names none — every custom exercise,
- * since the picker only asks for a category. Coarse on purpose: it keeps a
- * user's own movements visible on the body map instead of silently
- * contributing nothing, and any explicit muscle list overrides it.
+ * Last-resort heads for an exercise that names none — legacy customs created
+ * before muscles became required. Coarse on purpose: it keeps those movements
+ * visible on the body map instead of silently contributing nothing, and any
+ * explicit muscle list overrides it.
  */
 export const CATEGORY_HEADS: Record<ExerciseCategory, MuscleHead[]> = {
   chest: ['chest'],
@@ -113,4 +81,36 @@ export const CATEGORY_HEADS: Record<ExerciseCategory, MuscleHead[]> = {
   core: ['abs'],
   full_body: [],
   cardio: [],
+};
+
+/** Primary heads of an exercise, category fallback for legacy customs. */
+export const exerciseHeads = (ex: {
+  primaryMuscles: string[] | null;
+  category: ExerciseCategory;
+}): MuscleHead[] => {
+  const primary = knownHeads(ex.primaryMuscles);
+  return primary.length ? primary : CATEGORY_HEADS[ex.category];
+};
+
+/** Category derived from the first primary head — customs no longer pick one. */
+export const HEAD_CATEGORY: Record<MuscleHead, ExerciseCategory> = {
+  chest: 'chest',
+  upper_chest: 'chest',
+  lats: 'back',
+  mid_back: 'back',
+  lower_back: 'back',
+  traps: 'back',
+  front_delts: 'shoulders',
+  side_delts: 'shoulders',
+  rear_delts: 'shoulders',
+  biceps: 'arms',
+  triceps: 'arms',
+  forearms: 'arms',
+  abs: 'core',
+  obliques: 'core',
+  quads: 'legs',
+  hamstrings: 'legs',
+  glutes: 'legs',
+  adductors: 'legs',
+  calves: 'legs',
 };

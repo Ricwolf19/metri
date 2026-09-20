@@ -11,19 +11,27 @@ import {
   Input,
   Screen,
   Select,
+  TagPicker,
   type SelectItem,
+  type TagSection,
   useToast,
 } from '@/components/ui';
-import type { Equipment, ExerciseCategory } from '@/db/schema';
+import type { Equipment } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
 import { addSlot, getDay, getSlot, setSlotAlternatives } from '@/features/training/authoring.repo';
 import { ExerciseList } from '@/features/training/components/ExerciseList';
 import { createCustomExercise, deleteCustomExercise } from '@/features/training/exercises.repo';
-import { CATEGORY_KEY, EQUIPMENT_KEY, dayDisplayName } from '@/features/training/labels';
+import { EQUIPMENT_KEY, dayDisplayName } from '@/features/training/labels';
+import {
+  HEAD_CATEGORY,
+  MUSCLE_HEADS,
+  muscleHeadKey,
+  type MuscleHead,
+} from '@/features/training/muscles';
 import { useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
-const CATEGORIES = Object.keys(CATEGORY_KEY) as ExerciseCategory[];
+const isHead = (v: string): v is MuscleHead => (MUSCLE_HEADS as readonly string[]).includes(v);
 
 const ExercisePicker = () => {
   const { dayId, altFor } = useLocalSearchParams<{ dayId: string; altFor?: string }>();
@@ -35,10 +43,10 @@ const ExercisePicker = () => {
 
   const day = typeof dayId === 'string' ? getDay(dayId) : null;
 
-  // New-exercise inline form.
+  // New-exercise inline form. Muscles are required; the category derives from them.
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
-  const [newCategory, setNewCategory] = useState<ExerciseCategory>('chest');
+  const [newMuscles, setNewMuscles] = useState<string[]>([]);
   const [newEquipment, setNewEquipment] = useState<Equipment>();
 
   if (!user || !day || typeof dayId !== 'string') return <Redirect href="/training" />;
@@ -69,9 +77,12 @@ const ExercisePicker = () => {
 
   const createAndPick = () => {
     if (newName.trim().length < 2) return toast.error(t('editor.exerciseName'));
+    const heads = newMuscles.filter(isHead);
+    if (!heads.length) return toast.error(t('editor.musclesRequired'));
     const ex = createCustomExercise(user.id, {
       name: newName.trim(),
-      category: newCategory,
+      category: HEAD_CATEGORY[heads[0]],
+      primaryMuscles: heads,
       equipment: newEquipment ?? null,
     });
     if (typeof altFor === 'string') {
@@ -81,10 +92,12 @@ const ExercisePicker = () => {
     openFresh(ex.id);
   };
 
-  const categoryItems: SelectItem<ExerciseCategory>[] = CATEGORIES.map((c) => ({
-    value: c,
-    label: t(CATEGORY_KEY[c]),
-  }));
+  const muscleSections: TagSection[] = [
+    {
+      title: t('editor.muscles'),
+      items: MUSCLE_HEADS.map((h) => ({ value: h, label: t(muscleHeadKey(h)) })),
+    },
+  ];
   const equipmentItems: SelectItem<Equipment>[] = (Object.keys(EQUIPMENT_KEY) as Equipment[]).map(
     (e) => ({ value: e, label: t(EQUIPMENT_KEY[e]) }),
   );
@@ -111,11 +124,13 @@ const ExercisePicker = () => {
             onChangeText={setNewName}
             autoCapitalize="words"
           />
-          <Select
-            label={t('editor.category')}
-            items={categoryItems}
-            value={newCategory}
-            onChange={setNewCategory}
+          <TagPicker
+            label={t('editor.muscles')}
+            sections={muscleSections}
+            value={newMuscles}
+            onChange={setNewMuscles}
+            placeholder={t('editor.musclesRequired')}
+            doneLabel={t('common.done')}
           />
           <Select
             label={t('editor.equipment')}
