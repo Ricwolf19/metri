@@ -19,7 +19,7 @@ import { useAuth } from '@/features/auth/auth-context';
 import { presetDayName, presetProgramCopy, presetRoutineName } from '@/features/training/programs';
 import { deleteProgramTree } from '@/features/training/authoring.repo';
 import { activeEnrollmentQuery } from '@/features/training/enroll';
-import { WEEKDAY_KEY } from '@/features/training/labels';
+import { WEEKDAY_KEY, dayDisplayName, routineDisplayName } from '@/features/training/labels';
 import { getProgram, getProgramTree } from '@/features/training/programs.repo';
 import { formatClockTime } from '@/features/training/schedule';
 import { useI18n, useT } from '@/i18n';
@@ -118,7 +118,13 @@ const ProgramDetail = () => {
             <Card>
               <View className="flex-row items-center justify-between">
                 <Text className="text-base font-sans-semibold text-ink-50">
-                  {presetRoutineName(program.id, routine.id, routine.name, locale)}
+                  {routineDisplayName(
+                    {
+                      name: presetRoutineName(program.id, routine.id, routine.name, locale),
+                      orderIndex: routine.orderIndex,
+                    },
+                    t,
+                  )}
                 </Text>
                 <Text className="text-xs text-ink-400">
                   {t('training.weeks', { count: routine.durationWeeks })}
@@ -133,7 +139,13 @@ const ProgramDetail = () => {
                   const row = (
                     <View className="flex-row items-center rounded-field bg-ink-850 px-3 py-2">
                       <Text className="flex-1 text-sm text-ink-100">
-                        {presetDayName(program.id, routine.id, day.id, day.name, locale)}
+                        {dayDisplayName(
+                          {
+                            name: presetDayName(program.id, routine.id, day.id, day.name, locale),
+                            orderIndex: day.orderIndex,
+                          },
+                          t,
+                        )}
                       </Text>
                       {schedule ? <Text className="text-xs text-ink-400">{schedule}</Text> : null}
                       {enrolledHere ? (
