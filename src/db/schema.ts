@@ -496,6 +496,31 @@ export const bodyMetrics = sqliteTable(
 export type BodyMetric = typeof bodyMetrics.$inferSelect;
 export type NewBodyMetric = typeof bodyMetrics.$inferInsert;
 
+/**
+ * Per-user defaults for an exercise, applied whenever it is added to a split
+ * (rest, badges, alternatives) — "configure once, reuse in every plan". One
+ * row per (user, exercise); a per-program override remains the open path.
+ */
+export const exerciseSettings = sqliteTable(
+  'exercise_settings',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(),
+    exerciseId: text('exercise_id').notNull(),
+    restSeconds: integer('rest_seconds'),
+    badges: text('badges', { mode: 'json' }).$type<string[]>(),
+    alternativeExerciseIds: text('alternative_exercise_ids', { mode: 'json' }).$type<string[]>(),
+    createdAt: tsMs('created_at').notNull().default(NOW_MS),
+    updatedAt: tsMs('updated_at').notNull().default(NOW_MS),
+  },
+  (t) => [
+    index('idx_exercise_settings_user').on(t.userId),
+    uniqueIndex('idx_exercise_settings_user_exercise').on(t.userId, t.exerciseId),
+  ],
+);
+
+export type ExerciseSetting = typeof exerciseSettings.$inferSelect;
+
 /* ── Sync (premium: SQLite ↔ Neon delta sync) ──────────────────────────────── */
 
 /**

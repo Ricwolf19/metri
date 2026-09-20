@@ -20,6 +20,9 @@ import {
 import { recordDeletion } from '@/features/sync/tombstones';
 import { randomId } from '@/lib/crypto';
 
+import { getExerciseSetting } from './exercise-settings.repo';
+import { exerciseHeads, type MuscleHead } from './muscles';
+
 import { refreshTrainingWeekdays } from './enroll';
 
 /** Template rows (`null`) vs the live copy of one enrollment. */
@@ -51,6 +54,18 @@ export const slotsQuery = (dayId: string) =>
     .innerJoin(exercises, eq(exercises.id, workoutDayExercises.exerciseId))
     .where(eq(workoutDayExercises.workoutDayId, dayId))
     .orderBy(asc(workoutDayExercises.orderIndex));
+
+/** Muscles a split hits, derived from its exercises (there is no manual tag). */
+export const dayMuscleHeads = (dayId: string): MuscleHead[] => {
+  const rows = slotsQuery(dayId).all();
+  const heads: MuscleHead[] = [];
+  for (const { exercise } of rows) {
+    for (const h of exerciseHeads(exercise)) {
+      if (!heads.includes(h)) heads.push(h);
+    }
+  }
+  return heads;
+};
 
 /**
  * Authoring repo — CRUD for user-built (and live-editable) program trees. Pure
@@ -385,6 +400,16 @@ export const addSlot = (
   exerciseId: string,
 ): WorkoutDayExercise => {
   const orderIndex = slotSiblings(dayId).length;
+  // The program owner's per-exercise defaults seed the new slot.
+  const owner =
+    db
+      .select({ userId: programs.userId })
+      .from(workoutDays)
+      .innerJoin(routines, eq(routines.id, workoutDays.routineId))
+      .innerJoin(programs, eq(programs.id, routines.programId))
+      .where(eq(workoutDays.id, dayId))
+      .all()[0]?.userId ?? null;
+  const preset = owner ? getExerciseSetting(owner, exerciseId) : null;
   const [slot] = db
     .insert(workoutDayExercises)
     .values({
@@ -392,7 +417,11 @@ export const addSlot = (
       workoutDayId: dayId,
       exerciseId,
       orderIndex,
-      defaultRestSeconds: 120,
+      defaultRestSeconds: preset?.restSeconds ?? 120,
+      badges: preset?.badges?.length ? preset.badges : null,
+      alternativeExerciseIds: preset?.alternativeExerciseIds?.length
+        ? preset.alternativeExerciseIds
+        : null,
       userProgramId,
     })
     .returning()

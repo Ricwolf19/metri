@@ -2,6 +2,7 @@ import { and, asc, eq, or, isNull } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import {
+  exerciseSettings,
   exercises,
   workoutDayExercises,
   type Equipment,
@@ -81,5 +82,15 @@ export const deleteCustomExercise = (id: string, userId: string): boolean => {
     .where(and(eq(exercises.id, id), eq(exercises.userId, userId)))
     .run();
   recordDeletion('exercises', id);
+  // Its per-user defaults go with it — an orphan row would sync forever.
+  const setting = db
+    .select({ id: exerciseSettings.id })
+    .from(exerciseSettings)
+    .where(and(eq(exerciseSettings.exerciseId, id), eq(exerciseSettings.userId, userId)))
+    .all()[0];
+  if (setting) {
+    db.delete(exerciseSettings).where(eq(exerciseSettings.id, setting.id)).run();
+    recordDeletion('exercise_settings', setting.id);
+  }
   return true;
 };

@@ -1,20 +1,26 @@
 import { useLocalSearchParams } from 'expo-router';
-import { useMemo } from 'react';
-import { Linking, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Linking, Pressable, Text, View } from 'react-native';
 
 import { TopBar } from '@/components/TopBar';
-import { Card, FadeInUp, Screen, ScreenTitle, TextLink } from '@/components/ui';
+import { Card, DurationPicker, FadeInUp, Screen, ScreenTitle, TextLink } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { CalcChart } from '@/features/calculators/components/CalcChart';
 import type { CalcChart as Chart } from '@/features/calculators/types';
+import { BadgesEditor } from '@/features/training/components/BadgesEditor';
 import { ExerciseFrames } from '@/features/training/components/ExerciseFrames';
 import { getExercise } from '@/features/training/exercises.repo';
 import { EXERCISE_CONTENT } from '@/features/training/exercise-content';
+import {
+  getExerciseSetting,
+  upsertExerciseSetting,
+} from '@/features/training/exercise-settings.repo';
 import { visualIdFor } from '@/features/training/exercise-visuals';
 import { exerciseDisplayName } from '@/features/training/labels';
 import { fromKg } from '@/features/training/progression';
 import { exerciseHistory, topSetByWeek } from '@/features/training/stats.repo';
 import { useI18n, useT } from '@/i18n';
+import { mmss } from '@/lib/duration';
 import { settings, type Units } from '@/lib/storage';
 import { useDateFormat } from '@/lib/useDateFormat';
 import { useTheme } from '@/theme/theme-context';
@@ -70,6 +76,10 @@ const ExerciseHistory = () => {
   const exercise = id ? getExercise(id) : null;
   const sessions = useMemo(() => (user && id ? exerciseHistory(user.id, id) : []), [user, id]);
   const weekly = useMemo(() => topSetByWeek(sessions), [sessions]);
+  const [setting, setSetting] = useState(() =>
+    user && id ? getExerciseSetting(user.id, id) : null,
+  );
+  const [restOpen, setRestOpen] = useState(false);
 
   const chart: Chart = {
     kind: 'bars',
@@ -86,6 +96,12 @@ const ExerciseHistory = () => {
   const dateLabel = dayMonth;
   const content = id ? (EXERCISE_CONTENT[id]?.[locale] ?? null) : null;
   const visualId = exercise ? visualIdFor(exercise) : null;
+
+  const saveSetting = (patch: { restSeconds?: number | null; badges?: string[] | null }) => {
+    if (!user || !id) return;
+    upsertExerciseSetting(user.id, id, patch);
+    setSetting(getExerciseSetting(user.id, id));
+  };
 
   return (
     <Screen scroll contentClassName="px-5 pb-10" header={<TopBar showBack />}>
@@ -108,6 +124,45 @@ const ExerciseHistory = () => {
               />
             </View>
           </View>
+        </FadeInUp>
+      ) : null}
+
+      {/* Per-user defaults, applied whenever this exercise joins a split. */}
+      {exercise && user ? (
+        <FadeInUp>
+          <Card className="mb-4">
+            <Text className="font-mono-medium text-xs uppercase tracking-wider text-ink-400">
+              {t('exercise.defaultsTitle')}
+            </Text>
+            <Text className="mt-1 text-xs text-ink-500">{t('exercise.defaultsHint')}</Text>
+
+            <View className="mt-3 flex-row items-center justify-between">
+              <Text className="text-sm text-ink-200">{t('editor.rest')}</Text>
+              <Pressable
+                onPress={() => setRestOpen((v) => !v)}
+                accessibilityRole="button"
+                className="rounded-field border border-ink-700 bg-ink-800 px-4 py-2"
+              >
+                <Text className="font-mono text-base text-ink-50">
+                  {setting?.restSeconds != null ? mmss(setting.restSeconds) : '—'}
+                </Text>
+              </Pressable>
+            </View>
+            {restOpen ? (
+              <View className="mt-3">
+                <DurationPicker
+                  seconds={setting?.restSeconds ?? 120}
+                  onChange={(s) => saveSetting({ restSeconds: Math.max(5, s) })}
+                />
+              </View>
+            ) : null}
+
+            <Text className="mb-2 mt-4 text-sm text-ink-200">{t('editor.badges')}</Text>
+            <BadgesEditor
+              value={setting?.badges ?? []}
+              onChange={(badges) => saveSetting({ badges: badges.length ? badges : null })}
+            />
+          </Card>
         </FadeInUp>
       ) : null}
 
