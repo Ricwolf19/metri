@@ -18,7 +18,7 @@ export const ExerciseDocButton = ({
 }) => {
   const router = useRouter();
   const t = useT();
-  const { muted } = useTheme();
+  const { brand } = useTheme();
 
   return (
     <Pressable
@@ -28,9 +28,9 @@ export const ExerciseDocButton = ({
       hitSlop={8}
       accessibilityRole="button"
       accessibilityLabel={t('exercise.openDoc')}
-      className="h-9 w-9 items-center justify-center"
+      className="h-9 w-9 items-center justify-center rounded-full border border-brand/30 bg-brand/10"
     >
-      <BookIcon color={muted} size={size} />
+      <BookIcon color={brand} size={size} />
     </Pressable>
   );
 };

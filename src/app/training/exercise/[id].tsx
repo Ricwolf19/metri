@@ -8,6 +8,7 @@ import { useAuth } from '@/features/auth/auth-context';
 import { CalcChart } from '@/features/calculators/components/CalcChart';
 import type { CalcChart as Chart } from '@/features/calculators/types';
 import { BadgesEditor } from '@/features/training/components/BadgesEditor';
+import { ExerciseDocButton } from '@/features/training/components/ExerciseDocButton';
 import { ExerciseFrames } from '@/features/training/components/ExerciseFrames';
 import { getExercise } from '@/features/training/exercises.repo';
 import { EXERCISE_CONTENT } from '@/features/training/exercise-content';
@@ -65,7 +66,9 @@ const CueList = ({ title, items }: { title: string; items: string[] }) => (
 );
 
 const ExerciseHistory = () => {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, view } = useLocalSearchParams<{ id: string; view?: string }>();
+  // From Metrics the question is "what did I do" — sessions first, the guide a tap away.
+  const historyFirst = view === 'history';
   const { user } = useAuth();
   const t = useT();
   const { locale } = useI18n();
@@ -74,7 +77,13 @@ const ExerciseHistory = () => {
   const unit = settings.getUnits();
 
   const exercise = id ? getExercise(id) : null;
-  const sessions = useMemo(() => (user && id ? exerciseHistory(user.id, id) : []), [user, id]);
+  const sessions = useMemo(
+    () =>
+      (user && id ? exerciseHistory(user.id, id) : []).sort(
+        (a, b) => b.completedAt.getTime() - a.completedAt.getTime(),
+      ),
+    [user, id],
+  );
   const weekly = useMemo(() => topSetByWeek(sessions), [sessions]);
   const [setting, setSetting] = useState(() =>
     user && id ? getExerciseSetting(user.id, id) : null,
@@ -110,7 +119,14 @@ const ExerciseHistory = () => {
         subtitle={t('exHistory.subtitle')}
       />
 
-      {exercise && visualId ? (
+      {historyFirst && exercise ? (
+        <View className="mb-4 flex-row items-center justify-between">
+          <Text className="text-sm font-sans-semibold text-ink-200">{t('exHistory.sessions')}</Text>
+          <ExerciseDocButton exerciseId={exercise.id} />
+        </View>
+      ) : null}
+
+      {!historyFirst && exercise && visualId ? (
         <FadeInUp>
           <View className="mb-4">
             <ExerciseFrames
@@ -119,6 +135,7 @@ const ExerciseHistory = () => {
             />
             <View className="mt-1.5 items-center">
               <TextLink
+                center
                 label={t('exercise.illustrationCredit')}
                 onPress={() => Linking.openURL('https://creativecommons.org/licenses/by-sa/4.0/')}
               />
@@ -128,7 +145,7 @@ const ExerciseHistory = () => {
       ) : null}
 
       {/* Per-user defaults, applied whenever this exercise joins a split. */}
-      {exercise && user ? (
+      {!historyFirst && exercise && user ? (
         <FadeInUp>
           <Card className="mb-4">
             <Text className="font-mono-medium text-xs uppercase tracking-wider text-ink-400">
@@ -167,7 +184,7 @@ const ExerciseHistory = () => {
       ) : null}
 
       {/* Technique cues — curated catalog exercises only. */}
-      {content ? (
+      {!historyFirst && content ? (
         <FadeInUp>
           <Card className="mb-4">
             <Text className="font-mono-medium text-xs uppercase tracking-wider text-brand">
@@ -205,9 +222,11 @@ const ExerciseHistory = () => {
             </FadeInUp>
           ) : null}
 
-          <Text className="mb-2 mt-7 text-sm font-sans-semibold text-ink-200">
-            {t('exHistory.sessions')}
-          </Text>
+          {historyFirst ? null : (
+            <Text className="mb-2 mt-7 text-sm font-sans-semibold text-ink-200">
+              {t('exHistory.sessions')}
+            </Text>
+          )}
           <View className="gap-2">
             {sessions.map((s, i) => (
               <FadeInUp key={s.logId} delay={Math.min(i, 6) * 40}>

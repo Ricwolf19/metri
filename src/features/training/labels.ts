@@ -1,19 +1,8 @@
-import type { Equipment, ExerciseCategory, IntensityType } from '@/db/schema';
+import type { Equipment, IntensityType } from '@/db/schema';
 import type { Locale, TFunction } from '@/i18n';
 import type { TranslationKey } from '@/i18n/en';
 
 import { EXERCISE_NAMES } from './exercise-content';
-
-export const CATEGORY_KEY: Record<ExerciseCategory, TranslationKey> = {
-  chest: 'category.chest',
-  back: 'category.back',
-  legs: 'category.legs',
-  shoulders: 'category.shoulders',
-  arms: 'category.arms',
-  core: 'category.core',
-  full_body: 'category.full_body',
-  cardio: 'category.cardio',
-};
 
 export const EQUIPMENT_KEY: Record<Equipment, TranslationKey> = {
   barbell: 'equipment.barbell',

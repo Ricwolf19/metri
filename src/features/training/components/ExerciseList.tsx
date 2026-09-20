@@ -3,14 +3,18 @@ import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { Card, Input, PressableScale } from '@/components/ui';
-import type { Exercise, ExerciseCategory } from '@/db/schema';
-import { exercisesQuery } from '@/features/training/exercises.repo';
+import type { Exercise } from '@/db/schema';
 import { ExerciseDocButton } from '@/features/training/components/ExerciseDocButton';
 import { ExerciseThumb } from '@/features/training/components/ExerciseFrames';
-import { CATEGORY_KEY, exerciseDisplayName } from '@/features/training/labels';
+import { exercisesQuery } from '@/features/training/exercises.repo';
+import { exerciseDisplayName } from '@/features/training/labels';
+import {
+  MUSCLE_HEADS,
+  exerciseHeads,
+  muscleHeadKey,
+  type MuscleHead,
+} from '@/features/training/muscles';
 import { useI18n, useT } from '@/i18n';
-
-const CATEGORIES = Object.keys(CATEGORY_KEY) as ExerciseCategory[];
 
 type Props = {
   userId: string;
@@ -51,20 +55,26 @@ const Chip = ({
   </Pressable>
 );
 
-/** Searchable, category-filtered list of catalog + own custom exercises (picker and library). */
+/**
+ * Searchable list of catalog + own custom exercises (picker and library),
+ * filtered by the muscle it trains — the same vocabulary the body map and the
+ * split badges use, so "quads" means the same thing everywhere.
+ */
 export const ExerciseList = ({ userId, onPick, above, trailing, rowIcon, showDoc }: Props) => {
   const t = useT();
   const { locale } = useI18n();
   const [search, setSearch] = useState('');
-  const [category, setCategory] = useState<ExerciseCategory | undefined>();
-  const { data: exercises } = useLiveQuery(exercisesQuery(userId, category));
+  const [head, setHead] = useState<MuscleHead | undefined>();
+  const { data: exercises } = useLiveQuery(exercisesQuery(userId), [userId]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return q
-      ? exercises.filter((e) => exerciseDisplayName(e, locale).toLowerCase().includes(q))
-      : exercises;
-  }, [exercises, search, locale]);
+    return exercises.filter(
+      (e) =>
+        (!head || exerciseHeads(e).includes(head)) &&
+        (!q || exerciseDisplayName(e, locale).toLowerCase().includes(q)),
+    );
+  }, [exercises, search, head, locale]);
 
   return (
     <>
@@ -79,15 +89,15 @@ export const ExerciseList = ({ userId, onPick, above, trailing, rowIcon, showDoc
       <View className="mt-3 flex-row flex-wrap gap-2">
         <Chip
           label={t('common.all')}
-          active={category === undefined}
-          onPress={() => setCategory(undefined)}
+          active={head === undefined}
+          onPress={() => setHead(undefined)}
         />
-        {CATEGORIES.map((c) => (
+        {MUSCLE_HEADS.map((h) => (
           <Chip
-            key={c}
-            label={t(CATEGORY_KEY[c])}
-            active={category === c}
-            onPress={() => setCategory(c)}
+            key={h}
+            label={t(muscleHeadKey(h))}
+            active={head === h}
+            onPress={() => setHead(h)}
           />
         ))}
       </View>
@@ -103,8 +113,11 @@ export const ExerciseList = ({ userId, onPick, above, trailing, rowIcon, showDoc
                 <Text className="text-base font-sans-semibold text-ink-50">
                   {exerciseDisplayName(e, locale)}
                 </Text>
-                <Text className="mt-0.5 text-xs text-ink-400">
-                  {t(CATEGORY_KEY[e.category])}
+                <Text className="mt-0.5 text-xs text-ink-400" numberOfLines={1}>
+                  {exerciseHeads(e)
+                    .slice(0, 3)
+                    .map((h) => t(muscleHeadKey(h)))
+                    .join(' · ')}
                   {e.isCustom ? ` · ${t('editor.custom')}` : ''}
                 </Text>
               </View>

@@ -96,7 +96,10 @@ const Metrics = () => {
               <PressableScale
                 key={e.exerciseId}
                 onPress={() =>
-                  router.push({ pathname: '/training/exercise/[id]', params: { id: e.exerciseId } })
+                  router.push({
+                    pathname: '/training/exercise/[id]',
+                    params: { id: e.exerciseId, view: 'history' },
+                  })
                 }
                 className={[
                   'flex-row items-center py-3',

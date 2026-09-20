@@ -1,37 +1,18 @@
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { View } from 'react-native';
 
 import { PlusIcon, TrashIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
-import {
-  Button,
-  Card,
-  HoldButton,
-  Input,
-  Screen,
-  Select,
-  TagPicker,
-  type SelectItem,
-  type TagSection,
-  useToast,
-} from '@/components/ui';
-import type { Equipment } from '@/db/schema';
+import { Button, HoldButton, Screen, useToast } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { addSlot, getDay, getSlot, setSlotAlternatives } from '@/features/training/authoring.repo';
 import { ExerciseList } from '@/features/training/components/ExerciseList';
-import { createCustomExercise, deleteCustomExercise } from '@/features/training/exercises.repo';
-import { EQUIPMENT_KEY, dayDisplayName } from '@/features/training/labels';
-import {
-  HEAD_CATEGORY,
-  MUSCLE_HEADS,
-  muscleHeadKey,
-  type MuscleHead,
-} from '@/features/training/muscles';
+import { NewExerciseForm } from '@/features/training/components/NewExerciseForm';
+import { deleteCustomExercise } from '@/features/training/exercises.repo';
+import { dayDisplayName } from '@/features/training/labels';
 import { useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
-
-const isHead = (v: string): v is MuscleHead => (MUSCLE_HEADS as readonly string[]).includes(v);
 
 const ExercisePicker = () => {
   const { dayId, altFor } = useLocalSearchParams<{ dayId: string; altFor?: string }>();
@@ -42,12 +23,7 @@ const ExercisePicker = () => {
   const { brand } = useTheme();
 
   const day = typeof dayId === 'string' ? getDay(dayId) : null;
-
-  // New-exercise inline form. Muscles are required; the category derives from them.
   const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newMuscles, setNewMuscles] = useState<string[]>([]);
-  const [newEquipment, setNewEquipment] = useState<Equipment>();
 
   if (!user || !day || typeof dayId !== 'string') return <Redirect href="/training" />;
 
@@ -75,33 +51,6 @@ const ExercisePicker = () => {
     else toast.info(t('editor.deletedToast'));
   };
 
-  const createAndPick = () => {
-    if (newName.trim().length < 2) return toast.error(t('editor.exerciseName'));
-    const heads = newMuscles.filter(isHead);
-    if (!heads.length) return toast.error(t('editor.musclesRequired'));
-    const ex = createCustomExercise(user.id, {
-      name: newName.trim(),
-      category: HEAD_CATEGORY[heads[0]],
-      primaryMuscles: heads,
-      equipment: newEquipment ?? null,
-    });
-    if (typeof altFor === 'string') {
-      pick(ex.id);
-      return;
-    }
-    openFresh(ex.id);
-  };
-
-  const muscleSections: TagSection[] = [
-    {
-      title: t('editor.muscles'),
-      items: MUSCLE_HEADS.map((h) => ({ value: h, label: t(muscleHeadKey(h)) })),
-    },
-  ];
-  const equipmentItems: SelectItem<Equipment>[] = (Object.keys(EQUIPMENT_KEY) as Equipment[]).map(
-    (e) => ({ value: e, label: t(EQUIPMENT_KEY[e]) }),
-  );
-
   return (
     <Screen
       scroll
@@ -117,41 +66,12 @@ const ExercisePicker = () => {
       }
     >
       {creating ? (
-        <Card className="gap-4">
-          <Input
-            label={t('editor.exerciseName')}
-            value={newName}
-            onChangeText={setNewName}
-            autoCapitalize="words"
-          />
-          <TagPicker
-            label={t('editor.muscles')}
-            sections={muscleSections}
-            value={newMuscles}
-            onChange={setNewMuscles}
-            placeholder={t('editor.musclesRequired')}
-            doneLabel={t('common.done')}
-          />
-          <Select
-            label={t('editor.equipment')}
-            items={equipmentItems}
-            value={newEquipment}
-            onChange={setNewEquipment}
-            placeholder="—"
-          />
-          <View className="flex-row gap-2">
-            <View className="flex-1">
-              <Button
-                label={t('common.cancel')}
-                variant="secondary"
-                onPress={() => setCreating(false)}
-              />
-            </View>
-            <View className="flex-1">
-              <Button label={t('editor.addExercise')} onPress={createAndPick} />
-            </View>
-          </View>
-        </Card>
+        <NewExerciseForm
+          userId={user.id}
+          submitLabel={t('editor.addExercise')}
+          onCancel={() => setCreating(false)}
+          onCreated={(ex) => pick(ex.id)}
+        />
       ) : (
         <ExerciseList
           userId={user.id}
@@ -159,16 +79,14 @@ const ExercisePicker = () => {
           showDoc
           rowIcon={<PlusIcon color={brand} size={20} />}
           above={
-            <Pressable
-              onPress={() => setCreating(true)}
-              accessibilityRole="button"
-              className="mt-4 flex-row items-center justify-center rounded-field border border-brand/30 bg-brand/10 py-3"
-            >
-              <PlusIcon color={brand} size={18} />
-              <Text className="ml-1.5 text-sm font-sans-semibold text-brand">
-                {t('editor.newExercise')}
-              </Text>
-            </Pressable>
+            <View className="mt-4">
+              <Button
+                variant="brandSoft"
+                label={t('editor.newExercise')}
+                leftIcon={<PlusIcon color={brand} size={18} />}
+                onPress={() => setCreating(true)}
+              />
+            </View>
           }
           trailing={(e) =>
             e.isCustom && e.userId === user.id ? (

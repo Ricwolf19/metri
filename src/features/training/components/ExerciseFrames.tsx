@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Image, Pressable, View, type ImageSourcePropType } from 'react-native';
+import { Image, Modal, Pressable, Text, View, type ImageSourcePropType } from 'react-native';
 
-import { DumbbellIcon } from '@/components/icons';
+import { DumbbellIcon, ExpandIcon, PauseIcon, PlaySolidIcon } from '@/components/icons';
+import { useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
 import { visualIdFor, type VisualId } from '../exercise-visuals';
@@ -207,24 +208,53 @@ const EXERCISE_FRAMES = {
   ],
 } satisfies Record<VisualId, Frames>;
 
-const FRAME_MS = 700;
+/** A pose reads as a position, not a flicker — slow enough to actually study. */
+const FRAME_MS = 1500;
+const BANNER_HEIGHT = 190;
+
+const Pill = ({
+  label,
+  icon,
+  onPress,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  onPress: () => void;
+}) => (
+  <Pressable
+    onPress={onPress}
+    hitSlop={6}
+    accessibilityRole="button"
+    accessibilityLabel={label}
+    className="flex-row items-center gap-1.5 rounded-full bg-ink-800/90 px-2.5 py-1.5"
+  >
+    {icon}
+  </Pressable>
+);
 
 /**
  * Flip-book player for an exercise's three pose frames, in movement order.
- * White line art on a constant-dark plate so it reads in both themes; tap
- * pauses on a pose, tap again resumes.
+ * White line art on a constant-dark plate so it reads in both themes; pause to
+ * hold a pose, expand for a full-screen look.
  */
 export const ExerciseFrames = ({
   visualId,
-  size = 200,
   accessibilityLabel,
+  height = BANNER_HEIGHT,
+  autoplay = true,
 }: {
   visualId: VisualId;
-  size?: number;
   accessibilityLabel: string;
+  height?: number;
+  /** Off in a live session: a still pose is the quick reminder, and a looping
+   * animation per card is render work the phone should spend on inputs. */
+  autoplay?: boolean;
 }) => {
+  const t = useT();
+  const { brand, muted } = useTheme();
   const [frame, setFrame] = useState(0);
-  const [paused, setPaused] = useState(false);
+  const [paused, setPaused] = useState(!autoplay);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     if (paused) return;
@@ -235,27 +265,69 @@ export const ExerciseFrames = ({
   const frames = EXERCISE_FRAMES[visualId];
 
   return (
-    <Pressable
-      onPress={() => setPaused((p) => !p)}
-      accessibilityRole="imagebutton"
-      accessibilityLabel={accessibilityLabel}
-      className="items-center rounded-card bg-ink-950 py-4"
-    >
-      <Image source={frames[frame]} style={{ width: size, height: size }} resizeMode="contain" />
-      <View className="mt-1 flex-row gap-1.5">
-        {frames.map((_, i) => (
-          <View
-            key={i}
-            className={['h-1.5 w-1.5 rounded-full', i === frame ? 'bg-brand' : 'bg-ink-700'].join(
-              ' ',
-            )}
-          />
-        ))}
+    <View style={{ height }} className="overflow-hidden rounded-card bg-ink-950">
+      <Image
+        source={frames[frame]}
+        style={{ flex: 1, width: '100%' }}
+        resizeMode="contain"
+        accessibilityLabel={accessibilityLabel}
+      />
+
+      <View className="absolute inset-x-0 bottom-0 flex-row items-center justify-between px-2 pb-2">
+        <Pill
+          label={paused ? t('training.artPlay') : t('training.artPause')}
+          onPress={() => setPaused((p) => !p)}
+          icon={
+            paused ? (
+              <PlaySolidIcon color={brand} size={14} />
+            ) : (
+              <PauseIcon color={muted} size={14} />
+            )
+          }
+        />
+        <View className="flex-row gap-1.5">
+          {frames.map((_, i) => (
+            <View
+              key={i}
+              className={['h-1.5 w-1.5 rounded-full', i === frame ? 'bg-brand' : 'bg-ink-700'].join(
+                ' ',
+              )}
+            />
+          ))}
+        </View>
+        <Pill
+          label={t('training.artExpand')}
+          onPress={() => setExpanded(true)}
+          icon={<ExpandIcon color={muted} size={14} />}
+        />
       </View>
-    </Pressable>
+
+      <Modal
+        visible={expanded}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setExpanded(false)}
+      >
+        <Pressable
+          onPress={() => setExpanded(false)}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.close')}
+          className="flex-1 items-center justify-center bg-ink-950/95 px-4"
+        >
+          <Image
+            source={frames[frame]}
+            style={{ width: '100%', height: '70%' }}
+            resizeMode="contain"
+          />
+          <Text className="mt-4 text-center text-base font-sans-semibold text-ink-100">
+            {accessibilityLabel}
+          </Text>
+          <Text className="mt-1 text-xs text-ink-500">{t('training.artClose')}</Text>
+        </Pressable>
+      </Modal>
+    </View>
   );
 };
-
 /** Static first-pose thumbnail for list rows; generic dumbbell when unmatched. */
 export const ExerciseThumb = ({
   exercise,
