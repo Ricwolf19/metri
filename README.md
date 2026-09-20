@@ -45,7 +45,8 @@ sign-up at all.
   available (see [Your data](#your-data)).
 - **Built for lifters** — 16 calculators, an evidence-based knowledge base, and a training
   tracker: programs with phases and splits scheduled by weekday and time, drag-and-drop editing,
-  session logging with warm-ups and history, adherence and per-split reminders. Two ready-made
+  session logging with warm-ups, ordered sets and list/cards layouts, per-exercise defaults,
+  adherence and per-split reminders. Two ready-made
   programs (Metri Foundations and Metri Progression) and per-exercise technique guides with
   animated movement illustrations ship built in.
 - **Analytics that follow the plan** — an interactive body map (volume balance, estimated fatigue,

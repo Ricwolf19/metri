@@ -125,8 +125,9 @@ Every one of these guards was a real bug:
    doesn't throw `no such column` on an older device, and a crafted key isn't a
    SQL-injection primitive.
 3. **Secondary unique indexes need `EXTRA_UNIQUE`.** `on conflict(id)` doesn't
-   cover a table with another unique index (`training_days` and `body_metrics`,
-   both on `(user_id, date)`): two devices can create the same logical row under
+   cover a table with another unique index (`training_days` and `body_metrics`
+   on `(user_id, date)`, `exercise_settings` on `(user_id, exercise_id)`): two
+   devices can create the same logical row under
    different ids. The apply clears the local squatter first — inside a SQLite
    transaction with the insert, and only after its own LWW check, so an older
    remote row can't destroy a newer local one.
@@ -164,7 +165,9 @@ client-writable). Full rationale in the
 - **Synced column names are a wire format: add, never rename.** Old rows keep
   old keys in the server's jsonb forever; there is no server-side migration.
 - Adding a synced table = `tables.ts` here **and** `SYNC_TABLES` in the web
-  repo's `lib/sync/contract.ts`, keeping parent-before-child order.
+  repo's `lib/sync/contract.ts`, keeping parent-before-child order. **Deploy
+  the server first**: a client that pushes a table the server doesn't accept
+  yet fails its sync until the web side ships.
 - A new table with a secondary unique index **must** be added to
   `EXTRA_UNIQUE` in `engine.ts`.
 - Every repo delete site for a synced table must call `recordDeletion` right

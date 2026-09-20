@@ -178,6 +178,13 @@ Read `docs/sync.md` before touching `src/features/sync/`. Non-negotiables:
   add new frames as id-named files plus literal `require`s in `ExerciseFrames.tsx` (Metro only
   bundles statically reachable assets). Custom exercises match visuals by name in
   `exercise-visuals.ts`; no schema field is involved.
+- **Muscles are data, never tags.** Custom exercises require `primaryMuscles` (anatomical
+  heads; the category derives via `HEAD_CATEGORY`), and split/session muscle chips always
+  derive from the exercises (`exerciseHeads` / `dayMuscleHeads`) — the manual focus-muscles
+  picker is retired and `workout_days.focus_muscles` stays as dormant wire format.
+- **Per-exercise defaults** (`exercise_settings`, synced) seed `addSlot` (rest, badges,
+  alternatives) and are edited on `/training/exercise/[id]`. Slot prescriptions save-block
+  until every week has an effort method + sets + reps (`slot-draft.ts` owns that logic).
 - Conventional Commits (commitlint); husky runs lint-staged pre-commit and `bun run ci` pre-push.
 
 ## CI & release (sideloaded beta — no store pushes a binary for you)
