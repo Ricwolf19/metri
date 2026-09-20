@@ -8,6 +8,7 @@ import {
   prefillSchedule,
   reminderEntries,
   splitsForWeekday,
+  suggestWeekdays,
   validateProgramForStart,
   type ProgramTree,
   type ScheduledDay,
@@ -168,5 +169,33 @@ describe('formatClockTime', () => {
   ])('%i', (minute, h24, h12) => {
     expect(formatClockTime(minute, '24')).toBe(h24);
     expect(formatClockTime(minute, '12')).toBe(h12);
+  });
+});
+
+describe('suggestWeekdays', () => {
+  // The rule the patterns encode: no three training days in a row until the
+  // week is too full for that to be possible.
+  const runs = (days: number[]): number => {
+    const week = [2, 3, 4, 5, 6, 7, 1]; // Monday-first
+    const on = week.map((d) => days.includes(d));
+    let longest = 0;
+    let current = 0;
+    for (const trains of on) {
+      current = trains ? current + 1 : 0;
+      longest = Math.max(longest, current);
+    }
+    return longest;
+  };
+
+  it.each([1, 2, 3, 4, 5])('keeps %s training days at most two in a row', (count) => {
+    const days = suggestWeekdays(count);
+    expect(days).toHaveLength(count);
+    expect(new Set(days).size).toBe(count);
+    expect(runs(days)).toBeLessThanOrEqual(2);
+  });
+
+  it('clamps beyond a week instead of returning nothing', () => {
+    expect(suggestWeekdays(9)).toHaveLength(7);
+    expect(suggestWeekdays(0)).toEqual(suggestWeekdays(1));
   });
 });

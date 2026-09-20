@@ -1,10 +1,18 @@
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { Redirect, useFocusEffect, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { TopBar } from '@/components/TopBar';
-import { Button, Card, Screen, SectionLabel, useDialog, useToast } from '@/components/ui';
+import {
+  BlockingOverlay,
+  Button,
+  Card,
+  Screen,
+  SectionLabel,
+  useDialog,
+  useToast,
+} from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import {
   DEFAULT_START_MINUTE,
@@ -22,14 +30,20 @@ import { dayDisplayName, routineDisplayName } from '@/features/training/labels';
 import { getProgram, getProgramTree } from '@/features/training/programs.repo';
 import { syncTrainingReminder } from '@/features/training/reminders';
 import {
+  formatClockTime,
   isScheduleComplete,
   prefillSchedule,
+  suggestWeekdays,
   validateProgramForStart,
   type ScheduleEntry,
   type StartProblem,
 } from '@/features/training/schedule';
 import { useI18n, useT, type TFunction } from '@/i18n';
 import { captureError } from '@/lib/telemetry';
+import { useClockFormat } from '@/lib/useClockFormat';
+
+/** Common gym slots, in minutes from midnight. */
+const QUICK_TIMES = [7 * 60, 12 * 60, 18 * 60, 20 * 60];
 
 type DraftEntry = { weekday?: number; startMinute?: number };
 
@@ -73,6 +87,7 @@ const StartProgram = () => {
   const toast = useToast();
   const dialog = useDialog();
   const { user } = useAuth();
+  const clock = useClockFormat();
   const programId = typeof id === 'string' ? id : '';
 
   const [program] = useState(() => (programId ? getProgram(programId) : null));
@@ -81,6 +96,7 @@ const StartProgram = () => {
   const [partial, setDraftEntry] = useState<Record<string, DraftEntry>>({});
   const [touched, setTouched] = useState<Set<string>>(() => new Set());
   const [openTime, setOpenTime] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
 
   const { data: enrollments } = useLiveQuery(activeEnrollmentQuery(user?.id ?? ''));
   const enrollment = enrollments[0] ?? null;
@@ -110,9 +126,40 @@ const StartProgram = () => {
     return { ...(mirrored ?? {}), ...(partial[dayId] ?? {}) };
   };
   const edit = (dayId: string, patch: DraftEntry) => {
-    setDraftEntry((prev) => ({ ...prev, [dayId]: { ...valueOf(dayId), ...patch } }));
+    setDraftEntry((prev) => {
+      const next = { ...prev, [dayId]: { ...valueOf(dayId), ...patch } };
+      // A time usually applies to the whole program; spread it to the splits
+      // the user has not set by hand, and let them override any of them.
+      if (patch.startMinute != null) {
+        for (const routine of tree.routines) {
+          for (const day of routine.days) {
+            if (day.id === dayId || touched.has(day.id)) continue;
+            next[day.id] = { ...next[day.id], startMinute: patch.startMinute };
+          }
+        }
+      }
+      return next;
+    });
     setTouched((prev) => new Set(prev).add(dayId));
   };
+  /** One tap for the whole program: the conventional pattern for this many
+   * splits, at one time. Every field stays editable afterwards. */
+  const quickFill = (startMinute: number) => {
+    const next: Record<string, DraftEntry> = {};
+    const all = new Set<string>();
+    for (const routine of tree.routines) {
+      const weekdays = suggestWeekdays(routine.days.length);
+      routine.days.forEach((day, i) => {
+        const weekday = weekdays[i % weekdays.length];
+        if (weekday == null) return;
+        next[day.id] = { weekday, startMinute };
+        all.add(day.id);
+      });
+    }
+    setDraftEntry(next);
+    setTouched(all);
+  };
+
   const toggleTime = (dayId: string) => {
     if (openTime === dayId) {
       setOpenTime(null);
@@ -124,6 +171,7 @@ const StartProgram = () => {
 
   // One transaction: switching must never leave the user with no program.
   const doStart = () => {
+    setStarting(true);
     try {
       db.transaction(() => {
         if (enrollment) abandonEnrollment(enrollment.id);
@@ -139,6 +187,8 @@ const StartProgram = () => {
       }
       captureError(e);
       toast.error(t('start.failed'));
+    } finally {
+      setStarting(false);
     }
   };
   const confirm = () => {
@@ -195,7 +245,30 @@ const StartProgram = () => {
         <Button variant="brand" label={t('start.confirm')} disabled={!complete} onPress={confirm} />
       }
     >
-      <Text className="mb-4 text-sm leading-6 text-ink-300">{t('start.scheduleBody')}</Text>
+      <Text className="mb-3 text-sm leading-6 text-ink-300">{t('start.scheduleBody')}</Text>
+
+      {/* One tap sets the whole program; everything below stays editable. */}
+      <Card className="mb-5">
+        <Text className="font-mono-medium text-xs uppercase tracking-wider text-ink-400">
+          {t('start.quickFill')}
+        </Text>
+        <Text className="mt-1 text-xs leading-5 text-ink-500">{t('start.quickFillHint')}</Text>
+        <View className="mt-3 flex-row flex-wrap gap-2">
+          {QUICK_TIMES.map((minutes) => (
+            <Pressable
+              key={minutes}
+              onPress={() => quickFill(minutes)}
+              accessibilityRole="button"
+              className="rounded-full border border-brand/30 bg-brand/10 px-3.5 py-2"
+            >
+              <Text className="font-mono-medium text-xs text-brand">
+                {formatClockTime(minutes, clock)}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </Card>
+
       {tree.routines.map((routine) => (
         <View key={routine.id} className="mb-6">
           <SectionLabel
@@ -228,6 +301,7 @@ const StartProgram = () => {
           </View>
         </View>
       ))}
+      <BlockingOverlay visible={starting} label={t('start.starting')} />
     </Screen>
   );
 };

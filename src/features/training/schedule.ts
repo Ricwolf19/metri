@@ -61,6 +61,28 @@ export const validateProgramForStart = (tree: ProgramTree): StartProblem[] => {
   return problems;
 };
 
+/**
+ * Conventional weekday patterns per training-day count (expo numbering, Monday
+ * first). Table, not an algorithm: these are the splits people actually run.
+ *
+ * Each keeps at most two training days back to back reading Monday→Sunday.
+ * Past five days a week that is only true within the week — six or seven days
+ * cannot avoid a longer streak across the Sunday/Monday boundary.
+ */
+const SUGGESTED_WEEKDAYS: Record<number, number[]> = {
+  1: [2],
+  2: [2, 5],
+  3: [2, 4, 6],
+  4: [2, 3, 5, 6],
+  5: [2, 3, 5, 6, 1],
+  6: [2, 3, 4, 6, 7, 1],
+  7: [2, 3, 4, 5, 6, 7, 1],
+};
+
+/** The pattern for `count` splits, clamped to what a week can hold. */
+export const suggestWeekdays = (count: number): number[] =>
+  SUGGESTED_WEEKDAYS[Math.min(Math.max(count, 1), 7)] ?? [];
+
 const isValidEntry = (e: ScheduleEntry | undefined): e is ScheduleEntry =>
   !!e &&
   Number.isInteger(e.weekday) &&
