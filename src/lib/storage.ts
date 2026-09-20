@@ -32,6 +32,7 @@ export const SettingKeys = {
   notificationsEnabled: 'settings.notificationsEnabled',
   localBannerSnoozedUntil: 'settings.localBannerSnoozedUntil',
   workoutLayout: 'settings.workoutLayout',
+  showExerciseArt: 'settings.showExerciseArt',
   widgetPromoSnoozedUntil: 'widget.promoSnoozedUntil',
   docsPromoSnoozedUntil: 'docs.promoSnoozedUntil',
   sessionUserId: 'auth.userId',
@@ -87,6 +88,13 @@ export const settings = {
   },
   snoozeDocsPromo(days = 30) {
     storage.set(SettingKeys.docsPromoSnoozedUntil, Date.now() + days * 86_400_000);
+  },
+  /** Whether the movement illustrations render during a session. */
+  getShowExerciseArt(): boolean {
+    return storage.getBoolean(SettingKeys.showExerciseArt) ?? true;
+  },
+  setShowExerciseArt(value: boolean) {
+    storage.set(SettingKeys.showExerciseArt, value);
   },
   getWorkoutLayout(): WorkoutLayout {
     return (storage.getString(SettingKeys.workoutLayout) as WorkoutLayout) ?? 'list';
