@@ -47,7 +47,13 @@
         "expo-notifications",
         {
           "icon": "./assets/images/notification-icon.png",
-          "color": "#bef82b"
+          "color": "#bef82b",
+          "sounds": [
+            "./assets/sounds/notify.wav",
+            "./assets/sounds/rest_alarm.wav",
+            "./assets/sounds/session_done.wav",
+            "./assets/sounds/discard.wav"
+          ]
         }
       ],
       [
@@ -99,7 +105,8 @@
           ]
         }
       ],
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -31,6 +31,7 @@ import {
 } from '@/features/notifications/rest-notification';
 import { initNotifications } from '@/features/notifications/service';
 import { seedTraining } from '@/features/training/seed';
+import { preloadSounds } from '@/lib/sounds';
 import { I18nProvider, useI18n } from '@/i18n';
 import { initTelemetry, wrapRoot } from '@/lib/telemetry';
 import { ThemeProvider, useTheme } from '@/theme/theme-context';
@@ -98,6 +99,7 @@ const RootLayout = () => {
   // data. Accounts now live on the metri.info backend, so no admin is seeded.
   useEffect(() => {
     if (!success) return;
+    preloadSounds();
     seedTraining()
       .catch((e) => console.warn('[seed] training failed:', e))
       .finally(() => setSeeded(true));

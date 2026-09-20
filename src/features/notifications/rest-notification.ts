@@ -22,6 +22,9 @@ import { restState, type ActiveRest } from '@/features/training/rest-state';
  */
 
 const CHANNEL_ID = 'rest-timer';
+/** The rest-over alert gets its own channel: a looping alarm sound cannot share
+ * a channel with the silent, ongoing countdown (Android fixes sound per channel). */
+const ALARM_CHANNEL_ID = 'rest-alarm';
 /** Shared by the resting and the rest-over notification: the second replaces the first. */
 const REST_ID = 'rest';
 const ACTION = {
@@ -42,6 +45,13 @@ export const initRestNotifications = async (): Promise<void> => {
     importance: AndroidImportance.HIGH,
     vibrationPattern: [250, 250, 250, 250],
   });
+  await notifee.createChannel({
+    id: ALARM_CHANNEL_ID,
+    name: 'Rest finished',
+    importance: AndroidImportance.HIGH,
+    sound: 'rest_alarm',
+    vibrationPattern: [250, 250, 250, 250],
+  });
 };
 
 const workoutUrl = (rest: ActiveRest) =>
@@ -55,14 +65,20 @@ const scheduleRestOver = (rest: ActiveRest) =>
       body: rest.copy.overBody,
       data: { url: workoutUrl(rest) },
       android: {
-        channelId: CHANNEL_ID,
+        channelId: ALARM_CHANNEL_ID,
         category: AndroidCategory.ALARM,
         smallIcon: 'ic_notification',
         color: BRAND,
         lightUpScreen: true,
+        // Rings until the set is acknowledged — mid-session the phone is not
+        // in hand, so a single chime is missed.
+        loopSound: true,
+        ongoing: true,
+        autoCancel: false,
         pressAction: { id: ACTION.open, launchActivity: 'default' },
+        actions: [{ title: rest.copy.skipLabel, pressAction: { id: ACTION.skip } }],
       },
-      ios: { sound: 'default' },
+      ios: { sound: 'rest_alarm.wav', critical: false },
     },
     {
       type: TriggerType.TIMESTAMP,

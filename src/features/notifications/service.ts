@@ -10,11 +10,21 @@ import { Platform } from 'react-native';
 
 export type ChannelKind = 'reminders';
 
+/** Bundled via the expo-notifications plugin (app.json → `sounds`). Android
+ * resolves it per channel, iOS per notification, so both are set below. */
+const SOUND = 'notify.wav';
+
 // The rest timer lives in `rest-notification.ts` (react-native-notify-kit).
-const CHANNELS: Record<ChannelKind, { name: string; importance: Notifications.AndroidImportance }> =
-  {
-    reminders: { name: 'Reminders', importance: Notifications.AndroidImportance.DEFAULT },
-  };
+const CHANNELS: Record<
+  ChannelKind,
+  { name: string; importance: Notifications.AndroidImportance; sound: string }
+> = {
+  reminders: {
+    name: 'Reminders',
+    importance: Notifications.AndroidImportance.DEFAULT,
+    sound: SOUND,
+  },
+};
 
 /** Run once at startup: foreground display behavior + Android channels. */
 export const initNotifications = async (): Promise<void> => {
@@ -51,7 +61,7 @@ export const scheduleDaily = (
   content: { title: string; body?: string },
 ): Promise<string> =>
   Notifications.scheduleNotificationAsync({
-    content: { title: content.title, body: content.body ?? '' },
+    content: { title: content.title, body: content.body ?? '', sound: SOUND },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DAILY,
       hour,
@@ -69,7 +79,7 @@ export const scheduleWeekly = (
   content: { title: string; body?: string },
 ): Promise<string> =>
   Notifications.scheduleNotificationAsync({
-    content: { title: content.title, body: content.body ?? '' },
+    content: { title: content.title, body: content.body ?? '', sound: SOUND },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
       weekday,
