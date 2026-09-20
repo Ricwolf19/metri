@@ -106,7 +106,7 @@ export const ShareCard = forwardRef<View, Props>(function ShareCard(
               const h = Math.max(3, (b.value / max) * CHART_H);
               return (
                 <Rect
-                  key={b.label}
+                  key={`${i}-${b.label}`}
                   x={i * (barW + gap)}
                   y={CHART_H - h}
                   width={barW}
@@ -118,9 +118,9 @@ export const ShareCard = forwardRef<View, Props>(function ShareCard(
             })}
           </Svg>
           <View className="mt-1.5 flex-row">
-            {bars.map((b) => (
+            {bars.map((b, i) => (
               <Text
-                key={b.label}
+                key={`${i}-${b.label}`}
                 numberOfLines={1}
                 style={{ color: '#71717a', width: barW + gap }}
                 className="text-center font-mono-medium text-[9px] uppercase"
@@ -134,8 +134,13 @@ export const ShareCard = forwardRef<View, Props>(function ShareCard(
 
       {lines.length ? (
         <View className="mt-5 gap-1">
-          {lines.map((line) => (
-            <Text key={line} numberOfLines={1} style={{ color: '#d4d4d8' }} className="text-xs">
+          {lines.map((line, i) => (
+            <Text
+              key={`${i}-${line}`}
+              numberOfLines={1}
+              style={{ color: '#d4d4d8' }}
+              className="text-xs"
+            >
               {line}
             </Text>
           ))}
