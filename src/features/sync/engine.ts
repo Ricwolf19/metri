@@ -29,6 +29,7 @@ const CHANGE_TS: Record<SyncTable, string> = {
   training_days: 'COALESCE(updated_at, created_at)',
   body_metrics: 'COALESCE(updated_at, created_at)',
   exercise_settings: 'COALESCE(updated_at, created_at)',
+  warmup_routines: 'COALESCE(updated_at, created_at)',
 };
 
 const idsOf = (rows: Row[]): string[] => rows.map((r) => r.id as string);
@@ -100,6 +101,8 @@ const ownedIds = (userId: string): Record<SyncTable, string[]> => {
     training_days: idsOf(all('select id from training_days where user_id = ?', [userId])),
     body_metrics: idsOf(all('select id from body_metrics where user_id = ?', [userId])),
     exercise_settings: idsOf(all('select id from exercise_settings where user_id = ?', [userId])),
+    // Shipped routines have a null user_id and never sync.
+    warmup_routines: idsOf(all('select id from warmup_routines where is_custom = 1')),
   };
 };
 

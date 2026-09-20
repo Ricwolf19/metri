@@ -12,10 +12,12 @@ import {
   workoutDayExercises,
   workoutDays,
   workoutLogs,
+  warmupRoutines,
 } from '@/db/schema';
 
 import { EXERCISE_SEEDS } from './exercises.seed';
 import { PROGRAM_SEEDS, type ProgramSeed } from './programs';
+import { warmupSeeds } from './warmup-content';
 
 /**
  * Seed the global exercise library and the built-in program templates.
@@ -31,9 +33,11 @@ import { PROGRAM_SEEDS, type ProgramSeed } from './programs';
  * v5 rewrites catalog muscle values onto the canonical `MuscleHead` vocabulary
  * (`quadriceps`→`quads`, `core`→`abs`). `seedExercises` refreshes those columns
  * on conflict, so the bump alone migrates existing installs — no id changes.
+ *
+ * v6 adds the shipped warm-up and mobility routines.
  */
 const SEED_KEY = 'training_seed_version';
-const SEED_VERSION = '5';
+const SEED_VERSION = '6';
 
 const alreadySeeded = (): boolean => {
   const [row] = db.select().from(appMeta).where(eq(appMeta.key, SEED_KEY)).all();
@@ -275,12 +279,42 @@ const seedProgram = (p: ProgramSeed): void => {
   }
 };
 
+/** Shipped warm-up / mobility routines. Upsert: copy edits land on re-seed,
+ * and a user's own routines (`is_custom`) are never touched. */
+const seedWarmups = (): void => {
+  for (const seed of warmupSeeds()) {
+    db.insert(warmupRoutines)
+      .values({
+        id: seed.id,
+        userId: null,
+        kind: seed.kind,
+        name: seed.name,
+        description: seed.description,
+        steps: seed.steps,
+        orderIndex: seed.orderIndex,
+        isCustom: false,
+      })
+      .onConflictDoUpdate({
+        target: warmupRoutines.id,
+        set: {
+          name: seed.name,
+          description: seed.description,
+          steps: seed.steps,
+          orderIndex: seed.orderIndex,
+          updatedAt: new Date(),
+        },
+      })
+      .run();
+  }
+};
+
 export const seedTraining = async (): Promise<void> => {
   if (alreadySeeded()) return;
 
   cleanupRetiredTemplates();
   migrateLegacyExercises();
   seedExercises();
+  seedWarmups();
   for (const program of PROGRAM_SEEDS) seedProgram(program);
 
   db.insert(appMeta)

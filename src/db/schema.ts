@@ -521,6 +521,38 @@ export const exerciseSettings = sqliteTable(
 
 export type ExerciseSetting = typeof exerciseSettings.$inferSelect;
 
+/** One line of a warm-up: what to do, and roughly how much of it. */
+export type WarmupStep = { name: string; detail?: string };
+
+/**
+ * Warm-up and mobility routines — the work around the session rather than the
+ * session itself, so it is deliberately NOT a program tree: a flat ordered
+ * list of steps in JSON, one row per routine.
+ *
+ * Seeded rows have a null `userId` (same contract as the exercise catalog) and
+ * their copy is bilingual in `warmup-content.ts`; a user's own rows carry their
+ * text verbatim.
+ */
+export const warmupRoutines = sqliteTable(
+  'warmup_routines',
+  {
+    id: text('id').primaryKey(),
+    /** Null = shipped by metri. */
+    userId: text('user_id'),
+    kind: text('kind').$type<'warmup' | 'mobility'>().notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    steps: text('steps', { mode: 'json' }).$type<WarmupStep[]>().notNull(),
+    orderIndex: integer('order_index').notNull().default(0),
+    isCustom: integer('is_custom', { mode: 'boolean' }).notNull().default(false),
+    createdAt: tsMs('created_at').notNull().default(NOW_MS),
+    updatedAt: tsMs('updated_at').notNull().default(NOW_MS),
+  },
+  (t) => [index('idx_warmup_routines_user').on(t.userId)],
+);
+
+export type WarmupRoutine = typeof warmupRoutines.$inferSelect;
+
 /* ── Sync (premium: SQLite ↔ Neon delta sync) ──────────────────────────────── */
 
 /**

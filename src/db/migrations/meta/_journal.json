@@ -162,6 +162,13 @@
       "when": 1789866419565,
       "tag": "0022_freezing_reaper",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1789875923595,
+      "tag": "0023_motionless_senator_kelly",
+      "breakpoints": true
     }
   ]
 }
