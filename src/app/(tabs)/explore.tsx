@@ -2,7 +2,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 
-import { BookIcon } from '@/components/icons';
+import { BookIcon, DumbbellIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import { FadeInUp, GridTile, Input, Screen, type Tile } from '@/components/ui';
 import { CALC_CONTENT } from '@/features/calculators/content';
@@ -49,6 +49,13 @@ const Explore = () => {
     icon: BookIcon,
     isDoc: true,
   });
+  // The exercise library is consultable knowledge, so it lives here too.
+  const libraryTile: Tile = {
+    id: 'exercise-library',
+    title: t('exercise.library'),
+    href: '/training/exercises',
+    icon: DumbbellIcon,
+  };
 
   const needle = query.trim().toLowerCase();
   const results = useMemo(() => {
@@ -57,7 +64,8 @@ const Explore = () => {
       CALC_CONTENT[m.id][locale].h1.toLowerCase().includes(needle),
     ).map((m) => calcTile(m.id));
     const docMatches = searchDocs(docs, needle).map(docTile);
-    return [...calcMatches, ...docMatches];
+    const libraryMatch = libraryTile.title.toLowerCase().includes(needle) ? [libraryTile] : [];
+    return [...libraryMatch, ...calcMatches, ...docMatches];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [needle, locale, docs]);
 
@@ -89,6 +97,7 @@ const Explore = () => {
       ) : (
         TOPICS.map((topic, i) => {
           const tiles: Tile[] = [
+            ...(topic.key === 'explore.topicTraining' ? [libraryTile] : []),
             ...topic.calcs.map(calcTile),
             ...topic.docCategories.flatMap((cat) =>
               docs.filter((d) => d.category === cat).map(docTile),
