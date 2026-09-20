@@ -28,6 +28,7 @@ import {
   slotsQuery,
   updateDay,
 } from '@/features/training/authoring.repo';
+import { ExerciseDocButton } from '@/features/training/components/ExerciseDocButton';
 import {
   DEFAULT_START_MINUTE,
   StartTimeField,
@@ -35,7 +36,11 @@ import {
 import { WeekdayChips } from '@/features/training/components/WeekdayChips';
 import { MUSCLES, MUSCLE_REGIONS, knownMuscles, muscleKey } from '@/features/training/muscles';
 import { syncTrainingReminder } from '@/features/training/reminders';
-import { exerciseDisplayName } from '@/features/training/labels';
+import {
+  dayDisplayName,
+  exerciseDisplayName,
+  routineDisplayName,
+} from '@/features/training/labels';
 import { useI18n, useT } from '@/i18n';
 import { useReorderedList } from '@/lib/useReorderedList';
 import { useBusyThen } from '@/lib/useBusyThen';
@@ -79,11 +84,9 @@ const EditDay = () => {
   const patch = (p: Partial<Draft>) => setDraft((prev) => ({ ...prev, ...p }));
 
   const save = () => {
+    if (!dayId) return false;
+    // Empty is a valid name; every renderer falls back to the "split-N" slug.
     const name = draft.name.trim();
-    if (!name || !dayId) {
-      toast.error(t('editor.nameRequired'));
-      return false;
-    }
     updateDay(dayId, {
       name,
       focusMuscles: draft.focus.length ? draft.focus : null,
@@ -129,6 +132,7 @@ const EditDay = () => {
           label={t('editor.splitName')}
           value={draft.name}
           onChangeText={(name) => patch({ name })}
+          placeholder={t('editor.splitFallback', { n: day.orderIndex + 1 })}
         />
         <TagPicker
           label={t('editor.focusMuscles')}
@@ -196,8 +200,8 @@ const EditDay = () => {
         <TopBar
           showBack
           showAvatar={false}
-          title={draft.name.trim() || day.name}
-          subtitle={routine?.name}
+          title={draft.name.trim() || dayDisplayName(day, t)}
+          subtitle={routine ? routineDisplayName(routine, t) : undefined}
         />
       }
       footer={
@@ -215,6 +219,7 @@ const EditDay = () => {
             onPress={() =>
               router.push({ pathname: '/training/edit/slot/[id]', params: { id: item.slot.id } })
             }
+            right={<ExerciseDocButton exerciseId={item.exercise.id} />}
           />
         )}
         onReorder={({ from, to }) => {

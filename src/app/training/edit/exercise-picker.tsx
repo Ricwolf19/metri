@@ -19,7 +19,7 @@ import { useAuth } from '@/features/auth/auth-context';
 import { addSlot, getDay, getSlot, setSlotAlternatives } from '@/features/training/authoring.repo';
 import { ExerciseList } from '@/features/training/components/ExerciseList';
 import { createCustomExercise, deleteCustomExercise } from '@/features/training/exercises.repo';
-import { CATEGORY_KEY, EQUIPMENT_KEY } from '@/features/training/labels';
+import { CATEGORY_KEY, EQUIPMENT_KEY, dayDisplayName } from '@/features/training/labels';
 import { useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
@@ -95,7 +95,12 @@ const ExercisePicker = () => {
       edges={['top']}
       contentClassName="px-5 pb-10"
       header={
-        <TopBar showBack showAvatar={false} title={t('editor.pickExercise')} subtitle={day.name} />
+        <TopBar
+          showBack
+          showAvatar={false}
+          title={t('editor.pickExercise')}
+          subtitle={dayDisplayName(day, t)}
+        />
       }
     >
       {creating ? (
@@ -136,6 +141,7 @@ const ExercisePicker = () => {
         <ExerciseList
           userId={user.id}
           onPick={(e) => pick(e.id)}
+          showDoc
           rowIcon={<PlusIcon color={brand} size={20} />}
           above={
             <Pressable

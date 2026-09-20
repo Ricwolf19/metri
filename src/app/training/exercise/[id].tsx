@@ -1,14 +1,16 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
-import { Text, View } from 'react-native';
+import { Linking, Text, View } from 'react-native';
 
 import { TopBar } from '@/components/TopBar';
-import { Card, FadeInUp, Screen, ScreenTitle } from '@/components/ui';
+import { Card, FadeInUp, Screen, ScreenTitle, TextLink } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { CalcChart } from '@/features/calculators/components/CalcChart';
 import type { CalcChart as Chart } from '@/features/calculators/types';
+import { ExerciseFrames } from '@/features/training/components/ExerciseFrames';
 import { getExercise } from '@/features/training/exercises.repo';
 import { EXERCISE_CONTENT } from '@/features/training/exercise-content';
+import { visualIdFor } from '@/features/training/exercise-visuals';
 import { exerciseDisplayName } from '@/features/training/labels';
 import { fromKg } from '@/features/training/progression';
 import { exerciseHistory, topSetByWeek } from '@/features/training/stats.repo';
@@ -83,6 +85,7 @@ const ExerciseHistory = () => {
 
   const dateLabel = dayMonth;
   const content = id ? (EXERCISE_CONTENT[id]?.[locale] ?? null) : null;
+  const visualId = exercise ? visualIdFor(exercise) : null;
 
   return (
     <Screen scroll contentClassName="px-5 pb-10" header={<TopBar showBack />}>
@@ -90,6 +93,23 @@ const ExerciseHistory = () => {
         title={exercise ? exerciseDisplayName(exercise, locale) : t('exHistory.title')}
         subtitle={t('exHistory.subtitle')}
       />
+
+      {exercise && visualId ? (
+        <FadeInUp>
+          <View className="mb-4">
+            <ExerciseFrames
+              visualId={visualId}
+              accessibilityLabel={exerciseDisplayName(exercise, locale)}
+            />
+            <View className="mt-1.5 items-center">
+              <TextLink
+                label={t('exercise.illustrationCredit')}
+                onPress={() => Linking.openURL('https://creativecommons.org/licenses/by-sa/4.0/')}
+              />
+            </View>
+          </View>
+        </FadeInUp>
+      ) : null}
 
       {/* Technique cues — curated catalog exercises only. */}
       {content ? (

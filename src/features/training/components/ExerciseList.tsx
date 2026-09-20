@@ -5,6 +5,8 @@ import { Pressable, Text, View } from 'react-native';
 import { Card, Input, PressableScale } from '@/components/ui';
 import type { Exercise, ExerciseCategory } from '@/db/schema';
 import { exercisesQuery } from '@/features/training/exercises.repo';
+import { ExerciseDocButton } from '@/features/training/components/ExerciseDocButton';
+import { ExerciseThumb } from '@/features/training/components/ExerciseFrames';
 import { CATEGORY_KEY, exerciseDisplayName } from '@/features/training/labels';
 import { useI18n, useT } from '@/i18n';
 
@@ -19,6 +21,8 @@ type Props = {
   trailing?: (exercise: Exercise) => React.ReactNode;
   /** Icon at the row's right edge. */
   rowIcon?: React.ReactNode;
+  /** Shows the standard book affordance per row (technique guide / history). */
+  showDoc?: boolean;
 };
 
 const Chip = ({
@@ -48,7 +52,7 @@ const Chip = ({
 );
 
 /** Searchable, category-filtered list of catalog + own custom exercises (picker and library). */
-export const ExerciseList = ({ userId, onPick, above, trailing, rowIcon }: Props) => {
+export const ExerciseList = ({ userId, onPick, above, trailing, rowIcon, showDoc }: Props) => {
   const t = useT();
   const { locale } = useI18n();
   const [search, setSearch] = useState('');
@@ -94,7 +98,8 @@ export const ExerciseList = ({ userId, onPick, above, trailing, rowIcon }: Props
         {filtered.map((e) => (
           <PressableScale key={e.id} onPress={() => onPick(e)}>
             <Card className="flex-row items-center py-3">
-              <View className="flex-1">
+              <ExerciseThumb exercise={e} />
+              <View className="ml-3 flex-1">
                 <Text className="text-base font-sans-semibold text-ink-50">
                   {exerciseDisplayName(e, locale)}
                 </Text>
@@ -103,6 +108,7 @@ export const ExerciseList = ({ userId, onPick, above, trailing, rowIcon }: Props
                   {e.isCustom ? ` · ${t('editor.custom')}` : ''}
                 </Text>
               </View>
+              {showDoc ? <ExerciseDocButton exerciseId={e.id} /> : null}
               {trailing?.(e)}
               {rowIcon}
             </Card>

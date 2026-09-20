@@ -22,12 +22,14 @@ import type { PlannedSlot, SetGroup, SetLog } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
 import { lbToKg } from '@/features/bmr/calc';
 import { fromKg } from '@/features/training/progression';
+import { ExerciseDocButton } from '@/features/training/components/ExerciseDocButton';
 import { RestTimer } from '@/features/training/components/RestTimer';
 import { endRest, extendRest, startRest } from '@/features/notifications/rest-notification';
 import { ensureNotificationPermission } from '@/features/notifications/service';
 import { restState, useActiveRest } from '@/features/training/rest-state';
 import { nextSetSummary, type NextSet } from '@/features/training/rest-summary';
 import { formatClockTime } from '@/features/training/schedule';
+import { dayDisplayName } from '@/features/training/labels';
 import { getExercise } from '@/features/training/exercises.repo';
 import { getWorkoutDay } from '@/features/training/programs.repo';
 import {
@@ -345,18 +347,22 @@ const ExerciseCard = ({
       className="mb-3"
       onLayout={focused ? (e) => onFocusLayout(e.nativeEvent.layout.y) : undefined}
     >
-      <Pressable
-        onPress={() =>
-          router.push({ pathname: '/training/exercise/[id]', params: { id: planned.exerciseId } })
-        }
-        onLongPress={pickAlternative}
-        accessibilityRole="button"
-      >
-        <Text className="text-base font-sans-semibold text-ink-50">{planned.name}</Text>
-        {planned.alternativeExerciseIds.length ? (
-          <Text className="mt-0.5 text-[11px] text-ink-500">{t('training.holdForAlt')}</Text>
-        ) : null}
-      </Pressable>
+      <View className="flex-row items-start">
+        <Pressable
+          onPress={() =>
+            router.push({ pathname: '/training/exercise/[id]', params: { id: planned.exerciseId } })
+          }
+          onLongPress={pickAlternative}
+          accessibilityRole="button"
+          className="flex-1 pr-2"
+        >
+          <Text className="text-base font-sans-semibold text-ink-50">{planned.name}</Text>
+          {planned.alternativeExerciseIds.length ? (
+            <Text className="mt-0.5 text-[11px] text-ink-500">{t('training.holdForAlt')}</Text>
+          ) : null}
+        </Pressable>
+        <ExerciseDocButton exerciseId={planned.exerciseId} size={17} />
+      </View>
 
       {planned.badges.length ? (
         <View className="mt-2 flex-row flex-wrap gap-1.5">
@@ -603,7 +609,7 @@ const WorkoutSession = () => {
         showsVerticalScrollIndicator={false}
       >
         <ScreenTitle
-          title={day?.name ?? t('training.workout')}
+          title={day ? dayDisplayName(day, t) : t('training.workout')}
           subtitle={t('training.weekN', { n: log.weekNumber })}
         />
 
