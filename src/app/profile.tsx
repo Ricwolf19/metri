@@ -17,6 +17,7 @@ import {
   useDialog,
   useToast,
   Select,
+  TextLink,
   type SelectItem,
 } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
@@ -26,6 +27,7 @@ import { betaLinks } from '@/features/beta/links';
 import { pickFromCamera, pickFromLibrary } from '@/features/photos/capture';
 import { deletePhotoFiles, persistAvatar } from '@/features/photos/media';
 import { LOCALES, useI18n, type Locale } from '@/i18n';
+import { WEB_URL } from '@/lib/env';
 import { settings, type ClockFormat } from '@/lib/storage';
 import { ThemeSelect } from '@/theme/ThemeSelect';
 import { DATE_FORMATS, formatDate, type DateFormat } from '@/lib/date-format';
@@ -224,13 +226,12 @@ const Profile = () => {
           </Text>
           <Card>
             <Text className="text-sm leading-6 text-ink-300">{t('profile.passwordWeb')}</Text>
-            <Pressable
-              onPress={() => Linking.openURL('https://metri.info')}
-              accessibilityRole="link"
-              className="mt-3 self-start"
-            >
-              <Text className="text-sm font-sans-semibold text-brand">metri.info</Text>
-            </Pressable>
+            <TextLink
+              label="metri.info"
+              size="base"
+              className="mt-3"
+              onPress={() => Linking.openURL(WEB_URL)}
+            />
           </Card>
         </>
       )}
