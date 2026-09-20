@@ -1,5 +1,48 @@
 # Changelog
 
+## [1.9.0](https://github.com/Ricwolf19/metri/compare/metri-v1.8.0...metri-v1.9.0) (2026-09-20)
+
+
+### Features
+
+* **analytics:** body map, effort and body metrics ([45d2e5e](https://github.com/Ricwolf19/metri/commit/45d2e5e1ea48d8cd3d57d80e2c9866badf22244d))
+* **docs:** bilingual knowledge base content ([6423916](https://github.com/Ricwolf19/metri/commit/6423916eff44e2e00d5b0b7ea57b77b201c6cec5))
+* **explore:** exercise library tile ([2a43f19](https://github.com/Ricwolf19/metri/commit/2a43f1919975707f47f0b63bd5f2812d073d9ee6))
+* **i18n:** copy for warm-ups, tips, sounds and the session ([18d746b](https://github.com/Ricwolf19/metri/commit/18d746b5d6de74288b873851f69cf147395119e2))
+* **notifications:** rotating tips and app-chosen times ([768af16](https://github.com/Ricwolf19/metri/commit/768af1664f4564dd4695200d61e7bac1c8d247ae))
+* **plan:** make export and import unconditional ([c395f9f](https://github.com/Ricwolf19/metri/commit/c395f9fd0f7cb30b23b0edf18ceb06c7401799e4))
+* **sync:** sync exercise settings ([a7510b8](https://github.com/Ricwolf19/metri/commit/a7510b8f51c26ab581253e7c7971dab6c5b67be3))
+* **training:** exercise frames and doc shortcut ([1a99d73](https://github.com/Ricwolf19/metri/commit/1a99d733ebd31081902b7170dd36973e94cd9a12))
+* **training:** exercise library and editor screens ([bdf5fcd](https://github.com/Ricwolf19/metri/commit/bdf5fcdfa1105fe1ecb42ea0f65f21b8e846768c))
+* **training:** exercise library and technique guides ([11f80a7](https://github.com/Ricwolf19/metri/commit/11f80a724b5dc66787bc5fd8f97eb11136c85798))
+* **training:** muscle taxonomy and warm-up sets ([defa3bc](https://github.com/Ricwolf19/metri/commit/defa3bcdd908dd97ceff1473f13e9ec92737b606))
+* **training:** muscles derive from exercises ([03125c1](https://github.com/Ricwolf19/metri/commit/03125c1e9fcfd04e8e0fd1f1af5d256176881ca3))
+* **training:** one adherence palette across views ([ec361c3](https://github.com/Ricwolf19/metri/commit/ec361c3c6f64516b8bcd209dd2891ad8dba10b4f))
+* **training:** ordered sets, required RIR and repeatable splits ([14235e6](https://github.com/Ricwolf19/metri/commit/14235e6b1acf114873986b5b47281198f5fb884c))
+* **training:** OS-drawn rest timer via notify-kit ([363373c](https://github.com/Ricwolf19/metri/commit/363373c0812c5929bb25c61f13945cfe8592968f))
+* **training:** own programs first on train tab ([bd89435](https://github.com/Ricwolf19/metri/commit/bd894359fe87c6718bfab742e99b29b6cc2867cb))
+* **training:** per-exercise defaults seed new slots ([e1da3b1](https://github.com/Ricwolf19/metri/commit/e1da3b1bf8088902cf8b8b9e101a59f0eecb0021))
+* **training:** quick-fill the program schedule ([9f5ff3a](https://github.com/Ricwolf19/metri/commit/9f5ff3ae7e5f1261562d75905de4638962174c29))
+* **training:** remember the illustration toggle ([782891c](https://github.com/Ricwolf19/metri/commit/782891c0b99adb540d7dbb59e154e5f304b5158e))
+* **training:** slug fallbacks for unnamed phases ([f848ffa](https://github.com/Ricwolf19/metri/commit/f848ffa1e638837d9ae72deb0722a7fdb202bfa1))
+* **training:** slug fallbacks on program detail ([df6cfe9](https://github.com/Ricwolf19/metri/commit/df6cfe936d6f7eb4eefd063e3b3627b6fb91fba0))
+* **training:** sound cues and an alarm that waits ([b5aab98](https://github.com/Ricwolf19/metri/commit/b5aab98be9244bb3b8582a3c3ec8c47b110c2d17))
+* **training:** unset-first slot prescription editor ([4d890d4](https://github.com/Ricwolf19/metri/commit/4d890d42777fb0e93700213fb581839e5819d607))
+* **training:** warm-up and mobility routines ([2f1e6c4](https://github.com/Ricwolf19/metri/commit/2f1e6c44beb3b064a0a5ecf57c2e0a18f3cb934d))
+* **training:** workout layouts and ordered sets ([240b0e9](https://github.com/Ricwolf19/metri/commit/240b0e969dd882c3241853a01be97ce473ce5264))
+* **ui:** chip row, duration picker, unset stepper ([b501a4c](https://github.com/Ricwolf19/metri/commit/b501a4c8ac8e2da0f261a9ca5b788a9cffa24198))
+* **ui:** hold button loading state ([c47d4cc](https://github.com/Ricwolf19/metri/commit/c47d4cc385dd6919f02b8429e075c6e723522623))
+* **ui:** loader hold button and drag-only rows ([5f43e7f](https://github.com/Ricwolf19/metri/commit/5f43e7fbf671452defa81021eb8fc8acc31023cb))
+* **ui:** shared text, sheet, stat and chart primitives ([3b04a67](https://github.com/Ricwolf19/metri/commit/3b04a673240796adcea2fc6a61e01d1d6a6c647a))
+
+
+### Bug Fixes
+
+* **analytics:** drop body weight, read the map on black ([8607436](https://github.com/Ricwolf19/metri/commit/8607436b336a08e6e57700f308e9aaf3f2fa0c48))
+* **profile:** open metri.info as a link ([7f5198c](https://github.com/Ricwolf19/metri/commit/7f5198c6d3c1e810be5e6c4cf3fdd0df927d314e))
+* **ui:** key share card rows by position ([3523e79](https://github.com/Ricwolf19/metri/commit/3523e7918bcea8d6de4faf14f9e7cc82a535fd72))
+* **ui:** open sheets on a plain modal ([92c3135](https://github.com/Ricwolf19/metri/commit/92c31357cb4ce95703f815497d96716102619c8f))
+
 ## [1.8.0](https://github.com/Ricwolf19/metri/compare/metri-v1.7.0...metri-v1.8.0) (2026-09-18)
 
 
