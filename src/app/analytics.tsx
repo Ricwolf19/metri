@@ -1,30 +1,18 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
-
-import { useFocusEffect } from 'expo-router';
 
 import { TopBar } from '@/components/TopBar';
 import {
-  Button,
   Card,
   EmptyState,
   FadeInUp,
-  Input,
   Screen,
   SectionLabel,
   SegmentedControl,
   Stat,
-  TrendChart,
-  useToast,
   type Segment,
-  type TrendPoint,
 } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
-import {
-  backfillFromPhotos,
-  bodyMetricsQuery,
-  saveBodyMetric,
-} from '@/features/body/body-metrics.repo';
 import { CalcChart } from '@/features/calculators/components/CalcChart';
 import type { CalcChart as Chart } from '@/features/calculators/types';
 import { BodyMap } from '@/features/training/components/BodyMap';
@@ -33,14 +21,8 @@ import {
   MuscleDetailSheet,
   type MuscleDetail,
 } from '@/features/training/components/MuscleDetailSheet';
-import { localDateKey } from '@/features/training/dates';
 import { adherenceRate, averageRir, hardSetCount } from '@/features/training/effort-stats';
-import {
-  balanceFill,
-  fatigueFill,
-  recencyFill,
-  untrainedFill,
-} from '@/features/training/muscle-colors';
+import { balanceFill, fatigueFill, recencyFill } from '@/features/training/muscle-colors';
 import {
   fractionalSets,
   headShares,
@@ -63,7 +45,6 @@ import {
 } from '@/features/training/stats.repo';
 import { useT } from '@/i18n';
 import { useDateFormat } from '@/lib/useDateFormat';
-import { settings } from '@/lib/storage';
 import { useNow } from '@/lib/useNow';
 import { useTheme } from '@/theme/theme-context';
 
@@ -84,13 +65,11 @@ const Analytics = () => {
   const { user } = useAuth();
   const { date: formatDate } = useDateFormat();
   const now = useNow();
-  const toast = useToast();
 
   const [view, setView] = useState<MapView>('balance');
   const [side, setSide] = useState<'front' | 'back'>('front');
   const [days, setDays] = useState<Window>('30');
   const [openHeads, setOpenHeads] = useState<MuscleHead[]>([]);
-  const [weighIn, setWeighIn] = useState('');
 
   const userId = user?.id ?? '';
   const windowDays = Number(days);
@@ -161,42 +140,6 @@ const Analytics = () => {
   const recent = useMemo(() => (userId ? recentWorkouts(userId, 5) : []), [userId]);
   const effort = useMemo(() => (userId ? effortSets(userId, since) : []), [userId, since]);
   const adherence = useMemo(() => (userId ? effortSummary(userId, since) : null), [userId, since]);
-
-  /** Held in state, not a memo: the chart has to refresh after a weigh-in is
-   * written, which is an event rather than a change of inputs. */
-  const [weights, setWeights] = useState<TrendPoint[]>([]);
-  const refreshWeights = useCallback(() => {
-    if (!userId) return setWeights([]);
-    const sinceKey = localDateKey(new Date(new Date().getTime() - 180 * DAY_MS));
-    setWeights(
-      bodyMetricsQuery(userId, sinceKey)
-        .all()
-        .filter((r) => r.weightKg != null)
-        .map((r) => ({ label: r.date.slice(5), value: r.weightKg as number })),
-    );
-  }, [userId]);
-
-  useFocusEffect(
-    useCallback(() => {
-      // Progress photos carried an optional weight long before `body_metrics`
-      // existed; seed the timeline from them once, so an upgrading install
-      // opens this screen with history instead of an empty chart.
-      if (userId && !settings.hasBackfilledBodyMetrics()) {
-        backfillFromPhotos(userId);
-        settings.markBodyMetricsBackfilled();
-      }
-      refreshWeights();
-    }, [userId, refreshWeights]),
-  );
-
-  const onLogWeight = () => {
-    const kg = Number(weighIn);
-    if (!weighIn || !Number.isFinite(kg) || kg <= 0) return;
-    saveBodyMetric(userId, localDateKey(new Date(now)), { weightKg: kg });
-    setWeighIn('');
-    refreshWeights();
-    toast.success(t('stats.weightSaved'));
-  };
 
   if (!user) return null;
 
@@ -330,31 +273,6 @@ const Analytics = () => {
               </Text>
             </View>
           )}
-        </Card>
-      </FadeInUp>
-
-      {/* ── Body weight ──────────────────────────────────────────────────── */}
-      <FadeInUp delay={120}>
-        <SectionLabel label={t('stats.body')} />
-        <Card>
-          <Text className="mb-3 text-xs text-ink-400">{t('stats.weightTrend')}</Text>
-          {weights.length > 1 ? (
-            <TrendChart points={weights} unit=" kg" />
-          ) : (
-            <EmptyState hint={t('stats.emptyWeight')} />
-          )}
-          <View className="mt-4 flex-row items-center gap-2">
-            <View className="flex-1">
-              <Input
-                value={weighIn}
-                onChangeText={setWeighIn}
-                keyboardType="decimal-pad"
-                placeholder="kg"
-                maxLength={6}
-              />
-            </View>
-            <Button label={t('stats.logWeight')} variant="secondary" onPress={onLogWeight} />
-          </View>
         </Card>
       </FadeInUp>
 

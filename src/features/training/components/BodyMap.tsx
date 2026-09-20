@@ -86,9 +86,12 @@ export const BodyMap = ({ fills, side, sex, onPressRegion, scale = 1 }: BodyMapP
         // who has not said falls back to one rather than losing the screen.
         gender={sex === 'female' ? 'female' : 'male'}
         scale={scale}
-        border="none"
+        // An outline + a fill light enough to separate from the near-black
+        // page: without both, an untrained figure is invisible (it is the
+        // default state of the screen, so it has to read first).
+        border={scheme === 'dark' ? '#52525b' : '#a1a1aa'}
         hiddenParts={HIDDEN}
-        defaultFill={scheme === 'dark' ? '#27272a' : '#e4e4e7'}
+        defaultFill={scheme === 'dark' ? '#3f3f46' : '#d4d4d8'}
         onBodyPartPress={(part) => {
           if (part.slug) onPressRegion?.(headsForRegion(part.slug));
         }}

@@ -1,6 +1,6 @@
 import { MISSED } from './adherence-colors';
 import type { BalanceStatus } from './muscle-load';
-import { THEME_VARS, type ThemeScheme } from '@/theme/tokens';
+import { type ThemeScheme } from '@/theme/tokens';
 
 type Theme = { scheme: ThemeScheme; brand: string };
 
@@ -17,7 +17,8 @@ type Theme = { scheme: ThemeScheme; brand: string };
 const OVER = MISSED;
 const UNDER = '#f59e0b';
 
-const rgb = (scheme: ThemeScheme, token: string) => `rgb(${THEME_VARS[scheme][token]})`;
+/** Faintest tint that still separates from the bare fill on a black page. */
+const MIN_TINT = 0.4;
 
 /** `#rrggbb` + 0–1 opacity → `#rrggbbaa`. Both ramps below fade one hue rather
  * than switching colour, so the scale stays readable without hue perception. */
@@ -26,8 +27,14 @@ const withAlpha = (hex: string, alpha: number): string =>
     .toString(16)
     .padStart(2, '0')}`;
 
-/** Muscle with no recorded work in the window — bare, not coloured. */
-export const untrainedFill = (theme: Theme): string => rgb(theme.scheme, '--ink-750');
+/**
+ * Muscle with no recorded work in the window — bare, not coloured. Deliberately
+ * NOT a surface token: on the near-black page a card-coloured silhouette is
+ * invisible, so this is the lightest fill that still reads as "inactive".
+ */
+const BARE: Record<ThemeScheme, string> = { dark: '#3f3f46', light: '#d4d4d8' };
+
+export const untrainedFill = (theme: Theme): string => BARE[theme.scheme];
 
 /**
  * Balance view: below the productive band, inside it, or past it.
@@ -46,7 +53,7 @@ export const balanceFill = (theme: Theme, status: BalanceStatus): string => {
  */
 export const fatigueFill = (theme: Theme, index: number): string => {
   if (index <= 0) return untrainedFill(theme);
-  return withAlpha(OVER, 0.15 + index * 0.85);
+  return withAlpha(OVER, MIN_TINT + index * (1 - MIN_TINT));
 };
 
 /** Days after which a muscle reads as detrained rather than merely resting. */
@@ -60,5 +67,5 @@ export const recencyFill = (theme: Theme, daysSince: number | null): string => {
   if (daysSince == null) return untrainedFill(theme);
   if (daysSince >= DETRAINED_DAYS) return UNDER;
   const freshness = 1 - daysSince / DETRAINED_DAYS;
-  return withAlpha(theme.brand, Math.max(0.15, freshness));
+  return withAlpha(theme.brand, Math.max(MIN_TINT, freshness));
 };

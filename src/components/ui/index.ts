@@ -34,6 +34,5 @@ export { Switch } from './Switch';
 export { TagPicker, type TagSection } from './TagPicker';
 export { TextLink } from './TextLink';
 export { TimePicker } from './TimePicker';
-export { TrendChart, type TrendPoint } from './TrendChart';
 export { ToastProvider, useToast } from './Toast';
 export { useUnsavedGuard } from './useUnsavedGuard';
