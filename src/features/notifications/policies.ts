@@ -5,6 +5,7 @@ import { settings } from '@/lib/storage';
 
 import { NOTIFICATION_EVENTS, type EventConfig, type NotificationEvent } from './events';
 import { isDailyAtOneTime, scheduleEntries } from './schedule-entries';
+import { TIP_SLOTS, tipFor } from './tips';
 import {
   cancelNotifications,
   ensureNotificationPermission,
@@ -23,11 +24,14 @@ import {
 // back to the device language, and notification copy must match it.
 const strings = () => (resolveLocale() === 'es' ? es : en);
 
+const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7];
+
 export const getEventConfig = (event: NotificationEvent): EventConfig =>
   settings.getEventConfig<EventConfig>(event.id, event.defaults);
 
 export const syncNotificationEvents = async (): Promise<void> => {
   const masterOn = settings.getNotificationsEnabled();
+  const locale = resolveLocale();
   const dict = strings();
 
   for (const event of NOTIFICATION_EVENTS) {
@@ -36,11 +40,34 @@ export const syncNotificationEvents = async (): Promise<void> => {
 
     if (!masterOn) continue;
     const cfg = getEventConfig(event);
+    if (!cfg.enabled) continue;
+    // Frequency events carry their own slots; the rest need real entries.
     const entries = scheduleEntries(cfg);
-    if (!cfg.enabled || !entries.length) continue;
+    if (event.tuning !== 'frequency' && !entries.length) continue;
 
     const granted = await ensureNotificationPermission();
     if (!granted) return; // no permission — nothing else can schedule either
+
+    // Tips rotate: one distinct entry per (slot, weekday), so a week of
+    // notifications never says the same thing twice.
+    if (event.tuning === 'frequency') {
+      const slots = TIP_SLOTS[cfg.timesPerDay ?? 3] ?? TIP_SLOTS[3];
+      const tipIds = await Promise.all(
+        slots.flatMap((slot, i) =>
+          WEEKDAYS.map((weekday) =>
+            scheduleWeekly(
+              'reminders',
+              weekday,
+              slot.hour,
+              slot.minute,
+              tipFor(locale, i, weekday),
+            ),
+          ),
+        ),
+      );
+      settings.setEventIds(event.id, tipIds);
+      continue;
+    }
 
     const content = { title: dict[event.notifTitleKey], body: dict[event.notifBodyKey] };
     const ids = isDailyAtOneTime(entries)

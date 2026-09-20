@@ -2,21 +2,23 @@ import { useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { TopBar } from '@/components/TopBar';
-import { Card, Screen, ScreenTitle, Switch, TimePicker } from '@/components/ui';
+import { Card, Screen, ScreenTitle, SegmentedControl, Switch } from '@/components/ui';
 import {
   NOTIFICATION_EVENTS,
   type EventConfig,
   type NotificationEvent,
 } from '@/features/notifications/events';
 import { getEventConfig, syncNotificationEvents } from '@/features/notifications/policies';
-import { WeekdayChips } from '@/features/training/components/WeekdayChips';
+import { TIP_FREQUENCIES, TIP_SLOTS } from '@/features/notifications/tips';
+import { formatClockTime } from '@/features/training/schedule';
 import { useT } from '@/i18n';
 import { settings } from '@/lib/storage';
+import { useClockFormat } from '@/lib/useClockFormat';
 
 const EventCard = ({ event }: { event: NotificationEvent }) => {
   const t = useT();
   const [cfg, setCfg] = useState<EventConfig>(() => getEventConfig(event));
-  const clock = settings.getClockFormat();
+  const clock = useClockFormat();
 
   const update = (patch: Partial<EventConfig>) => {
     const next = { ...cfg, ...patch };
@@ -25,12 +27,8 @@ const EventCard = ({ event }: { event: NotificationEvent }) => {
     void syncNotificationEvents();
   };
 
-  const toggleDay = (weekday: number) => {
-    const has = cfg.weekdays.includes(weekday);
-    const next = has ? cfg.weekdays.filter((d) => d !== weekday) : [...cfg.weekdays, weekday];
-    if (!next.length) return; // an enabled event needs at least one day
-    update({ weekdays: next });
-  };
+  const times = cfg.timesPerDay ?? 3;
+  const slots = TIP_SLOTS[times] ?? TIP_SLOTS[3];
 
   return (
     <Card>
@@ -42,34 +40,46 @@ const EventCard = ({ event }: { event: NotificationEvent }) => {
         <Switch value={cfg.enabled} onValueChange={(enabled) => update({ enabled })} />
       </View>
 
-      {cfg.enabled && cfg.schedule?.length ? (
+      {!cfg.enabled ? null : event.tuning === 'program' ? (
         <View className="mt-4 border-t border-ink-800 pt-4">
           <Text className="text-xs leading-5 text-ink-400">
-            {t('notifEvent.trainingFollowsProgram')}
+            {cfg.schedule?.length
+              ? t('notifEvent.trainingFollowsProgram')
+              : t('notifEvent.trainingNoProgram')}
           </Text>
         </View>
-      ) : cfg.enabled ? (
+      ) : event.tuning === 'frequency' ? (
         <View className="mt-4 border-t border-ink-800 pt-4">
-          <View className="mb-4">
-            <WeekdayChips selected={cfg.weekdays} onPress={toggleDay} size="sm" />
-          </View>
-          {/* Time */}
-          <TimePicker
-            hour={cfg.hour}
-            minute={cfg.minute}
-            clock={clock}
-            onChange={({ hour, minute }) => update({ hour, minute })}
+          <Text className="mb-2 font-mono-medium text-xs uppercase tracking-wider text-ink-300">
+            {t('notifEvent.tipsPerDay')}
+          </Text>
+          <SegmentedControl
+            segments={TIP_FREQUENCIES.map((n) => ({ value: String(n), label: String(n) }))}
+            value={String(times)}
+            onChange={(value) => update({ timesPerDay: Number(value) })}
           />
+          <Text className="mt-2 text-xs text-ink-500">
+            {slots.map((slot) => formatClockTime(slot.hour * 60 + slot.minute, clock)).join(' · ')}
+          </Text>
         </View>
-      ) : null}
+      ) : (
+        <View className="mt-4 border-t border-ink-800 pt-4">
+          {/* Fixed on purpose — see events.ts. */}
+          <Text className="text-xs leading-5 text-ink-400">
+            {t('notifEvent.fixedTime', {
+              time: formatClockTime(cfg.hour * 60 + cfg.minute, clock),
+            })}
+          </Text>
+        </View>
+      )}
     </Card>
   );
 };
 
 /**
- * Notification events — a fixed, feature-owned catalogue the user can tune
- * (on/off, days, time) but never extend or delete. The master switch kills
- * everything at once.
+ * Notification events — a fixed, feature-owned catalogue the user switches on
+ * or off but never extends, deletes or re-times: metri places each reminder
+ * where it works (see events.ts). The master switch kills everything at once.
  */
 const Notifications = () => {
   const t = useT();
