@@ -3,6 +3,7 @@ import { AppState, Pressable, Text, Vibration, View } from 'react-native';
 
 import { TimerIcon, XIcon } from '@/components/icons';
 import { useT } from '@/i18n';
+import { mmss } from '@/lib/duration';
 import { useTheme } from '@/theme/theme-context';
 
 type Props = {
@@ -10,12 +11,6 @@ type Props = {
   endsAt: number;
   onExtend: (seconds: number) => void;
   onDone: () => void;
-};
-
-const mmss = (total: number): string => {
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${`${s}`.padStart(2, '0')}`;
 };
 
 const EXTENSIONS = [

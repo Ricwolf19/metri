@@ -7,11 +7,13 @@ import { CONTROL_FONT_SCALE } from './typography';
 
 type Props = {
   label?: string;
-  value: number;
+  /** null = deliberately unset — shows "—"; the + button seeds `unsetSeed` (or `min`). */
+  value: number | null;
   onChange: (next: number) => void;
   min?: number;
   max?: number;
   step?: number;
+  unsetSeed?: number;
   /** Display formatter, e.g. seconds → `120s`. */
   format?: (n: number) => string;
   decLabel?: string;
@@ -28,13 +30,15 @@ export const Stepper = ({
   min = -Infinity,
   max = Infinity,
   step = 1,
+  unsetSeed,
   format = String,
   decLabel,
   incLabel,
 }: Props) => {
   const { brand } = useTheme();
-  const canDec = value - step >= min;
-  const canInc = value + step <= max;
+  const canDec = value != null && value - step >= min;
+  const canInc = value == null || value + step <= max;
+  const seed = unsetSeed ?? (Number.isFinite(min) ? min : step);
 
   return (
     <View className="items-center py-1">
@@ -45,7 +49,7 @@ export const Stepper = ({
       ) : null}
       <View className="flex-row items-center justify-center gap-5">
         <Pressable
-          onPress={() => onChange(Math.max(min, value - step))}
+          onPress={() => onChange(Math.max(min, (value ?? seed) - step))}
           disabled={!canDec}
           accessibilityRole="button"
           accessibilityLabel={decLabel}
@@ -57,10 +61,10 @@ export const Stepper = ({
           maxFontSizeMultiplier={CONTROL_FONT_SCALE}
           className="min-w-14 text-center text-xl font-sans-bold text-ink-50"
         >
-          {format(value)}
+          {value == null ? '—' : format(value)}
         </Text>
         <Pressable
-          onPress={() => onChange(Math.min(max, value + step))}
+          onPress={() => onChange(value == null ? seed : Math.min(max, value + step))}
           disabled={!canInc}
           accessibilityRole="button"
           accessibilityLabel={incLabel}

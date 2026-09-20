@@ -27,6 +27,8 @@ export { ShareCard } from './ShareCard';
 export { Sheet } from './Sheet';
 export { Skeleton } from './Skeleton';
 export { Stat } from './Stat';
+export { ChipRow, type ChipItem } from './ChipRow';
+export { DurationPicker } from './DurationPicker';
 export { Stepper } from './Stepper';
 export { Switch } from './Switch';
 export { TagPicker, type TagSection } from './TagPicker';
