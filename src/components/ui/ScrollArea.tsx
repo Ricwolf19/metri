@@ -1,4 +1,3 @@
-import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { useEffect, useState } from 'react';
 import {
   ScrollView,
@@ -23,7 +22,7 @@ import { useTheme } from '@/theme/theme-context';
 type Props = ScrollViewProps & {
   /** Height cap outside a sheet. Inside a sheet the sheet itself caps the height. */
   maxHeight?: number;
-  /** Render with the sheet-aware scroll view so drags scroll instead of moving the sheet. */
+  /** Fill the sheet instead of capping at `maxHeight`, and pad for the safe area. */
   inSheet?: boolean;
   className?: string;
   children: React.ReactNode;
@@ -63,7 +62,7 @@ const Hint = ({ up }: { up: boolean }) => {
 /**
  * A bounded scroll view that tells the user there is more: a gently nudging
  * chevron appears at the edge that still has content (bottom and/or top).
- * Inside a `<Sheet>` pass `inSheet` (the sheet's own scrollable, safe-area padded).
+ * Inside a `<Sheet>` pass `inSheet` (fills the sheet, safe-area padded).
  */
 export const ScrollArea = ({
   maxHeight,
@@ -88,10 +87,9 @@ export const ScrollArea = ({
     onScroll?.(e);
   };
 
-  const Scroller = inSheet ? BottomSheetScrollView : ScrollView;
   return (
     <View style={inSheet ? { flex: 1 } : { maxHeight }} className={className}>
-      <Scroller
+      <ScrollView
         {...rest}
         showsVerticalScrollIndicator={false}
         onLayout={(e) => setViewport(e.nativeEvent.layout.height)}
@@ -104,7 +102,7 @@ export const ScrollArea = ({
         ]}
       >
         {children}
-      </Scroller>
+      </ScrollView>
       {canDown ? <Hint up={false} /> : null}
       {canUp ? <Hint up /> : null}
     </View>

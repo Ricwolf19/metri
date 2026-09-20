@@ -1,113 +1,214 @@
-import {
-  BottomSheetBackdrop,
-  BottomSheetModal,
-  useBottomSheetTimingConfigs,
-  type BottomSheetBackdropProps,
-} from '@gorhom/bottom-sheet';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { BackHandler, Platform, Pressable, View, useWindowDimensions } from 'react-native';
-import { Easing } from 'react-native-reanimated';
-
-import { THEME_VARS } from '@/theme/tokens';
-import { useTheme } from '@/theme/theme-context';
+import { useEffect, useState } from 'react';
+import { Modal, Pressable, View, useWindowDimensions } from 'react-native';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, {
+  Easing,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+  type SharedValue,
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Props = {
   visible: boolean;
   onClose: () => void;
-  /** A `<ScrollArea inSheet>` (or any flex view). Plain ScrollViews do not receive the drag. */
+  /** A `<ScrollArea inSheet>` (or any flex view). */
   children: React.ReactNode;
-  /** Fixed stops (e.g. `['55%', '92%']`). Omitted = size to content, capped at 92% of the window. */
+  /** Height stops as window percentages, e.g. `['55%', '92%']`; drag the handle between them. */
   snapPoints?: string[];
-  /** Tapping the handle toggles between the first and the last snap point. */
+  /** Whether the handle can be dragged/tapped up to the last snap point. */
   expandable?: boolean;
 };
 
-const MAX_DYNAMIC = 0.92;
+type Bounds = { min: number; max: number; stops: number[] };
+
+/** Enough for a short option list; callers with long content pass their own. */
+const DEFAULT_SNAP_POINTS = ['55%', '92%'];
+const RISE_MS = 220;
+const FALL_MS = 170;
+const SNAP_MS = 200;
+const SCRIM_OPACITY = 0.6;
+/** Dragging further than this share of the sheet below its smallest stop closes it. */
+const CLOSE_RATIO = 0.25;
+const FLING_VELOCITY = 900;
+const EASE_OUT = Easing.out(Easing.cubic);
+
+const pct = (stop: string): number => Math.min(0.98, Math.max(0.2, parseFloat(stop) / 100));
+
+// Shared-value writes stay in module-scope factories (AGENTS.md#architecture-invariants).
+// `height` is the visible sheet height (drag resizes it between the stops); `offset`
+// slides the sheet out during the rise/fall and when a drag goes below the first stop.
+const makeController = (
+  height: SharedValue<number>,
+  offset: SharedValue<number>,
+  bounds: SharedValue<Bounds>,
+) => {
+  let closing = false;
+  let onClose = () => {};
+  return {
+    setOnClose: (next: () => void) => {
+      onClose = next;
+    },
+    setBounds: (next: Bounds) => {
+      bounds.value = next;
+    },
+    /** Called when the Modal mounts: start below the edge, rise to the first stop. */
+    enter: () => {
+      closing = false;
+      height.value = bounds.value.min;
+      offset.value = bounds.value.min;
+      offset.value = withTiming(0, { duration: RISE_MS, easing: EASE_OUT });
+    },
+    /** Sheet-initiated close: play the fall, then let the parent flip `visible`. */
+    close: () => {
+      if (closing) return;
+      closing = true;
+      offset.value = withTiming(height.value, {
+        duration: FALL_MS,
+        easing: Easing.in(Easing.quad),
+      });
+      setTimeout(() => onClose(), FALL_MS);
+    },
+    toggle: () => {
+      const { min, max } = bounds.value;
+      const target = height.value > (min + max) / 2 ? min : max;
+      height.value = withTiming(target, { duration: SNAP_MS, easing: EASE_OUT });
+    },
+  };
+};
+
+const computeStops = (snapPoints: string[], windowHeight: number, expandable: boolean): Bounds => {
+  const stops = [...new Set(snapPoints.map((s) => Math.round(windowHeight * pct(s))))].sort(
+    (a, b) => a - b,
+  );
+  const min = stops[0];
+  return expandable
+    ? { min, max: stops[stops.length - 1], stops }
+    : { min, max: min, stops: [min] };
+};
+
+// Pan on the handle: up/down resizes between the stops, below the first stop the
+// whole sheet follows the finger and a long enough pull (or a fling) closes it.
+const makePan = (
+  height: SharedValue<number>,
+  offset: SharedValue<number>,
+  bounds: SharedValue<Bounds>,
+  startHeight: SharedValue<number>,
+  requestClose: () => void,
+) =>
+  Gesture.Pan()
+    // Leave short movements to the handle's own press.
+    .activeOffsetY([-8, 8])
+    .onStart(() => {
+      startHeight.value = height.value;
+    })
+    .onUpdate((e) => {
+      const { min, max } = bounds.value;
+      const next = startHeight.value - e.translationY;
+      if (next >= min) {
+        height.value = Math.min(max, next);
+        offset.value = 0;
+      } else {
+        height.value = min;
+        offset.value = min - next;
+      }
+    })
+    .onEnd((e) => {
+      const { min, stops } = bounds.value;
+      if (offset.value > min * CLOSE_RATIO || (offset.value > 0 && e.velocityY > FLING_VELOCITY)) {
+        runOnJS(requestClose)();
+        return;
+      }
+      offset.value = withTiming(0, { duration: SNAP_MS, easing: EASE_OUT });
+      // Snap to the nearest stop, nudged by the fling direction.
+      const biased = height.value - e.velocityY * 0.08;
+      let target = stops[0];
+      for (const s of stops) if (Math.abs(s - biased) < Math.abs(target - biased)) target = s;
+      height.value = withTiming(target, { duration: SNAP_MS, easing: EASE_OUT });
+    });
 
 /**
- * The one bottom-sheet primitive, on @gorhom/bottom-sheet: scrim fade + timing rise (no spring),
- * drag down to close, safe-area aware, and gesture-friendly scrolling via `ScrollArea inSheet`.
- * Motion rules: AGENTS.md#conventions.
+ * The one bottom-sheet primitive, on a plain RN `Modal` so it opens every time on
+ * every device: scrim fade + timing rise (no spring), drag the handle to resize
+ * between the snap points or pull it down to close; scrim tap, handle tap and
+ * hardware back close too. Its resting state is fully visible — the animations
+ * only decorate it. Motion rules: AGENTS.md#conventions.
  */
-export const Sheet = ({ visible, onClose, children, snapPoints, expandable }: Props) => {
-  const ref = useRef<BottomSheetModal>(null);
-  const { scheme } = useTheme();
+export const Sheet = ({
+  visible,
+  onClose,
+  children,
+  snapPoints = DEFAULT_SNAP_POINTS,
+  expandable = true,
+}: Props) => {
   const { height: windowHeight } = useWindowDimensions();
-  const [index, setIndex] = useState(-1);
-  const timing = useBottomSheetTimingConfigs({ duration: 200, easing: Easing.out(Easing.cubic) });
-  const rgb = (token: string) => `rgb(${THEME_VARS[scheme][token]})`;
+  const insets = useSafeAreaInsets();
+  const initial = computeStops(snapPoints, windowHeight, expandable);
+
+  const height = useSharedValue(initial.min);
+  const offset = useSharedValue(0);
+  const bounds = useSharedValue<Bounds>(initial);
+  const startHeight = useSharedValue(initial.min);
+  const [ctl] = useState(() => makeController(height, offset, bounds));
+  const [pan] = useState(() => makePan(height, offset, bounds, startHeight, ctl.close));
 
   useEffect(() => {
-    if (visible) ref.current?.present();
-    else ref.current?.dismiss();
-  }, [visible]);
+    ctl.setOnClose(onClose);
+  }, [ctl, onClose]);
 
-  // Android back closes the sheet instead of popping the screen behind it.
   useEffect(() => {
-    if (!visible || Platform.OS !== 'android') return;
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      ref.current?.dismiss();
-      return true;
-    });
-    return () => sub.remove();
-  }, [visible]);
+    ctl.setBounds(computeStops(snapPoints, windowHeight, expandable));
+  }, [ctl, snapPoints, windowHeight, expandable]);
 
-  const renderBackdrop = useCallback(
-    (props: BottomSheetBackdropProps) => (
-      <BottomSheetBackdrop
-        {...props}
-        appearsOnIndex={0}
-        disappearsOnIndex={-1}
-        opacity={0.6}
-        pressBehavior="close"
-      />
-    ),
-    [],
-  );
+  useEffect(() => {
+    if (visible) ctl.enter();
+  }, [visible, ctl]);
 
-  const last = (snapPoints?.length ?? 1) - 1;
-  const toggle = () => {
-    if (!expandable || !snapPoints) return;
-    if (index >= last) ref.current?.snapToIndex(0);
-    else ref.current?.expand();
+  const scrimStyle = useAnimatedStyle(() => ({
+    opacity: SCRIM_OPACITY * (1 - offset.value / Math.max(1, height.value)),
+  }));
+  const sheetStyle = useAnimatedStyle(() => ({
+    height: height.value,
+    transform: [{ translateY: offset.value }],
+  }));
+
+  const onHandlePress = () => {
+    if (initial.stops.length > 1) ctl.toggle();
+    else ctl.close();
   };
-  const renderHandle = useCallback(
-    () => (
-      <Pressable
-        onPress={expandable ? toggle : undefined}
-        accessibilityRole={expandable ? 'button' : undefined}
-        hitSlop={10}
-        className="items-center pb-3 pt-3"
-      >
-        <View className="h-1 w-10 rounded-full bg-ink-600" />
-      </Pressable>
-    ),
-    // toggle reads the latest index via state; re-create when it changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [expandable, index, last],
-  );
 
   return (
-    <BottomSheetModal
-      ref={ref}
-      snapPoints={snapPoints}
-      enableDynamicSizing={!snapPoints}
-      maxDynamicContentSize={windowHeight * MAX_DYNAMIC}
-      enablePanDownToClose
-      onDismiss={onClose}
-      onChange={setIndex}
-      backdropComponent={renderBackdrop}
-      handleComponent={renderHandle}
-      animationConfigs={timing}
-      backgroundStyle={{
-        backgroundColor: rgb('--ink-900'),
-        borderTopLeftRadius: 28,
-        borderTopRightRadius: 28,
-        borderTopWidth: 1,
-        borderColor: rgb('--ink-700'),
-      }}
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      statusBarTranslucent
+      onRequestClose={ctl.close}
     >
-      {children}
-    </BottomSheetModal>
+      {/* A Modal is its own native view tree: gestures need a root inside it. */}
+      <GestureHandlerRootView style={{ flex: 1, justifyContent: 'flex-end' }}>
+        <Animated.View style={scrimStyle} className="absolute inset-0 bg-black">
+          <Pressable className="flex-1" onPress={ctl.close} accessibilityRole="button" />
+        </Animated.View>
+        <Animated.View
+          style={[{ paddingBottom: insets.bottom }, sheetStyle]}
+          className="overflow-hidden rounded-t-[28px] border-t border-ink-700 bg-ink-900"
+        >
+          <GestureDetector gesture={pan}>
+            <Pressable
+              onPress={onHandlePress}
+              accessibilityRole="button"
+              hitSlop={10}
+              className="items-center pb-3 pt-3"
+            >
+              <View className="h-1 w-10 rounded-full bg-ink-600" />
+            </Pressable>
+          </GestureDetector>
+          {children}
+        </Animated.View>
+      </GestureHandlerRootView>
+    </Modal>
   );
 };

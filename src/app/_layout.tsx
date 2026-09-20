@@ -15,7 +15,6 @@ import { StatusBar } from 'expo-status-bar';
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
 import { useEffect, useState } from 'react';
 import { LogBox, Text, View } from 'react-native';
-import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { initialWindowMetrics, SafeAreaProvider } from 'react-native-safe-area-context';
@@ -129,12 +128,9 @@ const RootLayout = () => {
             <ThemeProvider>
               <AuthProvider>
                 <ToastProvider>
-                  {/* Sheets host here: under the toast, above the stack. */}
-                  <BottomSheetModalProvider>
-                    <DialogProvider>
-                      <ThemedStack />
-                    </DialogProvider>
-                  </BottomSheetModalProvider>
+                  <DialogProvider>
+                    <ThemedStack />
+                  </DialogProvider>
                 </ToastProvider>
               </AuthProvider>
             </ThemeProvider>
