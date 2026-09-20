@@ -20,7 +20,7 @@ import { ProgramCard } from '@/features/training/components/ProgramCard';
 import { presetProgramCopy } from '@/features/training/programs';
 import { SplitRow } from '@/features/training/components/SplitRow';
 import { abandonEnrollment, setEnrollmentPosition } from '@/features/training/enroll';
-import { WEEKDAY_KEY } from '@/features/training/labels';
+import { WEEKDAY_KEY, dayDisplayName, routineDisplayName } from '@/features/training/labels';
 import { ownProgramsQuery, recommendedProgramsQuery } from '@/features/training/programs.repo';
 import { syncTrainingReminder } from '@/features/training/reminders';
 import {
@@ -36,7 +36,7 @@ import { useI18n, useT } from '@/i18n';
 import { useClockFormat } from '@/lib/useClockFormat';
 import { useTheme } from '@/theme/theme-context';
 
-/** Train tab: active program (today's splits + Play) first, then curated and own program lists. */
+/** Train tab: active program (today's splits + Play) first, then own programs, curated presets, create. */
 const Training = () => {
   const router = useRouter();
   const t = useT();
@@ -66,6 +66,8 @@ const Training = () => {
   const otherSplits = days.filter((d) => !todayIds.has(d.id));
   const next = nextScheduledSplit(days, now);
   const activeProgramId = structure?.program?.id ?? null;
+  const ownVisible = own.filter((p) => p.id !== activeProgramId);
+  const recommendedVisible = recommended.filter((p) => p.id !== activeProgramId);
 
   const scheduleLabel = (day: ScheduledDay) =>
     day.weekday != null && day.startMinute != null
@@ -132,7 +134,9 @@ const Training = () => {
               {presetProgramCopy(structure.program.id, locale)?.name ?? structure.program.name}
             </Text>
             <Text className="mt-0.5 text-sm text-ink-400">
-              {structure.currentRoutine ? `${structure.currentRoutine.name} · ` : ''}
+              {structure.currentRoutine
+                ? `${routineDisplayName(structure.currentRoutine, t)} · `
+                : ''}
               {t('training.weekOf', { week: structure.programWeek, total: structure.totalWeeks })}
             </Text>
 
@@ -145,7 +149,7 @@ const Training = () => {
                   {todaySplits.map((day) => (
                     <SplitRow
                       key={day.id}
-                      name={day.name}
+                      name={dayDisplayName(day, t)}
                       label={scheduleLabel(day)}
                       emphasis="today"
                       disabled={playDisabled}
@@ -171,7 +175,7 @@ const Training = () => {
                   {otherSplits.map((day) => (
                     <SplitRow
                       key={day.id}
-                      name={day.name}
+                      name={dayDisplayName(day, t)}
                       label={scheduleLabel(day)}
                       emphasis="other"
                       disabled={playDisabled}
@@ -194,7 +198,20 @@ const Training = () => {
         </FadeInUp>
       ) : null}
 
-      {recommended.length ? (
+      {ownVisible.length ? (
+        <>
+          <SectionLabel label={t('training.yourPrograms')} className="mt-6" />
+          <View className="gap-3">
+            {ownVisible.map((p, i) => (
+              <FadeInUp key={p.id} delay={i * 60}>
+                <ProgramCard program={p} />
+              </FadeInUp>
+            ))}
+          </View>
+        </>
+      ) : null}
+
+      {recommendedVisible.length ? (
         <>
           <SectionLabel
             label={t('training.recommended')}
@@ -202,26 +219,16 @@ const Training = () => {
             className="mt-6"
           />
           <View className="gap-3">
-            {recommended
-              .filter((p) => p.id !== activeProgramId)
-              .map((p, i) => (
-                <FadeInUp key={p.id} delay={i * 60}>
-                  <ProgramCard program={p} />
-                </FadeInUp>
-              ))}
+            {recommendedVisible.map((p, i) => (
+              <FadeInUp key={p.id} delay={i * 60}>
+                <ProgramCard program={p} />
+              </FadeInUp>
+            ))}
           </View>
         </>
       ) : null}
 
-      <SectionLabel label={t('training.yourPrograms')} className="mt-6" />
-      <View className="gap-3">
-        {own
-          .filter((p) => p.id !== activeProgramId)
-          .map((p, i) => (
-            <FadeInUp key={p.id} delay={i * 60}>
-              <ProgramCard program={p} />
-            </FadeInUp>
-          ))}
+      <View className="mt-6 gap-3">
         <PressableScale onPress={() => router.push('/training/edit/new')}>
           <Card className="flex-row items-center border-brand/30 bg-brand/10">
             <View className="mr-4 h-11 w-11 items-center justify-center rounded-field bg-brand/15">
