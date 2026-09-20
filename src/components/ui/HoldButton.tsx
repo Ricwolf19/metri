@@ -16,6 +16,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { useT } from '@/i18n';
+import { THEME_VARS } from '@/theme/tokens';
 import { useTheme } from '@/theme/theme-context';
 
 import { CONTROL_FONT_SCALE } from './typography';
@@ -27,7 +28,7 @@ type Props = {
   label?: string;
   /** Chip mode (40×40) for a delete inside a list row; omit `label`. */
   icon?: React.ReactNode;
-  /** A returned promise keeps the button in its spinner state until it settles. */
+  /** A returned promise keeps the button in its loader state until it settles. */
   onComplete: () => void | Promise<unknown>;
   variant?: Variant;
   size?: Size;
@@ -37,20 +38,22 @@ type Props = {
 };
 
 const HOLD_MS = 900;
-// Lets the spinner frame paint before the (possibly heavy, synchronous) action runs.
+// Lets the loader frame paint before the (possibly heavy, synchronous) action runs.
 const PAINT_MS = 50;
 
 const CONTAINER: Record<Variant, string> = {
   danger: 'border border-red-500/40 bg-red-500/10',
   secondary: 'border border-ink-600/70 bg-ink-800/90',
 };
+/** Once the hold completes the control vanishes; only the loader stays in its place. */
+const BUSY = 'border border-transparent bg-transparent';
 const FILL: Record<Variant, string> = { danger: 'bg-red-500/30', secondary: 'bg-ink-600/60' };
 const LABEL: Record<Variant, string> = { danger: 'text-red-400', secondary: 'text-ink-50' };
-const SIZE_BOX: Record<Size, string> = { sm: 'min-h-9 px-3.5 py-1.5', md: 'min-h-11 px-5 py-2.5' };
+const HEIGHT: Record<Size, number> = { sm: 36, md: 44 };
 
 // Fill is visual only; firing is Pressable's long-press detector, so tap bursts can't complete it.
 // Shared-value writes stay in a module-scope factory (AGENTS.md#architecture-invariants).
-const makeFillController = (progress: SharedValue<number>, durationMs: number) => ({
+const makeController = (progress: SharedValue<number>, durationMs: number) => ({
   start: () => {
     progress.value = 0;
     progress.value = withTiming(1, { duration: durationMs, easing: Easing.linear });
@@ -63,7 +66,9 @@ const makeFillController = (progress: SharedValue<number>, durationMs: number) =
 
 /**
  * Press-and-hold confirmation for irreversible actions: the fill grows for
- * `durationMs`, releasing early cancels, completing fires once. Screen readers
+ * `durationMs`, releasing early cancels, completing fires once. On completion
+ * the control disappears and a loader takes its place until the action settles,
+ * so the screen never shows a button that is not accepting input. Screen readers
  * get an `activate` action so they never have to hold.
  */
 export const HoldButton = ({
@@ -77,16 +82,21 @@ export const HoldButton = ({
   accessibilityLabel,
 }: Props) => {
   const t = useT();
-  const { muted } = useTheme();
+  const { scheme } = useTheme();
   const progress = useSharedValue(0);
   const [busy, setBusy] = useState(false);
-  const [fill] = useState(() => makeFillController(progress, durationMs));
+  const [ctl] = useState(() => makeController(progress, durationMs));
+
+  const chip = !label && !!icon;
+  const height = chip ? 40 : HEIGHT[size];
+  // Danger keeps the destructive red through the loader; secondary follows the theme.
+  const spinner = variant === 'danger' ? '#ef4444' : `rgb(${THEME_VARS[scheme]['--ink-50']})`;
 
   const fillStyle = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }));
 
   const complete = () => {
     if (busy) return;
-    fill.reset();
+    ctl.reset();
     setBusy(true);
     setTimeout(() => {
       const result = onComplete();
@@ -98,46 +108,52 @@ export const HoldButton = ({
     if (e.nativeEvent.actionName === 'activate') complete();
   };
 
-  const chip = !label && !!icon;
-
   return (
-    <Pressable
-      disabled={disabled || busy}
-      onPressIn={fill.start}
-      onPressOut={fill.reset}
-      onLongPress={complete}
-      delayLongPress={durationMs}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? label}
-      accessibilityHint={t('common.holdHint')}
-      accessibilityState={{ disabled: !!disabled || busy }}
-      accessibilityActions={[{ name: 'activate' }]}
-      onAccessibilityAction={onAccessibilityAction}
+    <View
+      style={{ height }}
       className={[
         'relative items-center justify-center overflow-hidden',
-        chip ? 'h-10 w-10 rounded-full' : `w-full rounded-field ${SIZE_BOX[size]}`,
-        CONTAINER[variant],
+        chip ? 'w-10 rounded-full' : 'w-full rounded-field',
+        busy ? BUSY : CONTAINER[variant],
         disabled ? 'opacity-50' : '',
       ].join(' ')}
     >
-      <Animated.View
-        pointerEvents="none"
-        style={[{ position: 'absolute', left: 0, top: 0, bottom: 0 }, fillStyle]}
+      <Pressable
+        disabled={disabled || busy}
+        onPressIn={ctl.start}
+        onPressOut={ctl.reset}
+        onLongPress={complete}
+        delayLongPress={durationMs}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel ?? label}
+        accessibilityHint={t('common.holdHint')}
+        accessibilityState={{ disabled: !!disabled || busy }}
+        accessibilityActions={[{ name: 'activate' }]}
+        onAccessibilityAction={onAccessibilityAction}
+        className="h-full w-full items-center justify-center px-4"
       >
-        <View className={`h-full w-full ${FILL[variant]}`} />
-      </Animated.View>
-      {busy ? (
-        <ActivityIndicator size="small" color={muted} />
-      ) : chip ? (
-        icon
-      ) : (
-        <Text
-          maxFontSizeMultiplier={CONTROL_FONT_SCALE}
-          className={['text-sm font-sans-semibold', LABEL[variant]].join(' ')}
-        >
-          {label}
-        </Text>
-      )}
-    </Pressable>
+        {busy ? null : (
+          <Animated.View
+            pointerEvents="none"
+            style={[{ position: 'absolute', left: 0, top: 0, bottom: 0 }, fillStyle]}
+          >
+            <View className={`h-full w-full ${FILL[variant]}`} />
+          </Animated.View>
+        )}
+        {busy ? (
+          <ActivityIndicator size="small" color={spinner} />
+        ) : chip ? (
+          icon
+        ) : (
+          <Text
+            numberOfLines={1}
+            maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+            className={['text-sm font-sans-semibold', LABEL[variant]].join(' ')}
+          >
+            {label}
+          </Text>
+        )}
+      </Pressable>
+    </View>
   );
 };

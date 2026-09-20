@@ -48,6 +48,10 @@ import {
   Sparks,
   List,
   ViewGrid,
+  Pause,
+  Expand,
+  Eye,
+  EyeClosed,
 } from 'iconoir-react-native';
 
 /** Square size in px (maps to width + height). Mirrors lucide's `size`. */
@@ -105,3 +109,7 @@ export const PlaySolidIcon = sized(PlaySolid, 'PlaySolidIcon');
 export const SparksIcon = sized(Sparks, 'SparksIcon');
 export const ListIcon = sized(List, 'ListIcon');
 export const ViewGridIcon = sized(ViewGrid, 'ViewGridIcon');
+export const PauseIcon = sized(Pause, 'PauseIcon');
+export const ExpandIcon = sized(Expand, 'ExpandIcon');
+export const EyeIcon = sized(Eye, 'EyeIcon');
+export const EyeClosedIcon = sized(EyeClosed, 'EyeClosedIcon');

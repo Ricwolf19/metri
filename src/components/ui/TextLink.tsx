@@ -4,16 +4,18 @@ type Props = {
   label: string;
   onPress: () => void;
   size?: 'sm' | 'base';
+  /** Centers the link in its row instead of hugging the left edge. */
+  center?: boolean;
   className?: string;
 };
 
 /** Inline tappable text (lime + underline): the one look for "this is knowledge you can open". */
-export const TextLink = ({ label, onPress, size = 'sm', className }: Props) => (
+export const TextLink = ({ label, onPress, size = 'sm', center, className }: Props) => (
   <Pressable
     onPress={onPress}
     hitSlop={6}
     accessibilityRole="link"
-    className={['self-start', className ?? ''].join(' ')}
+    className={[center ? 'self-center' : 'self-start', className ?? ''].join(' ')}
   >
     <Text
       className={[

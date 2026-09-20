@@ -8,7 +8,7 @@ import { CONTROL_FONT_SCALE } from './typography';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-type Variant = 'brand' | 'secondary' | 'outline' | 'ghost' | 'danger';
+type Variant = 'brand' | 'brandSoft' | 'secondary' | 'outline' | 'ghost' | 'danger';
 type Size = 'sm' | 'md' | 'lg' | 'xl';
 
 type Props = Omit<PressableProps, 'children'> & {
@@ -24,6 +24,9 @@ type Props = Omit<PressableProps, 'children'> & {
 // everything else sits on the dark glass surface (secondary, the default).
 const CONTAINER: Record<Variant, string> = {
   brand: 'bg-brand active:opacity-90',
+  // Lime-tinted glass: an additive action inside a list (add exercise, create a
+  // routine) — reads as the brand without competing with the screen's `brand` CTA.
+  brandSoft: 'border border-brand/30 bg-brand/10 active:bg-brand/20',
   secondary: 'border border-ink-600/70 bg-ink-800/90 active:bg-ink-700',
   outline: 'border border-ink-600 bg-transparent active:bg-ink-800',
   ghost: 'bg-transparent active:bg-ink-800',
@@ -32,6 +35,7 @@ const CONTAINER: Record<Variant, string> = {
 
 const LABEL: Record<Variant, string> = {
   brand: 'text-brandContrast',
+  brandSoft: 'text-brand',
   secondary: 'text-ink-50',
   outline: 'text-ink-100',
   ghost: 'text-ink-200',
@@ -68,13 +72,14 @@ export const Button = ({
   const isDisabled = disabled || loading;
   const { scale, onPressIn, onPressOut } = usePressScale();
   const pressAnim = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  const { scheme, brandContrast } = useTheme();
+  const { scheme, brand, brandContrast } = useTheme();
 
   // Spinner colour tracks the label colour (which inverts per scheme for the
   // monochrome/neutral variants).
   const dark = scheme === 'dark';
   const spinnerColor: Record<Variant, string> = {
     brand: brandContrast,
+    brandSoft: brand,
     secondary: dark ? '#f5f5f7' : '#18181b',
     outline: dark ? '#e4e4e7' : '#27272a',
     ghost: dark ? '#d4d4d8' : '#3f3f46',
