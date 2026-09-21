@@ -23,19 +23,22 @@ import {
 import { TopBar } from '@/components/TopBar';
 import {
   Button,
+  BadgeRow,
+  BlockingOverlay,
   Card,
   Input,
   ReorderRow,
-  ScrollArea,
   Screen,
   ScreenTitle,
+  ScrollArea,
   SegmentedControl,
+  Select,
   Sheet,
   TextLink,
+  TimedModal,
   useDialog,
   useToast,
   type Segment,
-  BlockingOverlay,
 } from '@/components/ui';
 import type { PlannedSlot, SetGroup, SetLog } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
@@ -44,6 +47,7 @@ import { fromKg } from '@/features/training/progression';
 import { ExerciseDocButton } from '@/features/training/components/ExerciseDocButton';
 import { ExerciseFrames } from '@/features/training/components/ExerciseFrames';
 import { RestTimer } from '@/features/training/components/RestTimer';
+import { StepGroup } from '@/features/training/components/StepGroup';
 import { endRest, extendRest, startRest } from '@/features/notifications/rest-notification';
 import { ensureNotificationPermission } from '@/features/notifications/service';
 import { restState, useActiveRest } from '@/features/training/rest-state';
@@ -72,7 +76,7 @@ import { syncTrainingReminder } from '@/features/training/reminders';
 import { warmupRamp } from '@/features/training/warmup';
 import { useI18n, useT, type TFunction } from '@/i18n';
 import { settings, type Units, type WorkoutLayout } from '@/lib/storage';
-import { playSound, stopAlarm } from '@/lib/sounds';
+import { playSound } from '@/lib/sounds';
 import { useClockFormat } from '@/lib/useClockFormat';
 import { useTheme } from '@/theme/theme-context';
 
@@ -275,16 +279,6 @@ const ActiveRow = ({
   );
 };
 
-const StepChip = ({ label, onPress }: { label: string; onPress: () => void }) => (
-  <Pressable
-    onPress={onPress}
-    accessibilityRole="button"
-    className="h-9 flex-1 items-center justify-center rounded-field border border-ink-700 bg-ink-800"
-  >
-    <Text className="text-xs font-sans-semibold text-ink-200">{label}</Text>
-  </Pressable>
-);
-
 type CardProps = {
   workoutLogId: string;
   planned: PlannedSlot;
@@ -316,6 +310,8 @@ const ExerciseCard = ({
   const dialog = useDialog();
   const toast = useToast();
   const { brand } = useTheme();
+  const [weightStep, setWeightStep] = useState(() => settings.getWeightStep());
+  const [repsStep, setRepsStep] = useState(() => settings.getRepsStep());
   const [extraRows, setExtraRows] = useState(0);
   const [warmupRows, setWarmupRows] = useState(0);
   // Keyed by row so advancing a set never carries the previous row's numbers.
@@ -489,17 +485,12 @@ const ExerciseCard = ({
       </View>
 
       {planned.badges.length ? (
-        <View className="mt-2 flex-row flex-wrap gap-1.5">
-          {planned.badges.map((b, i) => (
-            <View
-              key={`${b}-${i}`}
-              className="rounded-full border border-brand/25 bg-brand/10 px-2.5 py-1"
-            >
-              <Text className="font-mono-medium text-[10px] uppercase tracking-wide text-brand">
-                {b}
-              </Text>
-            </View>
-          ))}
+        <View className="mt-2">
+          <BadgeRow
+            mono
+            tone="brand"
+            items={planned.badges.map((b, i) => ({ value: `${b}-${i}`, label: b }))}
+          />
         </View>
       ) : null}
 
@@ -579,12 +570,26 @@ const ExerciseCard = ({
 
       {/* One control bar per card, always in the same place, driving the live row. */}
       {activeKey && activeDraft ? (
-        <View className="mt-2.5 flex-row items-center gap-2 border-t border-ink-800 pt-2.5">
-          <StepChip label="-5" onPress={() => bump('weight', -5)} />
-          <StepChip label="+5" onPress={() => bump('weight', +5)} />
+        <View className="mt-2.5 flex-row items-end gap-2 border-t border-ink-800 pt-2.5">
+          <StepGroup
+            label={`${t('training.weight')} · ${unit}`}
+            step={weightStep}
+            onStepChange={(n) => {
+              settings.setWeightStep(n);
+              setWeightStep(n);
+            }}
+            onBump={(d) => bump('weight', d)}
+          />
           <View className="w-px self-stretch bg-ink-800" />
-          <StepChip label="-1" onPress={() => bump('reps', -1)} />
-          <StepChip label="+1" onPress={() => bump('reps', +1)} />
+          <StepGroup
+            label={t('training.reps')}
+            step={repsStep}
+            onStepChange={(n) => {
+              settings.setRepsStep(n);
+              setRepsStep(n);
+            }}
+            onBump={(d) => bump('reps', d)}
+          />
           {activeIsWarmup ? null : (
             <>
               <View className="w-px self-stretch bg-ink-800" />
@@ -673,7 +678,6 @@ const WorkoutSession = () => {
   const [layout, setLayout] = useState<WorkoutLayout>(settings.getWorkoutLayout());
   const [showArt, setShowArt] = useState(() => settings.getShowExerciseArt());
   const [warmupOpen, setWarmupOpen] = useState(true);
-  const [layoutOpen, setLayoutOpen] = useState(false);
   const [reordering, setReordering] = useState(false);
   const [orderDraft, setOrderDraft] = useState<PlannedSlot[]>([]);
   const [cardIndex, setCardIndex] = useState(() => {
@@ -770,7 +774,6 @@ const WorkoutSession = () => {
     slotId: string;
     doneCount: number;
   }) => {
-    stopAlarm();
     const startedAt = Date.now();
     const endsAt = startedAt + restSeconds * 1000;
     const ends = new Date(endsAt);
@@ -798,20 +801,31 @@ const WorkoutSession = () => {
     void ensureNotificationPermission().finally(() => startRest(restPayload));
   };
 
-  const finish = () => {
-    playSound('sessionDone');
-    setSummary(sessionSummary(log.id, locale));
-  };
+  // Confirmed before anything happens: the two header buttons sit side by side,
+  // and ending a session by a mis-tap cannot be undone.
+  const finish = () =>
+    dialog.confirm({
+      title: t('training.finishConfirm'),
+      message: t('training.finishConfirmBody'),
+      confirmLabel: t('training.finish'),
+      onConfirm: () => {
+        playSound('sessionDone');
+        setSummary(sessionSummary(log.id, locale));
+      },
+    });
 
   // Finish work is synchronous; show the overlay first so the tap gets visible feedback.
   const closeSummary = () => {
+    if (finishing) return;
     setFinishing(true);
     setTimeout(() => {
       finishWorkout(log.id);
       void endRest();
       void syncTrainingReminder(log.userId);
       setSummary(null);
-      router.replace('/training');
+      // `settling` keeps the wait on screen while the tab mounts and runs its
+      // queries; without it the hand-off flashes a half-built Train tab.
+      router.replace({ pathname: '/training', params: { settling: '1' } });
     }, OVERLAY_PAINT_MS);
   };
 
@@ -823,7 +837,6 @@ const WorkoutSession = () => {
       onConfirm: () => {
         playSound('discard');
         abandonWorkout(log.id);
-        stopAlarm();
         void endRest();
         router.replace('/training');
       },
@@ -834,15 +847,6 @@ const WorkoutSession = () => {
     setReordering(true);
   };
 
-  const jumpToExercise = () =>
-    dialog.show({
-      title: t('training.switchExercise'),
-      actions: [
-        ...planned.map((p, i) => ({ label: p.name, onPress: () => setCardIndex(i) })),
-        { label: t('common.cancel'), style: 'cancel' as const },
-      ],
-    });
-
   // Remembered across sessions: whoever turns the art off means it.
   const toggleArt = () => {
     const next = !showArt;
@@ -850,10 +854,12 @@ const WorkoutSession = () => {
     setShowArt(next);
   };
 
-  const chooseLayout = (next: WorkoutLayout) => {
+  // Two modes only, so the control is a toggle rather than a picker: one tap
+  // swaps them, the same way the eye swaps the illustrations.
+  const toggleLayout = () => {
+    const next: WorkoutLayout = layout === 'list' ? 'cards' : 'list';
     settings.setWorkoutLayout(next);
     setLayout(next);
-    setLayoutOpen(false);
   };
 
   const idx = Math.min(cardIndex, Math.max(0, planned.length - 1));
@@ -874,20 +880,6 @@ const WorkoutSession = () => {
       onFocusLayout={(y) => scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: false })}
     />
   );
-
-  const layoutItems: { value: WorkoutLayout; label: string; icon: React.ReactNode }[] = [
-    {
-      value: 'cards',
-      label: t('training.layoutCards'),
-      icon: <ViewGridIcon color={muted} size={18} />,
-    },
-    { value: 'list', label: t('training.layoutList'), icon: <ListIcon color={muted} size={18} /> },
-    {
-      value: 'compact',
-      label: t('training.layoutCompact'),
-      icon: <DragHandleIcon color={muted} size={18} />,
-    },
-  ];
 
   return (
     <Screen
@@ -951,21 +943,8 @@ const WorkoutSession = () => {
         showsVerticalScrollIndicator={false}
       >
         {muscles.length ? (
-          <View className="mb-3 flex-row flex-wrap gap-1.5">
-            {muscles.slice(0, 5).map((h) => (
-              <View key={h} className="rounded-full bg-ink-800 px-2.5 py-1">
-                <Text className="text-[11px] font-sans-medium text-ink-300">
-                  {t(muscleHeadKey(h))}
-                </Text>
-              </View>
-            ))}
-            {muscles.length > 5 ? (
-              <View className="rounded-full bg-ink-800 px-2.5 py-1">
-                <Text className="text-[11px] font-sans-medium text-ink-400">
-                  +{muscles.length - 5}
-                </Text>
-              </View>
-            ) : null}
+          <View className="mb-3">
+            <BadgeRow items={muscles.map((h) => ({ value: h, label: t(muscleHeadKey(h)) }))} />
           </View>
         ) : null}
 
@@ -1000,12 +979,22 @@ const WorkoutSession = () => {
               <DragHandleIcon color={muted} size={18} />
             </Pressable>
             <Pressable
-              onPress={() => setLayoutOpen(true)}
+              onPress={toggleLayout}
               accessibilityRole="button"
-              accessibilityLabel={t('training.layout')}
-              className="h-10 w-10 items-center justify-center rounded-field border border-ink-700 bg-ink-800"
+              accessibilityLabel={
+                layout === 'list' ? t('training.layoutCompact') : t('training.layoutList')
+              }
+              accessibilityState={{ selected: layout === 'cards' }}
+              className={[
+                'h-10 w-10 items-center justify-center rounded-field border',
+                layout === 'cards' ? 'border-brand/40 bg-brand/10' : 'border-ink-700 bg-ink-800',
+              ].join(' ')}
             >
-              <ViewGridIcon color={muted} size={18} />
+              {layout === 'cards' ? (
+                <ViewGridIcon color={brand} size={18} />
+              ) : (
+                <ListIcon color={muted} size={18} />
+              )}
             </Pressable>
           </View>
         </View>
@@ -1045,20 +1034,16 @@ const WorkoutSession = () => {
           <Text className="mt-10 text-center text-sm text-ink-400">{t('training.empty')}</Text>
         ) : layout === 'cards' && current ? (
           <>
-            <View className="mb-2 flex-row items-center justify-between">
-              <Text className="font-mono-medium text-xs uppercase tracking-wider text-ink-400">
+            <View className="mb-2">
+              <Text className="mb-1.5 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
                 {t('training.exerciseOf', { n: idx + 1, total: planned.length })}
               </Text>
-              <Pressable
-                onPress={jumpToExercise}
-                accessibilityRole="button"
-                className="flex-row items-center gap-1.5 py-1"
-              >
-                <ListIcon color={brand} size={15} />
-                <Text className="text-xs font-sans-semibold text-brand">
-                  {t('training.switchExercise')}
-                </Text>
-              </Pressable>
+              <Select
+                items={planned.map((p, i) => ({ value: String(i), label: p.name }))}
+                value={String(idx)}
+                onChange={(v) => setCardIndex(Number(v))}
+                placeholder={t('training.switchExercise')}
+              />
             </View>
             {renderCard(current, false)}
             <View className="mt-1 flex-row gap-3">
@@ -1092,14 +1077,8 @@ const WorkoutSession = () => {
           <RestTimer
             key={rest.startedAt}
             endsAt={rest.endsAt}
-            onExtend={(seconds) => {
-              stopAlarm();
-              void extendRest(seconds);
-            }}
-            onDone={() => {
-              stopAlarm();
-              void endRest();
-            }}
+            onExtend={(seconds) => void extendRest(seconds)}
+            onDone={() => void endRest()}
           />
         </View>
       ) : null}
@@ -1122,7 +1101,7 @@ const WorkoutSession = () => {
                   {t('training.effortFailure')}
                 </Text>
               </Pressable>
-              {[1, 2, 3].map((n) => (
+              {[1, 2, 3, 4].map((n) => (
                 <Pressable
                   key={n}
                   onPress={() => effortResolve?.({ rir: n, failure: false })}
@@ -1133,63 +1112,23 @@ const WorkoutSession = () => {
                     <Text className="text-sm font-sans-bold text-brand">{n}</Text>
                   </View>
                   <Text className="flex-1 text-sm font-sans-medium text-ink-100">
-                    {t('training.effortRir', { n })}
+                    {t('training.effortRir')}
                   </Text>
                 </Pressable>
               ))}
+              {/* The open end of the scale: anything easier than four. */}
               <Pressable
-                onPress={() => effortResolve?.({ rir: 4, failure: false })}
+                onPress={() => effortResolve?.({ rir: 5, failure: false })}
                 accessibilityRole="button"
                 className="flex-row items-center gap-3 rounded-field border border-ink-700 bg-ink-800 px-4 py-3.5"
               >
                 <View className="h-7 w-7 items-center justify-center rounded-full bg-ink-700">
-                  <Text className="text-sm font-sans-bold text-ink-200">4+</Text>
+                  <Text className="text-sm font-sans-bold text-ink-200">5+</Text>
                 </View>
                 <Text className="flex-1 text-sm font-sans-medium text-ink-100">
-                  {t('training.effortRir4')}
+                  {t('training.effortRir5')}
                 </Text>
               </Pressable>
-            </View>
-          </View>
-        </ScrollArea>
-      </Sheet>
-
-      {/* Layout sheet — compact is announced but not built yet. */}
-      <Sheet visible={layoutOpen} onClose={() => setLayoutOpen(false)}>
-        <ScrollArea inSheet>
-          <View className="pb-6">
-            <Text className="mb-3 text-lg font-sans-bold text-ink-50">{t('training.layout')}</Text>
-            <View className="gap-2">
-              {layoutItems.map((item) => {
-                const disabled = item.value === 'compact';
-                const active = item.value === layout;
-                return (
-                  <Pressable
-                    key={item.value}
-                    onPress={() => chooseLayout(item.value)}
-                    disabled={disabled}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active, disabled }}
-                    className={[
-                      'flex-row items-center gap-3 rounded-field border px-4 py-3.5',
-                      active ? 'border-brand/40 bg-brand/10' : 'border-ink-700 bg-ink-800',
-                      disabled ? 'opacity-50' : '',
-                    ].join(' ')}
-                  >
-                    {item.icon}
-                    <Text className="flex-1 text-sm font-sans-medium text-ink-100">
-                      {item.label}
-                    </Text>
-                    {disabled ? (
-                      <Text className="text-[11px] font-sans-semibold uppercase text-ink-500">
-                        {t('common.soon')}
-                      </Text>
-                    ) : active ? (
-                      <CheckIcon color={brand} size={16} />
-                    ) : null}
-                  </Pressable>
-                );
-              })}
             </View>
           </View>
         </ScrollArea>
@@ -1240,58 +1179,48 @@ const WorkoutSession = () => {
         </GestureHandlerRootView>
       </Modal>
 
-      {/* Post-workout summary */}
-      <Modal
-        visible={summary !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={closeSummary}
-      >
-        <View className="flex-1 items-center justify-center bg-black/70 px-8">
-          <View className="w-full rounded-card border border-ink-700 bg-ink-850 p-6">
-            <View className="items-center">
-              <View className="h-14 w-14 items-center justify-center rounded-full bg-brand">
-                <CheckIcon color={brandContrast} size={28} />
-              </View>
-              <Text className="mt-4 text-xl font-sans-bold text-ink-50">
-                {t('training.summaryTitle')}
+      {/* Post-workout summary: closes itself, because the session is already
+       * over and there is nothing left to decide. */}
+      <TimedModal visible={summary !== null} onDone={closeSummary}>
+        <View className="items-center">
+          <View className="h-14 w-14 items-center justify-center rounded-full bg-brand">
+            <CheckIcon color={brandContrast} size={28} />
+          </View>
+          <Text className="mt-4 text-xl font-sans-bold text-ink-50">
+            {t('training.summaryTitle')}
+          </Text>
+        </View>
+        {summary ? (
+          <View className="mt-5 gap-2.5">
+            <View className="flex-row justify-between">
+              <Text className="text-sm text-ink-400">{t('training.summaryVolume')}</Text>
+              <Text className="text-sm font-sans-semibold text-ink-100">
+                {fromKg(summary.volumeKg, unit)} {unit}
               </Text>
             </View>
-            {summary ? (
-              <View className="mt-5 gap-2.5">
-                <View className="flex-row justify-between">
-                  <Text className="text-sm text-ink-400">{t('training.summaryVolume')}</Text>
-                  <Text className="text-sm font-sans-semibold text-ink-100">
-                    {fromKg(summary.volumeKg, unit)} {unit}
-                  </Text>
-                </View>
-                <View className="flex-row justify-between">
-                  <Text className="text-sm text-ink-400">{t('training.summarySets')}</Text>
-                  <Text className="text-sm font-sans-semibold text-ink-100">
-                    {summary.setCount}
-                  </Text>
-                </View>
-                <View className="flex-row justify-between">
-                  <Text className="text-sm text-ink-400">{t('training.summaryDuration')}</Text>
-                  <Text className="text-sm font-sans-semibold text-ink-100">
-                    {fmtDuration(summary.durationSeconds)}
-                  </Text>
-                </View>
-                {summary.prs.length ? (
-                  <View className="mt-1 rounded-field bg-brand/10 p-3">
-                    <Text className="text-xs font-sans-semibold text-brand">
-                      {t('training.summaryPrs')}: {summary.prs.join(', ')}
-                    </Text>
-                  </View>
-                ) : null}
+            <View className="flex-row justify-between">
+              <Text className="text-sm text-ink-400">{t('training.summarySets')}</Text>
+              <Text className="text-sm font-sans-semibold text-ink-100">{summary.setCount}</Text>
+            </View>
+            <View className="flex-row justify-between">
+              <Text className="text-sm text-ink-400">{t('training.summaryDuration')}</Text>
+              <Text className="text-sm font-sans-semibold text-ink-100">
+                {fmtDuration(summary.durationSeconds)}
+              </Text>
+            </View>
+            {summary.prs.length ? (
+              <View className="mt-1 rounded-field bg-brand/10 p-3">
+                <Text className="text-xs font-sans-semibold text-brand">
+                  {t('training.summaryPrs')}: {summary.prs.join(', ')}
+                </Text>
               </View>
             ) : null}
-            <View className="mt-6">
-              <Button label={t('training.summaryDone')} variant="brand" onPress={closeSummary} />
-            </View>
           </View>
-        </View>
-      </Modal>
+        ) : null}
+        <Text className="mt-5 text-center text-[11px] leading-4 text-ink-500">
+          {t('training.summaryAuto')}
+        </Text>
+      </TimedModal>
       <BlockingOverlay visible={finishing} label={t('training.finishing')} />
     </Screen>
   );

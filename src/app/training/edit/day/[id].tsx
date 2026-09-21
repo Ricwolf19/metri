@@ -7,6 +7,7 @@ import ReorderableList, { reorderItems } from 'react-native-reorderable-list';
 import { PlusIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import {
+  BadgeRow,
   Button,
   Card,
   HoldButton,
@@ -131,15 +132,7 @@ const EditDay = () => {
             <Text className="mb-1.5 font-mono-medium text-xs uppercase tracking-wider text-ink-300">
               {t('editor.muscles')}
             </Text>
-            <View className="flex-row flex-wrap gap-1.5">
-              {muscles.map((h) => (
-                <View key={h} className="rounded-full bg-ink-800 px-2.5 py-1">
-                  <Text className="text-[11px] font-sans-medium text-ink-300">
-                    {t(muscleHeadKey(h))}
-                  </Text>
-                </View>
-              ))}
-            </View>
+            <BadgeRow items={muscles.map((h) => ({ value: h, label: t(muscleHeadKey(h)) }))} />
           </View>
         ) : null}
         {live ? (

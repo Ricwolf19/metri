@@ -25,8 +25,10 @@ type Props = {
 
 const Row = ({ label, value }: { label: string; value: string }) => (
   <View className="flex-row items-center justify-between py-1">
-    <Text className="text-xs text-ink-400">{label}</Text>
-    <Text className="text-xs font-sans-semibold text-ink-100">{value}</Text>
+    <Text className="min-w-0 flex-1 pr-3 text-xs text-ink-400" numberOfLines={1}>
+      {label}
+    </Text>
+    <Text className="shrink-0 text-xs font-sans-semibold text-ink-100">{value}</Text>
   </View>
 );
 

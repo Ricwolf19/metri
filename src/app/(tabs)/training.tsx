@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Text, View } from 'react-native';
 
@@ -57,11 +57,19 @@ const Training = () => {
   const clock = useClockFormat();
   const userId = user?.id ?? '';
 
+  // Arriving from a finished session: hold the wait the workout screen was
+  // already showing until this tab has its data, so the hand-off is one screen
+  // rather than a flash of a half-built list.
+  const { settling } = useLocalSearchParams<{ settling?: string }>();
+  const [settled, setSettled] = useState(settling !== '1');
+
   const { enrollment, structure, loaded } = useEnrollment(userId);
   const { data: actives } = useLiveQuery(activeWorkoutQuery(userId), [userId]);
   const { data: recommended } = useLiveQuery(recommendedProgramsQuery());
   const { data: own } = useLiveQuery(ownProgramsQuery(userId), [userId]);
   const activeWorkout = actives[0] ?? null;
+
+  if (!settled && loaded) setSettled(true);
 
   // Snapshot on focus: an overnight tab shows the right day without a clock read in render.
   const [busy, setBusy] = useState<'starting' | 'abandoning' | null>(null);
@@ -303,8 +311,14 @@ const Training = () => {
         </Card>
       </PressableScale>
       <BlockingOverlay
-        visible={busy !== null}
-        label={busy === 'abandoning' ? t('training.abandoning') : t('training.startingWorkout')}
+        visible={busy !== null || !settled}
+        label={
+          busy === 'abandoning'
+            ? t('training.abandoning')
+            : busy === 'starting'
+              ? t('training.startingWorkout')
+              : t('training.finishing')
+        }
       />
     </Screen>
   );

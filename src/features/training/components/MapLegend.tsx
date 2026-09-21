@@ -17,7 +17,7 @@ import { useTheme } from '@/theme/theme-context';
 export type MapView = 'balance' | 'fatigue' | 'strength';
 
 const Dot = ({ color, label }: { color: string; label: string }) => (
-  <View className="mr-3 flex-row items-center gap-1.5">
+  <View className="flex-row items-center gap-1.5">
     <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
     <Text className="text-[11px] text-ink-400">{label}</Text>
   </View>
@@ -46,7 +46,7 @@ export const MapLegend = ({ view }: { view: MapView }) => {
           ];
 
   return (
-    <View className="flex-row flex-wrap">
+    <View className="flex-row flex-wrap gap-x-4 gap-y-1">
       {entries.map((e) => (
         <Dot key={e.label} color={e.color} label={e.label} />
       ))}

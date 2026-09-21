@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { DumbbellIcon, FlameIcon } from '@/components/icons';
-import { Button, ScrollArea, Sheet, ShareCard, useToast } from '@/components/ui';
+import { BadgeRow, Button, ScrollArea, Sheet, ShareCard, useToast } from '@/components/ui';
 import type { SkipReason, TrainingDayStatus } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
 import { useI18n, useT, type TFunction, type TranslationKey } from '@/i18n';
@@ -92,7 +92,7 @@ export const DayDetailSheet = ({
   };
 
   return (
-    <Sheet visible={date !== null} onClose={onClose} snapPoints={['55%', '92%']} expandable>
+    <Sheet visible={date !== null} onClose={onClose} snapPoints={['75%', '100%']} expandable>
       <ScrollArea inSheet>
         <Text className="text-lg font-sans-bold text-ink-50">{title}</Text>
 
@@ -137,17 +137,14 @@ export const DayDetailSheet = ({
                       <Text className="text-sm font-sans-medium text-ink-100">
                         {displayName(ex)}
                       </Text>
-                      <View className="mt-1 flex-row flex-wrap gap-1.5">
-                        {ex.sets.map((s) => (
-                          <View
-                            key={s.setNumber}
-                            className="rounded-full border border-ink-700 bg-ink-800 px-2 py-0.5"
-                          >
-                            <Text className="font-mono-medium text-[11px] text-ink-200">
-                              {setLabel(s)}
-                            </Text>
-                          </View>
-                        ))}
+                      <View className="mt-1">
+                        <BadgeRow
+                          mono
+                          items={ex.sets.map((s) => ({
+                            value: String(s.setNumber),
+                            label: setLabel(s),
+                          }))}
+                        />
                       </View>
                     </View>
                   ))}

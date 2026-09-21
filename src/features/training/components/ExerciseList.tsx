@@ -1,8 +1,8 @@
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { useMemo, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
-import { Card, Input, PressableScale } from '@/components/ui';
+import { Card, ChipRow, Input, PressableScale } from '@/components/ui';
 import type { Exercise } from '@/db/schema';
 import { ExerciseDocButton } from '@/features/training/components/ExerciseDocButton';
 import { ExerciseThumb } from '@/features/training/components/ExerciseFrames';
@@ -16,6 +16,9 @@ import {
 } from '@/features/training/muscles';
 import { useI18n, useT } from '@/i18n';
 
+/** Sentinel for the unfiltered chip — `undefined` cannot be a chip value. */
+const ALL = '__all__';
+
 type Props = {
   userId: string;
   onPick: (exercise: Exercise) => void;
@@ -28,32 +31,6 @@ type Props = {
   /** Shows the standard book affordance per row (technique guide / history). */
   showDoc?: boolean;
 };
-
-const Chip = ({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) => (
-  <Pressable
-    onPress={onPress}
-    accessibilityRole="button"
-    accessibilityState={{ selected: active }}
-    className={[
-      'rounded-full border px-3 py-1.5',
-      active ? 'border-brand/40 bg-brand/15' : 'border-ink-700 bg-ink-800',
-    ].join(' ')}
-  >
-    <Text
-      className={['text-xs font-sans-medium', active ? 'text-brand' : 'text-ink-300'].join(' ')}
-    >
-      {label}
-    </Text>
-  </Pressable>
-);
 
 /**
  * Searchable list of catalog + own custom exercises (picker and library),
@@ -86,20 +63,15 @@ export const ExerciseList = ({ userId, onPick, above, trailing, rowIcon, showDoc
         autoCorrect={false}
       />
 
-      <View className="mt-3 flex-row flex-wrap gap-2">
-        <Chip
-          label={t('common.all')}
-          active={head === undefined}
-          onPress={() => setHead(undefined)}
+      <View className="mt-3">
+        <ChipRow
+          items={[
+            { value: ALL, label: t('common.all') },
+            ...MUSCLE_HEADS.map((h) => ({ value: h, label: t(muscleHeadKey(h)) })),
+          ]}
+          value={head ?? ALL}
+          onChange={(v) => setHead(v === ALL ? undefined : (v as MuscleHead))}
         />
-        {MUSCLE_HEADS.map((h) => (
-          <Chip
-            key={h}
-            label={t(muscleHeadKey(h))}
-            active={head === h}
-            onPress={() => setHead(h)}
-          />
-        ))}
       </View>
 
       {above}

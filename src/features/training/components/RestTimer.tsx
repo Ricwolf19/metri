@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { AppState, Pressable, Text, Vibration, View } from 'react-native';
+import { AppState, Pressable, Text, View } from 'react-native';
 
 import { CheckIcon, TimerIcon, XIcon } from '@/components/icons';
 import { useT } from '@/i18n';
-import { startAlarm, stopAlarm } from '@/lib/sounds';
 import { mmss } from '@/lib/duration';
 import { useTheme } from '@/theme/theme-context';
 
@@ -38,11 +37,11 @@ export const RestTimer = ({ endsAt, onExtend, onDone }: Props) => {
       const left = Math.ceil((endsAt - Date.now()) / 1000);
       setRemaining(left);
       // Reaching zero alerts but does NOT clear the rest: the alarm keeps going
-      // (and the notification keeps looping) until the lifter says they are back.
+      // until the lifter says they are back. The sound and the repeating buzz
+      // belong to the rest foreground service, which is the only thing still
+      // running once the screen goes off; this screen just changes its face.
       if (left <= 0 && !firedRef.current) {
         firedRef.current = true;
-        Vibration.vibrate([0, 300, 150, 300, 150, 300]);
-        startAlarm();
       }
     };
     const interval = setInterval(tick, 500);
@@ -53,7 +52,6 @@ export const RestTimer = ({ endsAt, onExtend, onDone }: Props) => {
     return () => {
       clearInterval(interval);
       sub.remove();
-      stopAlarm();
     };
   }, [endsAt]);
 

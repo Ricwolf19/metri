@@ -1,5 +1,6 @@
 import { useMMKVString } from 'react-native-mmkv';
 
+import { parseJson } from '@/lib/safe-json';
 import { SettingKeys, storage } from '@/lib/storage';
 
 /** Copy frozen at rest start so a headless "+30 s" can redraw the notification without i18n. */
@@ -22,14 +23,8 @@ export type ActiveRest = {
   copy: RestCopy;
 };
 
-const parse = (raw: string | undefined): ActiveRest | null => {
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as ActiveRest;
-  } catch {
-    return null;
-  }
-};
+const parse = (raw: string | undefined): ActiveRest | null =>
+  parseJson<ActiveRest | null>(raw, null);
 
 export const restState = {
   get(): ActiveRest | null {
