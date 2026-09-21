@@ -13,6 +13,7 @@ import { PremiumIntroModal } from '@/features/premium/PremiumIntroModal';
 import { AdherenceCatchupBanner } from '@/features/training/components/AdherenceCatchupBanner';
 import { WeekStrip } from '@/features/training/components/WeekStrip';
 import { DocsPromoBanner } from '@/features/docs/DocsPromoBanner';
+import { EnergyCard } from '@/features/home/components/EnergyCard';
 import { WidgetPromoBanner } from '@/features/widget/components/WidgetPromoBanner';
 import { useI18n, useT } from '@/i18n';
 import { settings } from '@/lib/storage';
@@ -54,10 +55,16 @@ const Home = () => {
       <PremiumIntroModal />
       <AnnouncementModal />
 
+      <FadeInUp>
+        <View className="mb-4">
+          <EnergyCard />
+        </View>
+      </FadeInUp>
+
       <LocalModeBanner />
 
-      {/* Adherence closes itself now (sessions + schedule); only unresolved
-          planned days from the past week ask here. */}
+      {/* Finishing a session closes its own day; only planned days still
+          unresolved ask here. */}
       <FadeInUp>
         <View className="gap-3">
           <AdherenceCatchupBanner />
@@ -68,7 +75,6 @@ const Home = () => {
       <WidgetPromoBanner />
       <DocsPromoBanner />
 
-      {/* Quick access — user-curated shortcuts */}
       <View className="mb-3 mt-8 flex-row items-center justify-between">
         <Text className="text-sm font-sans-semibold text-ink-200">{t('home.quickActions')}</Text>
         {pinned.length > 0 ? (

@@ -2,10 +2,10 @@
  * App icons — backed by Iconoir (matches the metri.info web barrel). Re-exported
  * under stable `<XIcon>` names so screens keep importing the same identifier and
  * pass `size` (px), `color`, and `strokeWidth`. Iconoir natively takes
- * width/height, so each icon is wrapped to accept our `size` prop. Default
- * strokeWidth is bumped to 2 to preserve the outgoing Lucide stroke weight.
- * To add one, map another Iconoir icon here.
+ * width/height, so each icon is wrapped to accept our `size` prop and default to
+ * `strokeWidth` 2. To add one, map another Iconoir icon here.
  */
+import MetriMark from '@/assets/images/metri-mark.svg';
 import { createElement, type ComponentType } from 'react';
 import type { SvgProps } from 'react-native-svg';
 
@@ -39,7 +39,6 @@ import {
   Compass,
   Apple,
   HelpCircle,
-  GraphUp,
   InfoCircle,
   WarningTriangle,
   SmartphoneDevice,
@@ -54,7 +53,7 @@ import {
   EyeClosed,
 } from 'iconoir-react-native';
 
-/** Square size in px (maps to width + height). Mirrors lucide's `size`. */
+/** Square size in px (maps to width + height). */
 export type IconProps = SvgProps & {
   size?: number;
   color?: string;
@@ -63,7 +62,18 @@ export type IconProps = SvgProps & {
 
 type IconComponent = ComponentType<SvgProps>;
 
-/** Wrap an Iconoir icon so it accepts our `size` (px) prop + Lucide stroke weight. */
+/**
+ * The metri mark, tinted like any other icon. The asset paints with
+ * `currentColor`, which react-native-svg resolves from the root `color` prop —
+ * so the brand glyph takes the same `color`/`size` contract as the Iconoir set.
+ * It is a solid glyph, so it ignores `strokeWidth` instead of pretending to
+ * have a stroke.
+ */
+export const MetriIcon = ({ size = 24, color, strokeWidth: _stroke, ...props }: IconProps) =>
+  createElement(MetriMark, { width: size, height: size, color, ...props });
+MetriIcon.displayName = 'MetriIcon';
+
+/** Wrap an Iconoir icon so it accepts our `size` (px) prop and the app's stroke weight. */
 const sized = (Icon: IconComponent, name: string) => {
   const Wrapped = ({ size = 24, strokeWidth = 2, ...props }: IconProps) =>
     createElement(Icon, { width: size, height: size, strokeWidth, ...props });
@@ -99,7 +109,6 @@ export const GithubIcon = sized(Github, 'GithubIcon');
 export const CompassIcon = sized(Compass, 'CompassIcon');
 export const AppleIcon = sized(Apple, 'AppleIcon');
 export const ShieldIcon = sized(ShieldCheck, 'ShieldIcon');
-export const GraphUpIcon = sized(GraphUp, 'GraphUpIcon');
 export const HelpIcon = sized(HelpCircle, 'HelpIcon');
 export const InfoCircleIcon = sized(InfoCircle, 'InfoCircleIcon');
 export const WarningIcon = sized(WarningTriangle, 'WarningIcon');

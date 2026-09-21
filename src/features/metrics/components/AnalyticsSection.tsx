@@ -1,12 +1,10 @@
+import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 
-import { TopBar } from '@/components/TopBar';
 import {
   Card,
   EmptyState,
-  FadeInUp,
-  Screen,
   SectionLabel,
   SegmentedControl,
   Stat,
@@ -34,6 +32,7 @@ import {
 } from '@/features/training/muscle-load';
 import type { MuscleHead } from '@/features/training/muscles';
 import {
+  bucketVolume,
   effortSets,
   effortSummary,
   exerciseNames,
@@ -41,6 +40,7 @@ import {
   monthlyWorkouts,
   muscleIndex,
   recentWorkouts,
+  weeklyVolumeQuery,
   workoutCounts,
 } from '@/features/training/stats.repo';
 import { useT } from '@/i18n';
@@ -48,18 +48,23 @@ import { useDateFormat } from '@/lib/useDateFormat';
 import { useNow } from '@/lib/useNow';
 import { useTheme } from '@/theme/theme-context';
 
+import { fmtVol } from '../format';
+import type { MetricsSectionProps } from '../sections';
+
 type Window = '7' | '30' | '90';
 
 const DAY_MS = 86_400_000;
 
 /**
- * Analytics — the body map plus the trends behind it.
+ * Where the work is landing: the body map first, then the numbers behind it.
  *
- * Every widget renders in all states: a fresh install shows the whole screen
- * with empty states naming what unlocks each number, rather than a blank page
- * that looks broken.
+ * One window selector drives the whole block, which is why it is a single
+ * section rather than four — the map, the effort split and the counters all
+ * answer for the same stretch of time. Every widget renders in all states: a
+ * fresh install shows empty states naming what unlocks each number, rather than
+ * a blank page that looks broken.
  */
-const Analytics = () => {
+export const AnalyticsSection = ({ headerRight }: MetricsSectionProps) => {
   const t = useT();
   const theme = useTheme();
   const { user } = useAuth();
@@ -141,9 +146,13 @@ const Analytics = () => {
   const effort = useMemo(() => (userId ? effortSets(userId, since) : []), [userId, since]);
   const adherence = useMemo(() => (userId ? effortSummary(userId, since) : null), [userId, since]);
 
+  const { data: volumeRows } = useLiveQuery(weeklyVolumeQuery(userId, 6));
+  const volume = useMemo(() => bucketVolume(volumeRows, 6), [volumeRows]);
+
   if (!user) return null;
 
   const hasSets = sets.length > 0;
+  const hasVolume = volume.some((w) => w.volume > 0);
   const rate = adherence ? adherenceRate(adherence) : null;
 
   const monthChart: Chart = {
@@ -155,6 +164,17 @@ const Analytics = () => {
       display: String(m.count),
       color: theme.brand,
       highlight: i === months.length - 1,
+    })),
+  };
+  const volumeChart: Chart = {
+    kind: 'bars',
+    max: Math.max(1, ...volume.map((w) => w.volume)),
+    bars: volume.map((w, i) => ({
+      label: w.label,
+      value: w.volume,
+      display: fmtVol(w.volume),
+      color: theme.brand,
+      highlight: i === volume.length - 1,
     })),
   };
 
@@ -174,139 +194,117 @@ const Analytics = () => {
   ];
 
   return (
-    <Screen
-      scroll
-      contentClassName="px-5 pb-16"
-      header={
-        <TopBar
-          showBack
-          showAvatar={false}
-          title={t('stats.title')}
-          subtitle={t('stats.subtitle')}
-        />
-      }
-    >
-      {/* ── Body map ─────────────────────────────────────────────────────── */}
-      <FadeInUp>
-        <SectionLabel label={t('stats.bodyMap')} className="mb-2 mt-2" />
-        <Card>
-          <SegmentedControl value={view} segments={viewSegments} onChange={setView} />
+    <>
+      <SectionLabel label={t('stats.bodyMap')} right={headerRight} className="mt-0" />
+      <Card>
+        <SegmentedControl value={view} segments={viewSegments} onChange={setView} />
+        <View className="mt-3">
+          <SegmentedControl value={days} segments={windowSegments} onChange={setDays} />
+        </View>
+
+        <View className="mt-4">
+          <BodyMap fills={fills} side={side} sex={user.sex ?? null} onPressRegion={setOpenHeads} />
+        </View>
+
+        <View className="mt-3">
+          <SegmentedControl value={side} segments={sideSegments} onChange={setSide} />
+        </View>
+
+        <View className="mt-4">
+          <MapLegend view={view} />
+        </View>
+
+        {/* The map is tappable and nothing else says so. */}
+        <Text className="mt-3 text-xs leading-5 text-accent">{t('stats.tapMuscle')}</Text>
+
+        <Text className="mt-2 text-xs leading-5 text-ink-500">
+          {view === 'balance'
+            ? t('stats.balanceHint', { min: WEEKLY_SET_TARGET.min, max: WEEKLY_SET_TARGET.max })
+            : view === 'fatigue'
+              ? t('stats.fatigueHint')
+              : t('stats.strengthHint')}
+        </Text>
+
+        {hasSets ? null : (
           <View className="mt-3">
-            <SegmentedControl value={days} segments={windowSegments} onChange={setDays} />
+            <EmptyState hint={t('stats.emptyMap')} />
           </View>
-
-          <View className="mt-4">
-            <BodyMap
-              fills={fills}
-              side={side}
-              sex={user.sex ?? null}
-              onPressRegion={setOpenHeads}
-            />
-          </View>
-
-          <View className="mt-3">
-            <SegmentedControl value={side} segments={sideSegments} onChange={setSide} />
-          </View>
-
-          <View className="mt-4">
-            <MapLegend view={view} />
-          </View>
-
-          <Text className="mt-3 text-xs leading-5 text-ink-500">
-            {view === 'balance'
-              ? t('stats.balanceHint', {
-                  min: WEEKLY_SET_TARGET.min,
-                  max: WEEKLY_SET_TARGET.max,
-                })
-              : view === 'fatigue'
-                ? t('stats.fatigueHint')
-                : t('stats.strengthHint')}
-          </Text>
-
-          {hasSets ? null : (
-            <View className="mt-3">
-              <EmptyState hint={t('stats.emptyMap')} />
-            </View>
-          )}
-        </Card>
-      </FadeInUp>
-
-      {/* ── Training counts ──────────────────────────────────────────────── */}
-      <FadeInUp delay={60}>
-        <SectionLabel label={t('stats.training')} />
-        <Card className="flex-row">
-          <Stat label={t('stats.workouts')} value={String(counts?.total ?? 0)} />
-          <Stat label={t('stats.thisMonth')} value={String(counts?.thisMonth ?? 0)} />
-          <Stat label={t('stats.weeklySets')} value={String(Math.round(totalFractional))} />
-        </Card>
-
-        <Card className="mt-3">
-          <Text className="mb-3 text-xs text-ink-400">{t('stats.perMonth')}</Text>
-          {counts?.total ? (
-            <CalcChart chart={monthChart} />
-          ) : (
-            <EmptyState hint={t('stats.emptyMonths')} />
-          )}
-        </Card>
-      </FadeInUp>
-
-      {/* ── Effort: planned vs actual ────────────────────────────────────── */}
-      <FadeInUp delay={90}>
-        <SectionLabel label={t('stats.effort')} hint={t('stats.effortHint')} />
-        <Card>
-          <View className="flex-row">
-            <Stat label={t('stats.hardSets')} value={String(hardSetCount(effort))} />
-            <Stat label={t('stats.avgRir')} value={averageRir(effort)?.toFixed(1) ?? '—'} />
-            <Stat label={t('stats.onTarget')} value={rate == null ? '—' : `${rate}%`} />
-          </View>
-          {rate == null ? (
-            <View className="mt-3">
-              <EmptyState hint={t('stats.emptyEffort')} />
-            </View>
-          ) : (
-            <View className="mt-3 gap-1">
-              <Text className="text-xs text-ink-400">
-                {t('stats.effortEasy')}: {adherence?.easy ?? 0}
-              </Text>
-              <Text className="text-xs text-ink-400">
-                {t('stats.effortHard')}: {adherence?.hard ?? 0}
-              </Text>
-            </View>
-          )}
-        </Card>
-      </FadeInUp>
-
-      {/* ── Recent sessions ──────────────────────────────────────────────── */}
-      <FadeInUp delay={150}>
-        <SectionLabel label={t('stats.recent')} />
-        {recent.length ? (
-          <Card className="gap-0 py-1">
-            {recent.map((w, i) => (
-              <View
-                key={w.id}
-                className={[
-                  'flex-row items-center py-3',
-                  i > 0 ? 'border-t border-ink-800' : '',
-                ].join(' ')}
-              >
-                <Text className="flex-1 text-sm font-sans-medium text-ink-100">
-                  {w.completedAt ? formatDate(w.completedAt) : '—'}
-                </Text>
-                <Text className="ml-3 text-xs text-ink-400">
-                  {t('stats.setsCount', { n: w.setCount })}
-                </Text>
-                <Text className="ml-3 text-xs text-ink-500">{w.volumeKg} kg</Text>
-              </View>
-            ))}
-          </Card>
-        ) : (
-          <EmptyState hint={t('stats.emptyRecent')} />
         )}
-      </FadeInUp>
+      </Card>
+
+      <SectionLabel label={t('stats.training')} />
+      <Card className="flex-row">
+        <Stat label={t('stats.workouts')} value={String(counts?.total ?? 0)} />
+        <Stat label={t('stats.thisMonth')} value={String(counts?.thisMonth ?? 0)} />
+        <Stat label={t('stats.weeklySets')} value={String(Math.round(totalFractional))} />
+      </Card>
+
+      <Card className="mt-3">
+        <Text className="mb-3 text-xs text-ink-400">{t('home.weeklyVolume')}</Text>
+        {hasVolume ? <CalcChart chart={volumeChart} /> : <EmptyState hint={t('stats.emptyMap')} />}
+      </Card>
+
+      <Card className="mt-3">
+        <Text className="mb-3 text-xs text-ink-400">{t('stats.perMonth')}</Text>
+        {counts?.total ? (
+          <CalcChart chart={monthChart} />
+        ) : (
+          <EmptyState hint={t('stats.emptyMonths')} />
+        )}
+      </Card>
+
+      <SectionLabel label={t('stats.effort')} hint={t('stats.effortHint')} />
+      <Card>
+        <View className="flex-row">
+          <Stat label={t('stats.hardSets')} value={String(hardSetCount(effort))} />
+          <Stat label={t('stats.avgRir')} value={averageRir(effort)?.toFixed(1) ?? '—'} />
+          <Stat label={t('stats.onTarget')} value={rate == null ? '—' : `${rate}%`} />
+        </View>
+        {rate == null ? (
+          <View className="mt-3">
+            <EmptyState hint={t('stats.emptyEffort')} />
+          </View>
+        ) : (
+          <View className="mt-3 gap-1">
+            <Text className="text-xs text-ink-400">
+              {t('stats.effortEasy')}: {adherence?.easy ?? 0}
+            </Text>
+            <Text className="text-xs text-ink-400">
+              {t('stats.effortHard')}: {adherence?.hard ?? 0}
+            </Text>
+          </View>
+        )}
+      </Card>
+
+      <SectionLabel label={t('stats.recent')} />
+      {recent.length ? (
+        <Card className="gap-0 py-1">
+          {recent.map((w, i) => (
+            <View
+              key={w.id}
+              className={[
+                'flex-row items-center py-3',
+                i > 0 ? 'border-t border-ink-800' : '',
+              ].join(' ')}
+            >
+              <Text
+                className="min-w-0 flex-1 text-sm font-sans-medium text-ink-100"
+                numberOfLines={1}
+              >
+                {w.completedAt ? formatDate(w.completedAt) : '—'}
+              </Text>
+              <Text className="ml-3 shrink-0 text-xs text-ink-400">
+                {t('stats.setsCount', { n: w.setCount })}
+              </Text>
+              <Text className="ml-3 shrink-0 text-xs text-ink-500">{w.volumeKg} kg</Text>
+            </View>
+          ))}
+        </Card>
+      ) : (
+        <EmptyState hint={t('stats.emptyRecent')} />
+      )}
 
       <MuscleDetailSheet heads={openHeads} details={details} onClose={() => setOpenHeads([])} />
-    </Screen>
+    </>
   );
 };
-
-export default Analytics;

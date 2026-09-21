@@ -15,8 +15,8 @@ import {
   AppleIcon,
   CompassIcon,
   DumbbellIcon,
-  GraphUpIcon,
   HomeIcon,
+  MetriIcon,
   type IconProps,
 } from '@/components/icons';
 import { useDialog } from '@/components/ui';
@@ -229,9 +229,9 @@ const TabsLayout = () => {
         <Tabs.Screen
           name="metrics"
           options={{
-            title: t('tab.progress'),
+            title: t('tab.metrics'),
             tabBarIcon: (p) => (
-              <TabBarIcon Icon={GraphUpIcon} color={p.color as string} focused={p.focused} />
+              <TabBarIcon Icon={MetriIcon} color={p.color as string} focused={p.focused} />
             ),
           }}
         />
