@@ -1,9 +1,9 @@
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import { Pressable, Text, View } from 'react-native';
+import { View } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 
 import { TopBar } from '@/components/TopBar';
-import { Card, FadeInUp, Screen, ScreenTitle } from '@/components/ui';
+import { BadgeRow, Card, FadeInUp, Screen, ScreenTitle } from '@/components/ui';
 import { getDocById } from '@/features/docs';
 import { markdownRules } from '@/features/docs/MarkdownTable';
 import { markdownStyles } from '@/features/docs/markdownStyles';
@@ -26,16 +26,15 @@ const DocDetail = () => {
 
       <FadeInUp>
         {/* Tags are tappable — they search the docs by that tag. */}
-        <View className="mb-4 flex-row flex-wrap gap-2">
-          {section.tags.map((tag) => (
-            <Pressable
-              key={tag}
-              onPress={() => router.push({ pathname: '/explore', params: { q: tag } })}
-              className="rounded-full bg-ink-800 px-2.5 py-1"
-            >
-              <Text className="text-xs text-brand">#{tag}</Text>
-            </Pressable>
-          ))}
+        <View className="mb-4">
+          <BadgeRow
+            items={section.tags.map((tag) => ({
+              value: tag,
+              label: `#${tag}`,
+              onPress: () => router.push({ pathname: '/explore', params: { q: tag } }),
+            }))}
+            tone="brand"
+          />
         </View>
         <Card>
           <Markdown

@@ -55,3 +55,10 @@ themselves are unmodified. Source slug per file:
 
 These assets remain under CC BY-SA 4.0. The app's source code is licensed
 separately and is not a derivative of the images.
+
+## Other third-party data in the app
+
+This file covers the exercise illustrations only. The food diary's nutrient
+data (USDA FoodData Central, public domain) is attributed next to it, in
+[`src/features/nutrition/ATTRIBUTION.md`](../../src/features/nutrition/ATTRIBUTION.md)
+— kept separate so the CC BY-SA statement above is not read as covering it.

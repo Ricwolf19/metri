@@ -253,4 +253,69 @@ Abre las respuestas rápidas (el signo de interrogación de la barra superior) y
 Relacionado: [Qué significan los iconos y enlaces](/docs/app-conventions),
 [¿Qué es metri?](/docs/welcome).`,
   },
+  {
+    id: 'body-and-nutrition',
+    category: 'app',
+    title: 'Registro corporal, fases y diario de comidas',
+    tags: ['nutrición', 'fase', 'definición', 'volumen', 'peso', 'medidas', 'diario', 'macros'],
+    body: `metri une tres cosas: lo que **comes**, cómo responde tu **cuerpo** y la
+**fase** que dice qué debería estar pasando. El diario y la fase viven en la
+pestaña Nutrición; el registro corporal vive en Progreso, junto a tus fotos.
+
+## El registro corporal (pestaña Progreso)
+
+- **Pésate** tan seguido como quieras — a diario es lo mejor. metri juzga el
+  **promedio semanal**, nunca una sola lectura, y te avisa cuando un salto es
+  solo agua.
+- **Check-in** una vez por semana: báscula y cinta en la misma sesión. Elige un
+  día pasado en la pantalla de check-in para corregirlo o borrarlo.
+- El peso siempre se muestra con tu **zona clave** — cintura en hombres, cadera
+  en mujeres — porque juntos dicen lo que ninguno dice solo.
+
+| Pesajes en la semana | Qué hace metri                           |
+| -------------------- | ---------------------------------------- |
+| 3 o más              | Promedia y juzga la semana               |
+| 1–2                  | Muestra el número, no lo juzga           |
+| 0                    | Deja la semana pendiente                 |
+
+Activa zonas opcionales en **Elegir qué zonas medir**. Agregar el cuello permite
+a metri estimar tu grasa corporal con la cinta; te ofrece el número y tú decides
+si guardarlo.
+
+## La fase (pestaña Nutrición)
+
+Elige **definir, mantener, recomp o volumen**. Si guardaste tu % de grasa, metri
+sugiere una y explica por qué — siempre puedes cambiarla. Con tus calorías de
+mantenimiento y el ritmo que elijas fija calorías y macros, y arma un **peso
+objetivo semana a semana**.
+
+- Proteína y grasa se quedan fijas. Cuando las calorías deben cambiar, cambian
+  los **carbos**.
+- Un ajuste de calorías solo se propone tras **dos semanas seguidas** fuera del
+  plan, y es pequeño a propósito. Después espera otras dos semanas.
+- Si un ritmo te llevara por debajo de una ingesta segura, las calorías se quedan
+  en un mínimo y metri lo dice: alcanza el ritmo con pasos y cardio, no con menos
+  comida.
+
+## El diario de comidas (pestaña Nutrición)
+
+Registra por comida. Busca en los alimentos incluidos (español e inglés), reusa
+**Recientes**, crea tu **propio alimento** desde la etiqueta del empaque, o usa
+**Registro rápido** para escribir las calorías de una comida que no puedes pesar.
+
+- Pesa la comida en **crudo** y regístrala en crudo, salvo que el nombre diga
+  cocido.
+- El número que importa es el **promedio de 7 días**, contado sobre los días que
+  registraste. Un día de más o de menos no cambia nada — en el diario no hay rojo.
+- Todo funciona sin conexión. Los valores nutricionales incluidos vienen de USDA
+  FoodData Central.
+
+## Relacionado
+
+- [Medir el progreso](/docs/measuring-progress)
+- [Seguimiento del peso](/docs/weight-tracking)
+- [Leer tus números](/docs/reading-your-numbers)
+- [¿Definir, volumen o mantener?](/docs/choosing-your-phase)
+- [Cómo contar macros](/docs/macros)`,
+  },
 ];

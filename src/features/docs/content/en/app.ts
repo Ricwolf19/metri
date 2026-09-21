@@ -242,4 +242,65 @@ goes straight to the team and shapes what ships next.
 Related: [What the icons and links mean](/docs/app-conventions),
 [What is metri?](/docs/welcome).`,
   },
+  {
+    id: 'body-and-nutrition',
+    category: 'app',
+    title: 'Body log, phases and the food diary',
+    tags: ['nutrition', 'phase', 'cut', 'bulk', 'weight', 'measurements', 'diary', 'macros'],
+    body: `metri ties three things together: what you **eat**, how your **body** responds,
+and the **phase** that says what should be happening. The diary and the phase
+live on the Nutrition tab; the body log lives on Progress, next to your photos.
+
+## The body log (Progress tab)
+
+- **Weigh in** as often as you like — daily is best. metri judges the **weekly
+  average**, never a single reading, and tells you when a jump is just water.
+- **Check-in** once a week: scale and tape in one sitting. Pick a past day in the
+  check-in screen to correct or delete it.
+- Weight is always shown with your **key tape site** — waist for men, hips for
+  women — because the two together say what neither says alone.
+
+| Weigh-ins in a week | What metri does                          |
+| ------------------- | ---------------------------------------- |
+| 3 or more           | Averages and judges the week             |
+| 1–2                 | Shows the number, does not judge it      |
+| 0                   | Leaves the week pending                  |
+
+Turn on optional tape sites under **Choose which sites to measure**. Adding the
+neck lets metri estimate body fat from the tape; it offers the number and you
+decide whether to save it.
+
+## The phase (Nutrition tab)
+
+Pick **cut, maintain, recomp or bulk**. If your body fat % is saved, metri
+suggests one and says why — you can always overrule it. From your maintenance
+calories and the pace you choose it sets calories and macros, and builds a
+**week-by-week target weight**.
+
+- Protein and fat stay fixed. When calories need to change, **carbs** change.
+- A calorie adjustment is only proposed after **two weeks in a row** off plan,
+  and it is small on purpose. Then it waits two weeks again.
+- If a pace would take you under a safe intake, calories are held at a floor and
+  metri says so: reach the pace with steps and cardio, not with less food.
+
+## The food diary (Nutrition tab)
+
+Log by meal. Search the built-in foods (Spanish and English), reuse **Recent**,
+create your **own food** from a package label, or use **Quick add** to type the
+calories of a meal you cannot weigh.
+
+- Weigh food **raw** and log it raw, unless the name says cooked.
+- The number that matters is the **7-day average**, counted over the days you
+  logged. One day over or under changes nothing — there is no red in the diary.
+- Everything works offline. Built-in nutrient values come from USDA FoodData
+  Central.
+
+## Related
+
+- [Measuring progress](/docs/measuring-progress)
+- [Weight tracking](/docs/weight-tracking)
+- [Reading your numbers](/docs/reading-your-numbers)
+- [Cut, bulk or maintain?](/docs/choosing-your-phase)
+- [How to track macros](/docs/macros)`,
+  },
 ];

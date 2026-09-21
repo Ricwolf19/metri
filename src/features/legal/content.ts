@@ -13,11 +13,13 @@ _Last updated: September 2026._
 
 metri is **free and open source**, and **no account is required**: local mode runs the full app with your data only on this phone — we store nothing about you at all. Exporting and importing your data is always available — no account, no Premium. A **free account** (email and password) is optional; it adds account security and restores your profile on reinstall. If you create one, we store your email and name to identify it. Creating an account later keeps everything you logged locally. There is no payment, no card and no trial for any of this.
 
-With or without an account, metri is **offline-first**. Your profile, body metrics, reminders, training history and progress photos live **only on this device** — in a local database and local files. We do **not** sell your data.
+With or without an account, metri is **offline-first**: everything you log is stored on this device first, in a local database and local files, and the app works with no connection. Without an account, **nothing ever leaves it**. We do **not** sell your data.
+
+If you create a free account, it mirrors your **profile** so a reinstall can restore it: display name, sex, age, height, current weight, body-fat %, activity level, your saved BMR/TDEE result, and your language, units and clock preferences. Nothing else is sent for a free account.
 
 **Cloud sync** is a Premium feature. Without Premium it **never runs** and nothing leaves your device. With Premium it is **automatic**: your training data is copied to our servers whenever the app opens or regains connection, so your other devices can read it back. There is no button and no toggle — the ring around your avatar shows the current status.
 
-What syncs: exercises, programs, routines, workouts and set logs. What does **not**: your progress photos, your reminders, and your account password — those stay on this device (or, for the password, only ever with our authentication provider). To stop syncing, cancel Premium.
+What syncs: exercises, programs, routines, workouts and set logs, training days, your per-exercise defaults and custom warm-ups, your body log — weigh-ins, tape measurements and nutrition phases with their calorie and macro targets — and your food diary with the foods you created. What does **not**: your progress photos, your reminders, and your account password — those stay on this device (or, for the password, only ever with our authentication provider). To stop syncing, cancel Premium.
 
 ### Error reports
 
@@ -48,11 +50,13 @@ _Última actualización: septiembre de 2026._
 
 metri es **gratis y open source**, y **no requiere cuenta**: el modo local ejecuta la app completa con tus datos solo en este teléfono — no guardamos absolutamente nada sobre ti. Exportar e importar tus datos está siempre disponible — sin cuenta y sin Premium. Una **cuenta gratuita** (correo y contraseña) es opcional; añade seguridad y restaura tu perfil al reinstalar. Si la creas, guardamos tu correo y tu nombre para identificarla. Crear la cuenta después conserva todo lo que registraste localmente. No hay pagos, ni tarjeta, ni periodo de prueba para nada de esto.
 
-Con o sin cuenta, metri es **offline-first**. Tu perfil, métricas corporales, recordatorios, historial de entrenamiento y fotos de progreso viven **solo en este dispositivo** — en una base de datos y archivos locales. **No** vendemos tus datos.
+Con o sin cuenta, metri es **offline-first**: todo lo que registras se guarda primero en este dispositivo, en una base de datos y archivos locales, y la app funciona sin conexión. Sin cuenta, **nada sale de él**. **No** vendemos tus datos.
+
+Si creas una cuenta gratuita, esta refleja tu **perfil** para poder restaurarlo al reinstalar: nombre, sexo, edad, estatura, peso actual, % de grasa corporal, nivel de actividad, tu resultado guardado de TMB/GET y tus preferencias de idioma, unidades y reloj. Una cuenta gratuita no envía nada más.
 
 La **sincronización en la nube** es una función de Premium. Sin Premium **nunca se ejecuta** y nada sale de tu dispositivo. Con Premium es **automática**: tus datos de entrenamiento se copian a nuestros servidores cada vez que abres la app o recuperas conexión, para que tus otros dispositivos puedan leerlos. No hay botón ni interruptor — el anillo alrededor de tu avatar muestra el estado actual.
 
-Qué se sincroniza: ejercicios, programas, rutinas, entrenamientos y series registradas. Qué **no**: tus fotos de progreso, tus recordatorios y tu contraseña — eso se queda en este dispositivo (o, en el caso de la contraseña, solo con nuestro proveedor de autenticación). Para dejar de sincronizar, cancela Premium.
+Qué se sincroniza: ejercicios, programas, rutinas, entrenamientos y series registradas, días de entrenamiento, tus ajustes por ejercicio y calentamientos propios, tu registro corporal — pesajes, medidas con cinta y fases de nutrición con sus objetivos de calorías y macros — y tu diario de comidas con los alimentos que creaste. Qué **no**: tus fotos de progreso, tus recordatorios y tu contraseña — eso se queda en este dispositivo (o, en el caso de la contraseña, solo con nuestro proveedor de autenticación). Para dejar de sincronizar, cancela Premium.
 
 ### Reportes de errores
 

@@ -1,3 +1,5 @@
+import { foodDocs } from '@/features/nutrition/food-docs';
+
 import type { DocSection } from '../types';
 
 import { gettingStarted } from './en/getting-started';
@@ -20,6 +22,8 @@ export const en: DocSection[] = [
   ...app,
   ...calculators,
   ...nutrition,
+  // Generated from the food catalogue — see features/nutrition/food-docs.
+  ...foodDocs('en'),
   ...training,
   ...cardio,
   ...recovery,
