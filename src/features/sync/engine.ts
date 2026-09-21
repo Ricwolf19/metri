@@ -2,6 +2,7 @@ import { sqlite } from '@/db/client';
 import { authClient } from '@/features/auth/auth-client';
 import { API_URL } from '@/lib/env';
 
+import { SyncNoSessionError, syncFailure } from './errors';
 import { getCursor, getDeviceId, getPushWatermark, setCursor, setPushWatermark } from './state';
 import { SYNC_TABLES, type SyncTable } from './tables';
 
@@ -28,6 +29,10 @@ const CHANGE_TS: Record<SyncTable, string> = {
   set_logs: 'COALESCE(updated_at, created_at)',
   training_days: 'COALESCE(updated_at, created_at)',
   body_metrics: 'COALESCE(updated_at, created_at)',
+  body_measurements: 'COALESCE(updated_at, created_at)',
+  body_goals: 'COALESCE(updated_at, created_at)',
+  custom_foods: 'COALESCE(updated_at, created_at)',
+  food_logs: 'COALESCE(updated_at, created_at)',
   exercise_settings: 'COALESCE(updated_at, created_at)',
   warmup_routines: 'COALESCE(updated_at, created_at)',
 };
@@ -100,6 +105,10 @@ const ownedIds = (userId: string): Record<SyncTable, string[]> => {
     set_logs: setIds,
     training_days: idsOf(all('select id from training_days where user_id = ?', [userId])),
     body_metrics: idsOf(all('select id from body_metrics where user_id = ?', [userId])),
+    body_measurements: idsOf(all('select id from body_measurements where user_id = ?', [userId])),
+    body_goals: idsOf(all('select id from body_goals where user_id = ?', [userId])),
+    custom_foods: idsOf(all('select id from custom_foods where user_id = ?', [userId])),
+    food_logs: idsOf(all('select id from food_logs where user_id = ?', [userId])),
     exercise_settings: idsOf(all('select id from exercise_settings where user_id = ?', [userId])),
     // Shipped routines have a null user_id and never sync.
     warmup_routines: idsOf(all('select id from warmup_routines where is_custom = 1')),
@@ -178,6 +187,7 @@ const tableColumns = (table: SyncTable): Set<string> => {
 const EXTRA_UNIQUE: Partial<Record<SyncTable, string[]>> = {
   training_days: ['user_id', 'date'],
   body_metrics: ['user_id', 'date'],
+  body_measurements: ['user_id', 'date', 'site'],
   exercise_settings: ['user_id', 'exercise_id'],
 };
 
@@ -244,8 +254,16 @@ export const hasLocalChanges = (userId: string): boolean => {
 /** Run a full push→pull cycle for the signed-in premium user. */
 export const syncNow = async (userId: string): Promise<{ pushed: number; pulled: number }> => {
   const cookie = authClient.getCookie();
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (cookie) headers.Cookie = cookie;
+  // The client drops the stored cookie once it is past its expiry, returning an
+  // empty string. Sending the request anyway was a guaranteed 401 on every
+  // foreground — the loop that kept refilling Sentry with "push failed (401)".
+  // Distinct from the server refusing us: the store can also be cold on launch,
+  // and that must not disable sync for the rest of the process.
+  if (!cookie) throw new SyncNoSessionError();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Cookie: cookie,
+  };
   // Identifies this install so the server can keep our own writes out of our
   // pulls — without it, every push came straight back on the next pull.
   const deviceId = getDeviceId();
@@ -264,7 +282,7 @@ export const syncNow = async (userId: string): Promise<{ pushed: number; pulled:
         deletions: deletions.map((d) => ({ table: d.table, id: d.id, deletedAt: d.deletedAt })),
       }),
     });
-    if (!res.ok) throw new Error(`push failed (${res.status})`);
+    if (!res.ok) throw syncFailure('push', res.status);
     setPushWatermark(userId, maxTs);
     if (deletions.length) {
       const tIds = deletions.map((d) => d.tombstoneId);
@@ -276,8 +294,8 @@ export const syncNow = async (userId: string): Promise<{ pushed: number; pulled:
   //
   // The server caps a page (LIMITS.pullPage) and reports `hasMore`; ignoring it
   // left a big history converging one page per app-foreground, with a partially
-  // populated database in between. MAX_PAGES bounds a single cycle so a pathological
-  // history can't spin forever — the next run resumes from the stored cursor.
+  // populated database in between. MAX_PULL_PAGES bounds a single cycle so a
+  // pathological history can't spin forever — the next run resumes from the cursor.
   let pulled = 0;
   for (let page = 0; page < MAX_PULL_PAGES; page++) {
     const since = getCursor(userId);
@@ -286,7 +304,7 @@ export const syncNow = async (userId: string): Promise<{ pushed: number; pulled:
       headers,
       body: JSON.stringify({ since, deviceId }),
     });
-    if (!res.ok) throw new Error(`pull failed (${res.status})`);
+    if (!res.ok) throw syncFailure('pull', res.status);
     const { rows, cursor, hasMore } = (await res.json()) as {
       rows: PulledRow[];
       cursor: string | null;

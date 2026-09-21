@@ -3,17 +3,18 @@ import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 
 import { useAuth } from '@/features/auth/auth-context';
+import { isNetworkFailure } from '@/lib/network-errors';
 import { captureError } from '@/lib/telemetry';
 
 import { hasLocalChanges, syncNow } from './engine';
+import { SyncAuthError } from './errors';
 import { logSync } from './log';
 import { setSyncState } from './status';
 
-/** Minimum gap between idle cycles. Foreground/network events fire far more
- * often than data changes (Android emits network-state flaps constantly), and
- * every skipped cycle is a full round of server requests saved. A pending
- * local write bypasses the gap entirely, so a set logged offline still syncs
- * the moment signal returns. */
+/** Minimum gap between idle cycles: foreground/network events fire far more
+ * often than data changes (Android emits network-state flaps constantly). A
+ * pending local write bypasses the gap, so a set logged offline still syncs the
+ * moment signal returns. */
 const COOLDOWN_MS = 60_000;
 /** After a failure, retries back off exponentially (30s, 1m, 2m … capped at
  * 5m) instead of re-firing on every network flap — that loop is what kept the
@@ -38,6 +39,8 @@ export const useAutoSync = (): void => {
   const busy = useRef(false);
   const nextAllowedAt = useRef(0);
   const failures = useRef(0);
+  /** Set when the server refuses the session: nothing to retry until sign-in. */
+  const refused = useRef(false);
   const userId = user?.id;
   const enabled = !!userId && can('sync');
 
@@ -47,10 +50,10 @@ export const useAutoSync = (): void => {
       return;
     }
 
+    refused.current = false;
+
     const run = async () => {
-      if (busy.current) return;
-      // Idle cycles respect the cooldown/backoff window; queued local changes
-      // jump it — they are the whole point of syncing.
+      if (busy.current || refused.current) return;
       if (Date.now() < nextAllowedAt.current && !hasLocalChanges(userId)) return;
       busy.current = true;
       setSyncState('syncing');
@@ -62,17 +65,26 @@ export const useAutoSync = (): void => {
         nextAllowedAt.current = Date.now() + COOLDOWN_MS;
         setSyncState('synced');
       } catch (e) {
-        // Distinguish "no signal" from "the server rejected us": only the
-        // second is worth showing as an error — but both back off; retrying
-        // into a dead network is as useless as retrying into a 500.
+        if (e instanceof SyncAuthError) {
+          // The session is gone, or the plan no longer includes sync. Neither
+          // heals by retrying, so stop the loop and hide the ring; `revalidate`
+          // clears a dead session on the next foreground and signing in again
+          // re-enables this effect.
+          refused.current = true;
+          setSyncState('off');
+          return;
+        }
+        // Offline backs off too: retrying into a dead network is as useless as
+        // retrying into a 500.
         failures.current += 1;
         const backoff = Math.min(BACKOFF_BASE_MS * 2 ** (failures.current - 1), BACKOFF_MAX_MS);
         nextAllowedAt.current = Date.now() + backoff;
-        const state = await Network.getNetworkStateAsync().catch(() => null);
-        const offline = !!state && !state.isConnected;
+        // Read from the error itself, not the radio: `isConnected` is true on a
+        // captive portal and on a DNS failure, and checking it after the fact
+        // raced a reconnect into a false "the server rejected us".
+        const offline = isNetworkFailure(e);
         if (!offline) {
           logSync('error', e instanceof Error ? e.message : String(e));
-          // Server-rejected cycles only — offline is normal gym life, not a bug.
           captureError(e);
         }
         setSyncState(offline ? 'offline' : 'error');
