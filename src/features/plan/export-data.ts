@@ -2,8 +2,12 @@ import { eq, inArray, isNull, and } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import {
+  bodyGoals,
+  bodyMeasurements,
   bodyMetrics,
+  customFoods,
   exercises,
+  foodLogs,
   programs,
   progressPhotos,
   reminders,
@@ -18,7 +22,7 @@ import {
   workoutLogs,
 } from '@/db/schema';
 
-const EXPORT_VERSION = 3;
+const EXPORT_VERSION = 4;
 
 /** Everything the user owns as one JSON document. Identity/entitlement fields and device paths are
  * excluded; ids ship for in-file integrity and are regenerated on import.
@@ -102,6 +106,14 @@ export const buildExport = (userId: string) => {
       trainingDays: db.select().from(trainingDays).where(eq(trainingDays.userId, userId)).all(),
       reminders: db.select().from(reminders).where(eq(reminders.userId, userId)).all(),
       bodyMetrics: db.select().from(bodyMetrics).where(eq(bodyMetrics.userId, userId)).all(),
+      bodyMeasurements: db
+        .select()
+        .from(bodyMeasurements)
+        .where(eq(bodyMeasurements.userId, userId))
+        .all(),
+      bodyGoals: db.select().from(bodyGoals).where(eq(bodyGoals.userId, userId)).all(),
+      customFoods: db.select().from(customFoods).where(eq(customFoods.userId, userId)).all(),
+      foodLogs: db.select().from(foodLogs).where(eq(foodLogs.userId, userId)).all(),
       progressPhotos: db
         .select({
           id: progressPhotos.id,

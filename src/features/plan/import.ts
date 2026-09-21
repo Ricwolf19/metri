@@ -1,9 +1,13 @@
-import { getTableColumns } from 'drizzle-orm';
+import { and, eq, getTableColumns, isNull } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import {
+  bodyGoals,
+  bodyMeasurements,
   bodyMetrics,
+  customFoods,
   exercises,
+  foodLogs,
   programs,
   reminders,
   routines,
@@ -33,6 +37,10 @@ const TABLES: Record<ImportTable, Parameters<typeof getTableColumns>[0]> = {
   trainingDays,
   reminders,
   bodyMetrics,
+  bodyMeasurements,
+  bodyGoals,
+  customFoods,
+  foodLogs,
 };
 
 type Row = Record<string, unknown>;
@@ -67,6 +75,16 @@ export const importUserData = (
   const summary = Object.fromEntries(IMPORT_TABLES.map((t) => [t, 0])) as ImportSummary;
 
   db.transaction((tx) => {
+    // A user has one ACTIVE phase (newest row with `endedAt` NULL). An import is
+    // additive, so a second active phase arriving from a file is closed on the
+    // way in rather than silently competing with the one already running.
+    let hasActiveGoal =
+      tx
+        .select({ id: bodyGoals.id })
+        .from(bodyGoals)
+        .where(and(eq(bodyGoals.userId, userId), isNull(bodyGoals.endedAt)))
+        .all().length > 0;
+
     for (const table of IMPORT_TABLES) {
       const rows = data[table] ?? [];
       if (!rows.length) continue;
@@ -96,9 +114,14 @@ export const importUserData = (
           value.createdAt = new Date();
         }
 
+        if (table === 'bodyGoals' && value.endedAt == null) {
+          if (hasActiveGoal) value.endedAt = new Date();
+          hasActiveGoal = true;
+        }
+
         const insert = tx.insert(schema).values(value as never);
-        // Unique per (user, date) — an existing day always wins over the file.
-        if (table === 'trainingDays' || table === 'bodyMetrics') {
+        // Unique per (user, date[, site]) — an existing day always wins over the file.
+        if (table === 'trainingDays' || table === 'bodyMetrics' || table === 'bodyMeasurements') {
           insert.onConflictDoNothing().run();
         } else insert.run();
         summary[table] += 1;

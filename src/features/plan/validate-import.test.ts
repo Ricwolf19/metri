@@ -18,7 +18,7 @@ describe('validateImport — envelope', () => {
     ['wrong app', doc({}, { app: 'other' }), 'invalid'],
     ['missing version', doc({}, { exportVersion: undefined }), 'invalid'],
     ['old version', doc({}, { exportVersion: 1 }), 'version'],
-    ['future version', doc({}, { exportVersion: 4 }), 'version'],
+    ['future version', doc({}, { exportVersion: 5 }), 'version'],
     ['data not an object', doc({}, { data: 'x' }), 'invalid'],
     ['table not an array', doc({ programs: {} }), 'invalid'],
   ])('rejects %s', (_, input, reason) => {
@@ -30,7 +30,7 @@ describe('validateImport — envelope', () => {
     expect(validateImport(doc())).toEqual({ ok: true });
   });
 
-  it.each([2, 3])('accepts export version %i', (exportVersion) => {
+  it.each([2, 3, 4])('accepts export version %i', (exportVersion) => {
     expect(validateImport(doc({}, { exportVersion }))).toEqual({ ok: true });
   });
 
@@ -40,6 +40,70 @@ describe('validateImport — envelope', () => {
       { exportVersion: 3 },
     );
     expect(validateImport(v3)).toEqual({ ok: true });
+  });
+});
+
+describe('validateImport — body tables', () => {
+  it('accepts a tape measurement and a phase', () => {
+    const data = {
+      bodyMeasurements: [{ id: 'm1', date: '2026-09-20', site: 'waist', valueCm: 82.5 }],
+      bodyGoals: [
+        {
+          id: 'g1',
+          phase: 'cut',
+          startDate: '2026-09-20',
+          startWeightKg: 80,
+          rateKgPerWeek: -0.4,
+          targetKcal: 2200,
+          durationWeeks: 12,
+          checkinWeekday: 2,
+          proteinG: 176,
+          fatG: 62,
+          carbsG: 220,
+        },
+      ],
+    };
+    expect(validateImport(doc(data, { exportVersion: 4 }))).toEqual({ ok: true });
+  });
+
+  it('accepts a site this build does not know — the catalogue lives in code, not the file', () => {
+    const data = {
+      bodyMeasurements: [{ id: 'm1', date: '2026-09-20', site: 'ankle', valueCm: 22 }],
+    };
+    expect(validateImport(doc(data))).toEqual({ ok: true });
+  });
+
+  it.each<[string, Record<string, unknown>, string]>([
+    [
+      'a measurement given as text',
+      { bodyMeasurements: [{ id: 'm', date: 'd', site: 'waist', valueCm: '82' }] },
+      'valueCm',
+    ],
+    [
+      'an unknown phase',
+      {
+        bodyGoals: [
+          {
+            id: 'g',
+            phase: 'shred',
+            startDate: 'd',
+            startWeightKg: 80,
+            rateKgPerWeek: 0,
+            targetKcal: 2000,
+            durationWeeks: 12,
+            checkinWeekday: 2,
+            proteinG: 176,
+            fatG: 62,
+            carbsG: 220,
+          },
+        ],
+      },
+      'phase',
+    ],
+  ])('flags %s', (_, data, field) => {
+    const result = validateImport(doc(data));
+    if (result.ok) throw new Error('expected failure');
+    expect(result.issues?.map((i) => i.field)).toContain(field);
   });
 });
 
@@ -67,4 +131,34 @@ describe('validateImport — rows', () => {
     if (result.ok) throw new Error('expected failure');
     expect(result.issues?.map((i) => `${i.index}:${i.field}`)).toEqual(['0:name', '1:id']);
   });
+});
+
+describe('validateImport — body goal completeness', () => {
+  const goal = () => ({
+    id: 'g1',
+    phase: 'cut',
+    startDate: '2026-09-20',
+    startWeightKg: 80,
+    rateKgPerWeek: -0.4,
+    targetKcal: 2200,
+    durationWeeks: 12,
+    checkinWeekday: 2,
+    proteinG: 176,
+    fatG: 62,
+    carbsG: 220,
+  });
+
+  // Each of these is NOT NULL with no default, so a file missing one used to
+  // pass validation and then throw a raw SQLite error inside the transaction —
+  // defeating the per-row reporting this validator exists to give.
+  it.each(['durationWeeks', 'checkinWeekday', 'proteinG', 'fatG', 'carbsG'])(
+    'flags a phase missing %s',
+    (field) => {
+      const row: Record<string, unknown> = goal();
+      delete row[field];
+      const result = validateImport(doc({ bodyGoals: [row] }, { exportVersion: 4 }));
+      if (result.ok) throw new Error('expected failure');
+      expect(result.issues?.map((i) => i.field)).toContain(field);
+    },
+  );
 });

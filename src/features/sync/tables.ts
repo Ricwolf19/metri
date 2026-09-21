@@ -17,6 +17,10 @@ export const SYNC_TABLES = [
   'set_logs',
   'training_days',
   'body_metrics',
+  'body_measurements',
+  'body_goals',
+  'custom_foods',
+  'food_logs',
   'exercise_settings',
   'warmup_routines',
 ] as const;

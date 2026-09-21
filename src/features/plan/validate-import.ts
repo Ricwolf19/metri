@@ -6,9 +6,10 @@ type ImportIssue = { table: string; index: number; field: string };
 export type ImportValidation =
   { ok: true } | { ok: false; reason: 'invalid' | 'version'; issues?: ImportIssue[] };
 
-/** Versions this build can restore. v3 only *adds* export-only `progressPhotos` metadata, so a v2
- * file is still a valid v3 minus that key — both import identically. */
-const SUPPORTED_IMPORT_VERSIONS = [2, 3] as const;
+/** Versions this build can restore. Every bump so far only ADDS keys (v3: export-only
+ * `progressPhotos` metadata; v4: the body and food tables), so an older file is a valid newer
+ * one minus those keys — they all import identically. */
+const SUPPORTED_IMPORT_VERSIONS = [2, 3, 4] as const;
 
 export const IMPORT_TABLES = [
   'exercises',
@@ -23,6 +24,10 @@ export const IMPORT_TABLES = [
   'trainingDays',
   'reminders',
   'bodyMetrics',
+  'bodyMeasurements',
+  'bodyGoals',
+  'customFoods',
+  'foodLogs',
 ] as const;
 
 export type ImportTable = (typeof IMPORT_TABLES)[number];
@@ -46,6 +51,29 @@ const REQUIRED: Record<ImportTable, FieldSpec> = {
   trainingDays: { date: 'string', status: ['trained', 'rest', 'skipped'] },
   reminders: { title: 'string' },
   bodyMetrics: { date: 'string' },
+  bodyMeasurements: { date: 'string', site: 'string', valueCm: 'number' },
+  bodyGoals: {
+    phase: ['cut', 'maintain', 'recomp', 'bulk'],
+    startDate: 'string',
+    startWeightKg: 'number',
+    rateKgPerWeek: 'number',
+    targetKcal: 'number',
+    // NOT NULL with no default: without these the row passes validation and
+    // then throws a raw SQLite error inside the transaction, which is exactly
+    // the per-row reporting this validator exists to give.
+    durationWeeks: 'number',
+    checkinWeekday: 'number',
+    proteinG: 'number',
+    fatG: 'number',
+    carbsG: 'number',
+  },
+  customFoods: { name: 'string', kcal: 'number' },
+  foodLogs: {
+    date: 'string',
+    meal: ['breakfast', 'lunch', 'dinner', 'snack'],
+    name: 'string',
+    kcal: 'number',
+  },
 };
 
 const rowIssues = (table: ImportTable, row: unknown, index: number): ImportIssue[] => {
@@ -69,7 +97,7 @@ export const validateImport = (raw: unknown): ImportValidation => {
   if (doc.app !== 'metri' || typeof doc.exportVersion !== 'number') {
     return { ok: false, reason: 'invalid' };
   }
-  if (!SUPPORTED_IMPORT_VERSIONS.includes(doc.exportVersion as 2 | 3)) {
+  if (!SUPPORTED_IMPORT_VERSIONS.includes(doc.exportVersion as 2 | 3 | 4)) {
     return { ok: false, reason: 'version' };
   }
   if (typeof doc.data !== 'object' || doc.data === null) return { ok: false, reason: 'invalid' };
