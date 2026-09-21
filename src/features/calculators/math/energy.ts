@@ -2,8 +2,12 @@ import {
   ACTIVITY_MULTIPLIERS,
   type ActivityLevel,
   type BmrFormula,
+  FAT_FLOOR_PER_KG,
+  FAT_PER_KG,
   type Goal,
+  type MacroPhase,
   PROTEIN_PER_KG,
+  PROTEIN_PER_KG_LEAN,
   type Sex,
   round,
 } from './shared';
@@ -39,14 +43,52 @@ export const bmr = (
 export const tdee = (bmrValue: number, activity: ActivityLevel): number =>
   round(bmrValue * ACTIVITY_MULTIPLIERS[activity], 0);
 
-export const macros = (calories: number, weightKg: number, goal: Goal) => {
-  const protein = round(PROTEIN_PER_KG[goal] * weightKg, 0);
-  const proteinKcal = protein * 4;
-  const fatKcal = calories * 0.25;
-  const fat = round(fatKcal / 9, 0);
-  const carbsKcal = Math.max(0, calories - proteinKcal - fatKcal);
-  const carbs = round(carbsKcal / 4, 0);
-  return { protein, fat, carbs };
+export type MacroTargets = {
+  kcal: number;
+  proteinG: number;
+  fatG: number;
+  carbsG: number;
+  /** What protein was scaled to — the UI says so, and offers the better basis. */
+  basis: 'lean' | 'bodyweight';
+  /** Protein + fat alone already exceed the calories; carbs hit zero. */
+  carbsExhausted: boolean;
+};
+
+/**
+ * THE macro model — the macros calculator and the nutrition phase both run it.
+ *
+ * Grams per kilo, not percentages: protein and fat are set by the body they
+ * serve and then held fixed; carbs take whatever energy is left, which is also
+ * why a later calorie adjustment moves carbs only.
+ */
+export const macroTargets = ({
+  kcal,
+  weightKg,
+  bodyFatPct,
+  phase,
+}: {
+  kcal: number;
+  weightKg: number;
+  bodyFatPct?: number | null;
+  phase: MacroPhase;
+}): MacroTargets => {
+  const knowsLean = bodyFatPct != null && bodyFatPct > 0 && bodyFatPct < 60;
+  const proteinG = round(
+    knowsLean
+      ? PROTEIN_PER_KG_LEAN * weightKg * (1 - bodyFatPct / 100)
+      : PROTEIN_PER_KG[phase] * weightKg,
+    0,
+  );
+  const fatG = round(Math.max(FAT_FLOOR_PER_KG, FAT_PER_KG[phase]) * weightKg, 0);
+  const left = kcal - proteinG * 4 - fatG * 9;
+  return {
+    kcal,
+    proteinG,
+    fatG,
+    carbsG: Math.max(0, round(left / 4, 0)),
+    basis: knowsLean ? 'lean' : 'bodyweight',
+    carbsExhausted: left < 0,
+  };
 };
 
 const KCAL_PER_KG = 7700;

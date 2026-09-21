@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { bmr, calorieDeficit, caloriesBurned, macros, proteinTarget, tdee } from './energy';
+import { bmr, calorieDeficit, caloriesBurned, macroTargets, proteinTarget, tdee } from './energy';
 
 describe('bmr', () => {
   it('computes Mifflin-St Jeor for both sexes', () => {
@@ -32,19 +32,44 @@ describe('tdee', () => {
   });
 });
 
-describe('macros', () => {
-  it('splits calories into protein by goal, 25% fat, rest carbs', () => {
-    expect(macros(2500, 80, 'cut')).toEqual({ protein: 176, fat: 69, carbs: 293 });
+describe('macroTargets', () => {
+  it('scales protein to LEAN mass when body fat is known', () => {
+    // 100 kg at 20% → 80 kg lean × 2.2 = 176 g; fat 0.7 g/kg on a cut = 70 g.
+    const m = macroTargets({ kcal: 2500, weightKg: 100, bodyFatPct: 20, phase: 'cut' });
+    expect(m).toMatchObject({ proteinG: 176, fatG: 70, basis: 'lean' });
+    expect(m.carbsG).toBe(Math.round((2500 - 176 * 4 - 70 * 9) / 4));
+  });
+
+  it('falls back to bodyweight, and reports that it did', () => {
+    const m = macroTargets({ kcal: 2500, weightKg: 80, phase: 'bulk' });
+    expect(m).toMatchObject({ proteinG: 144, fatG: 72, basis: 'bodyweight' });
+  });
+
+  it('treats zero or absurd body fat as unknown', () => {
+    expect(macroTargets({ kcal: 2500, weightKg: 80, bodyFatPct: 0, phase: 'cut' }).basis).toBe(
+      'bodyweight',
+    );
+    expect(macroTargets({ kcal: 2500, weightKg: 80, bodyFatPct: 75, phase: 'cut' }).basis).toBe(
+      'bodyweight',
+    );
+  });
+
+  it('never drops fat under 0.5 g/kg', () => {
+    for (const phase of ['cut', 'maintain', 'recomp', 'bulk'] as const) {
+      expect(macroTargets({ kcal: 2000, weightKg: 80, phase }).fatG).toBeGreaterThanOrEqual(40);
+    }
   });
 
   it('keeps the rounded macros close to the calorie target', () => {
-    const { protein, fat, carbs } = macros(2500, 80, 'cut');
-    const kcal = protein * 4 + fat * 9 + carbs * 4;
-    expect(Math.abs(kcal - 2500)).toBeLessThanOrEqual(15);
+    const m = macroTargets({ kcal: 2400, weightKg: 75, bodyFatPct: 15, phase: 'maintain' });
+    expect(Math.abs(m.proteinG * 4 + m.carbsG * 4 + m.fatG * 9 - 2400)).toBeLessThanOrEqual(4);
   });
 
-  it('never returns negative carbs when protein alone exceeds the target', () => {
-    expect(macros(500, 100, 'cut').carbs).toBe(0);
+  it('reports exhausted carbs instead of going negative', () => {
+    expect(macroTargets({ kcal: 500, weightKg: 100, phase: 'cut' })).toMatchObject({
+      carbsG: 0,
+      carbsExhausted: true,
+    });
   });
 });
 

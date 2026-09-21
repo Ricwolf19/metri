@@ -147,11 +147,11 @@ export const CALC_CONTENT: Record<CalcId, Record<Locale, CalcContent>> = {
       h1: `Macro Calculator`,
       tagline: `Split your calories into protein, carbs and fat that fit your goal.`,
       about: [
-        `Macros are where your calories come from. This calculator sets protein from your bodyweight and goal, fat as a share of calories for hormones, and fills the rest with carbs — your main training fuel.`,
+        `Macros are where your calories come from. This calculator sets protein from your lean mass (or bodyweight) and goal, fat per kilo of bodyweight for hormones, and fills the rest with carbs — your main training fuel.`,
       ],
-      formula: `protein = g/kg × bodyweight\nfat = 25% of calories ÷ 9\ncarbs = (calories − protein×4 − fat×9) ÷ 4`,
+      formula: `protein = 2.2 g × kg of lean mass (or g/kg × bodyweight)\nfat = 0.7–0.9 g × kg of bodyweight, never under 0.5\ncarbs = (calories − protein×4 − fat×9) ÷ 4`,
       how: [
-        `Enter your daily calories (from the TDEE calculator), your bodyweight and your goal. Protein scales with goal — 2.2 g/kg cutting, 2.0 maintaining, 1.8 bulking — fat is ~25% of calories, and carbs take the remainder.`,
+        `Enter your daily calories (from the TDEE calculator), your bodyweight and your goal. Add your body fat % and protein is set from lean mass (2.2 g/kg); without it, from bodyweight — 2.2 g/kg cutting, 2.0 maintaining, 1.8 bulking. Fat is set per kilo (0.7 cutting, 0.8 maintaining, 0.9 bulking) and never drops under 0.5 g/kg, and carbs take the remainder.`,
       ],
       interpret: [
         `Hit protein most reliably; carbs and fat have more flexibility. You don't need to nail grams exactly — land within ~5–10 g of protein and keep calories in range, and body composition will follow.`,
@@ -177,11 +177,11 @@ export const CALC_CONTENT: Record<CalcId, Record<Locale, CalcContent>> = {
       h1: `Calculadora de Macros`,
       tagline: `Reparte tus calorías en proteína, carbohidratos y grasa según tu meta.`,
       about: [
-        `Los macros son de donde salen tus calorías. Esta calculadora fija la proteína según tu peso y meta, la grasa como porcentaje de calorías para las hormonas, y rellena el resto con carbohidratos — tu principal combustible de entrenamiento.`,
+        `Los macros son de donde salen tus calorías. Esta calculadora fija la proteína según tu masa magra (o tu peso) y tu meta, la grasa por kilo de peso para las hormonas, y rellena el resto con carbohidratos — tu principal combustible de entrenamiento.`,
       ],
-      formula: `proteína = g/kg × peso\ngrasa = 25% de calorías ÷ 9\ncarbos = (calorías − proteína×4 − grasa×9) ÷ 4`,
+      formula: `proteína = 2.2 g × kg de masa magra (o g/kg × peso)\ngrasa = 0.7–0.9 g × kg de peso, nunca menos de 0.5\ncarbos = (calorías − proteína×4 − grasa×9) ÷ 4`,
       how: [
-        `Introduce tus calorías diarias (de la calculadora de TDEE), tu peso y tu meta. La proteína escala con la meta — 2.2 g/kg en déficit, 2.0 en mantenimiento, 1.8 en volumen — la grasa es ~25% de las calorías y los carbohidratos toman el resto.`,
+        `Introduce tus calorías diarias (de la calculadora de TDEE), tu peso y tu meta. Agrega tu % de grasa y la proteína se fija con tu masa magra (2.2 g/kg); sin él, con tu peso — 2.2 g/kg en déficit, 2.0 en mantenimiento, 1.8 en volumen. La grasa se fija por kilo (0.7 en déficit, 0.8 en mantenimiento, 0.9 en volumen) y nunca baja de 0.5 g/kg, y los carbohidratos toman el resto.`,
       ],
       interpret: [
         `Cumple la proteína de forma fiable; carbohidratos y grasa tienen más margen. No necesitas clavar los gramos — quédate a ~5–10 g de proteína y mantén las calorías en rango, y la composición corporal acompañará.`,

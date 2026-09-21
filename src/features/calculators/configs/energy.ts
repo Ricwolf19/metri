@@ -7,7 +7,7 @@ import {
   bmr,
   calorieDeficit,
   caloriesBurned,
-  macros,
+  macroTargets,
   proteinTarget,
   tdee,
 } from '../math';
@@ -148,11 +148,28 @@ export const macrosConfig: CalcConfig = {
       default: 'maintain',
       options: GOAL_OPTIONS,
     },
+    // Optional: 0 = unknown, and protein scales to bodyweight instead of lean mass.
+    {
+      name: 'bodyFat',
+      kind: 'number',
+      labelKey: 'calc.bodyFatOptional',
+      unit: '%',
+      min: 0,
+      max: 60,
+      step: 0.5,
+      default: 0,
+    },
   ],
   compute: (v) => {
     const cals = num(v, 'calories');
     if (cals <= 0) return null;
-    const m = macros(cals, num(v, 'weight'), str(v, 'goal') as Goal);
+    const t = macroTargets({
+      kcal: cals,
+      weightKg: num(v, 'weight'),
+      bodyFatPct: num(v, 'bodyFat') || null,
+      phase: str(v, 'goal') as Goal,
+    });
+    const m = { protein: t.proteinG, carbs: t.carbsG, fat: t.fatG };
     return {
       primaryLabelKey: 'calc.calories',
       primaryValue: fmt(cals),

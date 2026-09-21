@@ -19,7 +19,7 @@ export {
   bmr,
   calorieDeficit,
   caloriesBurned,
-  macros,
+  macroTargets,
   proteinTarget,
   tdee,
 } from './energy';
