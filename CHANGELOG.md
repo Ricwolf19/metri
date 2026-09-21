@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.10.0](https://github.com/Ricwolf19/metri/compare/metri-v1.9.0...metri-v1.10.0) (2026-09-21)
+
+
+### Features
+
+* **body:** weekly check-in, phases and tape measurements ([e98b4d1](https://github.com/Ricwolf19/metri/commit/e98b4d13952382ca32769687b6b6f36bb78d8357))
+* **calculators:** scale protein to lean mass ([9295492](https://github.com/Ricwolf19/metri/commit/92954928c20aadd285ee77a60a844cd6cf56566d))
+* **db:** body measurement, goal and food tables ([0583e09](https://github.com/Ricwolf19/metri/commit/0583e0970ce48bd065cde9efd34bb9583ce9f1a6))
+* **i18n:** copy for the body, food and metrics modules ([874a826](https://github.com/Ricwolf19/metri/commit/874a8266c7d26c00e5b452c3a7a0896c8597d768))
+* **metrics:** rebuild the progress tab as metrics ([1506bca](https://github.com/Ricwolf19/metri/commit/1506bca2562f88aa99f424a239337904bc46aa0f))
+* **notifications:** schedule-driven check-in and tunable events ([fe19b42](https://github.com/Ricwolf19/metri/commit/fe19b42c7e9aeab57b8787904fa41c67146d14cc))
+* **nutrition:** food diary, meals and day plans ([bebd7c3](https://github.com/Ricwolf19/metri/commit/bebd7c3d7c8c6cb9c4f7d08d72047f41ccbe2101))
+* **plan:** export and import the body and food tables ([db21436](https://github.com/Ricwolf19/metri/commit/db21436e4fe36d1a02acfcd0d61eefd74bcc960a))
+* **training:** month-long catch-up and session polish ([83026f0](https://github.com/Ricwolf19/metri/commit/83026f0b24851a61ac80d914ddd5682f7325d2e1))
+* **ui:** scrim, badge row and timed modal primitives ([517abc5](https://github.com/Ricwolf19/metri/commit/517abc54b6ab45d15c1d7821d01a488e048da700))
+
+
+### Bug Fixes
+
+* **sync:** tell a refused session from a cold one ([6dc1c4d](https://github.com/Ricwolf19/metri/commit/6dc1c4d33ea2024b8a25e50808d08f99e30e1791))
+* **telemetry:** report surprises, not expected refusals ([2673158](https://github.com/Ricwolf19/metri/commit/267315815b06a1183cc5d207ef556fe832ca7700))
+
 ## [1.9.0](https://github.com/Ricwolf19/metri/compare/metri-v1.8.0...metri-v1.9.0) (2026-09-20)
 
 
