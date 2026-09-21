@@ -277,3 +277,7 @@ export const TIP_SLOTS: Record<number, { hour: number; minute: number }[]> = {
 };
 
 export const TIP_FREQUENCIES = [1, 2, 3, 4];
+
+/** The default times for `count` tips a day — the starting point the user then edits. */
+export const tipSlotsFor = (count: number): { hour: number; minute: number }[] =>
+  TIP_SLOTS[count] ?? TIP_SLOTS[2];

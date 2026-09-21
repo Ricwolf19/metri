@@ -9,9 +9,12 @@ import { settings } from '@/lib/storage';
 import { reminderEntries } from './schedule';
 
 const TRAINING_EVENT = NOTIFICATION_EVENTS.find((e) => e.id === 'training-time')!;
+const CHECKIN_EVENT = NOTIFICATION_EVENTS.find((e) => e.id === 'session-checkin')!;
 
-/** Point the training reminder at the active phase (one entry per scheduled split); no enrollment/schedule →
- * manual config and off. `enable` switches it on (start flow); otherwise the user's toggle is kept. */
+/** Point the schedule-driven reminders at the active phase (one entry per scheduled split); no
+ * enrollment/schedule → off. Both events store the RAW session times: the check-in applies its own
+ * delay when scheduling, so changing that delay never needs the program re-read. `enable` switches
+ * training time on (start flow); otherwise the user's toggle is kept. */
 export const syncTrainingReminder = async (
   userId: string,
   { enable = false }: { enable?: boolean } = {},
@@ -37,6 +40,12 @@ export const syncTrainingReminder = async (
     // Only a user-initiated start switches the reminder on; a saved split or a
     // finished workout just refreshes the schedule and respects the toggle.
     enabled: schedule.length > 0 && (current.enabled || enable),
+    schedule,
+  });
+  const checkin = getEventConfig(CHECKIN_EVENT);
+  settings.setEventConfig(CHECKIN_EVENT.id, {
+    ...checkin,
+    enabled: schedule.length > 0 && checkin.enabled,
     schedule,
   });
   await syncNotificationEvents();
