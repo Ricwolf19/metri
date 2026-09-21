@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Scrim } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { useT, type TranslationKey } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
@@ -53,55 +54,59 @@ export const HeaderMenu = () => {
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         {/* Full-screen scrim closes on tap; the sheet anchors under the header. */}
-        <Pressable className="flex-1 bg-black/40" onPress={() => setOpen(false)}>
-          <View
-            style={{ marginTop: insets.top + 52 }}
-            className="mr-4 self-end overflow-hidden rounded-card border border-ink-700 bg-ink-850"
-          >
-            {ITEMS.map(({ key, href, Icon }, i) => (
-              <Pressable
-                key={key}
-                onPress={() => go(href)}
-                accessibilityRole="menuitem"
-                android_ripple={{ color: 'rgba(255,255,255,0.08)' }}
-                className={[
-                  'flex-row items-center gap-3 px-4 py-3.5',
-                  i > 0 ? 'border-t border-ink-800' : '',
-                ].join(' ')}
-              >
-                <Icon color="#a1a1aa" size={18} />
-                <Text className="pr-6 text-base text-ink-100">
-                  {key === 'menu.premium' ? `${t(key)} · ${t(`plan.tier.${tier}`)}` : t(key)}
-                </Text>
-              </Pressable>
-            ))}
-            {isLocalOnly ? (
-              <Pressable
-                onPress={() => go('/(auth)/sign-up')}
-                accessibilityRole="menuitem"
-                android_ripple={{ color: 'rgba(255,255,255,0.08)' }}
-                className="flex-row items-center gap-3 border-t border-ink-800 px-4 py-3.5"
-              >
-                <StarIcon color={brand} size={18} />
-                <Text className="pr-6 text-base text-ink-100">{t('profile.createAccountCta')}</Text>
-              </Pressable>
-            ) : (
-              <Pressable
-                onPress={() => {
-                  setOpen(false);
-                  signOut();
-                  router.replace('/(auth)/sign-in');
-                }}
-                accessibilityRole="menuitem"
-                android_ripple={{ color: 'rgba(255,255,255,0.08)' }}
-                className="flex-row items-center gap-3 border-t border-ink-800 px-4 py-3.5"
-              >
-                <LogOutIcon color="#f87171" size={18} />
-                <Text className="pr-6 text-base text-red-400">{t('profile.signOut')}</Text>
-              </Pressable>
-            )}
-          </View>
-        </Pressable>
+        <Scrim depth="light">
+          <Pressable className="flex-1" onPress={() => setOpen(false)}>
+            <View
+              style={{ marginTop: insets.top + 52 }}
+              className="mr-4 self-end overflow-hidden rounded-card border border-ink-700 bg-ink-850"
+            >
+              {ITEMS.map(({ key, href, Icon }, i) => (
+                <Pressable
+                  key={key}
+                  onPress={() => go(href)}
+                  accessibilityRole="menuitem"
+                  android_ripple={{ color: 'rgba(255,255,255,0.08)' }}
+                  className={[
+                    'flex-row items-center gap-3 px-4 py-3.5',
+                    i > 0 ? 'border-t border-ink-800' : '',
+                  ].join(' ')}
+                >
+                  <Icon color="#a1a1aa" size={18} />
+                  <Text className="pr-6 text-base text-ink-100">
+                    {key === 'menu.premium' ? `${t(key)} · ${t(`plan.tier.${tier}`)}` : t(key)}
+                  </Text>
+                </Pressable>
+              ))}
+              {isLocalOnly ? (
+                <Pressable
+                  onPress={() => go('/(auth)/sign-up')}
+                  accessibilityRole="menuitem"
+                  android_ripple={{ color: 'rgba(255,255,255,0.08)' }}
+                  className="flex-row items-center gap-3 border-t border-ink-800 px-4 py-3.5"
+                >
+                  <StarIcon color={brand} size={18} />
+                  <Text className="pr-6 text-base text-ink-100">
+                    {t('profile.createAccountCta')}
+                  </Text>
+                </Pressable>
+              ) : (
+                <Pressable
+                  onPress={() => {
+                    setOpen(false);
+                    signOut();
+                    router.replace('/(auth)/sign-in');
+                  }}
+                  accessibilityRole="menuitem"
+                  android_ripple={{ color: 'rgba(255,255,255,0.08)' }}
+                  className="flex-row items-center gap-3 border-t border-ink-800 px-4 py-3.5"
+                >
+                  <LogOutIcon color="#f87171" size={18} />
+                  <Text className="pr-6 text-base text-red-400">{t('profile.signOut')}</Text>
+                </Pressable>
+              )}
+            </View>
+          </Pressable>
+        </Scrim>
       </Modal>
     </>
   );

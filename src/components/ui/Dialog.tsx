@@ -4,15 +4,11 @@ import { Modal, Pressable, Text, View } from 'react-native';
 import { useT } from '@/i18n';
 
 import { Button } from './Button';
+import { cancelLast, type DialogAction } from './dialog-actions';
 import { HoldButton } from './HoldButton';
+import { Scrim } from './Scrim';
 
-export type DialogAction = {
-  label: string;
-  /** `confirm` = brand (main action); `destructive` = red hold button (no accidental tap);
-   * `cancel` = ghost; default = secondary surface. */
-  style?: 'default' | 'confirm' | 'destructive' | 'cancel';
-  onPress?: () => void;
-};
+export type { DialogAction };
 
 export type DialogOptions = {
   title: string;
@@ -32,7 +28,7 @@ export type ConfirmOptions = {
 type DialogContextValue = {
   /** Imperative themed replacement for `Alert.alert` (same mental model). */
   show: (options: DialogOptions) => void;
-  /** Standard gate: cancel (ghost) + one emphasized confirm. Prefer over a hand-rolled two-button `show()`. */
+  /** Standard gate: one emphasized confirm + a ghost cancel beneath it. Prefer over a hand-rolled two-button `show()`. */
   confirm: (options: ConfirmOptions) => void;
 };
 
@@ -64,12 +60,12 @@ export const DialogProvider = ({ children }: { children: React.ReactNode }) => {
         title: o.title,
         message: o.message,
         actions: [
-          { label: o.cancelLabel ?? t('common.cancel'), style: 'cancel' },
           {
             label: o.confirmLabel,
             style: o.destructive ? 'destructive' : 'confirm',
             onPress: o.onConfirm,
           },
+          { label: o.cancelLabel ?? t('common.cancel'), style: 'cancel' },
         ],
       }),
     [t],
@@ -86,39 +82,41 @@ export const DialogProvider = ({ children }: { children: React.ReactNode }) => {
     <DialogContext.Provider value={value}>
       {children}
       <Modal visible={options !== null} transparent animationType="fade" onRequestClose={close}>
-        <Pressable className="flex-1 items-center justify-center bg-black/60 px-8" onPress={close}>
-          <Pressable
-            className="w-full rounded-card border border-ink-700 bg-ink-850 p-5"
-            onPress={() => {}}
-          >
-            {options ? (
-              <>
-                <Text className="text-lg font-sans-bold text-ink-50">{options.title}</Text>
-                {options.message ? (
-                  <Text className="mt-2 text-sm leading-6 text-ink-300">{options.message}</Text>
-                ) : null}
-                <View className="mt-5 gap-2">
-                  {options.actions.map((action) =>
-                    action.style === 'destructive' ? (
-                      <HoldButton
-                        key={action.label}
-                        label={action.label}
-                        onComplete={() => run(action)}
-                      />
-                    ) : (
-                      <Button
-                        key={action.label}
-                        label={action.label}
-                        variant={VARIANT[action.style ?? 'default']}
-                        onPress={() => run(action)}
-                      />
-                    ),
-                  )}
-                </View>
-              </>
-            ) : null}
+        <Scrim depth="medium">
+          <Pressable className="flex-1 items-center justify-center px-8" onPress={close}>
+            <Pressable
+              className="w-full rounded-card border border-ink-700 bg-ink-850 p-5"
+              onPress={() => {}}
+            >
+              {options ? (
+                <>
+                  <Text className="text-lg font-sans-bold text-ink-50">{options.title}</Text>
+                  {options.message ? (
+                    <Text className="mt-2 text-sm leading-6 text-ink-300">{options.message}</Text>
+                  ) : null}
+                  <View className="mt-5 gap-2">
+                    {cancelLast(options.actions).map((action) =>
+                      action.style === 'destructive' ? (
+                        <HoldButton
+                          key={action.label}
+                          label={action.label}
+                          onComplete={() => run(action)}
+                        />
+                      ) : (
+                        <Button
+                          key={action.label}
+                          label={action.label}
+                          variant={VARIANT[action.style ?? 'default']}
+                          onPress={() => run(action)}
+                        />
+                      ),
+                    )}
+                  </View>
+                </>
+              ) : null}
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </Scrim>
       </Modal>
     </DialogContext.Provider>
   );

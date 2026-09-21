@@ -22,7 +22,9 @@ import { useTheme } from '@/theme/theme-context';
 type Props = ScrollViewProps & {
   /** Height cap outside a sheet. Inside a sheet the sheet itself caps the height. */
   maxHeight?: number;
-  /** Fill the sheet instead of capping at `maxHeight`, and pad for the safe area. */
+  /** Size to the sheet's content (shrinking when the sheet caps it), and pad for
+   * the safe area. NOT `flex: 1` — that would fill the cap and bring back the
+   * dead space under short option lists. */
   inSheet?: boolean;
   className?: string;
   children: React.ReactNode;
@@ -88,7 +90,7 @@ export const ScrollArea = ({
   };
 
   return (
-    <View style={inSheet ? { flex: 1 } : { maxHeight }} className={className}>
+    <View style={inSheet ? { flexShrink: 1 } : { maxHeight }} className={className}>
       <ScrollView
         {...rest}
         showsVerticalScrollIndicator={false}
