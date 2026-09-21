@@ -19,12 +19,26 @@ import {
   type ProfileUpdate,
 } from './users.repo';
 
+/**
+ * The server rejected the credentials themselves — wrong password, unverified
+ * email, an address already taken. An expected answer the screens translate for
+ * the user, never a defect, so it is never reported to telemetry.
+ */
+export class AuthRejectedError extends Error {
+  readonly status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'AuthRejectedError';
+    this.status = status;
+  }
+}
+
 type AuthContextValue = {
   user: PublicUser | null;
   isReady: boolean;
   isAuthenticated: boolean;
-  /** Cloud sign-in against the shared metri.info backend (email). Links a local user. */
-  /** Resolves with whether the account profile was restored (skip onboarding). */
+  /** Cloud sign-in (adopts a local user). `restored` means the server profile came
+   * back, so onboarding is skipped. */
   signInRemote: (email: string, password: string) => Promise<{ restored: boolean }>;
   /** Cloud sign-up. Returns whether the backend requires email verification first. */
   signUpRemote: (
@@ -40,7 +54,6 @@ type AuthContextValue = {
   finishOnboarding: (patch: ProfileUpdate) => void;
   reload: () => void;
   hasRole: (role: UserRole) => boolean;
-  /** True when the user's plan unlocks premium features. */
   isPremium: boolean;
   /** Feature-gate check derived from the user's plan (entitlements). */
   can: (feature: Feature) => boolean;
@@ -77,7 +90,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     async (email: string, password: string) => {
       const res = await authClient.signIn.email({ email: email.trim().toLowerCase(), password });
       if (res.error) {
-        throw new Error(res.error.message ?? 'Cloud sign-in failed.');
+        throw new AuthRejectedError(
+          res.error.status ?? 0,
+          res.error.message ?? 'Cloud sign-in failed.',
+        );
       }
       // Adopt-first: a local-only user's row becomes the mirror (same id — AGENTS.md); otherwise anchor by email.
       const currentId = session.getUserId();
@@ -118,7 +134,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       name: name?.trim() || email.split('@')[0],
     });
     if (res.error) {
-      throw new Error(res.error.message ?? 'Cloud sign-up failed.');
+      throw new AuthRejectedError(
+        res.error.status ?? 0,
+        res.error.message ?? 'Cloud sign-up failed.',
+      );
     }
     // Usually no session yet (email verification; adopt happens on the later sign-in).
     // If one IS issued, anchor/adopt now so a local user upgrades in one step.
@@ -205,8 +224,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Local users have no server session; an empty getSession() would read as "signed out remotely".
     if (findById(before)?.authKind === 'local') return;
 
-    // Offline or unreachable resolves to null and is treated as "keep the local
-    // session" — only an explicit no-session response signs the user out.
+    // null = offline or unreachable: keep the local session.
     const res = await authClient.getSession().catch(() => null);
     if (!res || res.error) return;
 

@@ -5,7 +5,7 @@ import { Pressable, Text, View } from 'react-native';
 import { CheckIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import { BrandMark, Button, Input, Screen, ScreenTitle, useToast } from '@/components/ui';
-import { useAuth } from '@/features/auth/auth-context';
+import { AuthRejectedError, useAuth } from '@/features/auth/auth-context';
 import { useT } from '@/i18n';
 import { captureError } from '@/lib/telemetry';
 import { LocaleToggle } from '@/i18n/LocaleToggle';
@@ -62,8 +62,9 @@ const SignUp = () => {
       router.push('/beta');
     } catch (e) {
       // Server strings are technical and EN-only ("captcha_failed:
-      // missing_token") — never user copy. Sentry gets the real one.
-      captureError(e);
+      // missing_token") — never user copy. A rejected sign-up (address taken,
+      // weak password) is an expected answer, so only surprises are reported.
+      if (!(e instanceof AuthRejectedError)) captureError(e);
       setError(t('auth.errSignUp'));
     } finally {
       setLoading(false);
@@ -124,7 +125,6 @@ const SignUp = () => {
           returnKeyType="go"
         />
 
-        {/* Mandatory terms — tapping opens them to read. */}
         <Pressable
           onPress={onToggleTerms}
           accessibilityRole="checkbox"

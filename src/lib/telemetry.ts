@@ -1,6 +1,8 @@
 import * as Sentry from '@sentry/react-native';
 import * as Updates from 'expo-updates';
 
+import { isNetworkFailure } from './network-errors';
+
 /**
  * The app's single gateway to Sentry — nothing else imports
  * `@sentry/react-native`, so what leaves the device stays auditable in one file
@@ -25,6 +27,14 @@ export const initTelemetry = (): void => {
     // Matches the web: enough tracing to see patterns, cheap enough to stay
     // inside the free tier.
     tracesSampleRate: 0.1,
+    // Losing signal is normal operation for an offline-first app, not a bug
+    // report. Filtered here as well as in `captureError` so the SDK's own
+    // unhandled-error hooks are covered too.
+    beforeSend: (event, hint) =>
+      isNetworkFailure(hint?.originalException) ||
+      isNetworkFailure(event.exception?.values?.[0]?.value)
+        ? null
+        : event,
   });
   // With the fingerprint runtimeVersion policy + OTA, "which JS on which
   // binary" is the first triage question — answer it on every event.
@@ -45,8 +55,14 @@ export const setTelemetryUser = (id: string | null): void => {
   Sentry.setUser(id ? { id } : null);
 };
 
-/** Report a handled error (sync failures, guarded native calls). */
+/**
+ * Report a handled error (guarded native calls, unexpected sync failures).
+ *
+ * Expected outcomes must not reach here: connectivity loss is filtered below,
+ * and callers filter their own — a rejected password, a dismissed share sheet
+ * or a refused session are answers, not defects.
+ */
 export const captureError = (error: unknown): void => {
-  if (!enabled) return;
+  if (!enabled || isNetworkFailure(error)) return;
   Sentry.captureException(error);
 };

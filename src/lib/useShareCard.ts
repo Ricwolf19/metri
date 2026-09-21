@@ -22,7 +22,10 @@ export const useShareCard = (dialogTitle?: string) => {
       await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle });
       return true;
     } catch (e) {
-      captureError(e);
+      // Some platforms reject when the share sheet is dismissed — a user
+      // choice, not a failure.
+      const message = e instanceof Error ? e.message : '';
+      if (!/cancel|dismiss/i.test(message)) captureError(e);
       return false;
     } finally {
       setBusy(false);

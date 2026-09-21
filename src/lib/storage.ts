@@ -1,5 +1,7 @@
 import { createMMKV } from 'react-native-mmkv';
 
+import { parseJson, parseJsonArray } from './safe-json';
+
 /**
  * MMKV — fast, synchronous key-value storage.
  *
@@ -13,9 +15,8 @@ export const storage = createMMKV({ id: 'metri' });
 export type Units = 'kg' | 'lb';
 export type LocaleCode = 'en' | 'es';
 export type ThemePreference = 'system' | 'light' | 'dark';
-/** Live-workout rendering: every exercise in one scroll, one per screen, or dense (soon). */
-export type WorkoutLayout = 'list' | 'cards' | 'compact';
-/** How times are displayed across the app: 24-hour or 12-hour with AM/PM. */
+/** Two session views: a scrolling list, or one exercise at a time. */
+export type WorkoutLayout = 'list' | 'cards';
 export type ClockFormat = '24' | '12';
 
 export const SettingKeys = {
@@ -26,12 +27,18 @@ export const SettingKeys = {
   // Read reactively through `useDateFormat`.
   dateFormat: 'settings.dateFormat',
   pinnedActions: 'settings.pinnedActions',
+  // Optional tape sites the user switched on (see features/body/sites).
+  proSites: 'body.proSites',
   onboarded: 'settings.onboarded',
   premiumIntroSeen: 'settings.premiumIntroSeen',
   dismissedAnnouncements: 'announcements.dismissed',
   notificationsEnabled: 'settings.notificationsEnabled',
   localBannerSnoozedUntil: 'settings.localBannerSnoozedUntil',
   workoutLayout: 'settings.workoutLayout',
+  weightStep: 'settings.weightStep',
+  repsStep: 'settings.repsStep',
+  // Section order + hidden sections on the Metrics tab (see features/metrics).
+  metricsLayout: 'metrics.layout',
   showExerciseArt: 'settings.showExerciseArt',
   widgetPromoSnoozedUntil: 'widget.promoSnoozedUntil',
   docsPromoSnoozedUntil: 'docs.promoSnoozedUntil',
@@ -42,6 +49,7 @@ export const SettingKeys = {
   activeRest: 'training.activeRest',
 } as const;
 
+/** Typed accessors for every `SettingKeys` entry — screens never touch `storage` directly. */
 export const settings = {
   getUnits(): Units {
     return (storage.getString(SettingKeys.units) as Units) ?? 'kg';
@@ -96,6 +104,19 @@ export const settings = {
   setShowExerciseArt(value: boolean) {
     storage.set(SettingKeys.showExerciseArt, value);
   },
+  /** Plate jump and rep jump the ± buttons apply; a lifter's does not change per set. */
+  getWeightStep(): number {
+    return storage.getNumber(SettingKeys.weightStep) ?? 5;
+  },
+  setWeightStep(value: number) {
+    storage.set(SettingKeys.weightStep, value);
+  },
+  getRepsStep(): number {
+    return storage.getNumber(SettingKeys.repsStep) ?? 1;
+  },
+  setRepsStep(value: number) {
+    storage.set(SettingKeys.repsStep, value);
+  },
   getWorkoutLayout(): WorkoutLayout {
     return (storage.getString(SettingKeys.workoutLayout) as WorkoutLayout) ?? 'list';
   },
@@ -122,13 +143,18 @@ export const settings = {
   setPinnedActions(ids: string[]) {
     storage.set(SettingKeys.pinnedActions, JSON.stringify(ids));
   },
+  getEnabledProSites(): string[] {
+    return parseJsonArray<string>(storage.getString(SettingKeys.proSites), []);
+  },
+  setEnabledProSites(ids: string[]) {
+    storage.set(SettingKeys.proSites, JSON.stringify(ids));
+  },
   hasOnboarded(): boolean {
     return storage.getBoolean(SettingKeys.onboarded) ?? false;
   },
   setOnboarded(value: boolean) {
     storage.set(SettingKeys.onboarded, value);
   },
-  /** Whether the one-time premium/data intro has been shown. */
   hasSeenPremiumIntro(): boolean {
     return storage.getBoolean(SettingKeys.premiumIntroSeen) ?? false;
   },
@@ -137,8 +163,7 @@ export const settings = {
   },
   /** Announcement ids the user dismissed (see features/announcements). */
   getDismissedAnnouncements(): string[] {
-    const raw = storage.getString(SettingKeys.dismissedAnnouncements);
-    return raw ? (JSON.parse(raw) as string[]) : [];
+    return parseJsonArray<string>(storage.getString(SettingKeys.dismissedAnnouncements), []);
   },
   addDismissedAnnouncement(id: string) {
     const seen = new Set(settings.getDismissedAnnouncements());
@@ -155,16 +180,23 @@ export const settings = {
   },
   /** Per-event notification config (see features/notifications/events). */
   getEventConfig<T>(eventId: string, defaults: T): T {
-    const raw = storage.getString(`notifications.event.${eventId}`);
-    return raw ? { ...defaults, ...(JSON.parse(raw) as Partial<T>) } : defaults;
+    const stored = parseJson<Partial<T> | null>(
+      storage.getString(`notifications.event.${eventId}`),
+      null,
+    );
+    return stored ? { ...defaults, ...stored } : defaults;
   },
   setEventConfig(eventId: string, config: unknown) {
     storage.set(`notifications.event.${eventId}`, JSON.stringify(config));
   },
   /** OS notification ids scheduled for an event (cancel-then-reschedule). */
   getEventIds(eventId: string): string[] {
-    const raw = storage.getString(`notifications.ids.${eventId}`);
-    return raw ? (JSON.parse(raw) as string[]) : [];
+    return parseJsonArray<string>(storage.getString(`notifications.ids.${eventId}`), []);
+  },
+  /** Forget a retired event entirely — its config and its scheduled ids. */
+  clearEvent(eventId: string) {
+    storage.remove(`notifications.event.${eventId}`);
+    storage.remove(`notifications.ids.${eventId}`);
   },
   setEventIds(eventId: string, ids: string[]) {
     storage.set(`notifications.ids.${eventId}`, JSON.stringify(ids));

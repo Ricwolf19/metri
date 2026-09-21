@@ -3,7 +3,6 @@ import { Linking } from 'react-native';
 
 import type { CalcId } from '@/features/calculators/types';
 import { WEB_URL } from '@/lib/env';
-import { captureError } from '@/lib/telemetry';
 
 type Router = ReturnType<typeof useRouter>;
 
@@ -63,7 +62,9 @@ const TOOL_SLUG_TO_CALC: Record<string, CalcId> = {
 };
 
 const openExternally = (url: string): void => {
-  Linking.openURL(url).catch(captureError);
+  // No browser installed, or a scheme the OS refuses: environmental, and the
+  // user already sees nothing happen. Not a defect to report.
+  void Linking.openURL(url).catch(() => {});
 };
 
 /** Handle a markdown link tap. Returns false so the renderer's default
@@ -85,6 +86,11 @@ export const openContentLink = (href: string, router: Router): false => {
 
   if (section === 'docs' && slug) {
     router.push({ pathname: '/docs/[id]', params: { id: slug } });
+    return false;
+  }
+  // The knowledge base's food tables link straight to the in-app food card.
+  if (section === 'food' && slug) {
+    router.push({ pathname: '/food/[id]', params: { id: slug } });
     return false;
   }
   const calcId =

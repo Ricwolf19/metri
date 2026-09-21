@@ -4,7 +4,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { BrandMark, Button, Input, Screen, useToast } from '@/components/ui';
 import { TopBar } from '@/components/TopBar';
-import { useAuth } from '@/features/auth/auth-context';
+import { AuthRejectedError, useAuth } from '@/features/auth/auth-context';
 import { useT } from '@/i18n';
 import { captureError } from '@/lib/telemetry';
 import { LocaleToggle } from '@/i18n/LocaleToggle';
@@ -33,8 +33,9 @@ const SignIn = () => {
       router.replace('/(tabs)');
       router.push('/beta');
     } catch (e) {
-      // Server strings never reach the UI (see AGENTS.md → Conventions).
-      captureError(e);
+      // A rejected credential is the expected answer, not a defect — only a
+      // surprise is worth reporting, and never in the server's own words.
+      if (!(e instanceof AuthRejectedError)) captureError(e);
       setError(t('auth.errSignIn'));
     } finally {
       setLoading(false);
