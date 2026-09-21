@@ -52,13 +52,9 @@ describe('saveBodyMetric', () => {
   });
 
   it('does NOT let a back-dated entry overwrite the current weight', () => {
-    // Arrange: today's weigh-in is the truth for BMR.
     saveBodyMetric(U, '2026-09-19', { weightKg: 79 });
-
-    // Act: the user fills in a missed day from last week.
     saveBodyMetric(U, '2026-09-12', { weightKg: 84 });
 
-    // Assert: the history gains a row, the snapshot stays on the newest day.
     expect(rows()).toHaveLength(2);
     expect(currentWeight()).toBe(79);
   });
@@ -67,6 +63,18 @@ describe('saveBodyMetric', () => {
     saveBodyMetric(U, '2026-09-19', { weightKg: 79 });
     saveBodyMetric(U, '2026-09-20', { bodyFatPct: 15 });
     expect(currentWeight()).toBe(79);
+  });
+
+  it('keeps a same-day body-fat reading when only the weight is re-saved', () => {
+    saveBodyMetric(U, '2026-09-19', { weightKg: 80, bodyFatPct: 15 });
+    saveBodyMetric(U, '2026-09-19', { weightKg: 79.6 });
+    expect(rows()[0]).toMatchObject({ weightKg: 79.6, bodyFatPct: 15 });
+  });
+
+  it('still clears a field when it is passed as null', () => {
+    saveBodyMetric(U, '2026-09-19', { weightKg: 80, bodyFatPct: 15 });
+    saveBodyMetric(U, '2026-09-19', { bodyFatPct: null });
+    expect(rows()[0]).toMatchObject({ weightKg: 80, bodyFatPct: null });
   });
 
   it('stores the optional measures it is given', () => {
@@ -137,7 +145,6 @@ describe('backfillFromPhotos', () => {
   });
 
   it('never overwrites a real weigh-in on the same day', () => {
-    // Arrange: the user already logged that morning.
     saveBodyMetric(U, '2026-09-10', { weightKg: 80 });
     addPhoto('p1', '2026-09-10T20:00:00', 82);
 

@@ -2,6 +2,7 @@ import { and, desc, eq, gte } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import { bodyMetrics, progressPhotos, users, type BodyMetric } from '@/db/schema';
+import { recordDeletion } from '@/features/sync/tombstones';
 import { randomId } from '@/lib/crypto';
 import { localDateKey } from '@/features/training/dates';
 
@@ -36,10 +37,12 @@ export const saveBodyMetric = (
     })
     .onConflictDoUpdate({
       target: [bodyMetrics.userId, bodyMetrics.date],
+      // Only the fields this call carries: a quick weigh-in must not blank a
+      // body-fat reading saved earlier the same day. `null` still clears.
       set: {
-        weightKg: input.weightKg ?? null,
-        bodyFatPct: input.bodyFatPct ?? null,
-        note: input.note ?? null,
+        ...(input.weightKg !== undefined ? { weightKg: input.weightKg } : {}),
+        ...(input.bodyFatPct !== undefined ? { bodyFatPct: input.bodyFatPct } : {}),
+        ...(input.note !== undefined ? { note: input.note } : {}),
         updatedAt: now,
       },
     })
@@ -110,4 +113,9 @@ export const backfillFromPhotos = (userId: string): number => {
     inserted += 1;
   }
   return inserted;
+};
+
+export const deleteBodyMetric = (id: string): void => {
+  db.delete(bodyMetrics).where(eq(bodyMetrics.id, id)).run();
+  recordDeletion('body_metrics', id);
 };
