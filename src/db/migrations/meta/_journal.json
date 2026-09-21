@@ -169,6 +169,20 @@
       "when": 1789875923595,
       "tag": "0023_motionless_senator_kelly",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1789953609306,
+      "tag": "0024_nostalgic_shooting_star",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1789956818681,
+      "tag": "0025_bored_mandroid",
+      "breakpoints": true
     }
   ]
 }

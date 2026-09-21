@@ -4,12 +4,6 @@ import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-or
 /**
  * Drizzle schema (SQLite — the on-device source of truth).
  *
- * `app_meta` is infrastructure plumbing so the migration pipeline is wired end
- * to end. `users` is the first domain table: it backs the local, offline-first
- * authentication and the per-user profile. When a cloud mirror (PostgreSQL +
- * Better Auth) lands later, these columns map across 1:1 and local becomes the
- * synced offline cache.
- *
  * TIMESTAMPS: every date is stored as an INTEGER epoch-ms (`{ mode: 'timestamp_ms' }`)
  * and surfaced to the app as a JS `Date`. Use `tsMs` for the column and `NOW_MS`
  * for a "set to now" SQL default; in repos, write a plain `new Date()`.
@@ -26,7 +20,6 @@ export const appMeta = sqliteTable('app_meta', {
 
 export type AppMeta = typeof appMeta.$inferSelect;
 
-/** Roles drive section/access gating across the app. */
 export type UserRole = 'admin' | 'user';
 export type Sex = 'male' | 'female';
 /** Activity level keys — multipliers live in `@/features/bmr/calc`. */
@@ -49,15 +42,13 @@ export const users = sqliteTable('users', {
   // is authoritative). Cached locally so the badge/gate resolve offline.
   plan: text('plan').notNull().default('free'),
 
-  // Profile.
   displayName: text('display_name'),
   avatarUri: text('avatar_uri'),
   avatarColor: text('avatar_color'),
   // Preset SVG avatar key (see components/ui/avatars) — used when no photo is set.
   avatarId: text('avatar_id'),
 
-  // Body metrics — used to pre-fill the Harris–Benedict calculator and saved
-  // back to the user "detail" on calculation. Latest snapshot only (no history yet).
+  // Latest snapshot only — BMR/TDEE read it. The history lives in `body_metrics`.
   sex: text('sex').$type<Sex>(),
   age: integer('age'),
   heightCm: real('height_cm'),
@@ -83,16 +74,13 @@ export type NewUser = typeof users.$inferInsert;
 /** Alias kept so call sites read intentionally; the row carries no secrets. */
 export type PublicUser = User;
 
-/** How often a reminder repeats. */
 export type ReminderFrequency = 'daily' | 'weekly';
 
 /**
- * Generic, reusable local reminders (weigh-ins, measurements, water, supplements,
- * …). A weekly reminder can fire on several days, so it maps to *one OS
- * notification per selected day* — `notificationIds` keeps them all so the set
- * can be cancelled/rescheduled on edit or toggle. `weekdays` (1=Sun … 7=Sat) is
- * only used when `frequency` is `weekly`; `hour` is always stored 24h (the
- * 12/24h choice is display-only). Both arrays are JSON-encoded TEXT.
+ * Local reminders (weigh-ins, measurements, water…). A weekly one maps to ONE OS
+ * notification per selected day, so `notificationIds` keeps the whole set or a
+ * toggle/edit leaves orphaned notifications behind. `weekdays` (1=Sun…7=Sat)
+ * applies only to `weekly`; `hour` is always 24h (12/24h is display-only).
  */
 export const reminders = sqliteTable('reminders', {
   id: text('id').primaryKey(),
@@ -138,7 +126,7 @@ export type ProgressPhoto = typeof progressPhotos.$inferSelect;
  *   • ENROLLED COPIES — on enrolment we **deep-copy** a template's rows into
  *     user-owned rows tagged with the new `user_programs.id` (`user_program_id`).
  *     The workout engine then reads only the user's copy, so editing a program
- *     never mutates the shared template (offline, no sync until v2).
+ *     never mutates the shared template.
  *
  * Weeks are stored **routine-relative (1–4)**; the absolute program week is
  * derived from the routine's `order_index` + position. Suggested weights are
@@ -219,7 +207,7 @@ export const routines = sqliteTable(
 export type Routine = typeof routines.$inferSelect;
 export type NewRoutine = typeof routines.$inferInsert;
 
-/** A training day within a routine (e.g. "Push", "Pull", "Legs"). Was "face". */
+/** A training day within a routine (e.g. "Push", "Pull", "Legs"). */
 export const workoutDays = sqliteTable(
   'workout_days',
   {
@@ -414,8 +402,6 @@ export const setLogs = sqliteTable(
 export type SetLog = typeof setLogs.$inferSelect;
 export type NewSetLog = typeof setLogs.$inferInsert;
 
-/* ── Adherence (long-term consistency tracking) ────────────────────────────── */
-
 /** Trained as planned · deliberate rest · missed a planned session. */
 export type TrainingDayStatus = 'trained' | 'rest' | 'skipped';
 /** Why a planned session was missed — powers the "why not" legend. */
@@ -431,11 +417,10 @@ export const SKIP_REASONS = [
 export type SkipReason = (typeof SKIP_REASONS)[number];
 
 /**
- * One row per user per calendar day recording whether they trained. This is the
- * substrate for the consistency heatmap, streaks, and long-term progress — the
- * product's core "metrics over time" promise. `date` is the **device-local** day
- * as 'YYYY-MM-DD' (not an instant) so a day never drifts across the UTC boundary
- * and month-range queries are trivial string comparisons.
+ * One row per user per calendar day recording whether they trained — the
+ * substrate for the heatmap and streaks. `date` is the **device-local** day as
+ * 'YYYY-MM-DD' (not an instant) so a day never drifts across the UTC boundary
+ * and month-range queries are plain string comparisons.
  */
 export const trainingDays = sqliteTable(
   'training_days',
@@ -449,7 +434,7 @@ export const trainingDays = sqliteTable(
     note: text('note'),
     /** The session that satisfied this day, when trained. */
     workoutLogId: text('workout_log_id'),
-    /** What was scheduled/trained (for pattern analysis later). */
+    /** The split that was scheduled/trained. */
     workoutDayId: text('workout_day_id'),
     createdAt: tsMs('created_at').notNull().default(NOW_MS),
     updatedAt: tsMs('updated_at').notNull().default(NOW_MS),
@@ -464,13 +449,10 @@ export type TrainingDay = typeof trainingDays.$inferSelect;
 export type NewTrainingDay = typeof trainingDays.$inferInsert;
 
 /**
- * Body measurements over time — the history `users` deliberately does not keep
- * (that row holds only the latest snapshot, which BMR/TDEE read).
- *
- * Deliberately a wide "metrics for a day" row rather than a `body_weights`
- * table: girths and, later, nutrition targets extend it by adding columns
- * instead of forking a near-identical table per metric. Every measure is
- * nullable — a user who only ever weighs in leaves the rest null.
+ * Whole-body readings over time — the history `users` deliberately does not keep
+ * (that row holds only the latest snapshot, which BMR/TDEE read). Tape girths
+ * are NOT columns here: they live long-format in `body_measurements`, so a new
+ * site never needs a migration.
  *
  * `date` is the **device-local** day as 'YYYY-MM-DD', matching `training_days`,
  * and is unique per user: one row per day, re-weighing updates it.
@@ -495,6 +477,149 @@ export const bodyMetrics = sqliteTable(
 
 export type BodyMetric = typeof bodyMetrics.$inferSelect;
 export type NewBodyMetric = typeof bodyMetrics.$inferInsert;
+
+/**
+ * Tape measurements, one row per (day, site). Long format on purpose: the set
+ * of sites is a catalogue in code (`features/body/sites.ts`), so adding one is
+ * a catalogue entry, never a migration. `site` is therefore plain text — a row
+ * written by a newer build with a site this build does not know is kept and
+ * simply not rendered.
+ *
+ * Always centimetres; inches are a display concern.
+ */
+export const bodyMeasurements = sqliteTable(
+  'body_measurements',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(),
+    date: text('date').notNull(),
+    site: text('site').notNull(),
+    valueCm: real('value_cm').notNull(),
+    createdAt: tsMs('created_at').notNull().default(NOW_MS),
+    updatedAt: tsMs('updated_at').notNull().default(NOW_MS),
+  },
+  (t) => [
+    index('idx_body_measurements_user').on(t.userId),
+    uniqueIndex('idx_body_measurements_user_date_site').on(t.userId, t.date, t.site),
+  ],
+);
+
+export type BodyMeasurement = typeof bodyMeasurements.$inferSelect;
+
+export type BodyPhase = 'cut' | 'maintain' | 'recomp' | 'bulk';
+export type TrainingLevel = 'beginner' | 'intermediate' | 'advanced';
+
+/** A calorie re-adjustment made mid-phase. It moves carbs only, and it never
+ * resets the phase's start point — the weight calendar keeps its origin. */
+export type GoalAdjustment = { date: string; kcalDelta: number };
+
+/**
+ * A nutrition phase: what the lifter is doing (cut/bulk/…), how fast, from what
+ * starting point, and the targets that follow. Phases are HISTORY — a row per
+ * phase, never an overwritten setting — because the weekly target-weight
+ * calendar is derived from `startDate` + `startWeightKg` + `rateKgPerWeek`.
+ *
+ * The ACTIVE phase is the newest row with `endedAt IS NULL`. There is
+ * deliberately no unique index enforcing one: two offline devices can each
+ * start a phase, and a partial unique index cannot be reconciled by sync.
+ * `startGoal` ends the previous phase in the same transaction instead.
+ *
+ * `rateKgPerWeek` is SIGNED (negative = losing); the UI shows its magnitude.
+ * The `*AtStart` columns freeze the inputs the targets were computed from, so
+ * a later profile edit never silently rewrites a running phase.
+ */
+export const bodyGoals = sqliteTable(
+  'body_goals',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(),
+    phase: text('phase').$type<BodyPhase>().notNull(),
+    startDate: text('start_date').notNull(),
+    startWeightKg: real('start_weight_kg').notNull(),
+    rateKgPerWeek: real('rate_kg_per_week').notNull(),
+    durationWeeks: integer('duration_weeks').notNull(),
+    /** Expo-numbered (1=Sun…7=Sat), like every weekday column. */
+    checkinWeekday: integer('checkin_weekday').notNull(),
+    trainingLevel: text('training_level').$type<TrainingLevel>(),
+    bodyFatPctAtStart: real('body_fat_pct_at_start'),
+    tdeeAtStart: real('tdee_at_start'),
+    targetKcal: real('target_kcal').notNull(),
+    proteinG: real('protein_g').notNull(),
+    fatG: real('fat_g').notNull(),
+    carbsG: real('carbs_g').notNull(),
+    adjustments: text('adjustments', { mode: 'json' }).$type<GoalAdjustment[]>(),
+    endedAt: tsMs('ended_at'),
+    createdAt: tsMs('created_at').notNull().default(NOW_MS),
+    updatedAt: tsMs('updated_at').notNull().default(NOW_MS),
+  },
+  (t) => [index('idx_body_goals_user').on(t.userId)],
+);
+
+export type BodyGoal = typeof bodyGoals.$inferSelect;
+
+/**
+ * Foods the user defined themselves. The shipped catalogue is NOT in the
+ * database — it is a generated module (`features/nutrition/foods.data.ts`) —
+ * so this table only ever holds user-owned rows. Values are per 100 g.
+ */
+export const customFoods = sqliteTable(
+  'custom_foods',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(),
+    name: text('name').notNull(),
+    kcal: real('kcal').notNull(),
+    proteinG: real('protein_g').notNull().default(0),
+    carbsG: real('carbs_g').notNull().default(0),
+    fatG: real('fat_g').notNull().default(0),
+    fiberG: real('fiber_g').notNull().default(0),
+    /** A typical amount in grams, prefilled when logging. */
+    servingG: real('serving_g').notNull().default(100),
+    createdAt: tsMs('created_at').notNull().default(NOW_MS),
+    updatedAt: tsMs('updated_at').notNull().default(NOW_MS),
+  },
+  (t) => [index('idx_custom_foods_user').on(t.userId)],
+);
+
+export type CustomFood = typeof customFoods.$inferSelect;
+
+export type Meal = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+
+/**
+ * One eaten item. The nutrient columns are the entry's TOTALS, snapshotted at
+ * log time — same reasoning as `workout_logs.plannedSnapshot`: regenerating the
+ * catalogue or editing a custom food must never rewrite what was eaten.
+ *
+ * `foodId` is a catalogue slug, a `custom_foods.id`, or NULL for a quick-add
+ * (calories typed directly, no food behind them). `name` is the label as
+ * logged; catalogue entries re-resolve theirs at render so the language follows
+ * the app, and fall back to this when the food is no longer known.
+ *
+ * `date` is the device-local day 'YYYY-MM-DD', like every other daily table.
+ */
+export const foodLogs = sqliteTable(
+  'food_logs',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(),
+    date: text('date').notNull(),
+    meal: text('meal').$type<Meal>().notNull(),
+    foodId: text('food_id'),
+    name: text('name').notNull(),
+    /** NULL for a quick-add, which has no weight. */
+    grams: real('grams'),
+    kcal: real('kcal').notNull(),
+    proteinG: real('protein_g').notNull().default(0),
+    carbsG: real('carbs_g').notNull().default(0),
+    fatG: real('fat_g').notNull().default(0),
+    fiberG: real('fiber_g').notNull().default(0),
+    createdAt: tsMs('created_at').notNull().default(NOW_MS),
+    updatedAt: tsMs('updated_at').notNull().default(NOW_MS),
+  },
+  (t) => [index('idx_food_logs_user_date').on(t.userId, t.date)],
+);
+
+export type FoodLog = typeof foodLogs.$inferSelect;
 
 /**
  * Per-user defaults for an exercise, applied whenever it is added to a split
@@ -552,8 +677,6 @@ export const warmupRoutines = sqliteTable(
 );
 
 export type WarmupRoutine = typeof warmupRoutines.$inferSelect;
-
-/* ── Sync (premium: SQLite ↔ Neon delta sync) ──────────────────────────────── */
 
 /**
  * Tombstone log. Local deletes stay hard (reads never change), but each delete
