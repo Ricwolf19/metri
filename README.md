@@ -67,7 +67,8 @@ Two promises, and they are enforced in code rather than in copy:
 
 **You can always take your data out.** The export button is available to every user, including
 one who has never created an account. It produces a single JSON file — programs, routines,
-sessions, every logged set, adherence history, reminders and your progress-photo timeline — in a
+sessions, every logged set, adherence history, body measurements and phases, your food diary,
+reminders and your progress-photo timeline — in a
 [documented schema](./AGENTS.md). Importing it back is equally unconditional. If metri ever
 disappears, your training history does not go with it.
 

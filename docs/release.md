@@ -35,6 +35,13 @@ Testers see the whole story in the app itself: a dismissable banner on Home rout
 walks through installing a new APK. Dismissal is stored per version, so the banner returns on the
 next release.
 
+## This cycle needs an APK, not an OTA
+
+`expo-blur` and `expo-audio` are native modules and `app.json` gained a foreground-service
+type, so the `runtimeVersion` fingerprint changed. Publishing this over `--channel beta` would
+leave every existing install on the old binary and unable to take the update. Cut the APK first
+(`Actions → Beta APK → Run workflow`, or a release), then resume OTA updates.
+
 ## Load-bearing details
 
 - **`eas build --output` only works for local builds.** On a cloud build the CLI aborts with

@@ -129,7 +129,8 @@ Every one of these guards was a real bug:
    SQL-injection primitive.
 3. **Secondary unique indexes need `EXTRA_UNIQUE`.** `on conflict(id)` doesn't
    cover a table with another unique index (`training_days` and `body_metrics`
-   on `(user_id, date)`, `exercise_settings` on `(user_id, exercise_id)`): two
+   on `(user_id, date)`, `body_measurements` on `(user_id, date, site)`,
+   `exercise_settings` on `(user_id, exercise_id)`): two
    devices can create the same logical row under
    different ids. The apply clears the local squatter first — inside a SQLite
    transaction with the insert, and only after its own LWW check, so an older
