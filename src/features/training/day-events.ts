@@ -3,6 +3,8 @@ import { and, asc, eq, gte, lt, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { exercises, setLogs, users, workoutDays, workoutLogs } from '@/db/schema';
 
+import { dayBounds } from './dates';
+
 /**
  * Everything the app recorded on a calendar day — the data behind the day
  * detail sheet. Extensible by design: future feeds (weigh-ins, measurements)
@@ -37,13 +39,8 @@ export type DayDetail = {
   tdeeComputed: boolean;
 };
 
-const dayRange = (dateKey: string): [Date, Date] => {
-  const [y, m, d] = dateKey.split('-').map(Number);
-  return [new Date(y, m - 1, d), new Date(y, m - 1, d + 1)];
-};
-
 export const getDayDetail = (userId: string, dateKey: string): DayDetail => {
-  const [start, end] = dayRange(dateKey);
+  const [start, end] = dayBounds(dateKey);
 
   const logs = db
     .select({ log: workoutLogs, day: workoutDays })

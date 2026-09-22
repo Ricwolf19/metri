@@ -9,5 +9,11 @@ export const dateFromKey = (key: string): Date => {
   return new Date(y, m - 1, d);
 };
 
+/** A local day as [midnight, next midnight) — the window its instants fall in. */
+export const dayBounds = (key: string): [Date, Date] => {
+  const start = dateFromKey(key);
+  return [start, new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1)];
+};
+
 /** Expo weekday for a local-midnight cursor. */
 export const weekdayOf = (d: Date): number => d.getDay() + 1;
