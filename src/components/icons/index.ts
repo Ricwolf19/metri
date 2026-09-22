@@ -27,6 +27,7 @@ import {
   Minus,
   Check,
   Timer,
+  ClockRotateRight,
   Play,
   Xmark,
   StarSolid,
@@ -97,6 +98,7 @@ export const PlusIcon = sized(Plus, 'PlusIcon');
 export const MinusIcon = sized(Minus, 'MinusIcon');
 export const CheckIcon = sized(Check, 'CheckIcon');
 export const TimerIcon = sized(Timer, 'TimerIcon');
+export const HistoryIcon = sized(ClockRotateRight, 'HistoryIcon');
 export const PlayIcon = sized(Play, 'PlayIcon');
 export const XIcon = sized(Xmark, 'XIcon');
 export const StarIcon = sized(StarSolid, 'StarIcon');

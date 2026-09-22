@@ -3,7 +3,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Text, View } from 'react-native';
 
-import { ChevronRightIcon, PlayIcon, PlusIcon, SparksIcon } from '@/components/icons';
+import { ChevronRightIcon, HistoryIcon, PlayIcon, PlusIcon, SparksIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import {
   BlockingOverlay,
@@ -34,7 +34,7 @@ import {
 } from '@/features/training/schedule';
 import {
   activeWorkoutQuery,
-  completedDayIdsForWeek,
+  completedDaysQuery,
   startWorkout,
 } from '@/features/training/session.repo';
 import { useEnrollment } from '@/features/training/useEnrollment';
@@ -68,6 +68,11 @@ const Training = () => {
   const { data: recommended } = useLiveQuery(recommendedProgramsQuery());
   const { data: own } = useLiveQuery(ownProgramsQuery(userId), [userId]);
   const activeWorkout = actives[0] ?? null;
+  // Live, so a session deleted from the history un-greys its split on return.
+  const { data: completedRows } = useLiveQuery(
+    completedDaysQuery(enrollment?.id ?? '', enrollment?.currentWeek ?? 0),
+    [enrollment?.id, enrollment?.currentWeek],
+  );
 
   if (!settled && loaded) setSettled(true);
 
@@ -95,9 +100,7 @@ const Training = () => {
 
   // Both flows write a tree of rows synchronously; the overlay paints first so
   // the tap never looks ignored.
-  const completed = enrollment
-    ? completedDayIdsForWeek(enrollment.id, enrollment.currentWeek)
-    : new Set<string>();
+  const completed = new Set(completedRows.map((r) => r.dayId));
 
   const begin = (dayId: string) => {
     const routine = structure?.currentRoutine;
@@ -234,6 +237,19 @@ const Training = () => {
                 </View>
               </>
             ) : null}
+
+            <PressableScale onPress={() => router.push('/training/history')}>
+              <View className="mt-5 flex-row items-center rounded-field border border-ink-700 bg-ink-850 py-3 pl-4 pr-3">
+                <HistoryIcon color={muted} size={18} />
+                <View className="ml-3 flex-1">
+                  <Text className="text-sm font-sans-semibold text-ink-50">
+                    {t('training.sessions')}
+                  </Text>
+                  <Text className="mt-0.5 text-xs text-ink-400">{t('training.sessionsSub')}</Text>
+                </View>
+                <ChevronRightIcon color={muted} size={18} />
+              </View>
+            </PressableScale>
 
             <View className="mt-5">
               <HoldButton

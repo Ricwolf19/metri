@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import type { Locale } from '@/i18n';
@@ -9,6 +9,7 @@ import {
   setLogs,
   weekConfigs,
   workoutDayExercises,
+  workoutDays,
   workoutLogs,
   type Exercise,
   type PlannedSlot,
@@ -22,8 +23,8 @@ import { randomId } from '@/lib/crypto';
 
 import { recordDeletion } from '@/features/sync/tombstones';
 
-import { localDateKey, markTrainingDay } from './adherence.repo';
-import { advanceUserProgram } from './enroll';
+import { localDateKey, markTrainingDay, releaseTrainingDay } from './adherence.repo';
+import { advanceUserProgram, rewindUserProgram } from './enroll';
 import { estimate1Rm, roundToPlate, weightForReps } from './progression';
 
 /* ── Active session ──────────────────────────────────────────────────────── */
@@ -131,38 +132,87 @@ export const finishWorkout = (id: string, rating?: number, notes?: string): void
   advanceUserProgram(log.userProgramId);
 };
 
-/** Splits already completed in a program week — the plan says they are done. */
-export const completedDayIdsForWeek = (userProgramId: string, weekNumber: number): Set<string> =>
-  new Set(
-    db
-      .select({ dayId: workoutLogs.workoutDayId })
-      .from(workoutLogs)
-      .where(
-        and(
-          eq(workoutLogs.userProgramId, userProgramId),
-          eq(workoutLogs.weekNumber, weekNumber),
-          eq(workoutLogs.status, 'completed'),
-        ),
-      )
-      .all()
-      .map((r) => r.dayId),
-  );
+/** Live query of the splits completed in a program week (the Train tab's done checks). */
+export const completedDaysQuery = (userProgramId: string, weekNumber: number) =>
+  db
+    .select({ dayId: workoutLogs.workoutDayId })
+    .from(workoutLogs)
+    .where(
+      and(
+        eq(workoutLogs.userProgramId, userProgramId),
+        eq(workoutLogs.weekNumber, weekNumber),
+        eq(workoutLogs.status, 'completed'),
+      ),
+    );
 
-/** Discard a session and its sets (used to cancel a started-by-mistake workout). */
-export const abandonWorkout = (id: string): void => {
+const deleteSetsOf = (workoutLogId: string): void => {
   const setIds = db
     .select({ id: setLogs.id })
     .from(setLogs)
-    .where(eq(setLogs.workoutLogId, id))
+    .where(eq(setLogs.workoutLogId, workoutLogId))
     .all()
     .map((r) => r.id);
-  db.delete(setLogs).where(eq(setLogs.workoutLogId, id)).run();
+  db.delete(setLogs).where(eq(setLogs.workoutLogId, workoutLogId)).run();
   recordDeletion('set_logs', setIds);
+};
+
+/** Discard a session and its sets (used to cancel a started-by-mistake workout). */
+export const abandonWorkout = (id: string): void => {
+  deleteSetsOf(id);
   db.update(workoutLogs)
     .set({ status: 'abandoned', updatedAt: new Date() })
     .where(eq(workoutLogs.id, id))
     .run();
 };
+
+/**
+ * Hard-delete a session and everything it recorded, then undo what finishing
+ * it did: the day it marked trained is released and the program rewinds if
+ * that week is no longer complete. Returns whether the program moved back, so
+ * the caller can re-sync reminders for a schedule that may have changed.
+ */
+export const deleteWorkout = (id: string): boolean => {
+  const log = getWorkout(id);
+  if (!log) return false;
+  deleteSetsOf(id);
+  db.delete(workoutLogs).where(eq(workoutLogs.id, id)).run();
+  recordDeletion('workout_logs', id);
+  releaseTrainingDay(log.userId, id);
+
+  if (log.status !== 'completed') return false;
+  const [day] = db
+    .select({ routineId: workoutDays.routineId })
+    .from(workoutDays)
+    .where(eq(workoutDays.id, log.workoutDayId))
+    .all();
+  return day ? rewindUserProgram(log.userProgramId, day.routineId, log.weekNumber) : false;
+};
+
+/** Live query of a program's finished sessions, newest first, with their working-set totals. */
+export const programSessionsQuery = (userProgramId: string) =>
+  db
+    .select({
+      id: workoutLogs.id,
+      workoutDayId: workoutLogs.workoutDayId,
+      weekNumber: workoutLogs.weekNumber,
+      completedAt: workoutLogs.completedAt,
+      durationSeconds: workoutLogs.durationSeconds,
+      routineId: workoutDays.routineId,
+      dayName: workoutDays.name,
+      dayOrder: workoutDays.orderIndex,
+      setCount: sql<number>`count(${setLogs.id})`,
+      volumeKg: sql<number>`coalesce(sum(${setLogs.weightKg} * ${setLogs.reps}), 0)`,
+    })
+    .from(workoutLogs)
+    .leftJoin(workoutDays, eq(workoutDays.id, workoutLogs.workoutDayId))
+    .leftJoin(setLogs, and(eq(setLogs.workoutLogId, workoutLogs.id), eq(setLogs.isWarmup, false)))
+    .where(and(eq(workoutLogs.userProgramId, userProgramId), eq(workoutLogs.status, 'completed')))
+    .groupBy(workoutLogs.id)
+    .orderBy(desc(workoutLogs.completedAt));
+
+export type ProgramSession = Awaited<
+  ReturnType<ReturnType<typeof programSessionsQuery>['all']>
+>[number];
 
 /* ── Session exercises (slot + exercise + this week's prescription) ────────── */
 

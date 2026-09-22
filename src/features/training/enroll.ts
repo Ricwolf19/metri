@@ -246,31 +246,7 @@ export const advanceUserProgram = (userProgramId: string): void => {
   if (!owned.length) return;
   const current = owned.find((r) => r.id === enrollment.currentRoutineId) ?? owned[0];
 
-  const days = db
-    .select({ id: workoutDays.id })
-    .from(workoutDays)
-    .where(eq(workoutDays.routineId, current.id))
-    .all();
-  if (!days.length) return;
-  const dayIds = new Set(days.map((d) => d.id));
-
-  // Distinct days completed at this routine-relative week.
-  const doneDayIds = new Set(
-    db
-      .select({ workoutDayId: workoutLogs.workoutDayId })
-      .from(workoutLogs)
-      .where(
-        and(
-          eq(workoutLogs.userProgramId, userProgramId),
-          eq(workoutLogs.weekNumber, enrollment.currentWeek),
-          eq(workoutLogs.status, 'completed'),
-        ),
-      )
-      .all()
-      .map((r) => r.workoutDayId)
-      .filter((id) => dayIds.has(id)),
-  );
-  if (doneDayIds.size < dayIds.size) return; // week not finished yet
+  if (!isWeekComplete(userProgramId, current.id, enrollment.currentWeek)) return;
 
   if (enrollment.currentWeek < current.durationWeeks) {
     setEnrollmentPosition(userProgramId, current.id, enrollment.currentWeek + 1);
@@ -285,6 +261,93 @@ export const advanceUserProgram = (userProgramId: string): void => {
     .set({ status: 'completed', completedAt: new Date(), updatedAt: new Date() })
     .where(eq(userPrograms.id, userProgramId))
     .run();
+};
+
+/** Every split of the routine has a completed session at this routine-relative week. */
+const isWeekComplete = (userProgramId: string, routineId: string, weekNumber: number): boolean => {
+  const days = db
+    .select({ id: workoutDays.id })
+    .from(workoutDays)
+    .where(eq(workoutDays.routineId, routineId))
+    .all();
+  if (!days.length) return false;
+  const dayIds = new Set(days.map((d) => d.id));
+  const done = new Set(
+    db
+      .select({ workoutDayId: workoutLogs.workoutDayId })
+      .from(workoutLogs)
+      .where(
+        and(
+          eq(workoutLogs.userProgramId, userProgramId),
+          eq(workoutLogs.weekNumber, weekNumber),
+          eq(workoutLogs.status, 'completed'),
+        ),
+      )
+      .all()
+      .map((r) => r.workoutDayId)
+      .filter((id) => dayIds.has(id)),
+  );
+  return done.size === dayIds.size;
+};
+
+/**
+ * Move the enrollment back to a week a deleted session left unfinished — the
+ * inverse of `advanceUserProgram`. It only ever rewinds, and never past that
+ * week, so a position the lifter set by hand survives. A program that deletion
+ * un-completes reopens only while the user has nothing else enrolled. Returns
+ * whether the position moved.
+ */
+export const rewindUserProgram = (
+  userProgramId: string,
+  routineId: string,
+  weekNumber: number,
+): boolean => {
+  const [enrollment] = db
+    .select()
+    .from(userPrograms)
+    .where(eq(userPrograms.id, userProgramId))
+    .all();
+  if (!enrollment || enrollment.status === 'abandoned') return false;
+
+  const owned = db
+    .select()
+    .from(routines)
+    .where(eq(routines.userProgramId, userProgramId))
+    .orderBy(asc(routines.orderIndex))
+    .all();
+  const target = owned.find((r) => r.id === routineId);
+  if (!target) return false;
+
+  if (enrollment.status === 'completed') {
+    const [other] = db
+      .select({ id: userPrograms.id })
+      .from(userPrograms)
+      .where(
+        and(
+          eq(userPrograms.userId, enrollment.userId),
+          inArray(userPrograms.status, ['active', 'paused']),
+        ),
+      )
+      .limit(1)
+      .all();
+    if (other) return false;
+  } else {
+    const current = owned.find((r) => r.id === enrollment.currentRoutineId) ?? owned[0];
+    const before =
+      target.orderIndex < current.orderIndex ||
+      (target.id === current.id && weekNumber < enrollment.currentWeek);
+    if (!before) return false;
+  }
+  if (isWeekComplete(userProgramId, target.id, weekNumber)) return false;
+
+  if (enrollment.status === 'completed') {
+    db.update(userPrograms)
+      .set({ status: 'active', completedAt: null, updatedAt: new Date() })
+      .where(eq(userPrograms.id, userProgramId))
+      .run();
+  }
+  setEnrollmentPosition(userProgramId, target.id, weekNumber);
+  return true;
 };
 
 /** Update the user's position within their program (routine + relative week). */

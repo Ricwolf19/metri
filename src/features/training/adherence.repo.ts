@@ -1,16 +1,18 @@
-import { and, asc, desc, eq, gte, like, lte } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, like, lt, lte } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import {
   trainingDays,
   userPrograms,
+  workoutLogs,
   type SkipReason,
   type TrainingDay,
   type TrainingDayStatus,
 } from '@/db/schema';
+import { recordDeletion } from '@/features/sync/tombstones';
 import { randomId } from '@/lib/crypto';
 
-import { localDateKey } from './dates';
+import { dayBounds, localDateKey } from './dates';
 import { streakFromEntries } from './streak';
 
 /**
@@ -62,6 +64,46 @@ export const markTrainingDay = (userId: string, input: MarkDayInput): TrainingDa
     .returning()
     .all();
   return row;
+};
+
+/**
+ * Detach a deleted session from the day it satisfied. Another session finished
+ * that day takes its place; with none left the mark goes too, so the day reads
+ * as unanswered again instead of claiming work that no longer exists.
+ */
+export const releaseTrainingDay = (userId: string, workoutLogId: string): void => {
+  const [day] = db
+    .select()
+    .from(trainingDays)
+    .where(and(eq(trainingDays.userId, userId), eq(trainingDays.workoutLogId, workoutLogId)))
+    .all();
+  if (!day) return;
+
+  const [start, end] = dayBounds(day.date);
+  const [other] = db
+    .select({ id: workoutLogs.id, workoutDayId: workoutLogs.workoutDayId })
+    .from(workoutLogs)
+    .where(
+      and(
+        eq(workoutLogs.userId, userId),
+        eq(workoutLogs.status, 'completed'),
+        gte(workoutLogs.completedAt, start),
+        lt(workoutLogs.completedAt, end),
+      ),
+    )
+    .orderBy(desc(workoutLogs.completedAt))
+    .limit(1)
+    .all();
+
+  if (other) {
+    db.update(trainingDays)
+      .set({ workoutLogId: other.id, workoutDayId: other.workoutDayId, updatedAt: new Date() })
+      .where(eq(trainingDays.id, day.id))
+      .run();
+    return;
+  }
+  db.delete(trainingDays).where(eq(trainingDays.id, day.id)).run();
+  recordDeletion('training_days', day.id);
 };
 
 /** Live query of a single day's entry (drives the "mark today" widget). */

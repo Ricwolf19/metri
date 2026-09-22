@@ -7,7 +7,14 @@ vi.mock('@/db/client', async () => ({ db: await createTestDb() }));
 vi.mock('@/lib/crypto', () => ({ randomId: () => crypto.randomUUID() }));
 
 const { db } = await import('@/db/client');
-const { completedDayIdsForWeek } = await import('./session.repo');
+const { completedDaysQuery } = await import('./session.repo');
+
+const completedDayIdsForWeek = (userProgramId: string, weekNumber: number) =>
+  new Set(
+    completedDaysQuery(userProgramId, weekNumber)
+      .all()
+      .map((r) => r.dayId),
+  );
 
 const ENROLLMENT = 'up1';
 
@@ -30,7 +37,7 @@ const log = (input: {
     .run();
 };
 
-describe('completedDayIdsForWeek', () => {
+describe('completedDaysQuery', () => {
   beforeEach(() => {
     db.delete(workoutLogs).run();
     db.delete(users).run();

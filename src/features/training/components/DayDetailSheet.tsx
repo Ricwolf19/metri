@@ -18,6 +18,7 @@ import { dayDisplayName, exerciseDisplayName } from '../labels';
 import { dayQuery, markTrainingDay } from '../adherence.repo';
 import { getDayDetail, type LoggedSet } from '../day-events';
 import { fromKg } from '../progression';
+import { DeleteSessionButton } from './DeleteSessionButton';
 import { SkipReasonChips } from './SkipReasonChips';
 
 const STATUS_CHOICES: { status: TrainingDayStatus; key: TranslationKey }[] = [
@@ -64,6 +65,9 @@ export const DayDetailSheet = ({
     exerciseDisplayName({ id: ex.exerciseId, name: ex.name }, locale);
   const splitName = (w: { dayName: string; dayOrder: number | null }) =>
     w.dayOrder != null ? dayDisplayName({ name: w.dayName, orderIndex: w.dayOrder }, t) : w.dayName;
+  // The detail is a one-shot read, so a deleted session is hidden here rather
+  // than waiting for a re-read the sheet has no signal to make.
+  const [deleted, setDeleted] = useState<ReadonlySet<string>>(new Set());
   const [marking, setMarking] = useState(false);
   const [askingReason, setAskingReason] = useState(false);
 
@@ -80,7 +84,7 @@ export const DayDetailSheet = ({
     setAskingReason(false);
   };
 
-  const workouts = detail?.workouts ?? [];
+  const workouts = (detail?.workouts ?? []).filter((w) => !deleted.has(w.logId));
   const totalSets = workouts.reduce((n, w) => n + w.setCount, 0);
   const totalVolume = workouts.reduce((n, w) => n + w.volumeKg, 0);
   const totalDuration = workouts.reduce((n, w) => n + (w.durationSeconds ?? 0), 0);
@@ -129,6 +133,11 @@ export const DayDetailSheet = ({
                     {w.durationSeconds ? ` · ${fmtDur(w.durationSeconds)}` : ''}
                   </Text>
                 </View>
+                <DeleteSessionButton
+                  logId={w.logId}
+                  compact
+                  onDeleted={() => setDeleted((prev) => new Set(prev).add(w.logId))}
+                />
               </View>
               {w.exercises.length ? (
                 <View className="mt-3 gap-2 border-t border-ink-800 pt-3">

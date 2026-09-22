@@ -727,6 +727,18 @@ export const en = {
   'training.redoBody':
     'You already completed it this week. Doing it again is outside the plan and adds fatigue that will show up in your metrics for the rest of the week.',
   'training.redoConfirm': 'Do it again',
+  'training.sessions': 'Sessions',
+  'training.sessionsSub': 'Everything this program has logged',
+  'training.sessionsEmpty': 'No finished sessions in this program yet.',
+  'training.sessionsHint':
+    'Delete a session logged by mistake and the program moves back to the week it leaves unfinished.',
+  'training.deleteSession': 'Delete session',
+  'training.deleteSessionTitle': 'Delete this session?',
+  'training.deleteSessionBody':
+    'Its sets leave your history, stats and records. If that week is no longer complete, the program moves back to it. This cannot be undone.',
+  'training.holdDeleteSession': 'Hold to delete',
+  'training.sessionDeleted': 'Session deleted.',
+  'training.sessionDeletedRewound': 'Session deleted. The program moved back to that week.',
   'training.doneThisWeek': 'Done this week',
   'training.effortTitle': 'How hard was that set?',
   'training.effortFailure': 'To failure — nothing in reserve',

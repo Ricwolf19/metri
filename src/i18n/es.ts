@@ -737,6 +737,18 @@ export const es: Record<TranslationKey, string> = {
   'training.redoBody':
     'Ya lo completaste esta semana. Hacerlo de nuevo se sale del plan y suma fatiga que se notará en tus métricas el resto de la semana.',
   'training.redoConfirm': 'Hacerlo de nuevo',
+  'training.sessions': 'Sesiones',
+  'training.sessionsSub': 'Todo lo que ha registrado este programa',
+  'training.sessionsEmpty': 'Aún no hay sesiones terminadas en este programa.',
+  'training.sessionsHint':
+    'Borra una sesión registrada por error y el programa vuelve a la semana que queda incompleta.',
+  'training.deleteSession': 'Borrar sesión',
+  'training.deleteSessionTitle': '¿Borrar esta sesión?',
+  'training.deleteSessionBody':
+    'Sus series salen de tu historial, estadísticas y récords. Si esa semana queda incompleta, el programa vuelve a ella. No se puede deshacer.',
+  'training.holdDeleteSession': 'Mantén para borrar',
+  'training.sessionDeleted': 'Sesión borrada.',
+  'training.sessionDeletedRewound': 'Sesión borrada. El programa volvió a esa semana.',
   'training.doneThisWeek': 'Hecho esta semana',
   'training.effortTitle': '¿Qué tan exigente fue la serie?',
   'training.effortFailure': 'Al fallo — sin reserva',
