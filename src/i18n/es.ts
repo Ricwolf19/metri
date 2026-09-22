@@ -1103,7 +1103,7 @@ export const es: Record<TranslationKey, string> = {
   'dateFormat.title': 'Formato de fecha',
   'dateFormat.system': 'Sistema',
   'dateFormat.full': 'Completo',
-  'dayDetail.setsLine': '{count} series · {volume} kg',
+  'dayDetail.setsLine': '{count} series · {volume} {unit}',
   'dayDetail.share': 'Compartir este día',
   'dayDetail.shareFailed': 'No se pudo compartir ahora.',
   'share.trainingDay': 'Día de entrenamiento',

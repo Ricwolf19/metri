@@ -1090,7 +1090,7 @@ export const en = {
   'dateFormat.title': 'Date format',
   'dateFormat.system': 'System',
   'dateFormat.full': 'Full',
-  'dayDetail.setsLine': '{count} sets · {volume} kg',
+  'dayDetail.setsLine': '{count} sets · {volume} {unit}',
   'dayDetail.share': 'Share this day',
   'dayDetail.shareFailed': 'Could not share right now.',
   'share.trainingDay': 'Training day',
