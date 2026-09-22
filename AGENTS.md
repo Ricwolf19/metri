@@ -21,7 +21,7 @@ Premium-only and automatic. `README.md` is the presentation card only; the long-
 ## Layout
 
 ```
-src/app/         Expo Router screens: (auth), (tabs), training/{program,start,edit,workout},
+src/app/         Expo Router screens: (auth), (tabs), training/{program,start,edit,workout,history},
                  metrics-customize, plan, profile…
 src/components/  ui/ (shared primitives — import from the barrel), icons/ (Iconoir barrel), TopBar
 src/db/          schema.ts, client.ts, migrations/ (generated)
@@ -236,6 +236,13 @@ Read `docs/sync.md` before touching `src/features/sync/`. Non-negotiables:
   The Home catch-up asks about unresolved planned days up to 30 back (trained / rest / missed, plus
   a bulk "all missed"), and about TODAY only once its scheduled session plus the check-in delay has
   passed — otherwise the check-in notification would ask a question the app offers nowhere to answer.
+- **Session history is append-only; deletion is the one undo.** A repeated split is a new
+  `workout_logs` row, never a rewrite. `deleteWorkout` (reached from `/training/history` and the
+  day sheet, both through `<DeleteSessionButton>`) hard-deletes the log + sets with tombstones, hands
+  the `training_days` mark to another session finished that day or clears it, and calls
+  `rewindUserProgram` — the inverse of `advanceUserProgram`. Rewind only moves BACK, and never
+  past the deleted week, so a position set by hand survives; it reopens a completed program only
+  when nothing else is enrolled.
 - **Warm-up sets** are `set_logs.isWarmup` rows logged from the same screen. Every read path
   excludes them — volume, PRs, e1RM, progression and the muscle models — so a new aggregate must
   filter them too. They never start the prescribed rest and carry no RIR (submaximal by
