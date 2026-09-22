@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.11.0](https://github.com/Ricwolf19/metri/compare/metri-v1.10.0...metri-v1.11.0) (2026-09-22)
+
+
+### Features
+
+* **training:** delete a finished session and rewind ([065600b](https://github.com/Ricwolf19/metri/commit/065600b01954f1e51dd6b22e4204dc946bd62818))
+
+
+### Bug Fixes
+
+* **app:** label session volume in the chosen unit ([f0b1f8a](https://github.com/Ricwolf19/metri/commit/f0b1f8a6ea9df241a13a7434e5b07a7b483eae12))
+
 ## [1.10.0](https://github.com/Ricwolf19/metri/compare/metri-v1.9.0...metri-v1.10.0) (2026-09-21)
 
 
