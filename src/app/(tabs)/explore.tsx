@@ -10,6 +10,7 @@ import { CALC_META, calcShortTitle } from '@/features/calculators/registry';
 import type { CalcId } from '@/features/calculators/types';
 import { getDocs, searchDocs, type DocSection } from '@/features/docs';
 import { TOPICS } from '@/features/explore/topics';
+import { QuizCard } from '@/features/quiz/QuizCard';
 import { useI18n, useT } from '@/i18n';
 
 const SectionHeader = ({ text }: { text: string }) => (
@@ -95,26 +96,29 @@ const Explore = () => {
           <Text className="mt-10 text-center text-sm text-ink-400">{t('explore.noResults')}</Text>
         )
       ) : (
-        TOPICS.map((topic, i) => {
-          const tiles: Tile[] = [
-            ...(topic.key === 'explore.topicTraining' ? [libraryTile] : []),
-            ...topic.calcs.map(calcTile),
-            ...topic.docCategories.flatMap((cat) =>
-              docs.filter((d) => d.category === cat).map(docTile),
-            ),
-          ];
-          if (!tiles.length) return null;
-          return (
-            <FadeInUp key={topic.key} delay={i * 50}>
-              <SectionHeader text={t(topic.key)} />
-              <View className="flex-row flex-wrap justify-between gap-y-3">
-                {tiles.map((tile) => (
-                  <GridTile key={tile.id} tile={tile} />
-                ))}
-              </View>
-            </FadeInUp>
-          );
-        })
+        <>
+          <QuizCard />
+          {TOPICS.map((topic, i) => {
+            const tiles: Tile[] = [
+              ...(topic.key === 'explore.topicTraining' ? [libraryTile] : []),
+              ...topic.calcs.map(calcTile),
+              ...topic.docCategories.flatMap((cat) =>
+                docs.filter((d) => d.category === cat).map(docTile),
+              ),
+            ];
+            if (!tiles.length) return null;
+            return (
+              <FadeInUp key={topic.key} delay={i * 50}>
+                <SectionHeader text={t(topic.key)} />
+                <View className="flex-row flex-wrap justify-between gap-y-3">
+                  {tiles.map((tile) => (
+                    <GridTile key={tile.id} tile={tile} />
+                  ))}
+                </View>
+              </FadeInUp>
+            );
+          })}
+        </>
       )}
     </Screen>
   );
