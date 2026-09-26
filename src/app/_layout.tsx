@@ -31,6 +31,7 @@ import {
 } from '@/features/notifications/rest-notification';
 import { initNotifications } from '@/features/notifications/service';
 import { seedTraining } from '@/features/training/seed';
+import { workoutScreenId } from '@/features/training/workout-route';
 import { preloadSounds } from '@/lib/sounds';
 import { I18nProvider, useI18n } from '@/i18n';
 import { initTelemetry, wrapRoot } from '@/lib/telemetry';
@@ -63,7 +64,12 @@ const ThemedStack = () => {
           contentStyle: { backgroundColor: navTheme.colors.background },
           animation: 'fade',
         }}
-      />
+      >
+        <Stack.Screen
+          name="training/workout/[id]"
+          dangerouslySingular={(_name, params) => workoutScreenId(params)}
+        />
+      </Stack>
       <BlockingOverlay visible={pending} label={t('common.applying')} />
     </NavThemeProvider>
   );

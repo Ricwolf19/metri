@@ -28,7 +28,7 @@ import { pickFromCamera, pickFromLibrary } from '@/features/photos/capture';
 import { deletePhotoFiles, persistAvatar } from '@/features/photos/media';
 import { LOCALES, useI18n, type Locale } from '@/i18n';
 import { WEB_URL } from '@/lib/env';
-import { settings, type ClockFormat } from '@/lib/storage';
+import { settings, type ClockFormat, type Units } from '@/lib/storage';
 import { ThemeSelect } from '@/theme/ThemeSelect';
 import { DATE_FORMATS, formatDate, type DateFormat } from '@/lib/date-format';
 import { useDateFormat } from '@/lib/useDateFormat';
@@ -55,6 +55,7 @@ const Profile = () => {
   const [saving, setSaving] = useState(false);
 
   const [clock, setClock] = useState<ClockFormat>(settings.getClockFormat());
+  const [units, setUnits] = useState<Units>(settings.getUnits());
   const dateFormat = useDateFormat();
   const [sampleDate] = useState(() => new Date());
   if (!user) return null;
@@ -117,6 +118,16 @@ const Profile = () => {
   const onLocaleChange = (next: Locale) => {
     setLocale(next);
     if (user) pushProfile(user);
+  };
+  const unitSegments: Segment<Units>[] = [
+    { value: 'kg', label: 'kg' },
+    { value: 'lb', label: 'lb' },
+  ];
+  const onUnitsChange = (next: Units) => {
+    settings.setUnits(next);
+    setUnits(next);
+    // Units ride the account profile (as the locale does) — no-op for local users.
+    pushProfile(user);
   };
   const hasMetrics = typeof user.age === 'number';
   // Every preset shows today's date in that shape, so the choice is concrete;
@@ -273,6 +284,16 @@ const Profile = () => {
       </Text>
       <Card>
         <SegmentedControl segments={clockSegments} value={clock} onChange={onClockChange} />
+      </Card>
+
+      {/* Units — the same key the workout screen's kg/lb toggle writes, so the
+          choice follows the user everywhere and survives sessions. */}
+      <Text className="mb-2 mt-7 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
+        {t('profile.units')}
+      </Text>
+      <Card>
+        <SegmentedControl segments={unitSegments} value={units} onChange={onUnitsChange} />
+        <Text className="mt-2 text-[11px] leading-4 text-ink-500">{t('profile.unitsHint')}</Text>
       </Card>
 
       {/* Date format */}

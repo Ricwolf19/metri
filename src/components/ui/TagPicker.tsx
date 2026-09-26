@@ -1,10 +1,11 @@
-import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Pressable, Text, View, type ScrollView } from 'react-native';
 
 import { CheckIcon, ChevronDownIcon } from '@/components/icons';
 import { useTheme } from '@/theme/theme-context';
 
 import { Button } from './Button';
+import { revealOffset } from './reveal-offset';
 import { ScrollArea } from './ScrollArea';
 import { Sheet } from './Sheet';
 
@@ -27,12 +28,31 @@ export const TagPicker = ({ label, sections, value, onChange, placeholder, doneL
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<string[]>(value);
   const { brand } = useTheme();
+  const listRef = useRef<ScrollView>(null);
+  // Opening scrolls once to the first checked option; toggling must not jump.
+  // The option's y is relative to its section, and the two onLayout events
+  // arrive in no guaranteed order — reveal once both are known.
+  const revealed = useRef(false);
+  const sectionY = useRef(new Map<string, number>());
+  const target = useRef<{ section: string; y: number } | null>(null);
+  const reveal = () => {
+    const base = target.current && sectionY.current.get(target.current.section);
+    if (revealed.current || !target.current || base == null) return;
+    revealed.current = true;
+    listRef.current?.scrollTo({ y: revealOffset(base + target.current.y), animated: false });
+  };
+  const firstChecked = sections
+    .flatMap((s) => s.items.map((i) => ({ section: s.title, value: i.value })))
+    .find((i) => value.includes(i.value));
 
   const labelOf = new Map(sections.flatMap((s) => s.items.map((i) => [i.value, i.label])));
   const selected = value.filter((v) => labelOf.has(v));
 
   const show = () => {
     setDraft(value);
+    revealed.current = false;
+    sectionY.current.clear();
+    target.current = null;
     setOpen(true);
   };
   const toggle = (v: string) =>
@@ -82,9 +102,16 @@ export const TagPicker = ({ label, sections, value, onChange, placeholder, doneL
       </Pressable>
 
       <Sheet visible={open} onClose={() => setOpen(false)}>
-        <ScrollArea inSheet>
+        <ScrollArea inSheet ref={listRef}>
           {sections.map((section) => (
-            <View key={section.title} className="mb-2">
+            <View
+              key={section.title}
+              className="mb-2"
+              onLayout={(e) => {
+                sectionY.current.set(section.title, e.nativeEvent.layout.y);
+                reveal();
+              }}
+            >
               <Text className="mb-1 mt-2 px-2 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
                 {section.title}
               </Text>
@@ -93,6 +120,14 @@ export const TagPicker = ({ label, sections, value, onChange, placeholder, doneL
                 return (
                   <Pressable
                     key={item.value}
+                    onLayout={
+                      firstChecked?.value === item.value
+                        ? (e) => {
+                            target.current = { section: section.title, y: e.nativeEvent.layout.y };
+                            reveal();
+                          }
+                        : undefined
+                    }
                     onPress={() => toggle(item.value)}
                     accessibilityRole="checkbox"
                     accessibilityState={{ checked: active }}

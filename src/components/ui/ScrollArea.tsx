@@ -20,6 +20,8 @@ import { ChevronDownIcon } from '@/components/icons';
 import { useTheme } from '@/theme/theme-context';
 
 type Props = ScrollViewProps & {
+  /** Handle for imperative scrolls (e.g. a picker revealing its checked option). */
+  ref?: React.Ref<ScrollView>;
   /** Height cap outside a sheet. Inside a sheet the sheet itself caps the height. */
   maxHeight?: number;
   /** Size to the sheet's content (shrinking when the sheet caps it), and pad for
@@ -67,6 +69,7 @@ const Hint = ({ up }: { up: boolean }) => {
  * Inside a `<Sheet>` pass `inSheet` (fills the sheet, safe-area padded).
  */
 export const ScrollArea = ({
+  ref,
   maxHeight,
   inSheet = false,
   className,
@@ -93,6 +96,7 @@ export const ScrollArea = ({
     <View style={inSheet ? { flexShrink: 1 } : { maxHeight }} className={className}>
       <ScrollView
         {...rest}
+        ref={ref}
         showsVerticalScrollIndicator={false}
         onLayout={(e) => setViewport(e.nativeEvent.layout.height)}
         onContentSizeChange={(_, h) => setContent(h)}

@@ -42,6 +42,11 @@ export const getWorkout = (id: string): WorkoutLog | null => {
   return row ?? null;
 };
 
+/** Live view of one session row: snapshot edits (swap, reorder) must re-render
+ * the screen that is logging against it. */
+export const workoutQuery = (id: string) =>
+  db.select().from(workoutLogs).where(eq(workoutLogs.id, id)).limit(1);
+
 /** The week's prescription as concrete set groups: explicit `setGroups` win,
  * else the flat scheme, else a sane default for slots with no config. */
 const expandPrescription = (config: WeekConfig | null): SetGroup[] => {

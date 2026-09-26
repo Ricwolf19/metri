@@ -1,10 +1,11 @@
-import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Pressable, Text, View, type ScrollView } from 'react-native';
 
 import { CheckIcon, ChevronDownIcon } from '@/components/icons';
 import { useTheme } from '@/theme/theme-context';
 
 import { ScrollArea } from './ScrollArea';
+import { revealOffset } from './reveal-offset';
 import { Sheet } from './Sheet';
 import { CONTROL_FONT_SCALE } from './typography';
 
@@ -34,6 +35,7 @@ export const Select = <T extends string>({
   const [open, setOpen] = useState(false);
   const { brand, muted } = useTheme();
   const selected = items.find((i) => i.value === value);
+  const listRef = useRef<ScrollView>(null);
 
   return (
     <View className="w-full">
@@ -67,7 +69,7 @@ export const Select = <T extends string>({
       </Pressable>
 
       <Sheet visible={open} onClose={() => setOpen(false)}>
-        <ScrollArea inSheet>
+        <ScrollArea inSheet ref={listRef}>
           {label ? (
             <Text className="mb-1 px-2 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
               {label}
@@ -78,6 +80,16 @@ export const Select = <T extends string>({
             return (
               <Pressable
                 key={item.value}
+                // Long lists open on the checked option, not on the first one.
+                onLayout={
+                  active
+                    ? (e) =>
+                        listRef.current?.scrollTo({
+                          y: revealOffset(e.nativeEvent.layout.y),
+                          animated: false,
+                        })
+                    : undefined
+                }
                 onPress={() => {
                   onChange(item.value);
                   setOpen(false);

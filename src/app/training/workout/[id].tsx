@@ -12,6 +12,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   DragHandleIcon,
+  DumbbellIcon,
   EyeClosedIcon,
   EyeIcon,
   FlameIcon,
@@ -26,13 +27,13 @@ import {
   BadgeRow,
   BlockingOverlay,
   Card,
+  ChipRow,
   Input,
   ReorderRow,
   Screen,
   ScreenTitle,
   ScrollArea,
   SegmentedControl,
-  Select,
   Sheet,
   TextLink,
   TimedModal,
@@ -42,12 +43,14 @@ import {
 } from '@/components/ui';
 import type { PlannedSlot, SetGroup, SetLog } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
+import { pushProfile } from '@/features/auth/profile-sync';
 import { lbToKg } from '@/features/bmr/calc';
 import { fromKg } from '@/features/training/progression';
 import { ExerciseDocButton } from '@/features/training/components/ExerciseDocButton';
 import { ExerciseFrames } from '@/features/training/components/ExerciseFrames';
 import { RestTimer } from '@/features/training/components/RestTimer';
 import { StepGroup } from '@/features/training/components/StepGroup';
+import { WeightCalculatorSheet } from '@/features/training/components/WeightCalculatorSheet';
 import { endRest, extendRest, startRest } from '@/features/notifications/rest-notification';
 import { ensureNotificationPermission } from '@/features/notifications/service';
 import { restState, useActiveRest } from '@/features/training/rest-state';
@@ -59,10 +62,28 @@ import { visualIdFor } from '@/features/training/exercise-visuals';
 import { exerciseHeads, muscleHeadKey, type MuscleHead } from '@/features/training/muscles';
 import { getWorkoutDay } from '@/features/training/programs.repo';
 import {
+  bumpValue,
+  nextSetPrefill,
+  slotHistoryKey,
+  weightText,
+} from '@/features/training/set-prefill';
+import { sessionBadges } from '@/features/training/session-badges';
+import {
+  clearDraft,
+  clearSessionDrafts,
+  useSessionDrafts,
+  useSlotCounts,
+  writeDraft,
+  writeSlotCounts,
+  type Effort,
+  type RowDraft,
+} from '@/features/training/workout-drafts';
+import {
   abandonWorkout,
   finishWorkout,
   deleteSet,
   getWorkout,
+  workoutQuery,
   lastWeekSets,
   logSet,
   reorderSnapshot,
@@ -89,7 +110,6 @@ const UNIT_SEGMENTS: Segment<Units>[] = [
 ];
 
 /** What the lifter reports after a set; `rir: null` = deliberately skipped. */
-type Effort = { rir: number | null; failure: boolean };
 type RequestEffort = () => Promise<Effort | null>;
 
 /** One planned set row, expanded from the snapshot's set groups. */
@@ -148,7 +168,28 @@ const ElapsedClock = ({ startedAt }: { startedAt: Date }) => {
 /** The row the action bar drives: a pending warm-up first, else the next working set. */
 type RowKey = string;
 
-type RowDraft = { weight: string; reps: string; effort: Effort | null };
+const OTHER_UNIT = (unit: Units): Units => (unit === 'kg' ? 'lb' : 'kg');
+
+/**
+ * A kg value the lifter can tap to see in the other unit (backlog B2): shows
+ * the value converted, one tap restores the app unit. Local to each row, so
+ * the rest of the screen stays in the app unit.
+ */
+const ConvertibleWeight = ({ kg, unit }: { kg: number; unit: Units }) => {
+  const [override, setOverride] = useState<Units | null>(null);
+  const shown = override ?? unit;
+  return (
+    <Pressable
+      onPress={() => setOverride((prev) => (prev ? null : OTHER_UNIT(unit)))}
+      hitSlop={4}
+      accessibilityRole="button"
+    >
+      <Text className="text-sm font-sans-medium text-ink-100">
+        {weightText(kg, shown)} {shown}
+      </Text>
+    </Pressable>
+  );
+};
 
 type PlanRowProps = {
   label: string;
@@ -191,11 +232,15 @@ const LoggedRow = ({
         <CheckIcon color={brandContrast} size={13} />
       </View>
       <Text className="w-7 text-xs font-sans-semibold text-ink-400">{label}</Text>
-      <Text className="flex-1 text-sm font-sans-medium text-ink-100">
-        {fromKg(logged.weightKg, unit)} {unit} × {logged.reps}
-        {logged.rir != null ? ` · RIR ${logged.rir}` : ''}
-        {logged.isFailure ? ` · ${failureLabel}` : ''}
-      </Text>
+      <View className="flex-1 flex-row items-center">
+        <ConvertibleWeight kg={logged.weightKg} unit={unit} />
+        <Text className="text-sm font-sans-medium text-ink-100">
+          {' '}
+          × {logged.reps}
+          {logged.rir != null ? ` · RIR ${logged.rir}` : ''}
+          {logged.isFailure ? ` · ${failureLabel}` : ''}
+        </Text>
+      </View>
       <Pressable hitSlop={8} onPress={() => deleteSet(logged.id)} accessibilityRole="button">
         <XIcon color="#71717a" size={15} />
       </Pressable>
@@ -217,6 +262,7 @@ const ActiveRow = ({
   onChange,
   onConfirm,
   onRemove,
+  onOpenCalculator,
 }: {
   label: string;
   legend: string | null;
@@ -226,6 +272,7 @@ const ActiveRow = ({
   onChange: (patch: Partial<RowDraft>) => void;
   onConfirm: () => void;
   onRemove?: () => void;
+  onOpenCalculator?: () => void;
 }) => {
   const t = useT();
   const { brandContrast } = useTheme();
@@ -266,6 +313,16 @@ const ActiveRow = ({
             maxLength={3}
           />
         </View>
+        {onOpenCalculator ? (
+          <Pressable
+            onPress={onOpenCalculator}
+            accessibilityRole="button"
+            accessibilityLabel={t('training.calculatorTitle')}
+            className="h-12 w-11 items-center justify-center rounded-field border border-ink-700 bg-ink-800"
+          >
+            <DumbbellIcon color="#a1a1aa" size={18} />
+          </Pressable>
+        ) : null}
         <Pressable
           onPress={onConfirm}
           accessibilityRole="button"
@@ -312,10 +369,12 @@ const ExerciseCard = ({
   const { brand } = useTheme();
   const [weightStep, setWeightStep] = useState(() => settings.getWeightStep());
   const [repsStep, setRepsStep] = useState(() => settings.getRepsStep());
-  const [extraRows, setExtraRows] = useState(0);
-  const [warmupRows, setWarmupRows] = useState(0);
-  // Keyed by row so advancing a set never carries the previous row's numbers.
-  const [drafts, setDrafts] = useState<Record<RowKey, RowDraft>>({});
+  // Drafts live in a module store keyed by workoutLogId: switching exercises in
+  // compact view (or leaving training mode) unmounts this card, and the typed
+  // values must survive that.
+  const drafts = useSessionDrafts(workoutLogId);
+  const { warmup: warmupRows, extra: extraRows } = useSlotCounts(workoutLogId, planned.slotId);
+  const [calcOpen, setCalcOpen] = useState(false);
 
   const rows = useMemo(() => expandRows(planned.setGroups, t), [planned.setGroups, t]);
   const working = sets.filter((s) => !s.isWarmup);
@@ -324,21 +383,18 @@ const ExerciseCard = ({
   const planDone = doneCount >= rows.length;
   const totalRows = Math.max(rows.length, doneCount) + extraRows;
   const visualId = visualIdFor({ id: planned.exerciseId, name: planned.name });
+  // Snapshots from before the badges key existed carry `undefined` — normalize
+  // instead of letting the row read `.length` off nothing.
+  const badges = sessionBadges(planned.badges);
 
   const suggested = useMemo(
     () => suggestedWeight(planned.exerciseId, rows[0]?.reps ?? 8, 2),
     [planned.exerciseId, rows],
   );
 
-  const prefillFor = (i: number): { weightKg: number | null; reps: number } => {
-    const prior = lastWeek[i] ?? lastWeek[lastWeek.length - 1];
-    if (prior) return { weightKg: prior.weightKg, reps: rows[i]?.reps ?? prior.reps };
-    return { weightKg: suggested, reps: rows[i]?.reps ?? 8 };
-  };
-
   // Ramp toward the first working set, whatever that set is going to weigh.
-  const firstWorkingKg = lastWeek[0]?.weightKg ?? suggested;
-  const ramp = useMemo(() => warmupRamp(firstWorkingKg), [firstWorkingKg]);
+  const firstWorkingKg = working[0]?.weightKg ?? lastWeek[0]?.weightKg ?? suggested;
+  const ramp = warmupRamp(firstWorkingKg);
   const warmupPrefill = (i: number): { weightKg: number | null; reps: number } =>
     ramp[i] ?? ramp[ramp.length - 1] ?? { weightKg: null, reps: 5 };
 
@@ -351,28 +407,49 @@ const ExerciseCard = ({
       : null;
   const activeIsWarmup = pendingWarmups;
 
+  /** Store keys carry the slotId so drafts from different exercises never mix. */
+  const storeKey = (key: RowKey) => `${planned.slotId}:${key}`;
+
   const seedDraft = (key: RowKey): RowDraft => {
-    const fill = key.startsWith('w')
-      ? warmupPrefill(Number(key.slice(1)))
-      : prefillFor(Number(key));
+    if (key.startsWith('w')) {
+      const fill = warmupPrefill(Number(key.slice(1)));
+      return {
+        weight: fill.weightKg != null ? weightText(fill.weightKg, unit) : '',
+        reps: String(fill.reps),
+        effort: null,
+      };
+    }
+    const i = Number(key);
+    // The set just completed seeds the next one; last week / the suggestion
+    // only apply before the first set of the exercise is logged.
+    const fill = nextSetPrefill({
+      logged: working,
+      planReps: rows[i]?.reps,
+      lastWeek,
+      suggestedKg: suggested,
+    });
     return {
-      weight: fill.weightKg != null ? String(fromKg(fill.weightKg, unit)) : '',
+      weight: fill.weightKg != null ? weightText(fill.weightKg, unit) : '',
       reps: String(fill.reps),
       effort: null,
     };
   };
-  const draftFor = (key: RowKey): RowDraft => drafts[key] ?? seedDraft(key);
+  const draftFor = (key: RowKey): RowDraft => drafts.get(storeKey(key)) ?? seedDraft(key);
   const patchDraft = (key: RowKey, patch: Partial<RowDraft>) =>
-    setDrafts((prev) => ({ ...prev, [key]: { ...draftFor(key), ...patch } }));
+    writeDraft(workoutLogId, storeKey(key), { ...draftFor(key), ...patch });
+
+  const setWarmupRows = (n: number) =>
+    writeSlotCounts(workoutLogId, planned.slotId, { warmup: Math.max(0, n), extra: extraRows });
+  const setExtraRows = (n: number) =>
+    writeSlotCounts(workoutLogId, planned.slotId, { warmup: warmupRows, extra: Math.max(0, n) });
 
   const bump = (field: 'weight' | 'reps', delta: number) => {
     if (!activeKey) return;
     const current = Number(draftFor(activeKey)[field]) || 0;
+    // Weight keeps every typed decimal (no silent plate rounding); reps stay ≥ 1.
     const next =
-      field === 'weight'
-        ? Math.max(0, Math.round((current + delta) * 10) / 10)
-        : Math.max(1, current + delta);
-    patchDraft(activeKey, { [field]: String(next) } as Partial<RowDraft>);
+      field === 'weight' ? bumpValue(current, delta) : String(Math.max(1, current + delta));
+    patchDraft(activeKey, { [field]: next } as Partial<RowDraft>);
   };
 
   const confirm = async (key: RowKey) => {
@@ -406,13 +483,9 @@ const ExerciseCard = ({
         ? { isWarmup: true }
         : { rir: effort?.rir ?? null, isFailure: effort?.failure ?? false }),
     });
-    setDrafts((prev) => {
-      const next = { ...prev };
-      delete next[key];
-      return next;
-    });
+    clearDraft(workoutLogId, storeKey(key));
     if (isWarmup) {
-      setWarmupRows((n) => Math.max(0, n - 1));
+      setWarmupRows(warmupRows - 1);
       return;
     }
     onLogged({
@@ -446,12 +519,6 @@ const ExerciseCard = ({
     });
   };
 
-  const lastWeekLine = lastWeek.length
-    ? `${t('training.lastWeek')}: ${fromKg(lastWeek[0].weightKg, unit)}${unit} × ${lastWeek
-        .map((s) => s.reps)
-        .join(',')}`
-    : null;
-
   const activeDraft = activeKey ? draftFor(activeKey) : null;
   const activeRow = activeKey && !activeIsWarmup ? (rows[Number(activeKey)] ?? null) : null;
 
@@ -484,17 +551,23 @@ const ExerciseCard = ({
         <ExerciseDocButton exerciseId={planned.exerciseId} size={17} />
       </View>
 
-      {planned.badges.length ? (
+      {badges.length ? (
         <View className="mt-2">
           <BadgeRow
             mono
             tone="brand"
-            items={planned.badges.map((b, i) => ({ value: `${b}-${i}`, label: b }))}
+            items={badges.map((b, i) => ({ value: `${b}-${i}`, label: b }))}
           />
         </View>
       ) : null}
 
-      {lastWeekLine ? <Text className="mt-2 text-xs text-ink-400">{lastWeekLine}</Text> : null}
+      {lastWeek.length ? (
+        <View className="mt-2 flex-row items-center">
+          <Text className="text-xs text-ink-400">{t('training.lastWeek')}: </Text>
+          <ConvertibleWeight kg={lastWeek[0].weightKg} unit={unit} />
+          <Text className="text-xs text-ink-400"> × {lastWeek.map((s) => s.reps).join(',')}</Text>
+        </View>
+      ) : null}
 
       {/* Warm-ups sit above the working sets, the order they are performed in.
        * They never advance `doneCount` and never start the prescribed rest. */}
@@ -519,7 +592,8 @@ const ExerciseCard = ({
               placeholder={String(warmupPrefill(warmups.length).reps)}
               onChange={(patch) => patchDraft(activeKey, patch)}
               onConfirm={() => void confirm(activeKey)}
-              onRemove={() => setWarmupRows((n) => Math.max(0, n - 1))}
+              onRemove={() => setWarmupRows(warmupRows - 1)}
+              onOpenCalculator={() => setCalcOpen(true)}
             />
           ) : null}
         </View>
@@ -563,6 +637,7 @@ const ExerciseCard = ({
               placeholder={row ? `${row.reps}${row.repsMax ? `-${row.repsMax}` : ''}` : '0'}
               onChange={(patch) => patchDraft(key, patch)}
               onConfirm={() => void confirm(key)}
+              onOpenCalculator={() => setCalcOpen(true)}
             />
           );
         })}
@@ -633,7 +708,7 @@ const ExerciseCard = ({
 
       <View className="mt-2 flex-row items-center justify-center gap-4">
         <Pressable
-          onPress={() => setWarmupRows((n) => n + 1)}
+          onPress={() => setWarmupRows(warmupRows + 1)}
           accessibilityRole="button"
           className="flex-row items-center gap-1 py-1.5"
         >
@@ -643,7 +718,7 @@ const ExerciseCard = ({
         {/* Extra sets only unlock once the plan is done — sets have an order. */}
         {planDone ? (
           <Pressable
-            onPress={() => setExtraRows((n) => n + 1)}
+            onPress={() => setExtraRows(extraRows + 1)}
             accessibilityRole="button"
             className="flex-row items-center gap-1 py-1.5"
           >
@@ -652,6 +727,17 @@ const ExerciseCard = ({
           </Pressable>
         ) : null}
       </View>
+
+      {/* Per-side / total calculator: applies straight into the live row's draft. */}
+      <WeightCalculatorSheet
+        visible={calcOpen}
+        onClose={() => setCalcOpen(false)}
+        unit={unit}
+        initialTotal={activeDraft?.weight ?? ''}
+        onApply={(weight) => {
+          if (activeKey) patchDraft(activeKey, { weight });
+        }}
+      />
     </Card>
   );
 };
@@ -666,14 +752,19 @@ const WorkoutSession = () => {
   const { brand, brandContrast, muted } = useTheme();
   useKeepAwake();
 
+  // Live, so a swap or a routine edit landing in the snapshot re-renders the
+  // cards; the sync read covers the first frame before the query resolves.
+  const logId = typeof id === 'string' ? id : '';
+  const { data: logRows } = useLiveQuery(workoutQuery(logId), [logId]);
+  const log = logRows[0] ?? (logId ? getWorkout(logId) : null);
+  const workoutDayId = log?.workoutDayId ?? null;
+
   // A rest left behind by another session is stale: drop it and its notification.
   useEffect(() => {
     const current = restState.get();
     if (current && current.workoutId !== id) void endRest();
   }, [id]);
 
-  const log = typeof id === 'string' ? getWorkout(id) : null;
-  const workoutDayId = log?.workoutDayId ?? null;
   const [unit, setUnit] = useState<Units>(settings.getUnits());
   const [layout, setLayout] = useState<WorkoutLayout>(settings.getWorkoutLayout());
   const [showArt, setShowArt] = useState(() => settings.getShowExerciseArt());
@@ -685,29 +776,46 @@ const WorkoutSession = () => {
     const i = focusSlot ? snapshot.findIndex((p) => p.slotId === focusSlot) : -1;
     return Math.max(0, i);
   });
-  // One effort sheet serves every set row; the row awaits the resolver.
+  // The screen is singular per workout (`workoutScreenId`), so a later push —
+  // the rest notification's `?slot=` — lands on this instance with new params
+  // instead of mounting a copy. Follow it: focus the card in compact view…
+  const [seenSlot, setSeenSlot] = useState(focusSlot);
+  if (focusSlot !== seenSlot) {
+    setSeenSlot(focusSlot);
+    const i = (log?.plannedSnapshot ?? []).findIndex((p) => p.slotId === focusSlot);
+    if (i >= 0) setCardIndex(i);
+  }
+  // One effort sheet serves every set row; the row awaits the resolver. If the
+  // screen unmounts mid-pick (tab switch), resolve null so no await hangs.
   const [effortResolve, setEffortResolve] = useState<((e: Effort | null) => void) | null>(null);
+  const effortResolveRef = useRef<((e: Effort | null) => void) | null>(null);
+  useEffect(() => {
+    return () => effortResolveRef.current?.(null);
+  }, []);
   const activeRest = useActiveRest();
   const rest = activeRest?.workoutId === log?.id ? activeRest : null;
   const clock = useClockFormat();
   const scrollRef = useRef<ComponentRef<typeof KeyboardAwareScrollView>>(null);
+  const cardY = useRef(new Map<string, number>());
   const [summary, setSummary] = useState<SessionSummary | null>(null);
   const [finishing, setFinishing] = useState(false);
 
   const day = workoutDayId ? getWorkoutDay(workoutDayId) : null;
-  const { data: sets } = useLiveQuery(setLogsQuery(typeof id === 'string' ? id : ''));
+  const { data: sets } = useLiveQuery(setLogsQuery(typeof id === 'string' ? id : ''), [id]);
 
-  // Prefill source: last week's sets per snapshot slot (stable per session).
+  // Prefill source: last week's sets per (slot, exercise). Keyed on both so a
+  // swap re-reads history for the exercise actually in the slot now.
+  const historyKeys = (log?.plannedSnapshot ?? []).map(slotHistoryKey).join('|');
   const lastWeekBySlot = useMemo(() => {
     if (!log?.plannedSnapshot || !workoutDayId) return new Map<string, SetLog[]>();
     return new Map(
       log.plannedSnapshot.map((p) => [
-        p.slotId,
+        slotHistoryKey(p),
         lastWeekSets(p.exerciseId, workoutDayId, log.weekNumber - 1),
       ]),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [log?.id]);
+  }, [log?.id, historyKeys]);
 
   // An exercise is done when its planned working sets are all logged.
   const doneSlot = (p: PlannedSlot): boolean =>
@@ -719,6 +827,14 @@ const WorkoutSession = () => {
   useEffect(() => {
     if (layout === 'list') scrollRef.current?.scrollTo({ y: 0, animated: true });
   }, [firstPendingId, layout]);
+
+  // …and scroll to it in list view (its card already laid out, so the mount-time
+  // `focused` onLayout will not fire again).
+  useEffect(() => {
+    if (!focusSlot) return;
+    const y = cardY.current.get(focusSlot);
+    if (y != null) scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
+  }, [focusSlot]);
 
   if (!user || !log || log.status !== 'in_progress') return <Redirect href="/training" />;
 
@@ -746,10 +862,13 @@ const WorkoutSession = () => {
 
   const requestEffort: RequestEffort = () =>
     new Promise((resolve) => {
-      setEffortResolve(() => (e: Effort | null) => {
+      const resolver = (e: Effort | null) => {
         resolve(e);
+        effortResolveRef.current = null;
         setEffortResolve(null);
-      });
+      };
+      effortResolveRef.current = resolver;
+      setEffortResolve(() => resolver);
     });
 
   const nextSetLine = (next: NextSet): string => {
@@ -821,6 +940,7 @@ const WorkoutSession = () => {
     setTimeout(() => {
       finishWorkout(log.id);
       void endRest();
+      clearSessionDrafts(log.id);
       void syncTrainingReminder(log.userId);
       setSummary(null);
       // `settling` keeps the wait on screen while the tab mounts and runs its
@@ -838,6 +958,7 @@ const WorkoutSession = () => {
         playSound('discard');
         abandonWorkout(log.id);
         void endRest();
+        clearSessionDrafts(log.id);
         router.replace('/training');
       },
     });
@@ -862,23 +983,62 @@ const WorkoutSession = () => {
     setLayout(next);
   };
 
+  // The unit toggle lives in the pinned session strip (never in the top bar,
+  // never scrolling away), and the choice is a per-user preference: Settings
+  // edits the same key, so persist every toggle.
+  const changeUnit = (next: Units) => {
+    settings.setUnits(next);
+    setUnit(next);
+    pushProfile(user);
+  };
+
   const idx = Math.min(cardIndex, Math.max(0, planned.length - 1));
   const current = planned[idx] ?? null;
 
+  // Ordered exercise strip (both layouts): tap focuses the exercise in compact
+  // view, or scrolls to its card in list view — the compact Select is gone.
+  const jumpToExercise = (index: number) => {
+    const target = planned[index];
+    if (!target) return;
+    if (layout === 'cards') {
+      setCardIndex(index);
+      return;
+    }
+    const y = cardY.current.get(target.slotId);
+    if (y != null) scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
+  };
+
+  const exerciseChips =
+    planned.length > 1 ? (
+      <View className="mb-3">
+        <ChipRow
+          items={planned.map((p, i) => ({
+            value: String(i),
+            label: `${i + 1}. ${p.name}${doneSlot(p) ? ' ✓' : ''}`,
+          }))}
+          value={layout === 'cards' ? String(idx) : null}
+          onChange={(v) => jumpToExercise(Number(v))}
+        />
+      </View>
+    ) : null;
+
   const renderCard = (p: PlannedSlot, focused: boolean) => (
-    <ExerciseCard
-      key={p.slotId}
-      workoutLogId={log.id}
-      planned={p}
-      sets={setsFor(p.exerciseId)}
-      unit={unit}
-      lastWeek={lastWeekBySlot.get(p.slotId) ?? []}
-      showArt={showArt}
-      requestEffort={requestEffort}
-      onLogged={onLogged}
-      focused={focused}
-      onFocusLayout={(y) => scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: false })}
-    />
+    <View key={p.slotId} onLayout={(e) => cardY.current.set(p.slotId, e.nativeEvent.layout.y)}>
+      <ExerciseCard
+        workoutLogId={log.id}
+        planned={p}
+        sets={setsFor(p.exerciseId)}
+        unit={unit}
+        lastWeek={lastWeekBySlot.get(slotHistoryKey(p)) ?? []}
+        showArt={showArt}
+        requestEffort={requestEffort}
+        onLogged={onLogged}
+        focused={focused}
+        onFocusLayout={(y) =>
+          scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: false })
+        }
+      />
+    </View>
   );
 
   return (
@@ -929,8 +1089,18 @@ const WorkoutSession = () => {
             </Text>
           </View>
         </View>
-        <View className="mt-1.5 h-1 overflow-hidden rounded-full bg-ink-800">
-          <View className="h-full rounded-full bg-brand" style={{ width: `${progress * 100}%` }} />
+        <View className="mt-1.5 flex-row items-center gap-3">
+          <View className="h-1 flex-1 overflow-hidden rounded-full bg-ink-800">
+            <View
+              className="h-full rounded-full bg-brand"
+              style={{ width: `${progress * 100}%` }}
+            />
+          </View>
+          {/* The unit toggle is pinned here — always visible, never in the top
+           * bar, and it survives scrolling the sets. */}
+          <View className="w-24">
+            <SegmentedControl segments={UNIT_SEGMENTS} value={unit} onChange={changeUnit} />
+          </View>
         </View>
       </View>
 
@@ -948,56 +1118,52 @@ const WorkoutSession = () => {
           </View>
         ) : null}
 
-        <View className="mb-4 flex-row items-center justify-between">
-          {/* Units ride the scroll: a set-and-forget control, not worth pinning. */}
-          <View className="w-32">
-            <SegmentedControl segments={UNIT_SEGMENTS} value={unit} onChange={setUnit} />
-          </View>
-          <View className="flex-row gap-2">
-            <Pressable
-              onPress={toggleArt}
-              accessibilityRole="button"
-              accessibilityLabel={showArt ? t('training.artHide') : t('training.artShow')}
-              accessibilityState={{ selected: showArt }}
-              className={[
-                'h-10 w-10 items-center justify-center rounded-field border',
-                showArt ? 'border-brand/40 bg-brand/10' : 'border-ink-700 bg-ink-800',
-              ].join(' ')}
-            >
-              {showArt ? (
-                <EyeIcon color={brand} size={18} />
-              ) : (
-                <EyeClosedIcon color={muted} size={18} />
-              )}
-            </Pressable>
-            <Pressable
-              onPress={openReorder}
-              accessibilityRole="button"
-              accessibilityLabel={t('training.reorder')}
-              className="h-10 w-10 items-center justify-center rounded-field border border-ink-700 bg-ink-800"
-            >
-              <DragHandleIcon color={muted} size={18} />
-            </Pressable>
-            <Pressable
-              onPress={toggleLayout}
-              accessibilityRole="button"
-              accessibilityLabel={
-                layout === 'list' ? t('training.layoutCompact') : t('training.layoutList')
-              }
-              accessibilityState={{ selected: layout === 'cards' }}
-              className={[
-                'h-10 w-10 items-center justify-center rounded-field border',
-                layout === 'cards' ? 'border-brand/40 bg-brand/10' : 'border-ink-700 bg-ink-800',
-              ].join(' ')}
-            >
-              {layout === 'cards' ? (
-                <ViewGridIcon color={brand} size={18} />
-              ) : (
-                <ListIcon color={muted} size={18} />
-              )}
-            </Pressable>
-          </View>
+        <View className="mb-4 flex-row items-center justify-end gap-2">
+          <Pressable
+            onPress={toggleArt}
+            accessibilityRole="button"
+            accessibilityLabel={showArt ? t('training.artHide') : t('training.artShow')}
+            accessibilityState={{ selected: showArt }}
+            className={[
+              'h-10 w-10 items-center justify-center rounded-field border',
+              showArt ? 'border-brand/40 bg-brand/10' : 'border-ink-700 bg-ink-800',
+            ].join(' ')}
+          >
+            {showArt ? (
+              <EyeIcon color={brand} size={18} />
+            ) : (
+              <EyeClosedIcon color={muted} size={18} />
+            )}
+          </Pressable>
+          <Pressable
+            onPress={openReorder}
+            accessibilityRole="button"
+            accessibilityLabel={t('training.reorder')}
+            className="h-10 w-10 items-center justify-center rounded-field border border-ink-700 bg-ink-800"
+          >
+            <DragHandleIcon color={muted} size={18} />
+          </Pressable>
+          <Pressable
+            onPress={toggleLayout}
+            accessibilityRole="button"
+            accessibilityLabel={
+              layout === 'list' ? t('training.layoutCompact') : t('training.layoutList')
+            }
+            accessibilityState={{ selected: layout === 'cards' }}
+            className={[
+              'h-10 w-10 items-center justify-center rounded-field border',
+              layout === 'cards' ? 'border-brand/40 bg-brand/10' : 'border-ink-700 bg-ink-800',
+            ].join(' ')}
+          >
+            {layout === 'cards' ? (
+              <ViewGridIcon color={brand} size={18} />
+            ) : (
+              <ListIcon color={muted} size={18} />
+            )}
+          </Pressable>
         </View>
+
+        {exerciseChips}
 
         {/* Optional, and deliberately first: the warm-up is the part that gets
          * skipped, and it belongs before the first working set. */}
@@ -1034,17 +1200,9 @@ const WorkoutSession = () => {
           <Text className="mt-10 text-center text-sm text-ink-400">{t('training.empty')}</Text>
         ) : layout === 'cards' && current ? (
           <>
-            <View className="mb-2">
-              <Text className="mb-1.5 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
-                {t('training.exerciseOf', { n: idx + 1, total: planned.length })}
-              </Text>
-              <Select
-                items={planned.map((p, i) => ({ value: String(i), label: p.name }))}
-                value={String(idx)}
-                onChange={(v) => setCardIndex(Number(v))}
-                placeholder={t('training.switchExercise')}
-              />
-            </View>
+            <Text className="mb-2 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
+              {t('training.exerciseOf', { n: idx + 1, total: planned.length })}
+            </Text>
             {renderCard(current, false)}
             <View className="mt-1 flex-row gap-3">
               <View className="flex-1">
