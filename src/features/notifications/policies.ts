@@ -101,7 +101,11 @@ const reconcile = async (): Promise<void> => {
       continue;
     }
 
-    const content = { title: dict[event.notifTitleKey], body: dict[event.notifBodyKey] };
+    const content = {
+      title: dict[event.notifTitleKey],
+      body: dict[event.notifBodyKey],
+      data: { event: event.id },
+    };
     const ids: string[] = [];
     try {
       if (isDailyAtOneTime(entries)) {

@@ -47,6 +47,15 @@ export const SettingKeys = {
   bodyMetricsBackfilled: 'body.metricsBackfilled',
   // In-flight rest timer (see features/training/rest-state).
   activeRest: 'training.activeRest',
+  // In-flight workout session (see features/training/session-state).
+  activeSession: 'training.activeSession',
+  // Check-in prompt postponed while a session runs (see notifications/checkin-delay).
+  checkinSnoozedUntil: 'notif.checkinSnoozedUntil',
+  // Latest known release + when it was fetched (see features/release).
+  latestRelease: 'release.latest',
+  latestReleaseCheckedAt: 'release.checkedAt',
+  // Highest level cleared per quiz area (see features/quiz).
+  quizScores: 'quiz.scores',
 } as const;
 
 /** Typed accessors for every `SettingKeys` entry — screens never touch `storage` directly. */
@@ -177,6 +186,33 @@ export const settings = {
   },
   setNotificationsEnabled(value: boolean) {
     storage.set(SettingKeys.notificationsEnabled, value);
+  },
+  /** Check-in prompt postponed while a session runs (see notifications/checkin-delay). */
+  getCheckinSnoozedUntil(): number {
+    return storage.getNumber(SettingKeys.checkinSnoozedUntil) ?? 0;
+  },
+  setCheckinSnoozedUntil(until: number) {
+    storage.set(SettingKeys.checkinSnoozedUntil, until);
+  },
+  /** Latest known release version (see features/release). */
+  getLatestRelease(): string | null {
+    return storage.getString(SettingKeys.latestRelease) ?? null;
+  },
+  setLatestRelease(version: string) {
+    storage.set(SettingKeys.latestRelease, version);
+  },
+  getLatestReleaseCheckedAt(): number {
+    return storage.getNumber(SettingKeys.latestReleaseCheckedAt) ?? 0;
+  },
+  setLatestReleaseCheckedAt(at: number) {
+    storage.set(SettingKeys.latestReleaseCheckedAt, at);
+  },
+  /** Highest level cleared per quiz area, as stored JSON (see features/quiz). */
+  getQuizScores(): string | undefined {
+    return storage.getString(SettingKeys.quizScores);
+  },
+  setQuizScores(json: string) {
+    storage.set(SettingKeys.quizScores, json);
   },
   /** Per-event notification config (see features/notifications/events). */
   getEventConfig<T>(eventId: string, defaults: T): T {

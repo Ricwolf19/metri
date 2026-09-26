@@ -10,6 +10,7 @@ import notifee, {
 } from 'react-native-notify-kit';
 
 import { restState, type ActiveRest } from '@/features/training/rest-state';
+import { sessionState, type ActiveSession } from '@/features/training/session-state';
 import { startAlarm, stopAlarm } from '@/lib/sounds';
 
 /**
@@ -21,6 +22,12 @@ import { startAlarm, stopAlarm } from '@/lib/sounds';
  * buttons arrive as background events (headless when the app is killed), so the
  * handlers below must only touch MMKV and notifee. iOS gets the "Rest over"
  * trigger only (no chronometer, no actions yet).
+ *
+ * The persistent "training in progress" notification lives here too: notifee
+ * keeps ONE background handler per process, so a second module registering its
+ * own would silently unhook the rest actions. It carries no actions of its own
+ * — while a rest runs, the rest notification (countdown + Skip/+30 s/+1 min)
+ * is the one to act on.
  */
 
 /**
@@ -35,8 +42,12 @@ const CHANNEL_ID = 'rest-timer-v2';
  * a channel with the silent, ongoing countdown (Android fixes sound per channel). */
 const ALARM_CHANNEL_ID = 'rest-alarm-v2';
 const RETIRED_CHANNELS = ['rest-timer', 'rest-alarm'];
+/** Silent and low: it only keeps the session one tap away. */
+const SESSION_CHANNEL_ID = 'session-v1';
 /** Shared by the resting and the rest-over notification: the second replaces the first. */
 const REST_ID = 'rest';
+/** Every redraw of the session notification replaces the previous one. */
+const SESSION_ID = 'session';
 const ACTION = {
   open: 'rest-open',
   skip: 'rest-skip',
@@ -65,6 +76,11 @@ export const initRestNotifications = async (): Promise<void> => {
     // one thing metri sends that Do Not Disturb should not swallow.
     bypassDnd: true,
     vibrationPattern: [250, 250, 250, 250],
+  });
+  await notifee.createChannel({
+    id: SESSION_CHANNEL_ID,
+    name: 'Training in progress',
+    importance: AndroidImportance.LOW,
   });
 };
 
@@ -126,7 +142,7 @@ const showRest = async (rest: ActiveRest): Promise<void> => {
     await notifee.displayNotification({
       id: REST_ID,
       title: rest.copy.restingTitle,
-      body: rest.copy.restingBody,
+      body: [rest.copy.currentLabel, rest.copy.restingBody].filter(Boolean).join(' · '),
       data: { url: workoutUrl(rest) },
       android: {
         channelId: CHANNEL_ID,
@@ -258,6 +274,54 @@ export const endRest = async (): Promise<void> => {
   if (isAndroid) await notifee.stopForegroundService().catch(() => {});
 };
 
+const sessionBody = (session: ActiveSession) =>
+  [session.exerciseName, session.setLabel, session.nextLabel].filter(Boolean).join(' · ');
+
+/**
+ * Show (or redraw) the ongoing session notification and record the session —
+ * the record is what the check-in delay reads, so it is kept on iOS too.
+ */
+export const showSession = async (session: ActiveSession): Promise<void> => {
+  sessionState.set(session);
+  if (!isAndroid) return;
+  await notifee
+    .displayNotification({
+      id: SESSION_ID,
+      title: session.title,
+      body: sessionBody(session),
+      data: { url: `metri://training/workout/${session.workoutId}` },
+      android: {
+        channelId: SESSION_CHANNEL_ID,
+        ongoing: true,
+        onlyAlertOnce: true,
+        autoCancel: false,
+        showChronometer: true,
+        chronometerDirection: 'up',
+        timestamp: session.startedAt,
+        showTimestamp: false,
+        category: AndroidCategory.STATUS,
+        smallIcon: 'ic_notification',
+        color: BRAND,
+        pressAction: { id: ACTION.open, launchActivity: 'default' },
+      },
+    })
+    .catch(() => {});
+};
+
+/** Workout finished or abandoned: drop the notification and the record. */
+export const endSession = async (): Promise<void> => {
+  sessionState.clear();
+  await notifee.cancelNotification(SESSION_ID).catch(() => {});
+};
+
+/** Boot: a session record whose workout is no longer live (killed mid-session,
+ * finished on another path) must not keep a notification or the check-in delay. */
+export const reconcileSession = async (isLive: (workoutId: string) => boolean): Promise<void> => {
+  const session = sessionState.get();
+  if (session && isLive(session.workoutId)) return;
+  await endSession();
+};
+
 const openUrl = (event: Event) => {
   const url = event.detail.notification?.data?.url;
   if (typeof url === 'string') void Linking.openURL(url);
@@ -265,6 +329,10 @@ const openUrl = (event: Event) => {
 
 /** Shared by the foreground and the background (headless) subscriptions. */
 const handleRestEvent = async ({ type, detail }: Event): Promise<void> => {
+  if (detail.notification?.id === SESSION_ID) {
+    if (type === EventType.PRESS) openUrl({ type, detail });
+    return;
+  }
   if (detail.notification?.id !== REST_ID) return;
   if (type === EventType.ACTION_PRESS) {
     const id = detail.pressAction?.id;
@@ -284,7 +352,8 @@ export const subscribeRestEvents = (): (() => void) =>
 /** Cold start from a notification tap: route to the workout. */
 export const openInitialRestNotification = async (): Promise<void> => {
   const initial = await notifee.getInitialNotification().catch(() => null);
-  if (initial?.notification?.id === REST_ID) {
+  const id = initial?.notification?.id;
+  if (initial && (id === REST_ID || id === SESSION_ID)) {
     openUrl({ type: EventType.PRESS, detail: { notification: initial.notification } });
   }
 };

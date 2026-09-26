@@ -48,10 +48,17 @@ import { ExerciseDocButton } from '@/features/training/components/ExerciseDocBut
 import { ExerciseFrames } from '@/features/training/components/ExerciseFrames';
 import { RestTimer } from '@/features/training/components/RestTimer';
 import { StepGroup } from '@/features/training/components/StepGroup';
-import { endRest, extendRest, startRest } from '@/features/notifications/rest-notification';
+import {
+  endRest,
+  endSession,
+  extendRest,
+  showSession,
+  startRest,
+} from '@/features/notifications/rest-notification';
 import { ensureNotificationPermission } from '@/features/notifications/service';
 import { restState, useActiveRest } from '@/features/training/rest-state';
-import { nextSetSummary, type NextSet } from '@/features/training/rest-summary';
+import { nextSetSummary, plannedSets, type NextSet } from '@/features/training/rest-summary';
+import { sessionState } from '@/features/training/session-state';
 import { formatClockTime } from '@/features/training/schedule';
 import { dayDisplayName } from '@/features/training/labels';
 import { getExercise } from '@/features/training/exercises.repo';
@@ -674,6 +681,26 @@ const WorkoutSession = () => {
 
   const log = typeof id === 'string' ? getWorkout(id) : null;
   const workoutDayId = log?.workoutDayId ?? null;
+
+  // The "training in progress" notification lives from the first visit until
+  // finish/abandon — deliberately NOT torn down on unmount: leaving the screen
+  // (tab switch) does not end the session, and the check-in delay reads it.
+  const liveWorkoutId = log?.status === 'in_progress' ? log.id : null;
+  useEffect(() => {
+    if (!liveWorkoutId || sessionState.get()?.workoutId === liveWorkoutId) return;
+    const started = getWorkout(liveWorkoutId);
+    if (!started) return;
+    void ensureNotificationPermission().finally(() =>
+      showSession({
+        workoutId: started.id,
+        startedAt: started.startedAt.getTime(),
+        title: t('session.notifTitle'),
+        exerciseName: started.plannedSnapshot?.[0]?.name ?? '',
+        setLabel: '',
+        nextLabel: '',
+      }),
+    );
+  }, [liveWorkoutId, t]);
   const [unit, setUnit] = useState<Units>(settings.getUnits());
   const [layout, setLayout] = useState<WorkoutLayout>(settings.getWorkoutLayout());
   const [showArt, setShowArt] = useState(() => settings.getShowExerciseArt());
@@ -780,6 +807,11 @@ const WorkoutSession = () => {
     const next = nextSetLine(
       nextSetSummary(planned, slotId, doneCount, (exerciseId) => setsFor(exerciseId).length),
     );
+    const slot = planned.find((p) => p.slotId === slotId);
+    const setLabel = slot
+      ? t('session.setOf', { n: doneCount, total: Math.max(doneCount, plannedSets(slot)) })
+      : '';
+    const currentLabel = [slot?.name, setLabel].filter(Boolean).join(' · ');
     const endsLabel = t('training.restEndsAt', {
       time: formatClockTime(ends.getHours() * 60 + ends.getMinutes(), clock),
     });
@@ -796,9 +828,18 @@ const WorkoutSession = () => {
         skipLabel: t('training.skip'),
         plus30Label: t('training.restPlus30'),
         plus60Label: t('training.restPlus1'),
+        currentLabel,
       },
     };
     void ensureNotificationPermission().finally(() => startRest(restPayload));
+    void showSession({
+      workoutId: log.id,
+      startedAt: log.startedAt.getTime(),
+      title: t('session.notifTitle'),
+      exerciseName: slot?.name ?? '',
+      setLabel,
+      nextLabel: next === t('training.restLast') ? '' : next,
+    });
   };
 
   // Confirmed before anything happens: the two header buttons sit side by side,
@@ -821,6 +862,7 @@ const WorkoutSession = () => {
     setTimeout(() => {
       finishWorkout(log.id);
       void endRest();
+      void endSession();
       void syncTrainingReminder(log.userId);
       setSummary(null);
       // `settling` keeps the wait on screen while the tab mounts and runs its
@@ -838,6 +880,7 @@ const WorkoutSession = () => {
         playSound('discard');
         abandonWorkout(log.id);
         void endRest();
+        void endSession();
         router.replace('/training');
       },
     });

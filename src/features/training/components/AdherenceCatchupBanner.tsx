@@ -8,23 +8,22 @@ import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 import type { SkipReason, TrainingDayStatus } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
 import { useT, type TranslationKey } from '@/i18n';
+import { settings } from '@/lib/storage';
 import { useDateFormat } from '@/lib/useDateFormat';
 import { useTodayKey } from '@/lib/useTodayKey';
 
 import { DEFAULT_CHECKIN_OFFSET_MIN, NOTIFICATION_EVENTS } from '@/features/notifications/events';
 import { getEventConfig } from '@/features/notifications/policies';
+import { decideCheckin } from '@/features/notifications/checkin-delay';
+import { isSessionInProgress } from '@/features/training/session-state';
 
 import { dateFromKey, localDateKey, markTrainingDay, rangeDaysQuery } from '../adherence.repo';
+import { CATCHUP_DAYS_BACK, selectCatchupGaps } from '../catchup-gaps';
 import { activeEnrollmentQuery } from '../enroll';
-import { weekdayOfDate } from '../schedule';
-import { findGaps } from '../streak';
 import { SkipReasonChips } from './SkipReasonChips';
 
 const CHECKIN_EVENT = NOTIFICATION_EVENTS.find((e) => e.id === 'session-checkin')!;
 const minutesOfDay = (d: Date) => d.getHours() * 60 + d.getMinutes();
-
-/** A month back: far enough to close a holiday, near enough that answering stays honest. */
-const DAYS_BACK = 30;
 
 const CHOICES: {
   status: TrainingDayStatus;
@@ -67,7 +66,7 @@ export const AdherenceCatchupBanner = () => {
     : null;
 
   const fromDate = dateFromKey(today);
-  fromDate.setDate(fromDate.getDate() - DAYS_BACK);
+  fromDate.setDate(fromDate.getDate() - CATCHUP_DAYS_BACK);
   const from = localDateKey(fromDate);
   // Deps are load-bearing, not an optimisation: without them the query stays
   // bound to the mount-time user (often '') and to the day the screen mounted.
@@ -83,28 +82,45 @@ export const AdherenceCatchupBanner = () => {
   // once that moment passes. Snapshot the clock on focus — never read it in render.
   const [checkin] = useState(() => getEventConfig(CHECKIN_EVENT));
   const [nowMinutes, setNowMinutes] = useState(() => minutesOfDay(new Date()));
+  // Mid-workout the trained/rested/missed question has no answer yet: postpone
+  // it ~1h (decideCheckin re-arms the snooze while the session runs).
+  const [suppressed, setSuppressed] = useState(
+    () =>
+      !decideCheckin({
+        sessionActive: isSessionInProgress(),
+        snoozedUntil: settings.getCheckinSnoozedUntil(),
+        now: Date.now(),
+      }).ask,
+  );
   useFocusEffect(
     useCallback(() => {
+      const now = Date.now();
+      const decision = decideCheckin({
+        sessionActive: isSessionInProgress(),
+        snoozedUntil: settings.getCheckinSnoozedUntil(),
+        now,
+      });
+      if (!decision.ask && decision.snoozeUntil > settings.getCheckinSnoozedUntil())
+        settings.setCheckinSnoozedUntil(decision.snoozeUntil);
+      setSuppressed(!decision.ask);
       setNowMinutes(minutesOfDay(new Date()));
     }, []),
   );
 
-  if (!user || !weekdays?.length) return null;
+  if (!user || !weekdays?.length || suppressed) return null;
 
   // Oldest unresolved planned day, derived live so answering advances the ask.
   const logged = new Set(rows.map((r) => r.date));
-  const past = findGaps(logged, weekdays, today, DAYS_BACK);
-  // Today leads when its session has been and gone: it is what the check-in
-  // notification just asked about, and the backlog can wait one more tap.
-  const offset = checkin.offsetMinutes ?? DEFAULT_CHECKIN_OFFSET_MIN;
-  const dueToday =
-    !logged.has(today) &&
-    (checkin.schedule ?? []).some(
-      (entry) =>
-        entry.weekday === weekdayOfDate(dateFromKey(today)) &&
-        entry.hour * 60 + entry.minute + offset <= nowMinutes,
-    );
-  const gaps = dueToday ? [today, ...past] : past;
+  // Today leads when its session has been and gone; a day already logged
+  // (today's finished workout) is never re-asked — the miss surfaces instead.
+  const gaps = selectCatchupGaps({
+    logged,
+    plannedWeekdays: weekdays,
+    today,
+    checkinSchedule: checkin.schedule ?? [],
+    offsetMinutes: checkin.offsetMinutes ?? DEFAULT_CHECKIN_OFFSET_MIN,
+    nowMinutes,
+  });
   const gap = gaps[0] ?? null;
   if (!gap) return null;
 
