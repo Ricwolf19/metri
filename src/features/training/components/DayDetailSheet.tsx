@@ -12,6 +12,7 @@ import { useDateFormat } from '@/lib/useDateFormat';
 import { useTodayKey } from '@/lib/useTodayKey';
 import { useShareCard } from '@/lib/useShareCard';
 import { useTheme } from '@/theme/theme-context';
+import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 
 import { adherenceDot } from '../adherence-colors';
 import { dayDisplayName, exerciseDisplayName } from '../labels';
@@ -19,6 +20,7 @@ import { dayQuery, markTrainingDay } from '../adherence.repo';
 import { getDayDetail, type LoggedSet } from '../day-events';
 import { fromKg } from '../progression';
 import { DeleteSessionButton } from './DeleteSessionButton';
+import { SessionTimeline } from './SessionTimeline';
 import { SkipReasonChips } from './SkipReasonChips';
 
 const STATUS_CHOICES: { status: TrainingDayStatus; key: TranslationKey }[] = [
@@ -68,6 +70,14 @@ export const DayDetailSheet = ({
   // The detail is a one-shot read, so a deleted session is hidden here rather
   // than waiting for a re-read the sheet has no signal to make.
   const [deleted, setDeleted] = useState<ReadonlySet<string>>(new Set());
+  // Sessions switched from the by-exercise list to the chronological timeline.
+  const [timelines, setTimelines] = useState<ReadonlySet<string>>(new Set());
+  const toggleTimeline = (logId: string) =>
+    setTimelines((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(logId)) next.add(logId);
+      return next;
+    });
   const [marking, setMarking] = useState(false);
   const [askingReason, setAskingReason] = useState(false);
 
@@ -140,6 +150,26 @@ export const DayDetailSheet = ({
                 />
               </View>
               {w.exercises.length ? (
+                <Pressable
+                  onPress={() => toggleTimeline(w.logId)}
+                  hitSlop={6}
+                  accessibilityRole="button"
+                  className="mt-3 self-start"
+                >
+                  <Text
+                    className="font-mono-medium text-xs uppercase tracking-wider text-accent"
+                    maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+                  >
+                    {t(timelines.has(w.logId) ? 'dayDetail.byExercise' : 'dayDetail.timeline')}
+                  </Text>
+                </Pressable>
+              ) : null}
+              {w.exercises.length && timelines.has(w.logId) ? (
+                <SessionTimeline
+                  exercises={w.exercises.map((ex) => ({ ...ex, name: displayName(ex) }))}
+                  formatSet={setLabel}
+                />
+              ) : w.exercises.length ? (
                 <View className="mt-3 gap-2 border-t border-ink-800 pt-3">
                   {w.exercises.map((ex) => (
                     <View key={ex.exerciseId}>
