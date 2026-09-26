@@ -20,6 +20,7 @@ import {
 import { recordDeletion } from '@/features/sync/tombstones';
 import { randomId } from '@/lib/crypto';
 
+import { propagateSlotMeta } from './session.repo';
 import { getExerciseSetting } from './exercise-settings.repo';
 import { exerciseHeads, type MuscleHead } from './muscles';
 
@@ -454,6 +455,8 @@ export const setSlotAlternatives = (slotId: string, exerciseIds: string[]): void
 export type SlotDraft = {
   defaultRestSeconds: number;
   badges: string[];
+  /** Free-form note rendered with the exercise ("reordered because…"). */
+  notes: string;
   weeks: { weekNumber: number; values: ConfigValues; setGroups: SetGroup[] | null }[];
 };
 
@@ -464,15 +467,17 @@ const cleanBadges = (badges: string[]): string[] =>
     .slice(0, MAX_BADGES)
     .map((b) => b.slice(0, MAX_BADGE_LEN));
 
-/** Persist a slot draft: rest + badges on the slot, then every week's prescription. */
+/** Persist a slot draft: rest + badges + note on the slot, then every week's prescription. */
 export const saveSlotDraft = (slotId: string, draft: SlotDraft): void => {
   const slot = getSlot(slotId);
   if (!slot) return;
   const badges = cleanBadges(draft.badges);
+  const notes = draft.notes.trim();
   db.update(workoutDayExercises)
     .set({
       defaultRestSeconds: draft.defaultRestSeconds,
       badges: badges.length ? badges : null,
+      notes: notes || null,
       updatedAt: new Date(),
     })
     .where(eq(workoutDayExercises.id, slotId))
@@ -480,6 +485,12 @@ export const saveSlotDraft = (slotId: string, draft: SlotDraft): void => {
   for (const week of draft.weeks) {
     upsertWeekConfig(slotId, week.weekNumber, slot.userProgramId, week.values, week.setGroups);
   }
+  // The live session renders from its snapshot — keep its copy of the meta fresh.
+  propagateSlotMeta(slotId, {
+    badges: badges.length ? badges : [],
+    notes: notes || null,
+    restSeconds: draft.defaultRestSeconds,
+  });
 };
 
 export const deleteSlot = (slotId: string): void => {

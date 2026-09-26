@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
@@ -15,10 +16,14 @@ import {
   useToast,
 } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
+import { latestTapeCm } from '@/features/body/body-measurements.repo';
 import { saveBmr } from '@/features/auth/users.repo';
 import { useI18n, useT } from '@/i18n';
+import { useDateFormat } from '@/lib/useDateFormat';
 
 import { CALC_CONTENT } from '../content';
+import { calculationHistoryQuery, keptValue, recordCalculation } from '../history.repo';
+import { initialCalcValues } from '../prefill';
 import {
   type ActivityLevel,
   type BmrFormula,
@@ -28,7 +33,7 @@ import {
   tdee as computeTdee,
 } from '../math';
 import { CALCULATORS } from '../registry';
-import type { CalcChart as ChartSpec, CalcConfig, CalcField, CalcId, CalcValues } from '../types';
+import type { CalcChart as ChartSpec, CalcField, CalcId, CalcValues } from '../types';
 import { CalcChart } from './CalcChart';
 
 /** Reserved height per chart kind (size="lg") — the plate stack, bar rows or
@@ -49,9 +54,6 @@ const FORMULA_ENUM: Record<BmrFormula, string> = {
 };
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
-
-const initialValues = (config: CalcConfig): CalcValues =>
-  Object.fromEntries(config.fields.map((f) => [f.name, f.default]));
 
 const NumberField = ({
   field,
@@ -186,11 +188,18 @@ export const Calculator = ({ id, docId }: { id: CalcId; docId?: string }) => {
   const config = CALCULATORS[id];
   const content = CALC_CONTENT[id][locale];
 
-  const [values, setValues] = useState<CalcValues>(() => initialValues(config));
+  const [values, setValues] = useState<CalcValues>(() =>
+    initialCalcValues(config, user ?? null, user ? latestTapeCm(user.id) : {}),
+  );
   const setValue = (name: string, v: number | string) =>
     setValues((prev) => ({ ...prev, [name]: v }));
 
   const result = useMemo(() => config.compute(values), [config, values]);
+  const { date } = useDateFormat();
+  const { data: history } = useLiveQuery(calculationHistoryQuery(user?.id ?? '', id), [
+    user?.id,
+    id,
+  ]);
 
   // A couple of calculators feed the user profile (Home energy card, Katch/FFMI
   // prefills). Offer to persist their result.
@@ -198,7 +207,7 @@ export const Calculator = ({ id, docId }: { id: CalcId; docId?: string }) => {
   const str = (k: string) => String(values[k] ?? '');
   const canSave = !!user && !!result && (id === 'tdee' || id === 'bodyfat');
   const onSave = () => {
-    if (!user) return;
+    if (!user || !result) return;
     if (id === 'tdee') {
       const formula = str('formula') as BmrFormula;
       const sex = str('sex') as Sex;
@@ -230,6 +239,12 @@ export const Calculator = ({ id, docId }: { id: CalcId; docId?: string }) => {
       if (bf <= 0) return;
       updateMyProfile({ bodyFatPct: bf });
     }
+    recordCalculation(
+      user.id,
+      id,
+      { ...values },
+      keptValue(result.primaryValue, result.primaryUnit),
+    );
     toast.success(t('calc.savedToast'));
     router.back();
   };
@@ -305,6 +320,22 @@ export const Calculator = ({ id, docId }: { id: CalcId; docId?: string }) => {
       {canSave ? (
         <View className="mt-5">
           <Button label={t('calc.saveProfile')} variant="brand" onPress={onSave} />
+        </View>
+      ) : null}
+
+      {history?.length ? (
+        <View className="mt-7">
+          <Text className="mb-2 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
+            {t('calc.history')}
+          </Text>
+          <Card className="gap-3">
+            {history.map((h) => (
+              <View key={h.id} className="flex-row items-center justify-between">
+                <Text className="text-sm text-ink-300">{date(h.createdAt)}</Text>
+                <Text className="font-mono text-sm text-ink-100">{h.primaryValue}</Text>
+              </View>
+            ))}
+          </Card>
         </View>
       ) : null}
 

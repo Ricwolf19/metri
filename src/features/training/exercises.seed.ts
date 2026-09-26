@@ -89,6 +89,15 @@ export const EXERCISE_SEEDS: ExerciseSeed[] = [
     equipment: 'barbell',
   },
   {
+    // Foundations prescribes it seated, back on a slightly inclined bench.
+    id: 'seated-barbell-press',
+    name: 'Seated Barbell Press',
+    category: 'shoulders',
+    primaryMuscles: ['front_delts'],
+    secondaryMuscles: ['triceps', 'upper_chest'],
+    equipment: 'barbell',
+  },
+  {
     id: 'seated-dumbbell-press',
     name: 'Dumbbell Overhead Press',
     category: 'shoulders',
@@ -123,6 +132,14 @@ export const EXERCISE_SEEDS: ExerciseSeed[] = [
   {
     id: 'lying-leg-curl',
     name: 'Leg Curl',
+    category: 'legs',
+    primaryMuscles: ['hamstrings'],
+    secondaryMuscles: [],
+    equipment: 'machine',
+  },
+  {
+    id: 'standing-leg-curl',
+    name: 'Standing Single-Leg Curl',
     category: 'legs',
     primaryMuscles: ['hamstrings'],
     secondaryMuscles: [],
@@ -168,6 +185,14 @@ export const EXERCISE_SEEDS: ExerciseSeed[] = [
     primaryMuscles: ['abs'],
     secondaryMuscles: [],
     equipment: 'bodyweight',
+  },
+  {
+    id: 'cable-crunch',
+    name: 'Cable Crunch',
+    category: 'core',
+    primaryMuscles: ['abs'],
+    secondaryMuscles: [],
+    equipment: 'cable',
   },
   {
     id: 'standing-calf-raise',

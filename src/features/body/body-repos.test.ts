@@ -8,7 +8,7 @@ vi.mock('@/db/client', async () => ({ db: await createTestDb() }));
 vi.mock('@/lib/crypto', () => ({ randomId: () => crypto.randomUUID() }));
 
 const { db } = await import('@/db/client');
-const { saveMeasurements, measurementsQuery, latestPerSite } =
+const { saveMeasurements, measurementsQuery, latestPerSite, latestTapeCm } =
   await import('./body-measurements.repo');
 const { startGoal, endGoal, applyAdjustment, activeGoalQuery } = await import('./body-goals.repo');
 
@@ -128,5 +128,17 @@ describe('body goals', () => {
       startWeightKg: 80,
       adjustments: [{ date: '2026-09-21', kcalDelta: -100 }],
     });
+  });
+});
+
+describe('latestTapeCm', () => {
+  beforeEach(wipe);
+
+  it('takes each site from its own newest day', () => {
+    saveMeasurements(U, '2026-09-01', { neck: 38, waist: 86 });
+    saveMeasurements(U, '2026-09-08', { waist: 85 });
+    saveMeasurements('someone-else', '2026-09-09', { waist: 70 });
+
+    expect(latestTapeCm(U)).toEqual({ neck: 38, waist: 85 });
   });
 });

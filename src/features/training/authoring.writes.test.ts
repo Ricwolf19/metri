@@ -65,6 +65,7 @@ describe('authoring write paths', () => {
     saveSlotDraft(slot.id, {
       defaultRestSeconds: 90,
       badges: [],
+      notes: '',
       weeks: [
         { weekNumber: 1, values: { ...configsOf(slot.id)[0], sets: 4 }, setGroups: null },
         { weekNumber: 2, values: { ...configsOf(slot.id)[1], sets: 5 }, setGroups: null },
@@ -102,6 +103,7 @@ describe('authoring write paths', () => {
     saveSlotDraft(slot.id, {
       defaultRestSeconds: 150,
       badges: ['  no failure ', '', 'b', 'c', 'd', 'e', 'f', 'x'.repeat(40)],
+      notes: '  ',
       weeks: [
         { weekNumber: 1, values: { ...w1, reps: 10 }, setGroups: null },
         { weekNumber: 2, values: { ...w2, reps: 12 }, setGroups: [{ sets: 1, reps: 5 }] },
@@ -115,6 +117,7 @@ describe('authoring write paths', () => {
       .all();
     expect(row.defaultRestSeconds).toBe(150);
     expect(row.badges).toEqual(['no failure', 'b', 'c', 'd', 'e']);
+    expect(row.notes).toBeNull();
     const after = configsOf(slot.id);
     expect(after.map((c) => c.reps)).toEqual([10, 12]);
     expect(after[1].setGroups).toEqual([{ sets: 1, reps: 5 }]);

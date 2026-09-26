@@ -4,10 +4,10 @@ import { bodyFatNavy } from '@/features/calculators/math';
 import type { SiteId } from './sites';
 
 /**
- * Body fat from the tape (US Navy method), once the needed sites exist. The
- * result is only ever OFFERED — never written on its own — because saving a new
- * body-fat value re-scales protein, and targets that shift every week with
- * tape noise are worse than a slightly stale estimate.
+ * Body fat from the tape (US Navy method), once the needed sites exist. A full
+ * check-in saves it automatically (the backlog decision: computing beats manual
+ * entry) — protein re-scaling with tape noise is accepted and surfaced via the
+ * lean-basis notice instead of gated behind a manual step.
  */
 export type NavyResult = { pct: number } | { missing: SiteId[] };
 

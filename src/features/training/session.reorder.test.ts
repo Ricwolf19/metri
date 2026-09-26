@@ -8,7 +8,7 @@ vi.mock('@/db/client', async () => ({ db: await createTestDb() }));
 vi.mock('@/lib/crypto', () => ({ randomId: () => crypto.randomUUID() }));
 
 const { db } = await import('@/db/client');
-const { reorderSnapshot } = await import('./session.repo');
+const { reorderSnapshot, swapSnapshotExercise } = await import('./session.repo');
 
 const slot = (slotId: string): PlannedSlot => ({
   slotId,
@@ -51,5 +51,35 @@ describe('reorderSnapshot', () => {
     reorderSnapshot('log', ['c', 'a']);
     reorderSnapshot('log', ['c', 'a', 'b', 'ghost']);
     expect(snapshotOf('log')?.map((p) => p.slotId)).toEqual(['a', 'b', 'c']);
+  });
+});
+
+describe('swapSnapshotExercise', () => {
+  beforeEach(() => {
+    db.delete(workoutLogs).run();
+    db.insert(workoutLogs)
+      .values({
+        id: 'log',
+        userId: 'u1',
+        userProgramId: 'up1',
+        workoutDayId: 'd1',
+        weekNumber: 1,
+        status: 'in_progress',
+        startedAt: new Date(),
+        plannedSnapshot: [slot('a'), slot('b')],
+      })
+      .run();
+  });
+
+  it('remembers the planned exercise across repeated swaps so the slot can swap back', () => {
+    swapSnapshotExercise('log', 'a', 'dumbbell-row', 'Dumbbell Row');
+    swapSnapshotExercise('log', 'a', 'seated-cable-row', 'Seated Cable Row');
+    const [a, b] = snapshotOf('log') ?? [];
+    expect(a).toMatchObject({
+      exerciseId: 'seated-cable-row',
+      name: 'Seated Cable Row',
+      originalExerciseId: 'ex-a',
+    });
+    expect(b.originalExerciseId).toBeUndefined();
   });
 });

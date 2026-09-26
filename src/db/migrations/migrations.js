@@ -27,6 +27,7 @@ import m0022 from './0022_freezing_reaper.sql';
 import m0023 from './0023_motionless_senator_kelly.sql';
 import m0024 from './0024_nostalgic_shooting_star.sql';
 import m0025 from './0025_bored_mandroid.sql';
+import m0026 from './0026_even_red_shift.sql';
 
   export default {
     journal,
@@ -56,7 +57,8 @@ m0021,
 m0022,
 m0023,
 m0024,
-m0025
+m0025,
+m0026
     }
   }
   

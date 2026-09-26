@@ -1,4 +1,4 @@
-import { and, asc, eq, gte } from 'drizzle-orm';
+import { and, asc, desc, eq, gte } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import { bodyMeasurements } from '@/db/schema';
@@ -56,6 +56,22 @@ export const measurementsQuery = (userId: string, since: string) =>
     .from(bodyMeasurements)
     .where(and(eq(bodyMeasurements.userId, userId), gte(bodyMeasurements.date, since)))
     .orderBy(asc(bodyMeasurements.date));
+
+/** Newest reading per site, whenever it was taken — what calculators prefill from. */
+export const latestTapeCm = (userId: string): Partial<Record<SiteId, number>> => {
+  const out: Partial<Record<SiteId, number>> = {};
+  const rows = db
+    .select({ site: bodyMeasurements.site, valueCm: bodyMeasurements.valueCm })
+    .from(bodyMeasurements)
+    .where(eq(bodyMeasurements.userId, userId))
+    .orderBy(desc(bodyMeasurements.date))
+    .all();
+  for (const row of rows) {
+    const site = row.site as SiteId;
+    if (out[site] == null) out[site] = row.valueCm;
+  }
+  return out;
+};
 
 type Reading = { date: string; site: string; valueCm: number };
 

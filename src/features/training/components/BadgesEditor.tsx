@@ -34,9 +34,7 @@ export const BadgesEditor = ({
               key={`${b}-${i}`}
               className="flex-row items-center gap-1.5 rounded-full bg-ink-800 px-3 py-1.5"
             >
-              <Text className="font-mono-medium text-[11px] uppercase tracking-wide text-ink-200">
-                {b}
-              </Text>
+              <Text className="font-mono-medium text-[11px] tracking-wide text-ink-200">{b}</Text>
               <Pressable onPress={() => onChange(value.filter((_, j) => j !== i))} hitSlop={6}>
                 <XIcon color="#71717a" size={13} />
               </Pressable>

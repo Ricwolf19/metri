@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, lt, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, lt, sql } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import { exercises, setLogs, users, workoutDays, workoutLogs } from '@/db/schema';
@@ -54,6 +54,8 @@ export const getDayDetail = (userId: string, dateKey: string): DayDetail => {
         lt(workoutLogs.completedAt, end),
       ),
     )
+    // Newest first, like every history list (C3).
+    .orderBy(desc(workoutLogs.completedAt))
     .all();
 
   const workouts: WorkoutDaySummary[] = logs.map(({ log, day }) => {

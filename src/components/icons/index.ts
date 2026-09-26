@@ -32,6 +32,7 @@ import {
   Xmark,
   StarSolid,
   Trash,
+  EditPencil,
   Flask,
   Download,
   OpenNewWindow,
@@ -103,6 +104,7 @@ export const PlayIcon = sized(Play, 'PlayIcon');
 export const XIcon = sized(Xmark, 'XIcon');
 export const StarIcon = sized(StarSolid, 'StarIcon');
 export const TrashIcon = sized(Trash, 'TrashIcon');
+export const EditIcon = sized(EditPencil, 'EditIcon');
 export const FlaskIcon = sized(Flask, 'FlaskIcon');
 export const DownloadIcon = sized(Download, 'DownloadIcon');
 export const ExternalLinkIcon = sized(OpenNewWindow, 'ExternalLinkIcon');

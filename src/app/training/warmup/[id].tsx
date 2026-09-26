@@ -17,6 +17,7 @@ import {
 } from '@/components/ui';
 import type { WarmupStep } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
+import { WarmupStepDemo } from '@/features/training/components/WarmupStepDemo';
 import { warmupCopy } from '@/features/training/warmup-content';
 import {
   createWarmup,
@@ -218,6 +219,7 @@ const WarmupDetail = () => {
                 onChangeText={(v) => patchStep(i, { detail: v })}
                 placeholder={t('warmup.detailPh')}
               />
+              <WarmupStepDemo name={step.name} />
             </Card>
           ))}
           <Button
@@ -242,6 +244,7 @@ const WarmupDetail = () => {
                 {step.detail ? (
                   <Text className="mt-0.5 text-xs text-ink-400">{step.detail}</Text>
                 ) : null}
+                <WarmupStepDemo name={step.name} />
               </View>
             </View>
           ))}

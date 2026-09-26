@@ -25,6 +25,7 @@ const VISUAL_IDS = [
   'skullcrusher',
   'back-extension',
   'crunch',
+  'cable-crunch',
   'standing-calf-raise',
   'machine-chest-press',
   'dumbbell-fly',
@@ -53,7 +54,7 @@ export type VisualId = (typeof VISUAL_IDS)[number];
 const VISUALS: ReadonlySet<string> = new Set(VISUAL_IDS);
 
 /** "Curl Araña!" → "curl arana" — accent/symbol-insensitive comparison key. */
-const normalize = (s: string): string =>
+export const normalize = (s: string): string =>
   s
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')

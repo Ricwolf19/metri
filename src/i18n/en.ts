@@ -329,10 +329,8 @@ export const en = {
   'body.neckUnlocks':
     'Below the larynx. With the waist (and hips for women) it lets metri estimate body fat from the tape.',
   'body.navyEstimate': 'From this tape: about {n}% body fat.',
-  'body.navyNote':
-    'An estimate from neck, waist and height. What matters is using the same method every time — watch the trend, not the number.',
-  'body.navyUse': 'Save as my body fat',
-  'body.bodyFatSaved': 'Body fat saved.',
+  'body.navyAutoSaved':
+    'Saved with this check-in as your body fat, and your energy estimate is refreshed. Watch the trend, not the number.',
   'body.reading.recomp':
     'Weight is holding or up while your key site shrinks: muscle gained, fat lost. Exactly what you want — change nothing.',
   'body.reading.water':
@@ -484,6 +482,14 @@ export const en = {
   'exercise.library': 'Exercises',
   'exercise.librarySub': 'Technique cues and your history for every movement.',
   'exercise.openDoc': 'View technique guide',
+  'exNote.title': 'My note',
+  'exNote.hint': 'Shows up on this exercise in every session.',
+  'exNote.add': 'Add a note',
+  'exNote.edit': 'Edit note',
+  'exNote.delete': 'Hold to delete the note',
+  'exNote.placeholder': 'e.g. Left shoulder nags below parallel',
+  'exNote.saved': 'Note saved',
+  'exNote.deleted': 'Note deleted',
   'exercise.defaultsTitle': 'Your defaults',
   'exercise.defaultsHint': 'Applied whenever you add this exercise to a split.',
   'exercise.illustrationCredit': 'Illustrations: Workout Guide · Everkinetic (CC BY-SA 4.0)',
@@ -695,6 +701,8 @@ export const en = {
   'warmup.stepsHint': 'One movement per line, with roughly how much.',
   'warmup.stepPh': 'e.g. Band pull-apart',
   'warmup.detailPh': 'e.g. 2 × 15',
+  'warmup.showDemo': 'Show demo',
+  'warmup.hideDemo': 'Hide demo',
   'warmup.addStep': 'Add step',
   'warmup.needName': 'Name the routine first',
   'warmup.needStep': 'Add at least one step',
@@ -786,6 +794,10 @@ export const en = {
   'editor.programName': 'Program name',
   'editor.programNamePh': 'e.g. My Push/Pull/Legs',
   'editor.description': 'Description',
+  'editor.notes': 'Note',
+  'editor.notesHint':
+    'Shown on this exercise during the session — why you changed something, a form cue.',
+  'editor.notesPh': 'e.g. Moved first: the rack is free early',
   'editor.descriptionPh': 'Optional notes about this program',
   'editor.create': 'Create',
   'editor.save': 'Save',
@@ -840,6 +852,7 @@ export const en = {
   'calc.emptyPrompt': 'Fill in the fields to see your result.',
   'calc.saveProfile': 'Save to my profile',
   'calc.savedToast': 'Saved to your profile',
+  'calc.history': 'Previous results',
   'calc.weight': 'Weight',
   'calc.reps': 'Reps',
   'calc.height': 'Height',

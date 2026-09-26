@@ -332,10 +332,8 @@ export const es: Record<TranslationKey, string> = {
   'body.neckUnlocks':
     'Debajo de la laringe. Con la cintura (y la cadera en mujeres) permite a metri estimar tu grasa corporal con la cinta.',
   'body.navyEstimate': 'Con esta cinta: alrededor de {n}% de grasa corporal.',
-  'body.navyNote':
-    'Una estimación con cuello, cintura y estatura. Lo importante es usar siempre el mismo método — mira la tendencia, no el número.',
-  'body.navyUse': 'Guardar como mi grasa corporal',
-  'body.bodyFatSaved': 'Grasa corporal guardada.',
+  'body.navyAutoSaved':
+    'Se guardó con este registro como tu grasa corporal y se actualizó tu estimación de energía. Mira la tendencia, no el número.',
   'body.reading.recomp':
     'El peso se mantiene o sube mientras tu zona clave baja: ganaste músculo y perdiste grasa. Justo lo que buscas — no cambies nada.',
   'body.reading.water':
@@ -492,6 +490,14 @@ export const es: Record<TranslationKey, string> = {
   'exercise.library': 'Ejercicios',
   'exercise.librarySub': 'Técnica e historial de cada movimiento.',
   'exercise.openDoc': 'Ver guía de técnica',
+  'exNote.title': 'Mi nota',
+  'exNote.hint': 'Aparece en este ejercicio en cada sesión.',
+  'exNote.add': 'Agregar una nota',
+  'exNote.edit': 'Editar nota',
+  'exNote.delete': 'Mantén para borrar la nota',
+  'exNote.placeholder': 'p. ej. El hombro izquierdo molesta bajo paralelo',
+  'exNote.saved': 'Nota guardada',
+  'exNote.deleted': 'Nota borrada',
   'exercise.defaultsTitle': 'Tus valores por defecto',
   'exercise.defaultsHint': 'Se aplican al agregar este ejercicio a un split.',
   'exercise.illustrationCredit': 'Ilustraciones: Workout Guide · Everkinetic (CC BY-SA 4.0)',
@@ -705,6 +711,8 @@ export const es: Record<TranslationKey, string> = {
   'warmup.stepsHint': 'Un movimiento por línea, con la cantidad aproximada.',
   'warmup.stepPh': 'ej. Apertura con banda',
   'warmup.detailPh': 'ej. 2 × 15',
+  'warmup.showDemo': 'Ver demostración',
+  'warmup.hideDemo': 'Ocultar demostración',
   'warmup.addStep': 'Agregar paso',
   'warmup.needName': 'Primero nombra la rutina',
   'warmup.needStep': 'Agrega al menos un paso',
@@ -796,6 +804,10 @@ export const es: Record<TranslationKey, string> = {
   'editor.programName': 'Nombre del programa',
   'editor.programNamePh': 'ej. Mi Push/Pull/Legs',
   'editor.description': 'Descripción',
+  'editor.notes': 'Nota',
+  'editor.notesHint':
+    'Se muestra en este ejercicio durante la sesión: por qué cambiaste algo, una indicación de técnica.',
+  'editor.notesPh': 'p. ej. Lo pasé al inicio: el rack está libre temprano',
   'editor.descriptionPh': 'Notas opcionales sobre el programa',
   'editor.create': 'Crear',
   'editor.save': 'Guardar',
@@ -851,6 +863,7 @@ export const es: Record<TranslationKey, string> = {
   'calc.emptyPrompt': 'Completa los campos para ver tu resultado.',
   'calc.saveProfile': 'Guardar en mi perfil',
   'calc.savedToast': 'Guardado en tu perfil',
+  'calc.history': 'Resultados anteriores',
   'calc.weight': 'Peso',
   'calc.reps': 'Reps',
   'calc.height': 'Altura',

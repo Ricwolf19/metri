@@ -46,6 +46,7 @@ import { lbToKg } from '@/features/bmr/calc';
 import { fromKg } from '@/features/training/progression';
 import { ExerciseDocButton } from '@/features/training/components/ExerciseDocButton';
 import { ExerciseFrames } from '@/features/training/components/ExerciseFrames';
+import { SessionNotes } from '@/features/training/components/SessionNotes';
 import { RestTimer } from '@/features/training/components/RestTimer';
 import { StepGroup } from '@/features/training/components/StepGroup';
 import { endRest, extendRest, startRest } from '@/features/notifications/rest-notification';
@@ -73,6 +74,7 @@ import {
   type SessionSummary,
 } from '@/features/training/session.repo';
 import { syncTrainingReminder } from '@/features/training/reminders';
+import { prefillSourceKey, swapOptions } from '@/features/training/variants';
 import { warmupRamp } from '@/features/training/warmup';
 import { useI18n, useT, type TFunction } from '@/i18n';
 import { settings, type Units, type WorkoutLayout } from '@/lib/storage';
@@ -429,9 +431,10 @@ const ExerciseCard = ({
       patchDraft(activeKey, { effort: picked.rir == null && !picked.failure ? null : picked });
   };
 
+  const swapIds = swapOptions(planned);
   const pickAlternative = () => {
-    if (!planned.alternativeExerciseIds.length) return;
-    const options = planned.alternativeExerciseIds
+    if (!swapIds.length) return;
+    const options = swapIds
       .map((altId) => getExercise(altId))
       .filter((e): e is NonNullable<typeof e> => !!e);
     dialog.show({
@@ -477,7 +480,7 @@ const ExerciseCard = ({
           className="flex-1 pr-2"
         >
           <Text className="text-base font-sans-semibold text-ink-50">{planned.name}</Text>
-          {planned.alternativeExerciseIds.length ? (
+          {swapIds.length ? (
             <Text className="mt-0.5 text-[11px] text-ink-500">{t('training.holdForAlt')}</Text>
           ) : null}
         </Pressable>
@@ -493,6 +496,8 @@ const ExerciseCard = ({
           />
         </View>
       ) : null}
+
+      <SessionNotes slotNote={planned.notes} exerciseId={planned.exerciseId} />
 
       {lastWeekLine ? <Text className="mt-2 text-xs text-ink-400">{lastWeekLine}</Text> : null}
 
@@ -697,7 +702,9 @@ const WorkoutSession = () => {
   const day = workoutDayId ? getWorkoutDay(workoutDayId) : null;
   const { data: sets } = useLiveQuery(setLogsQuery(typeof id === 'string' ? id : ''));
 
-  // Prefill source: last week's sets per snapshot slot (stable per session).
+  // Prefill source: last week's sets per snapshot slot — re-read when a slot
+  // swaps exercise, so a variant never inherits another variant's loads.
+  const prefillKey = prefillSourceKey(log?.plannedSnapshot ?? []);
   const lastWeekBySlot = useMemo(() => {
     if (!log?.plannedSnapshot || !workoutDayId) return new Map<string, SetLog[]>();
     return new Map(
@@ -707,7 +714,7 @@ const WorkoutSession = () => {
       ]),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [log?.id]);
+  }, [log?.id, prefillKey]);
 
   // An exercise is done when its planned working sets are all logged.
   const doneSlot = (p: PlannedSlot): boolean =>
