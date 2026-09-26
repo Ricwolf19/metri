@@ -2,7 +2,13 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Pressable, Text, View } from 'react-native';
 
-import { CameraIcon, ChevronRightIcon, LogOutIcon, StarIcon } from '@/components/icons';
+import {
+  CameraIcon,
+  ChevronRightIcon,
+  DownloadIcon,
+  LogOutIcon,
+  StarIcon,
+} from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import {
   Avatar,
@@ -26,6 +32,7 @@ import { pushProfile } from '@/features/auth/profile-sync';
 import { betaLinks } from '@/features/beta/links';
 import { pickFromCamera, pickFromLibrary } from '@/features/photos/capture';
 import { deletePhotoFiles, persistAvatar } from '@/features/photos/media';
+import { useUpdateAvailable } from '@/features/release/useLatestRelease';
 import { LOCALES, useI18n, type Locale } from '@/i18n';
 import { WEB_URL } from '@/lib/env';
 import { settings, type ClockFormat } from '@/lib/storage';
@@ -46,7 +53,8 @@ const MetricRow = ({ label, value }: { label: string; value: string }) => {
 const Profile = () => {
   const { user, isPremium, isLocalOnly, tier, updateMyProfile, signOut } = useAuth();
   const { t, locale, setLocale } = useI18n();
-  const { brand } = useTheme();
+  const { brand, brandContrast } = useTheme();
+  const updateAvailable = useUpdateAvailable();
   const toast = useToast();
   const dialog = useDialog();
   const router = useRouter();
@@ -176,6 +184,24 @@ const Profile = () => {
           <ChevronRightIcon color={brand} />
         </Card>
       </PressableScale>
+
+      {/* A newer build is out (remote accounts only — see features/release). */}
+      {updateAvailable ? (
+        <PressableScale onPress={() => Linking.openURL(betaLinks.download)} className="mt-4">
+          <Card className="flex-row items-center">
+            <View className="mr-4 h-11 w-11 items-center justify-center rounded-field bg-brand">
+              <DownloadIcon color={brandContrast} size={20} />
+            </View>
+            <View className="flex-1 pr-2">
+              <Text className="text-base font-sans-semibold text-ink-50">
+                {t('release.updateTitle')}
+              </Text>
+              <Text className="mt-0.5 text-sm text-ink-400">{t('release.updateBody')}</Text>
+            </View>
+            <ChevronRightIcon color={brand} />
+          </Card>
+        </PressableScale>
+      ) : null}
 
       {/* Sync is automatic with Premium — no button. The ring around the avatar
           in the top bar is the status surface. */}
