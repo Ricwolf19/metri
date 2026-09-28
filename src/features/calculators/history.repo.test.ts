@@ -28,4 +28,17 @@ describe('calculation history', () => {
     expect(calculationHistoryQuery(U, 'bodyfat').all()).toHaveLength(1);
     expect(calculationHistoryQuery('other', 'tdee').all()).toHaveLength(0);
   });
+
+  it('does not repeat the newest entry when the same result is kept again', () => {
+    recordCalculation(U, 'bodyfat', { waist: 86 }, '18.5%');
+    recordCalculation(U, 'bodyfat', { waist: 86 }, '18.5%');
+    recordCalculation(U, 'bodyfat', { waist: 85 }, '18.1%');
+    recordCalculation(U, 'bodyfat', { waist: 86 }, '18.5%');
+
+    expect(
+      calculationHistoryQuery(U, 'bodyfat')
+        .all()
+        .map((r) => r.primaryValue),
+    ).toEqual(['18.5%', '18.1%', '18.5%']);
+  });
 });

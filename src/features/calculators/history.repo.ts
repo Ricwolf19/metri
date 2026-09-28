@@ -8,13 +8,20 @@ import { randomId } from '@/lib/crypto';
 export const keptValue = (value: string, unit?: string): string =>
   !unit ? value : unit === '%' ? `${value}%` : `${value} ${unit}`;
 
-/** Append one kept calculator result. */
+/** Append one kept calculator result — unless it repeats the newest entry of
+ * that calculator (a check-in re-saved unchanged, Save tapped twice). */
 export const recordCalculation = (
   userId: string,
   calcId: string,
   inputs: Record<string, number | string>,
   primaryValue: string,
 ): void => {
+  const [latest] = calculationHistoryQuery(userId, calcId, 1).all();
+  if (
+    latest?.primaryValue === primaryValue &&
+    JSON.stringify(latest.inputs) === JSON.stringify(inputs)
+  )
+    return;
   db.insert(calculationHistory)
     .values({ id: randomId(), userId, calcId, inputs, primaryValue })
     .run();
