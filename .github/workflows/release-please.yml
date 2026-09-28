@@ -27,13 +27,18 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  # Ships the sideloadable APK for the website's beta download. The AAB build
+  # Ships the sideloadable APK the website links for download. The AAB build
   # that used to live here was dropped: it can only go to Play Store, and
   # nothing consumed it. Re-add it as a separate job when the store listing is
   # ready.
+  #
+  # The tag is passed so the APK is built from the tagged commit and attached
+  # to that release as versioned assets (see release-apk.yml).
   apk:
-    name: Beta APK
+    name: Release APK
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
-    uses: ./.github/workflows/apk-beta.yml
+    uses: ./.github/workflows/release-apk.yml
+    with:
+      tag: ${{ needs.release-please.outputs.tag_name }}
     secrets: inherit

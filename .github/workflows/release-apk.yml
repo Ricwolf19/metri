@@ -1,0 +1,209 @@
+name: Release APK
+
+# Builds the sideloadable APK for a release and attaches it to that tag's
+# GitHub release: `metri-<version>.apk`, its `.sha256` and `release.json`
+# (version, tag, runtimeVersion, apk, sha256, sizeBytes). That tagged release
+# is the ONLY download source — metri.info reads release.json to link the
+# newest build, and gets a webhook so it refreshes without waiting on a cache.
+#
+# Two triggers on purpose:
+#   workflow_call     — invoked by release-please.yml when a release is cut,
+#                       with the new tag. A `release: published` trigger would
+#                       NOT work: that release is created with GITHUB_TOKEN,
+#                       and GitHub does not fire workflows from token-generated
+#                       events.
+#   workflow_dispatch — manual button: rebuilds an existing tag (e.g.
+#                       `metri-v1.11.0`) and re-attaches its assets, for a
+#                       release whose build failed or predates this workflow.
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag to build and attach the APK to.
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to rebuild (e.g. metri-v1.11.0).
+        type: string
+        required: true
+
+jobs:
+  apk:
+    name: Build and attach the APK
+    runs-on: ubuntu-latest
+    # A cloud build runs ~30-60 min (queue included). Cap it so a hung EAS job
+    # fails in an hour instead of burning the 6h default.
+    timeout-minutes: 90
+    # One build per tag at a time: a manual rebuild racing the automatic run
+    # would `--clobber` each other's assets mid-upload.
+    concurrency:
+      group: release-apk-${{ inputs.tag }}
+      cancel-in-progress: false
+    # The repo default for GITHUB_TOKEN is read-only; the upload needs write.
+    # Scoped to this job rather than the whole workflow.
+    permissions:
+      contents: write
+    # The tag reaches scripts through the environment only — never interpolated
+    # into a `run:` body, where a crafted dispatch input would become shell.
+    env:
+      TAG: ${{ inputs.tag }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      # Building the tagged commit (not whatever main is now) is what makes the
+      # APK, its version and its runtimeVersion describe the release it is
+      # attached to.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Guard EXPO_TOKEN
+        id: guard
+        # Through env, never interpolated into the script body.
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "EXPO_TOKEN not set — skipping APK build."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Fail in seconds, not after an hour of EAS build: the tag must have a
+      # release to attach to, and its app.json must carry the version the tag
+      # names (release-please bumps both in the same commit).
+      - name: Resolve version
+        id: meta
+        if: ${{ steps.guard.outputs.skip != 'true' }}
+        run: |
+          version=$(jq -er '.expo.version' app.json)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null || {
+            echo "::error::No GitHub release for tag '$TAG'."
+            exit 1
+          }
+          case "$TAG" in
+            *"v$version") ;;
+            *)
+              echo "::error::Tag '$TAG' does not match app.json version '$version'."
+              exit 1
+              ;;
+          esac
+
+      - uses: ./.github/actions/setup-repo
+        if: ${{ steps.guard.outputs.skip != 'true' }}
+        with:
+          cache: true
+
+      - name: Setup EAS
+        if: ${{ steps.guard.outputs.skip != 'true' }}
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      # `preview` produces an APK on the `beta` channel — the same channel
+      # eas-update.yml publishes to, so a fresh sideload keeps receiving OTA
+      # updates. The profile name is EAS's scaffolding convention and stays;
+      # the channel is what the binary listens on. The `production` profile
+      # builds an AAB, which can only be submitted to Play Store.
+      # `--wait` blocks until the build finishes. `--output` is NOT usable here:
+      # EAS rejects it for cloud builds ("allowed only for local builds"), so the
+      # artifact is pulled from the URL that `--json` reports once the build ends.
+      - name: Build APK
+        if: ${{ steps.guard.outputs.skip != 'true' }}
+        run: |
+          eas build --platform android --profile preview \
+            --non-interactive --wait --json > "${{ runner.temp }}/build.json"
+          url=$(jq -r \
+            '.[0].artifacts.applicationArchiveUrl // .[0].artifacts.buildUrl // empty' \
+            "${{ runner.temp }}/build.json")
+          if [ -z "$url" ]; then
+            echo "EAS returned no artifact URL — build result:" >&2
+            cat "${{ runner.temp }}/build.json" >&2
+            exit 1
+          fi
+          curl -fsSL "$url" -o "${{ runner.temp }}/metri.apk"
+
+      # The runtimeVersion is what decides which OTA updates an install can
+      # take, so the site shows it next to each build. It comes from the build
+      # EAS actually made (fingerprint policy), not from a local recomputation
+      # that could disagree with it.
+      - name: Write versioned assets
+        if: ${{ steps.guard.outputs.skip != 'true' }}
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        working-directory: ${{ runner.temp }}
+        run: |
+          runtime=$(jq -r '.[0].runtimeVersion // empty' build.json)
+          if [ -z "$runtime" ]; then
+            echo "EAS build result has no runtimeVersion:" >&2
+            cat build.json >&2
+            exit 1
+          fi
+          apk="metri-$VERSION.apk"
+          cp metri.apk "$apk"
+          sha256sum "$apk" > "$apk.sha256"
+          jq -n \
+            --arg version "$VERSION" \
+            --arg tag "$TAG" \
+            --arg runtimeVersion "$runtime" \
+            --arg apk "$apk" \
+            --arg sha256 "$(cut -d' ' -f1 "$apk.sha256")" \
+            --argjson sizeBytes "$(stat -c %s "$apk")" \
+            '{version: $version,
+              tag: $tag,
+              runtimeVersion: $runtimeVersion,
+              apk: $apk,
+              sha256: $sha256,
+              sizeBytes: $sizeBytes}' > release.json
+          cat release.json
+          {
+            echo "### APK $VERSION"
+            echo '```json'
+            cat release.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # --clobber makes a manual re-run for the same tag replace its assets
+      # instead of failing. GitHub's automatic "Source code" archives stay on
+      # the release; they cannot be removed and the site ignores them. The
+      # SHA-256 ships beside the APK: sideloaded installs bypass Play integrity
+      # checks, so it is the one way to verify a download by hand.
+      - name: Attach to the tagged release
+        if: ${{ steps.guard.outputs.skip != 'true' }}
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        working-directory: ${{ runner.temp }}
+        run: |
+          gh release upload "$TAG" \
+            "metri-$VERSION.apk" "metri-$VERSION.apk.sha256" release.json \
+            --clobber --repo "$GITHUB_REPOSITORY"
+
+      # Tells metri.info a release has assets so it revalidates now instead of
+      # on its cache timer. By the time this runs the APK is already public, so
+      # a failed notify only delays the site: it must never fail the release,
+      # and the summary is where anyone would look for it. A missing secret
+      # skips it, same as EXPO_TOKEN (forks, a repo not yet wired to the site).
+      - name: Notify metri.info
+        if: ${{ steps.guard.outputs.skip != 'true' }}
+        continue-on-error: true
+        env:
+          SECRET: ${{ secrets.METRI_RELEASE_WEBHOOK_SECRET }}
+        run: |
+          if [ -z "$SECRET" ]; then
+            echo "Release webhook: skipped (METRI_RELEASE_WEBHOOK_SECRET not set)." \
+              >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if curl -fsS --retry 3 --retry-all-errors -X POST \
+            https://metri.info/api/releases/notify \
+            -H "Authorization: Bearer $SECRET" \
+            -H 'content-type: application/json' \
+            -d "$(jq -n --arg tag "$TAG" '{tag: $tag}')"; then
+            echo "Release webhook: metri.info notified for \`$TAG\`." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Release webhook: FAILED for \`$TAG\` — the APK is published; re-run this job or revalidate the site by hand." \
+              >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi

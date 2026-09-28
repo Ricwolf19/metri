@@ -380,6 +380,16 @@ Full walkthrough in `docs/release.md`. Breakable rules:
   over OTA.
 - `app.config.ts` fails safe to the production API URL (dev URL only under
   `NODE_ENV === 'development'`); `eas.json`/workflows pin `EXPO_PUBLIC_AUTH_URL` on top.
-- The `apk-beta` release tag and `metri.apk` asset name are hard-coded by metri.info — never rename.
+- `release-apk.yml` (called by release-please with the new tag, or dispatched with an existing one)
+  attaches `metri-<version>.apk`, `.apk.sha256` and `release.json` (`version`, `tag`,
+  `runtimeVersion`, `apk`, `sha256`, `sizeBytes`) to that tag's release, built from that tag.
+  `release.json` keys are a contract with metri.info: add, never rename. That tagged release is the
+  ONLY download source (the rolling `apk-beta` release is gone). In-app links open the website's
+  download page, never an asset URL or `releases/latest` — GitHub creates the release about an hour
+  before its APK is attached.
+- The metri.info notify webhook (`METRI_RELEASE_WEBHOOK_SECRET`) runs last and never fails a release.
+- The APK ships arm ABIs only (`expo-build-properties` → `buildArchs`) with R8 minification on;
+  resource shrinking stays OFF (it cannot see `res/raw` sounds or images resolved by name). R8
+  breakage only shows in a release build: smoke-test an EAS preview APK after any native change.
 - Versions (`package.json`, `CHANGELOG.md`, `app.json → expo.version`) are release-please's; never
   bump by hand.
