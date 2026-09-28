@@ -91,8 +91,7 @@ history harder to leave with is off the table.
   for Android and iOS, running on a development build (native modules: MMKV, notifications).
 - **Offline-first data**: expo-sqlite + Drizzle ORM with live queries as the single source of truth;
   MMKV for settings and hot-path flags.
-- **Accounts and sync** on the metri.info backend (Better Auth); Premium cloud sync is described in
-  [`docs/sync.md`](./docs/sync.md).
+- **Accounts and sync** on the metri.info backend (Better Auth), with Premium cloud sync.
 - **Quality gate**: ESLint, Prettier, knip, secretlint and Vitest (pure logic plus repo tests
   against the real migrations on sql.js), all behind `bun run verify`.
 
@@ -103,7 +102,7 @@ history harder to leave with is off the table.
 **Prerequisites**
 
 - Node.js (LTS) and [Bun](https://bun.sh) >= 1.3
-- **JDK 17** (required by the React Native Android toolchain — see [`docs/android-setup.md`](./docs/android-setup.md))
+- **JDK 17** (required by the React Native Android toolchain)
 - Xcode (iOS) and/or Android Studio (Android SDK + an emulator or a device)
 
 MMKV uses native code, so the app runs on a **development build**, not Expo Go.
@@ -123,13 +122,9 @@ or changing the app icon / `app.json` / `metro.config.js` requires a rebuild.
 
 ## Documentation
 
-| Document                                           | What it covers                                                                               |
-| -------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| [`AGENTS.md`](./AGENTS.md)                         | Layout, commands, architecture invariants and conventions for contributors and coding agents |
-| [`docs/android-setup.md`](./docs/android-setup.md) | JDK 17 + Gradle setup on macOS, resetting local data, running wirelessly                     |
-| [`docs/release.md`](./docs/release.md)             | CI workflows, secrets, release flow, OTA vs APK rules                                        |
-| [`docs/sync.md`](./docs/sync.md)                   | Premium cloud sync: protocol, engine invariants, UI indicators                               |
-| [`docs/brand.md`](./docs/brand.md)                 | Logo sources, launcher assets, palette                                                       |
+| Document                   | What it covers                                                                               |
+| -------------------------- | -------------------------------------------------------------------------------------------- |
+| [`AGENTS.md`](./AGENTS.md) | Layout, commands, architecture invariants and conventions for contributors and coding agents |
 
 ---
 

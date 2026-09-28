@@ -3,9 +3,9 @@ import type { Units } from '@/lib/storage';
 
 /**
  * The numbers that seed the live set row. These helpers exist so the set-logging
- * path never silently rounds or substitutes what the lifter typed (field bugs
- * A2/A3 in docs/test-feedback-backlog.md): drafts are strings, bumps keep every
- * decimal the keyboard allows, and only the SEED converts units.
+ * path never silently rounds or substitutes what the lifter typed: drafts are
+ * strings, bumps keep every decimal the keyboard allows, and only the SEED
+ * converts units.
  */
 
 /** Float-error guard for typed decimal arithmetic: 3 decimals covers every

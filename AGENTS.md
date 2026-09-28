@@ -16,9 +16,8 @@ merges. `EXPORT_VERSION` 3 added export-only `progressPhotos` metadata (never th
 body and food tables; 5 adds the local-only `exerciseNotes` and `calculationHistory` (sync never
 carries them — a note on an existing exercise keeps the device's copy). Bumps only ever ADD keys, so
 `validate-import.ts` accepts 2–5. Cloud sync is
-Premium-only and automatic. `README.md` is the presentation card only; the long-form docs live in
-`docs/`: `android-setup.md` (JDK 17, reset, wireless), `release.md` (CI/release walkthrough),
-`sync.md` (protocol, mobile half — server half in the web repo's `docs/sync.md`), `brand.md`.
+Premium-only and automatic. `README.md` is the presentation card only; this file holds the rules
+(the sync protocol's server half lives in the web repo's `docs/sync.md`).
 
 ## Layout
 
@@ -34,14 +33,13 @@ src/features/    training (repos, schedule, editors' components, analytics engin
 src/i18n/        en.ts + es.ts (flat keys), provider
 src/lib/         storage (MMKV), date helpers, telemetry, small hooks (useDateFormat, useTodayKey…)
 src/test/        sql.js harness for repo tests
-docs/            android-setup, release, sync, brand (long-form docs; README stays short)
 ```
 
 ## Commands
 
 ```bash
 bun start              # Metro dev server
-bun run android|ios    # native build + run (Android needs JDK 17 — docs/android-setup.md)
+bun run android|ios    # native build + run (Android needs JDK 17)
 bun run verify         # format:check + lint + typecheck + test + i18n:check + deadcode
 bun run ci             # verify + secrets:scan + expo-doctor — mirror of CI; pre-push runs this
 bun run test           # vitest — colocated *.test.ts: pure logic, or repos against src/test/sqlite.ts (sql.js) with `@/db/client` + `@/lib/crypto` mocked
@@ -86,7 +84,7 @@ keys. Every production bug fix ships with the test that would have caught it.
 
 ## Sync (Premium) — the rules that were real bugs
 
-Read `docs/sync.md` before touching `src/features/sync/`. Non-negotiables:
+Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it. Non-negotiables:
 
 - Every `applyRow` is individually try/caught — one bad row must never strand the cursor.
 - Incoming keys are intersected against `PRAGMA table_info` (schema drift + SQL-injection guard).
@@ -365,7 +363,7 @@ Read `docs/sync.md` before touching `src/features/sync/`. Non-negotiables:
 
 ## CI & release (sideloaded beta — no store pushes a binary for you)
 
-Full walkthrough in `docs/release.md`. Breakable rules:
+The workflows' own comments carry the why (`.github/workflows/`). Breakable rules:
 
 - Never pass `--output` to a cloud `eas build`; the APK job resolves the artifact via `--json`.
 - OTA publishes with `--channel beta`, never `--auto`. The build profile stays named `preview` —
