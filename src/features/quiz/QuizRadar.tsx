@@ -1,27 +1,12 @@
 import { Text, View } from 'react-native';
 import Svg, { Line, Polygon } from 'react-native-svg';
 
-import { useT, type TranslationKey } from '@/i18n';
+import { useT } from '@/i18n';
 import { THEME_VARS } from '@/theme/tokens';
 import { useTheme } from '@/theme/theme-context';
 
-import { QUIZ_AREAS, QUIZ_MAX_LEVEL } from './areas';
+import { AREA_KEY, LEVEL_KEY, QUIZ_AREAS, QUIZ_MAX_LEVEL } from './areas';
 import type { QuizScores } from './scores';
-
-export const AREA_KEY: Record<(typeof QUIZ_AREAS)[number], TranslationKey> = {
-  nutrition: 'quiz.area.nutrition',
-  training: 'quiz.area.training',
-  body: 'quiz.area.body',
-  fundamentals: 'quiz.area.fundamentals',
-};
-
-export const LEVEL_KEY: TranslationKey[] = [
-  'quiz.level0',
-  'quiz.level1',
-  'quiz.level2',
-  'quiz.level3',
-  'quiz.level4',
-];
 
 const SIZE = 220;
 const R = SIZE / 2 - 12;
@@ -83,7 +68,7 @@ export const QuizRadar = ({ scores }: { scores: QuizScores }) => {
               {t(AREA_KEY[a])}
             </Text>
             <Text className="ml-3 font-mono text-xs text-ink-300">
-              {t(LEVEL_KEY[scores[a]]!)} · {scores[a]}/{QUIZ_MAX_LEVEL}
+              {t(LEVEL_KEY[scores[a]])} · {scores[a]}/{QUIZ_MAX_LEVEL}
             </Text>
           </View>
         ))}

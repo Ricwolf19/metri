@@ -1,6 +1,6 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { BackHandler, Pressable, Text, View } from 'react-native';
 
 import { TopBar } from '@/components/TopBar';
 import { Button, Card, Screen } from '@/components/ui';
@@ -14,7 +14,8 @@ import {
   startQuiz,
   type QuizState,
 } from '@/features/quiz/engine';
-import { AREA_KEY, LEVEL_KEY, QuizRadar } from '@/features/quiz/QuizRadar';
+import { AREA_KEY, LEVEL_KEY } from '@/features/quiz/areas';
+import { QuizRadar } from '@/features/quiz/QuizRadar';
 import { loadScores, saveScores, type QuizScores } from '@/features/quiz/scores';
 import { useI18n, useT } from '@/i18n';
 
@@ -45,7 +46,22 @@ const Quiz = () => {
   const [result, setResult] = useState<QuizScores | null>(null);
   const [asked, setAsked] = useState(0);
 
-  const leave = () => (fromOnboarding ? router.replace('/(tabs)') : router.back());
+  const leave = useCallback(
+    () => (fromOnboarding ? router.replace('/(tabs)') : router.back()),
+    [fromOnboarding, router],
+  );
+  // Reached through `router.replace`, so the stack has no onboarding step to pop
+  // back to: the hardware back button leaves the flow like the header does.
+  useFocusEffect(
+    useCallback(() => {
+      if (!fromOnboarding) return undefined;
+      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        leave();
+        return true;
+      });
+      return () => sub.remove();
+    }, [fromOnboarding, leave]),
+  );
 
   const question = state ? currentQuestion(state, QUIZ_QUESTIONS) : null;
 
@@ -55,9 +71,7 @@ const Quiz = () => {
     setPicked(null);
     setAsked((n) => n + 1);
     if (isQuizComplete(after) || !currentQuestion(after, QUIZ_QUESTIONS)) {
-      const scores = quizScores(after);
-      saveScores(scores);
-      setResult(loadScores());
+      setResult(saveScores(quizScores(after)));
       setState(null);
       return;
     }
@@ -70,7 +84,14 @@ const Quiz = () => {
     setState(startQuiz());
   };
 
-  const header = <TopBar showBack showAvatar={false} title={t('quiz.title')} />;
+  const header = (
+    <TopBar
+      showBack
+      onBack={fromOnboarding ? leave : undefined}
+      showAvatar={false}
+      title={t('quiz.title')}
+    />
+  );
 
   if (result) {
     return (
@@ -120,7 +141,7 @@ const Quiz = () => {
     <Screen scroll contentClassName="px-5 pb-12" header={header}>
       <Text className="font-mono-medium text-xs uppercase tracking-wider text-ink-400">
         {t('quiz.questionN', { n: asked + 1 })} · {t(AREA_KEY[question.area])} ·{' '}
-        {t(LEVEL_KEY[question.level]!)}
+        {t(LEVEL_KEY[question.level])}
       </Text>
       <Text className="mt-3 text-lg font-sans-semibold leading-7 text-ink-50">
         {question.prompt[locale]}

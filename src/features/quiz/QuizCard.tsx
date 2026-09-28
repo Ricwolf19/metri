@@ -7,8 +7,7 @@ import { Card, PressableScale } from '@/components/ui';
 import { useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
-import { QUIZ_AREAS, QUIZ_MAX_LEVEL } from './areas';
-import { AREA_KEY } from './QuizRadar';
+import { AREA_KEY, QUIZ_AREAS, QUIZ_MAX_LEVEL } from './areas';
 import { loadScores, type QuizScores } from './scores';
 
 /** Explore's entry to the knowledge check: an invitation, or the last result. */

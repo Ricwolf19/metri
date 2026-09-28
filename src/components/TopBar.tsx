@@ -13,6 +13,8 @@ import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 
 type Props = {
   showBack?: boolean;
+  /** Replaces `router.back()` for a screen whose way out is not the stack (e.g. an onboarding step). */
+  onBack?: () => void;
   showAvatar?: boolean;
   /** Nested screens: page title (+ optional subtitle) inside the pill. */
   title?: string;
@@ -33,6 +35,7 @@ type Props = {
  * `title`/`subtitle` — see AGENTS.md#conventions (Screens). */
 export const TopBar = ({
   showBack,
+  onBack,
   showAvatar = true,
   title,
   subtitle,
@@ -83,7 +86,7 @@ export const TopBar = ({
             // Bare icon, no chip: the touch target stays 44dp via hitSlop while
             // the control gives ~16dp of width back to the content.
             hitSlop={14}
-            onPress={() => router.back()}
+            onPress={onBack ?? (() => router.back())}
             accessibilityRole="button"
             accessibilityLabel="Go back"
             className="-ml-1"
