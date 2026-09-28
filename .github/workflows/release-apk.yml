@@ -135,7 +135,10 @@ jobs:
           VERSION: ${{ steps.meta.outputs.version }}
         working-directory: ${{ runner.temp }}
         run: |
-          runtime=$(jq -r '.[0].runtimeVersion // empty' build.json)
+          # EAS reports it as `runtime.version` (the fingerprint hash, which is
+          # what `Updates.runtimeVersion` returns on the device); there is no
+          # top-level `runtimeVersion` in `--json` output.
+          runtime=$(jq -r '.[0].runtime.version // .[0].runtimeVersion // empty' build.json)
           if [ -z "$runtime" ]; then
             echo "EAS build result has no runtimeVersion:" >&2
             cat build.json >&2
