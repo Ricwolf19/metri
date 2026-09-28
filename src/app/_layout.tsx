@@ -30,7 +30,7 @@ import {
   reconcileSession,
   subscribeRestEvents,
 } from '@/features/notifications/rest-notification';
-import { initNotifications } from '@/features/notifications/service';
+import { initNotifications, subscribeNotificationTaps } from '@/features/notifications/service';
 import { seedTraining } from '@/features/training/seed';
 import { getWorkout } from '@/features/training/session.repo';
 import { workoutScreenId } from '@/features/training/workout-route';
@@ -99,7 +99,12 @@ const RootLayout = () => {
     void initRestNotifications()
       .then(() => openInitialRestNotification())
       .catch(() => {});
-    return subscribeRestEvents();
+    const unsubscribeTaps = subscribeNotificationTaps();
+    const unsubscribeRest = subscribeRestEvents();
+    return () => {
+      unsubscribeTaps();
+      unsubscribeRest();
+    };
   }, []);
 
   // Seed the built-in training catalog (exercise library + suggested programs)

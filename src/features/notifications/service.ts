@@ -1,5 +1,7 @@
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
+
+import { appLinkFrom } from './app-link';
 
 /**
  * The app's single gateway to expo-notifications. Every schedule goes through a
@@ -11,8 +13,8 @@ import { Platform } from 'react-native';
 export type ChannelKind = 'reminders';
 
 /** Rides on every scheduled notification so a handler can tell which
- * catalogue event fired. */
-type NotificationData = { event?: string };
+ * catalogue event fired; `url` is an in-app deep link a tap opens. */
+type NotificationData = { event?: string; url?: string };
 type Content = { title: string; body?: string; data?: NotificationData };
 
 const SHOW = {
@@ -60,6 +62,40 @@ export const ensureNotificationPermission = async (): Promise<boolean> => {
   if (current.granted) return true;
   const requested = await Notifications.requestPermissionsAsync();
   return requested.granted;
+};
+
+/** Whether notifications may be shown, WITHOUT prompting (for flows the user did not start). */
+export const hasNotificationPermission = async (): Promise<boolean> =>
+  (await Notifications.getPermissionsAsync()).granted;
+
+/** Show a notification right away (a one-shot, never part of the reconciled catalogue). */
+export const notifyNow = (kind: ChannelKind, content: Content): Promise<string> =>
+  Notifications.scheduleNotificationAsync({
+    content: { title: content.title, body: content.body ?? '', sound: SOUND, data: content.data },
+    trigger: { channelId: kind },
+  });
+
+const openDataUrl = (response: Notifications.NotificationResponse | null): void => {
+  const url = appLinkFrom(response?.notification.request.content.data);
+  if (url) void Linking.openURL(url).catch(() => {});
+};
+
+/**
+ * Route taps on notifications that carry `data.url` — including the one that
+ * cold-started the app. The last response is cleared once handled, so an OTA
+ * restart (`reloadAsync`) does not replay it. Returns the unsubscribe.
+ */
+export const subscribeNotificationTaps = (): (() => void) => {
+  const initial = Notifications.getLastNotificationResponse();
+  if (initial) {
+    openDataUrl(initial);
+    Notifications.clearLastNotificationResponse();
+  }
+  const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+    openDataUrl(response);
+    Notifications.clearLastNotificationResponse();
+  });
+  return () => sub.remove();
 };
 
 /** Daily repeating notification at a local time; returns the OS id. */
