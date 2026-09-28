@@ -36,6 +36,13 @@ export const Select = <T extends string>({
   const { brand, muted } = useTheme();
   const selected = items.find((i) => i.value === value);
   const listRef = useRef<ScrollView>(null);
+  // Scroll to the checked option once per open: the row's onLayout also fires
+  // on later relayouts (font scale, rotation) and would yank the list back.
+  const revealed = useRef(false);
+  const show = () => {
+    revealed.current = false;
+    setOpen(true);
+  };
 
   return (
     <View className="w-full">
@@ -49,7 +56,7 @@ export const Select = <T extends string>({
       ) : null}
 
       <Pressable
-        onPress={() => setOpen(true)}
+        onPress={show}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
         className="min-h-11 w-full flex-row items-center rounded-field border border-ink-600 bg-ink-900 px-4 py-2.5"
@@ -83,11 +90,14 @@ export const Select = <T extends string>({
                 // Long lists open on the checked option, not on the first one.
                 onLayout={
                   active
-                    ? (e) =>
+                    ? (e) => {
+                        if (revealed.current) return;
+                        revealed.current = true;
                         listRef.current?.scrollTo({
                           y: revealOffset(e.nativeEvent.layout.y),
                           animated: false,
-                        })
+                        });
+                      }
                     : undefined
                 }
                 onPress={() => {
