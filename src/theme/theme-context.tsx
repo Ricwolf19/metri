@@ -25,6 +25,8 @@ type ThemeContextValue = {
   brandContrast: string;
   /** Muted icon color (ink-400) for chevrons and secondary glyphs. */
   muted: string;
+  /** Destructive icon color (red-500) — delete / discard glyphs. */
+  danger: string;
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -79,6 +81,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       brand: scheme === 'dark' ? '#bef82b' : '#4d7c0f',
       brandContrast: scheme === 'dark' ? '#08090d' : '#f7fee7',
       muted: '#71717a',
+      danger: '#ef4444',
     };
   }, [preference, scheme, setPreference]);
 

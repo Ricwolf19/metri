@@ -171,17 +171,19 @@ const OTHER_UNIT = (unit: Units): Units => (unit === 'kg' ? 'lb' : 'kg');
  * the rest of the screen stays in the app unit.
  */
 const ConvertibleWeight = ({ kg, unit }: { kg: number; unit: Units }) => {
+  const t = useT();
   const [override, setOverride] = useState<Units | null>(null);
   const shown = override ?? unit;
+  const text = `${weightText(kg, shown)} ${shown}`;
   return (
     <Pressable
       onPress={() => setOverride((prev) => (prev ? null : OTHER_UNIT(unit)))}
       hitSlop={4}
       accessibilityRole="button"
+      accessibilityLabel={text}
+      accessibilityHint={t('training.tapToConvert')}
     >
-      <Text className="text-sm font-sans-medium text-ink-100">
-        {weightText(kg, shown)} {shown}
-      </Text>
+      <Text className="text-sm font-sans-medium text-ink-100">{text}</Text>
     </Pressable>
   );
 };
@@ -215,7 +217,7 @@ const LoggedRow = ({
   warmup: boolean;
   failureLabel: string;
 }) => {
-  const { brandContrast } = useTheme();
+  const { brandContrast, muted } = useTheme();
   return (
     <View className="flex-row items-center rounded-field bg-ink-850 px-3 py-2">
       <View
@@ -237,7 +239,7 @@ const LoggedRow = ({
         </Text>
       </View>
       <Pressable hitSlop={8} onPress={() => deleteSet(logged.id)} accessibilityRole="button">
-        <XIcon color="#71717a" size={15} />
+        <XIcon color={muted} size={15} />
       </Pressable>
     </View>
   );
@@ -270,7 +272,7 @@ const ActiveRow = ({
   onOpenCalculator?: () => void;
 }) => {
   const t = useT();
-  const { brandContrast } = useTheme();
+  const { brandContrast, muted } = useTheme();
 
   return (
     <View className="rounded-field border border-brand/40 bg-ink-850 px-3 py-2">
@@ -285,7 +287,7 @@ const ActiveRow = ({
         )}
         {onRemove ? (
           <Pressable onPress={onRemove} hitSlop={8} accessibilityRole="button">
-            <XIcon color="#71717a" size={14} />
+            <XIcon color={muted} size={14} />
           </Pressable>
         ) : null}
       </View>
@@ -315,7 +317,7 @@ const ActiveRow = ({
             accessibilityLabel={t('training.calculatorTitle')}
             className="h-12 w-11 items-center justify-center rounded-field border border-ink-700 bg-ink-800"
           >
-            <DumbbellIcon color="#a1a1aa" size={18} />
+            <DumbbellIcon color={muted} size={18} />
           </Pressable>
         ) : null}
         <Pressable
@@ -361,7 +363,7 @@ const ExerciseCard = ({
   const router = useRouter();
   const dialog = useDialog();
   const toast = useToast();
-  const { brand } = useTheme();
+  const { brand, muted } = useTheme();
   const [weightStep, setWeightStep] = useState(() => settings.getWeightStep());
   const [repsStep, setRepsStep] = useState(() => settings.getRepsStep());
   // Drafts live in a module store keyed by workoutLogId: switching exercises in
@@ -710,7 +712,7 @@ const ExerciseCard = ({
           accessibilityRole="button"
           className="flex-row items-center gap-1 py-1.5"
         >
-          <PlusIcon color="#71717a" size={14} />
+          <PlusIcon color={muted} size={14} />
           <Text className="text-xs font-sans-semibold text-ink-400">{t('training.warmupSet')}</Text>
         </Pressable>
         {/* Extra sets only unlock once the plan is done — sets have an order. */}
@@ -1044,7 +1046,7 @@ const WorkoutSession = () => {
         <ChipRow
           items={planned.map((p, i) => ({
             value: String(i),
-            label: `${i + 1}. ${p.name}${doneSlot(p) ? ' ✓' : ''}`,
+            label: `${i + 1}. ${doneSlot(p) ? t('training.exerciseDone', { name: p.name }) : p.name}`,
           }))}
           value={layout === 'cards' ? String(idx) : null}
           onChange={(v) => jumpToExercise(Number(v))}

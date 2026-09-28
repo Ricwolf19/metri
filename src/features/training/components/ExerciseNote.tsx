@@ -29,7 +29,7 @@ export const ExerciseNote = ({
 }) => {
   const t = useT();
   const toast = useToast();
-  const { muted } = useTheme();
+  const { muted, danger } = useTheme();
   const { data } = useLiveQuery(exerciseNoteQuery(userId, exerciseId), [userId, exerciseId]);
   const note = data[0]?.note ?? null;
   const [editing, setEditing] = useState(false);
@@ -70,7 +70,7 @@ export const ExerciseNote = ({
           </View>
           {note ? (
             <HoldButton
-              icon={<TrashIcon color="#ef4444" size={16} />}
+              icon={<TrashIcon color={danger} size={16} />}
               accessibilityLabel={t('exNote.delete')}
               onComplete={remove}
             />
