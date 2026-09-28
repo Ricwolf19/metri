@@ -339,6 +339,10 @@ export type PlannedSlot = {
   restSeconds: number | null;
   badges: string[];
   alternativeExerciseIds: string[];
+  /** Free-form slot note ("reordered because…"); absent on pre-upgrade snapshots. */
+  notes?: string | null;
+  /** The planned exercise, kept once a slot is swapped to a variant so it can swap back. */
+  originalExerciseId?: string;
 };
 
 /**
@@ -645,6 +649,50 @@ export const exerciseSettings = sqliteTable(
 );
 
 export type ExerciseSetting = typeof exerciseSettings.$inferSelect;
+
+/**
+ * History of calculator runs the user chose to keep (TDEE, body fat…). Local
+ * only — deliberately NOT in `SYNC_TABLES`: it is consultative metadata, and a
+ * synced table must ship web-first (metri.info rejects unknown tables).
+ */
+export const calculationHistory = sqliteTable(
+  'calculation_history',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(),
+    /** Calculator config id (`tdee`, `bodyfat`, …). */
+    calcId: text('calc_id').notNull(),
+    /** The committed inputs, as shown on the calculator's fields. */
+    inputs: text('inputs', { mode: 'json' }).$type<Record<string, number | string>>().notNull(),
+    /** The primary result as rendered ("2450 kcal", "18.5 %"). */
+    primaryValue: text('primary_value').notNull(),
+    createdAt: tsMs('created_at').notNull().default(NOW_MS),
+  },
+  (t) => [index('idx_calculation_history_user').on(t.userId, t.calcId)],
+);
+
+export type CalculationHistory = typeof calculationHistory.$inferSelect;
+
+/**
+ * The lifter's own note on an exercise ("left shoulder nags below parallel") —
+ * global to the exercise, not tied to a routine, so it surfaces wherever the
+ * exercise appears. One row per (user, exercise). Local only, same reasoning
+ * as `calculation_history`.
+ */
+export const exerciseNotes = sqliteTable(
+  'exercise_notes',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(),
+    exerciseId: text('exercise_id').notNull(),
+    note: text('note').notNull(),
+    createdAt: tsMs('created_at').notNull().default(NOW_MS),
+    updatedAt: tsMs('updated_at').notNull().default(NOW_MS),
+  },
+  (t) => [uniqueIndex('idx_exercise_notes_user_exercise').on(t.userId, t.exerciseId)],
+);
+
+export type ExerciseNote = typeof exerciseNotes.$inferSelect;
 
 /** One line of a warm-up: what to do, and roughly how much of it. */
 export type WarmupStep = { name: string; detail?: string };

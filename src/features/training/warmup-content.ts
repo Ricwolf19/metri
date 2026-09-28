@@ -147,7 +147,7 @@ const ES: Record<WarmupId, WarmupCopy> = {
   },
 };
 
-const COPY: Record<Locale, Record<WarmupId, WarmupCopy>> = { en: EN, es: ES };
+export const WARMUP_COPY: Record<Locale, Record<WarmupId, WarmupCopy>> = { en: EN, es: ES };
 
 const isSeeded = (id: string): id is WarmupId => (WARMUP_IDS as readonly string[]).includes(id);
 
@@ -157,7 +157,7 @@ export const warmupCopy = (
   locale: Locale,
 ): WarmupCopy =>
   isSeeded(routine.id)
-    ? COPY[locale][routine.id]
+    ? WARMUP_COPY[locale][routine.id]
     : { name: routine.name, description: routine.description ?? '', steps: routine.steps };
 
 /** The seed writes the EN copy as the neutral base (same rule as preset programs). */

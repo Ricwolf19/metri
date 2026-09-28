@@ -15,7 +15,7 @@ type Props = {
   items: Badge[];
   /** `brand` marks prescriptions the lifter must honour; `muted` is context. */
   tone?: Tone;
-  /** Renders the text in the monospaced face, for cues like `BENCH 30°`. */
+  /** Renders the text in the monospaced face, for cues like `Bench 30°` — case as typed. */
   mono?: boolean;
 };
 
@@ -40,9 +40,7 @@ export const BadgeRow = ({ items, tone = 'muted', mono = false }: Props) => {
           <Text
             numberOfLines={1}
             className={[
-              mono
-                ? 'font-mono-medium text-[10px] uppercase tracking-wide'
-                : 'text-[11px] font-sans-medium',
+              mono ? 'font-mono-medium text-[10px] tracking-wide' : 'text-[11px] font-sans-medium',
               LABEL[tone],
             ].join(' ')}
           >

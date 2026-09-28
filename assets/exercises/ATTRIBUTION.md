@@ -7,7 +7,7 @@ library by [Bryl Lim](https://bryllim.com), redistributed under
 Some first-pose frames are rasterized adaptations of artwork from
 [Everkinetic](https://github.com/everkinetic/data), also CC BY-SA 4.0.
 
-Changes made for metri: 39 of the 302 exercises were selected and the files
+Changes made for metri: 51 of the 302 exercises were selected and the files
 renamed from the source slugs to metri's catalog exercise ids. The images
 themselves are unmodified. Source slug per file:
 
@@ -52,6 +52,14 @@ themselves are unmodified. Source slug per file:
 | overhead-tricep-extension | dumbbell-overhead-tricep-extension |
 | cable-overhead-extension  | overhead-tricep-extension          |
 | cable-kickback            | tricep-kickback                    |
+| cable-crunch              | cable-crunch                       |
+
+Warm-up step demos (resolved by step name in `src/features/training/warmup-visuals.ts`)
+keep their source slug as the file name:
+
+`cycling`, `band-pull-apart`, `glute-bridge`, `dead-bug`, `scapular-push-up`,
+`bodyweight-squat`, `cat-cow-stretch`, `kneeling-hip-flexor-stretch`,
+`hamstring-stretch`, `doorway-chest-stretch`, `wall-calf-stretch`.
 
 These assets remain under CC BY-SA 4.0. The app's source code is licensed
 separately and is not a derivative of the images.

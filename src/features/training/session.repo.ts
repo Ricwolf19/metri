@@ -89,6 +89,7 @@ export const startWorkout = (
       restSeconds: config?.restSeconds ?? slot.defaultRestSeconds ?? null,
       badges: slot.badges ?? [],
       alternativeExerciseIds: slot.alternativeExerciseIds ?? [],
+      notes: slot.notes ?? null,
     }),
   );
 
@@ -345,12 +346,49 @@ export const swapSnapshotExercise = (
   const log = getWorkout(logId);
   if (!log?.plannedSnapshot) return;
   const next = log.plannedSnapshot.map((p) =>
-    p.slotId === slotId ? { ...p, exerciseId, name: exerciseName } : p,
+    p.slotId === slotId
+      ? {
+          ...p,
+          originalExerciseId: p.originalExerciseId ?? p.exerciseId,
+          exerciseId,
+          name: exerciseName,
+        }
+      : p,
   );
   db.update(workoutLogs)
     .set({ plannedSnapshot: next, updatedAt: new Date() })
     .where(eq(workoutLogs.id, logId))
     .run();
+};
+
+/**
+ * Push slot meta edits (badges, note, default rest) into every in-progress
+ * session whose snapshot contains the slot — editing a routine keeps the live
+ * session in sync instead of stranding it with stale cues.
+ */
+export const propagateSlotMeta = (
+  slotId: string,
+  meta: { badges?: string[]; notes?: string | null; restSeconds?: number | null },
+): void => {
+  const logs = db.select().from(workoutLogs).where(eq(workoutLogs.status, 'in_progress')).all();
+  const now = new Date();
+  for (const log of logs) {
+    if (!log.plannedSnapshot?.some((p) => p.slotId === slotId)) continue;
+    const next = log.plannedSnapshot.map((p) =>
+      p.slotId === slotId
+        ? {
+            ...p,
+            ...(meta.badges !== undefined ? { badges: meta.badges } : {}),
+            ...(meta.notes !== undefined ? { notes: meta.notes } : {}),
+            ...(meta.restSeconds !== undefined ? { restSeconds: meta.restSeconds } : {}),
+          }
+        : p,
+    );
+    db.update(workoutLogs)
+      .set({ plannedSnapshot: next, updatedAt: now })
+      .where(eq(workoutLogs.id, log.id))
+      .run();
+  }
 };
 
 /** Persist a mid-session exercise reorder ("machine was taken, did legs first") —

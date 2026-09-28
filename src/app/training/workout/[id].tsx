@@ -48,6 +48,7 @@ import { lbToKg } from '@/features/bmr/calc';
 import { fromKg } from '@/features/training/progression';
 import { ExerciseDocButton } from '@/features/training/components/ExerciseDocButton';
 import { ExerciseFrames } from '@/features/training/components/ExerciseFrames';
+import { SessionNotes } from '@/features/training/components/SessionNotes';
 import { RestTimer } from '@/features/training/components/RestTimer';
 import { StepGroup } from '@/features/training/components/StepGroup';
 import { WeightCalculatorSheet } from '@/features/training/components/WeightCalculatorSheet';
@@ -61,12 +62,7 @@ import { getExercise } from '@/features/training/exercises.repo';
 import { visualIdFor } from '@/features/training/exercise-visuals';
 import { exerciseHeads, muscleHeadKey, type MuscleHead } from '@/features/training/muscles';
 import { getWorkoutDay } from '@/features/training/programs.repo';
-import {
-  bumpValue,
-  nextSetPrefill,
-  slotHistoryKey,
-  weightText,
-} from '@/features/training/set-prefill';
+import { bumpValue, nextSetPrefill, weightText } from '@/features/training/set-prefill';
 import { sessionBadges } from '@/features/training/session-badges';
 import {
   clearDraft,
@@ -94,6 +90,7 @@ import {
   type SessionSummary,
 } from '@/features/training/session.repo';
 import { syncTrainingReminder } from '@/features/training/reminders';
+import { prefillSourceKey, swapOptions } from '@/features/training/variants';
 import { warmupRamp } from '@/features/training/warmup';
 import { useI18n, useT, type TFunction } from '@/i18n';
 import { settings, type Units, type WorkoutLayout } from '@/lib/storage';
@@ -502,9 +499,10 @@ const ExerciseCard = ({
       patchDraft(activeKey, { effort: picked.rir == null && !picked.failure ? null : picked });
   };
 
+  const swapIds = swapOptions(planned);
   const pickAlternative = () => {
-    if (!planned.alternativeExerciseIds.length) return;
-    const options = planned.alternativeExerciseIds
+    if (!swapIds.length) return;
+    const options = swapIds
       .map((altId) => getExercise(altId))
       .filter((e): e is NonNullable<typeof e> => !!e);
     dialog.show({
@@ -544,7 +542,7 @@ const ExerciseCard = ({
           className="flex-1 pr-2"
         >
           <Text className="text-base font-sans-semibold text-ink-50">{planned.name}</Text>
-          {planned.alternativeExerciseIds.length ? (
+          {swapIds.length ? (
             <Text className="mt-0.5 text-[11px] text-ink-500">{t('training.holdForAlt')}</Text>
           ) : null}
         </Pressable>
@@ -560,6 +558,8 @@ const ExerciseCard = ({
           />
         </View>
       ) : null}
+
+      <SessionNotes slotNote={planned.notes} exerciseId={planned.exerciseId} />
 
       {lastWeek.length ? (
         <View className="mt-2 flex-row items-center">
@@ -803,19 +803,19 @@ const WorkoutSession = () => {
   const day = workoutDayId ? getWorkoutDay(workoutDayId) : null;
   const { data: sets } = useLiveQuery(setLogsQuery(typeof id === 'string' ? id : ''), [id]);
 
-  // Prefill source: last week's sets per (slot, exercise). Keyed on both so a
-  // swap re-reads history for the exercise actually in the slot now.
-  const historyKeys = (log?.plannedSnapshot ?? []).map(slotHistoryKey).join('|');
+  // Prefill source: last week's sets per snapshot slot — re-read when a slot
+  // swaps exercise, so a variant never inherits another variant's loads.
+  const prefillKey = prefillSourceKey(log?.plannedSnapshot ?? []);
   const lastWeekBySlot = useMemo(() => {
     if (!log?.plannedSnapshot || !workoutDayId) return new Map<string, SetLog[]>();
     return new Map(
       log.plannedSnapshot.map((p) => [
-        slotHistoryKey(p),
+        p.slotId,
         lastWeekSets(p.exerciseId, workoutDayId, log.weekNumber - 1),
       ]),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [log?.id, historyKeys]);
+  }, [log?.id, prefillKey]);
 
   // An exercise is done when its planned working sets are all logged.
   const doneSlot = (p: PlannedSlot): boolean =>
@@ -1029,7 +1029,7 @@ const WorkoutSession = () => {
         planned={p}
         sets={setsFor(p.exerciseId)}
         unit={unit}
-        lastWeek={lastWeekBySlot.get(slotHistoryKey(p)) ?? []}
+        lastWeek={lastWeekBySlot.get(p.slotId) ?? []}
         showArt={showArt}
         requestEffort={requestEffort}
         onLogged={onLogged}

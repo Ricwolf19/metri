@@ -29,14 +29,6 @@ export const bumpValue = (current: number, delta: number): string => {
 export const weightText = (kg: number, unit: Units): string =>
   trimNumber(Math.round((unit === 'lb' ? kgToLb(kg) : kg) * 100) / 100);
 
-/**
- * Where a slot's history is looked up. A mid-session swap keeps the slotId but
- * changes the exercise, and a cache keyed by the slot alone kept prefilling the
- * NEW exercise with the OLD one's loads — numbers from elsewhere (A2).
- */
-export const slotHistoryKey = (slot: { slotId: string; exerciseId: string }): string =>
-  `${slot.slotId}:${slot.exerciseId}`;
-
 export type PriorSet = { weightKg: number; reps: number };
 
 /**

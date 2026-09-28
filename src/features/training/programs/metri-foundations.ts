@@ -63,13 +63,13 @@ const phase1Slots = (week1Sets: number): SlotSeed[] => {
   ];
   return [
     { exerciseId: 'back-extension', restSeconds: REST_LIGHT, weeks: ramp(12, REST_LIGHT) },
-    { exerciseId: 'crunch', restSeconds: REST_LIGHT, weeks: ramp(20, REST_LIGHT) },
+    { exerciseId: 'cable-crunch', restSeconds: REST_LIGHT, weeks: ramp(20, REST_LIGHT) },
     { exerciseId: 'standing-calf-raise', restSeconds: REST_LIGHT, weeks: ramp(12, REST_LIGHT) },
     {
-      exerciseId: 'lying-leg-curl',
+      exerciseId: 'standing-leg-curl',
       restSeconds: REST_DEFAULT,
       weeks: ramp(12, REST_DEFAULT),
-      badges: ['De pie', 'O similar'],
+      badges: ['O similar'],
     },
     { exerciseId: 'leg-press', restSeconds: REST_HEAVY, weeks: ramp(12, REST_HEAVY) },
     {
@@ -85,7 +85,7 @@ const phase1Slots = (week1Sets: number): SlotSeed[] => {
       badges: ['Agarre supino'],
     },
     { exerciseId: 'barbell-curl', restSeconds: REST_DEFAULT, weeks: ramp(12, REST_DEFAULT) },
-    { exerciseId: 'overhead-press', restSeconds: REST_HEAVY, weeks: ramp(12, REST_HEAVY) },
+    { exerciseId: 'seated-barbell-press', restSeconds: REST_HEAVY, weeks: ramp(12, REST_HEAVY) },
     { exerciseId: 'french-press', restSeconds: REST_DEFAULT, weeks: ramp(12, REST_DEFAULT) },
   ];
 };
@@ -139,7 +139,7 @@ export const METRI_FOUNDATIONS: ProgramSeed = {
               ],
             },
             {
-              exerciseId: 'crunch',
+              exerciseId: 'cable-crunch',
               restSeconds: REST_LIGHT,
               weeks: fixedRow([4, 3, 3, 2], 20, REST_LIGHT),
             },
@@ -165,7 +165,7 @@ export const METRI_FOUNDATIONS: ProgramSeed = {
               badges: ['Agarre supino'],
             },
             {
-              exerciseId: 'overhead-press',
+              exerciseId: 'seated-barbell-press',
               restSeconds: REST_HEAVY,
               weeks: fixedRow([4, 4, 3, 2], 8, REST_HEAVY),
             },
@@ -177,12 +177,12 @@ export const METRI_FOUNDATIONS: ProgramSeed = {
           focusMuscles: ['chest', 'shoulders', 'triceps', 'core'],
           exercises: [
             {
-              exerciseId: 'crunch',
+              exerciseId: 'cable-crunch',
               restSeconds: REST_LIGHT,
               weeks: fixedRow([4, 4, 4, 4], 20, REST_LIGHT),
             },
             {
-              exerciseId: 'crunch',
+              exerciseId: 'cable-crunch',
               restSeconds: REST_LIGHT,
               weeks: fixedRow([4, 4, 4, 4], 20, REST_LIGHT),
             },
@@ -202,7 +202,7 @@ export const METRI_FOUNDATIONS: ProgramSeed = {
               weeks: fixedRow([4, 3, 3, 2], 10, REST_DEFAULT),
             },
             {
-              exerciseId: 'overhead-press',
+              exerciseId: 'seated-barbell-press',
               restSeconds: REST_HEAVY,
               weeks: fixedRow([4, 4, 3, 2], 10, REST_HEAVY),
             },
@@ -279,7 +279,7 @@ export const METRI_FOUNDATIONS: ProgramSeed = {
           focusMuscles: ['chest', 'shoulders', 'triceps', 'core'],
           exercises: [
             {
-              exerciseId: 'crunch',
+              exerciseId: 'cable-crunch',
               restSeconds: REST_LIGHT,
               weeks: fixedRow([4, 3, 3, 2], 20, REST_LIGHT),
             },
@@ -299,7 +299,7 @@ export const METRI_FOUNDATIONS: ProgramSeed = {
               weeks: fixedRow([3, 3, 3, 2], 8, REST_DEFAULT),
             },
             {
-              exerciseId: 'overhead-press',
+              exerciseId: 'seated-barbell-press',
               restSeconds: REST_HEAVY,
               weeks: falsePyramid(REST_HEAVY),
             },
@@ -321,7 +321,7 @@ export const METRI_FOUNDATIONS: ProgramSeed = {
           focusMuscles: ['quads', 'hamstrings', 'back', 'biceps', 'core'],
           exercises: [
             {
-              exerciseId: 'crunch',
+              exerciseId: 'cable-crunch',
               restSeconds: REST_LIGHT,
               weeks: fixedRow([4, 4, 4, 4], 20, REST_LIGHT),
             },

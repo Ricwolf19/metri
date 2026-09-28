@@ -31,6 +31,10 @@ export const EXERCISE_NAMES: Record<string, Record<Locale, string>> = {
   'sumo-deadlift': { es: 'Peso muerto sumo', en: 'Sumo Deadlift' },
   'romanian-deadlift': { es: 'Peso muerto rumano', en: 'Romanian Deadlift' },
   'overhead-press': { es: 'Press militar con barra', en: 'Barbell Overhead Press' },
+  'seated-barbell-press': {
+    es: 'Press militar sentado con barra',
+    en: 'Seated Barbell Press',
+  },
   'seated-dumbbell-press': {
     es: 'Press militar con mancuernas',
     en: 'Dumbbell Overhead Press',
@@ -39,11 +43,13 @@ export const EXERCISE_NAMES: Record<string, Record<Locale, string>> = {
   'leg-press': { es: 'Prensa de piernas', en: 'Leg Press' },
   'leg-extension': { es: 'Extensión de cuádriceps', en: 'Leg Extension' },
   'lying-leg-curl': { es: 'Curl femoral', en: 'Leg Curl' },
+  'standing-leg-curl': { es: 'Curl femoral de pie a una pierna', en: 'Standing Single-Leg Curl' },
   'barbell-curl': { es: 'Curl de bíceps con barra', en: 'Barbell Bicep Curl' },
   'hammer-curl': { es: 'Curl martillo', en: 'Hammer Curl' },
   skullcrusher: { es: 'Rompecráneos con mancuernas', en: 'Dumbbell Skullcrusher' },
   'back-extension': { es: 'Extensiones lumbares', en: 'Back Extension' },
   crunch: { es: 'Abdominales', en: 'Crunch' },
+  'cable-crunch': { es: 'Crunch en polea', en: 'Cable Crunch' },
   'standing-calf-raise': { es: 'Gemelos', en: 'Calf Raise' },
   // Support movements (preset tables)
   'machine-chest-press': { es: 'Chest press en máquina', en: 'Machine Chest Press' },
@@ -86,7 +92,7 @@ export const EXERCISE_NAMES: Record<string, Record<Locale, string>> = {
 };
 
 /** Technique cues per exercise id. */
-export const EXERCISE_CONTENT: Record<string, Record<Locale, ExerciseContent>> = {
+const CONTENT: Record<string, Record<Locale, ExerciseContent>> = {
   'barbell-back-squat': {
     es: {
       summary:
@@ -647,6 +653,36 @@ export const EXERCISE_CONTENT: Record<string, Record<Locale, ExerciseContent>> =
       ],
     },
   },
+  'standing-leg-curl': {
+    es: {
+      summary:
+        'Curl femoral de pie, **una pierna a la vez**. Cue principal: **la cadera quieta contra el soporte** — lo único que se mueve es la rodilla.',
+      setup: [
+        'Ajusta el rodillo **justo por encima del talón** y apoya cadera y pecho en el soporte; la pierna que no trabaja queda firme en el suelo.',
+      ],
+      execution: [
+        'Lleva el talón hacia el glúteo **sin despegar la cadera** del soporte, para que el trabajo se quede en la parte de atrás de la pierna.',
+        '**Controla la bajada** y sube lo más rápido que puedas; termina las repeticiones de una pierna y repite con la otra, mismo peso y mismas repeticiones.',
+      ],
+      mistakes: [
+        '**Adelantar la cadera o arquear la espalda** para subir el peso: el trabajo se va de los femorales a la zona lumbar.',
+      ],
+    },
+    en: {
+      summary:
+        'Standing leg curl, **one leg at a time**. Main cue: **keep the hips still against the pad** — the only thing that moves is the knee.',
+      setup: [
+        'Set the roller **just above the heel** and rest hips and chest on the pad; the working leg hangs free while the other stays planted on the floor.',
+      ],
+      execution: [
+        'Bring the heel towards the glute **without lifting the hips** off the pad, so the work stays on the back of the leg.',
+        '**Control the descent** and come up as fast as you can; finish the reps on one leg, then repeat on the other with the same weight and reps.',
+      ],
+      mistakes: [
+        '**Pushing the hips forward or arching the back** to move the weight: the work shifts from the hamstrings to the lower back.',
+      ],
+    },
+  },
   'barbell-curl': {
     es: {
       summary:
@@ -787,7 +823,7 @@ export const EXERCISE_CONTENT: Record<string, Record<Locale, ExerciseContent>> =
       ],
     },
   },
-  crunch: {
+  'cable-crunch': {
     es: {
       summary:
         '**Abdomen**: crunch en polea desde arriba — lo único que se mueve es el abdomen, como si quisieras llevar el esternón a la pelvis.',
@@ -1835,4 +1871,10 @@ export const EXERCISE_CONTENT: Record<string, Record<Locale, ExerciseContent>> =
       ],
     },
   },
+};
+
+export const EXERCISE_CONTENT: Record<string, Record<Locale, ExerciseContent>> = {
+  ...CONTENT,
+  // The overhead-press cues were always the seated, bench-supported version.
+  'seated-barbell-press': CONTENT['overhead-press'],
 };

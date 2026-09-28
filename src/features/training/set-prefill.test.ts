@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { bumpValue, nextSetPrefill, slotHistoryKey, weightText } from './set-prefill';
+import { bumpValue, nextSetPrefill, weightText } from './set-prefill';
 
 describe('bumpValue', () => {
   it('adds the step without rounding to a plate increment', () => {
@@ -74,20 +74,6 @@ describe('nextSetPrefill', () => {
       suggestedKg: 60,
     });
     expect(fill).toEqual({ weightKg: 60, reps: 8 });
-  });
-});
-
-describe('slotHistoryKey', () => {
-  it('changes when a swap puts another exercise in the same slot', () => {
-    const before = slotHistoryKey({ slotId: 's1', exerciseId: 'bench-press' });
-    const after = slotHistoryKey({ slotId: 's1', exerciseId: 'dumbbell-press' });
-    expect(after).not.toBe(before);
-  });
-
-  it('is stable for the same slot and exercise', () => {
-    expect(slotHistoryKey({ slotId: 's1', exerciseId: 'squat' })).toBe(
-      slotHistoryKey({ slotId: 's1', exerciseId: 'squat' }),
-    );
   });
 });
 

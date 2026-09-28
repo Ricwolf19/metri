@@ -279,8 +279,11 @@ Read `docs/sync.md` before touching `src/features/sync/`. Non-negotiables:
   is the newest row with `endedAt` NULL (no unique index — `startGoal` ends the previous one in the
   same transaction), and a calorie adjustment moves CARBS ONLY and appends to `adjustments` without
   resetting the start. Calories derive from the pace (`energyTarget`), floored near BMR — the floor
-  raises a notice, it never silently changes the pace. Navy body fat from the tape is only ever
-  OFFERED (`navy.ts`): auto-saving it would re-scale protein weekly. All rate/phase/matrix bands
+  raises a notice, it never silently changes the pace. Navy body fat from the tape is SAVED
+  automatically with a full check-in (checkin.tsx) and the same sitting refreshes the TDEE snapshot
+  when the profile is complete; weekly re-scaling of protein with tape noise is accepted and
+  surfaced via the lean-basis notice. Calculator runs the user keeps are stored in the local-only
+  `calculation_history` table (deliberately not synced — a synced table ships web-first). All rate/phase/matrix bands
   are data tables; tune them there. **One macro model**: `macroTargets` in `calculators/math`
   (g/kg, carbs = remainder) serves the calculator and the phase, mirrored 1:1 in the web repo.
 - **Food diary** (`features/nutrition/`). The catalogue is a GENERATED module (`foods.data.ts`,
@@ -324,6 +327,12 @@ Read `docs/sync.md` before touching `src/features/sync/`. Non-negotiables:
   add new frames as id-named files plus literal `require`s in `ExerciseFrames.tsx` (Metro only
   bundles statically reachable assets). Custom exercises match visuals by name in
   `exercise-visuals.ts`; no schema field is involved.
+- **Equipment variants** are separate catalog exercises grouped in `FAMILIES` (`variants.ts`);
+  the mid-session swap offers the slot's alternatives plus those, and the snapshot keeps
+  `originalExerciseId` to swap back. Prefill is keyed by the exercise on the card, never the
+  slot, so loads never cross variants. Personal exercise notes (`exercise_notes`) are local-only
+  like `calculation_history`. Warm-up demos resolve by step NAME (`warmup-visuals.ts`), never a
+  key in the synced `steps` JSON.
 - **Muscles are data, never tags.** Custom exercises require `primaryMuscles` (anatomical
   heads; the category derives via `HEAD_CATEGORY`), and split/session muscle chips always
   derive from the exercises (`exerciseHeads` / `dayMuscleHeads`) — the manual focus-muscles

@@ -183,6 +183,13 @@
       "when": 1789956818681,
       "tag": "0025_bored_mandroid",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1790463626572,
+      "tag": "0026_even_red_shift",
+      "breakpoints": true
     }
   ]
 }

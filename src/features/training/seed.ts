@@ -35,9 +35,15 @@ import { warmupSeeds } from './warmup-content';
  * on conflict, so the bump alone migrates existing installs — no id changes.
  *
  * v6 adds the shipped warm-up and mobility routines.
+ *
+ * v7 adds `cable-crunch`, `standing-leg-curl` and `seated-barbell-press`, and
+ * Metri Foundations prescribes them. Template slot ids embed the exercise id,
+ * so `seedProgram` prunes template slots the seed no longer lists and
+ * refreshes the meta of the ones it keeps. Enrolled copies are user rows and
+ * keep whatever they were enrolled with.
  */
 const SEED_KEY = 'training_seed_version';
-const SEED_VERSION = '6';
+const SEED_VERSION = '7';
 
 const alreadySeeded = (): boolean => {
   const [row] = db.select().from(appMeta).where(eq(appMeta.key, SEED_KEY)).all();
@@ -199,7 +205,29 @@ const seedExercises = (): void => {
   }
 };
 
+/** Drop a template day's slots the seed no longer lists (and their week configs). */
+const pruneTemplateSlots = (dayIds: string[], keep: string[]): void => {
+  if (!dayIds.length) return;
+  const stale = db
+    .select({ id: workoutDayExercises.id })
+    .from(workoutDayExercises)
+    .where(
+      and(
+        inArray(workoutDayExercises.workoutDayId, dayIds),
+        isNull(workoutDayExercises.userProgramId),
+        notInArray(workoutDayExercises.id, keep),
+      ),
+    )
+    .all()
+    .map((r) => r.id);
+  if (!stale.length) return;
+  db.delete(weekConfigs).where(inArray(weekConfigs.workoutDayExerciseId, stale)).run();
+  db.delete(workoutDayExercises).where(inArray(workoutDayExercises.id, stale)).run();
+};
+
 const seedProgram = (p: ProgramSeed): void => {
+  const seededDayIds: string[] = [];
+  const seededSlotIds: string[] = [];
   db.insert(programs)
     .values({
       id: p.id,
@@ -226,6 +254,7 @@ const seedProgram = (p: ProgramSeed): void => {
 
     routine.days.forEach((day, dayIndex) => {
       const dayId = `${routineId}-${day.slug}`;
+      seededDayIds.push(dayId);
       db.insert(workoutDays)
         .values({
           id: dayId,
@@ -240,6 +269,7 @@ const seedProgram = (p: ProgramSeed): void => {
       day.exercises.forEach((slot, slotIndex) => {
         // Index-prefixed: a day may legitimately repeat a base exercise (variants).
         const slotId = `${dayId}-${slotIndex + 1}-${slot.exerciseId}`;
+        seededSlotIds.push(slotId);
         db.insert(workoutDayExercises)
           .values({
             id: slotId,
@@ -251,7 +281,17 @@ const seedProgram = (p: ProgramSeed): void => {
             badges: slot.badges ?? null,
             alternativeExerciseIds: slot.alternativeExerciseIds ?? null,
           })
-          .onConflictDoNothing()
+          .onConflictDoUpdate({
+            target: workoutDayExercises.id,
+            // Template rows only (ids are deterministic seed ids): copy edits land.
+            set: {
+              orderIndex: slotIndex + 1,
+              defaultRestSeconds: slot.restSeconds,
+              notes: slot.notes ?? null,
+              badges: slot.badges ?? null,
+              alternativeExerciseIds: slot.alternativeExerciseIds ?? null,
+            },
+          })
           .run();
 
         slot.weeks.forEach((week, weekIndex) => {
@@ -277,6 +317,7 @@ const seedProgram = (p: ProgramSeed): void => {
       });
     });
   }
+  pruneTemplateSlots(seededDayIds, seededSlotIds);
 };
 
 /** Shipped warm-up / mobility routines. Upsert: copy edits land on re-seed,

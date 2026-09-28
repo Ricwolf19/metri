@@ -168,4 +168,46 @@ describe('seedTraining v4', () => {
     expect(w4?.setGroups?.length).toBe(2);
     expect(w4?.setGroups?.[0]).toMatchObject({ sets: 1, rirMin: 0, rirMax: 0 });
   });
+
+  it('v7 re-seed swaps Foundations onto the new exercises without leaving stale slots', async () => {
+    // Arrange: a v6 install whose phase-1 template still has the floor crunch slot.
+    await seedTraining();
+    const day = 'metri-foundations-r1-d1';
+    const staleId = `${day}-2-crunch`;
+    db.insert(workoutDayExercises)
+      .values({ id: staleId, workoutDayId: day, exerciseId: 'crunch', orderIndex: 2 })
+      .run();
+    db.insert(weekConfigs)
+      .values({
+        id: `${staleId}-w1`,
+        workoutDayExerciseId: staleId,
+        weekNumber: 1,
+        sets: 2,
+        reps: 20,
+      })
+      .run();
+    db.run(sql`UPDATE app_meta SET value = '6' WHERE key = 'training_seed_version'`);
+
+    // Act
+    await seedTraining();
+
+    // Assert
+    const slots = db
+      .select()
+      .from(workoutDayExercises)
+      .where(eq(workoutDayExercises.workoutDayId, day))
+      .all();
+    const ids = slots.map((sl) => sl.exerciseId);
+    expect(slots).toHaveLength(10);
+    expect(ids).toContain('cable-crunch');
+    expect(ids).toContain('standing-leg-curl');
+    expect(ids).toContain('seated-barbell-press');
+    expect(ids).not.toContain('crunch');
+    expect(ids).not.toContain('overhead-press');
+    expect(
+      db.select().from(weekConfigs).where(eq(weekConfigs.workoutDayExerciseId, staleId)).all(),
+    ).toHaveLength(0);
+    const curl = slots.find((sl) => sl.exerciseId === 'standing-leg-curl');
+    expect(curl?.badges).toEqual(['O similar']);
+  });
 });

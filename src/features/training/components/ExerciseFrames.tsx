@@ -1,11 +1,20 @@
-import { useEffect, useState } from 'react';
-import { Image, Modal, Pressable, Text, View, type ImageSourcePropType } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+  type ImageSourcePropType,
+} from 'react-native';
 
 import { DumbbellIcon, ExpandIcon, PauseIcon, PlaySolidIcon } from '@/components/icons';
 import { useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
 import { visualIdFor, type VisualId } from '../exercise-visuals';
+import type { WarmupVisualId } from '../warmup-visuals';
 
 type Frames = readonly [ImageSourcePropType, ImageSourcePropType, ImageSourcePropType];
 
@@ -100,6 +109,11 @@ const EXERCISE_FRAMES = {
     require('@/assets/exercises/crunch-1.png'),
     require('@/assets/exercises/crunch-2.png'),
     require('@/assets/exercises/crunch-3.png'),
+  ],
+  'cable-crunch': [
+    require('@/assets/exercises/cable-crunch-1.png'),
+    require('@/assets/exercises/cable-crunch-2.png'),
+    require('@/assets/exercises/cable-crunch-3.png'),
   ],
   'standing-calf-raise': [
     require('@/assets/exercises/standing-calf-raise-1.png'),
@@ -208,6 +222,65 @@ const EXERCISE_FRAMES = {
   ],
 } satisfies Record<VisualId, Frames>;
 
+/** Warm-up step demos — same library and licence as the exercise frames. */
+const WARMUP_FRAMES = {
+  cycling: [
+    require('@/assets/exercises/cycling-1.png'),
+    require('@/assets/exercises/cycling-2.png'),
+    require('@/assets/exercises/cycling-3.png'),
+  ],
+  'band-pull-apart': [
+    require('@/assets/exercises/band-pull-apart-1.png'),
+    require('@/assets/exercises/band-pull-apart-2.png'),
+    require('@/assets/exercises/band-pull-apart-3.png'),
+  ],
+  'glute-bridge': [
+    require('@/assets/exercises/glute-bridge-1.png'),
+    require('@/assets/exercises/glute-bridge-2.png'),
+    require('@/assets/exercises/glute-bridge-3.png'),
+  ],
+  'dead-bug': [
+    require('@/assets/exercises/dead-bug-1.png'),
+    require('@/assets/exercises/dead-bug-2.png'),
+    require('@/assets/exercises/dead-bug-3.png'),
+  ],
+  'scapular-push-up': [
+    require('@/assets/exercises/scapular-push-up-1.png'),
+    require('@/assets/exercises/scapular-push-up-2.png'),
+    require('@/assets/exercises/scapular-push-up-3.png'),
+  ],
+  'bodyweight-squat': [
+    require('@/assets/exercises/bodyweight-squat-1.png'),
+    require('@/assets/exercises/bodyweight-squat-2.png'),
+    require('@/assets/exercises/bodyweight-squat-3.png'),
+  ],
+  'cat-cow-stretch': [
+    require('@/assets/exercises/cat-cow-stretch-1.png'),
+    require('@/assets/exercises/cat-cow-stretch-2.png'),
+    require('@/assets/exercises/cat-cow-stretch-3.png'),
+  ],
+  'kneeling-hip-flexor-stretch': [
+    require('@/assets/exercises/kneeling-hip-flexor-stretch-1.png'),
+    require('@/assets/exercises/kneeling-hip-flexor-stretch-2.png'),
+    require('@/assets/exercises/kneeling-hip-flexor-stretch-3.png'),
+  ],
+  'hamstring-stretch': [
+    require('@/assets/exercises/hamstring-stretch-1.png'),
+    require('@/assets/exercises/hamstring-stretch-2.png'),
+    require('@/assets/exercises/hamstring-stretch-3.png'),
+  ],
+  'doorway-chest-stretch': [
+    require('@/assets/exercises/doorway-chest-stretch-1.png'),
+    require('@/assets/exercises/doorway-chest-stretch-2.png'),
+    require('@/assets/exercises/doorway-chest-stretch-3.png'),
+  ],
+  'wall-calf-stretch': [
+    require('@/assets/exercises/wall-calf-stretch-1.png'),
+    require('@/assets/exercises/wall-calf-stretch-2.png'),
+    require('@/assets/exercises/wall-calf-stretch-3.png'),
+  ],
+} satisfies Record<WarmupVisualId, Frames>;
+
 /** A pose reads as a position, not a flicker — slow enough to actually study. */
 const FRAME_MS = 1500;
 const BANNER_HEIGHT = 190;
@@ -233,21 +306,19 @@ const Pill = ({
 );
 
 /**
- * Flip-book player for an exercise's three pose frames, in movement order.
- * White line art on a constant-dark plate so it reads in both themes; pause to
- * hold a pose, expand for a full-screen look.
+ * Flip-book player for three pose frames, in movement order. White line art on
+ * a constant-dark plate so it reads in both themes; swipe or pause to hold a
+ * pose, expand for a full-screen look.
  */
-export const ExerciseFrames = ({
-  visualId,
+const FramePlayer = ({
+  frames,
   accessibilityLabel,
   height = BANNER_HEIGHT,
   autoplay = true,
 }: {
-  visualId: VisualId;
+  frames: Frames;
   accessibilityLabel: string;
   height?: number;
-  /** Off in a live session: a still pose is the quick reminder, and a looping
-   * animation per card is render work the phone should spend on inputs. */
   autoplay?: boolean;
 }) => {
   const t = useT();
@@ -255,6 +326,9 @@ export const ExerciseFrames = ({
   const [frame, setFrame] = useState(0);
   const [paused, setPaused] = useState(!autoplay);
   const [expanded, setExpanded] = useState(false);
+  const pager = useRef<ScrollView>(null);
+  // Measured, not derived from `height`: the plate spans whatever width its parent gives it.
+  const [pageWidth, setPageWidth] = useState(0);
 
   useEffect(() => {
     if (paused) return;
@@ -262,16 +336,41 @@ export const ExerciseFrames = ({
     return () => clearInterval(timer);
   }, [paused]);
 
-  const frames = EXERCISE_FRAMES[visualId];
+  // The pager follows the flip-book; a drag pauses it (the lifter took the wheel).
+  useEffect(() => {
+    if (pageWidth) pager.current?.scrollTo({ x: frame * pageWidth, animated: !paused });
+  }, [frame, pageWidth, paused]);
+
+  const onSettle = (x: number) => {
+    if (!pageWidth) return;
+    setFrame(Math.min(frames.length - 1, Math.max(0, Math.round(x / pageWidth))));
+  };
 
   return (
-    <View style={{ height }} className="overflow-hidden rounded-card bg-ink-950">
-      <Image
-        source={frames[frame]}
-        style={{ flex: 1, width: '100%' }}
-        resizeMode="contain"
-        accessibilityLabel={accessibilityLabel}
-      />
+    <View
+      style={{ height }}
+      className="overflow-hidden rounded-card bg-ink-950"
+      onLayout={(e) => setPageWidth(e.nativeEvent.layout.width)}
+    >
+      <ScrollView
+        ref={pager}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onScrollBeginDrag={() => setPaused(true)}
+        onMomentumScrollEnd={(e) => onSettle(e.nativeEvent.contentOffset.x)}
+        style={{ flex: 1 }}
+      >
+        {frames.map((source, i) => (
+          <Image
+            key={i}
+            source={source}
+            style={{ width: pageWidth, height }}
+            resizeMode="contain"
+            accessibilityLabel={accessibilityLabel}
+          />
+        ))}
+      </ScrollView>
 
       <View className="absolute inset-x-0 bottom-0 flex-row items-center justify-between px-2 pb-2">
         <Pill
@@ -328,6 +427,24 @@ export const ExerciseFrames = ({
     </View>
   );
 };
+
+export const ExerciseFrames = ({
+  visualId,
+  ...player
+}: {
+  visualId: VisualId;
+  accessibilityLabel: string;
+  height?: number;
+  /** Off in a live session: a still pose is the quick reminder, and a looping
+   * animation per card is render work the phone should spend on inputs. */
+  autoplay?: boolean;
+}) => <FramePlayer frames={EXERCISE_FRAMES[visualId]} {...player} />;
+
+/** A warm-up step's demo: the same player, sized to sit inside a step row. */
+export const WarmupFrames = ({ visualId, label }: { visualId: WarmupVisualId; label: string }) => (
+  <FramePlayer frames={WARMUP_FRAMES[visualId]} accessibilityLabel={label} height={150} />
+);
+
 /** Static first-pose thumbnail for list rows; generic dumbbell when unmatched. */
 export const ExerciseThumb = ({
   exercise,

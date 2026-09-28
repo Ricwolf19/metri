@@ -82,4 +82,15 @@ describe('getDayDetail', () => {
     expect(getDayDetail(USER, DAY).workouts.map((w) => w.logId)).toEqual(['late']);
     expect(getDayDetail(USER, DAY).tdeeComputed).toBe(false);
   });
+
+  it('lists several sessions on one day newest first', () => {
+    logAt('morning', new Date(2026, 8, 16, 8, 0));
+    logAt('evening', new Date(2026, 8, 16, 19, 0));
+    logAt('noon', new Date(2026, 8, 16, 12, 0));
+    expect(getDayDetail(USER, DAY).workouts.map((w) => w.logId)).toEqual([
+      'evening',
+      'noon',
+      'morning',
+    ]);
+  });
 });

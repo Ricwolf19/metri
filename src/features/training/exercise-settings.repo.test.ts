@@ -1,6 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { eq } from 'drizzle-orm';
 
-import { exerciseSettings, exercises, programs, routines, users, workoutDays } from '@/db/schema';
+import {
+  exerciseSettings,
+  exercises,
+  programs,
+  routines,
+  userPrograms,
+  users,
+  workoutDayExercises,
+  workoutDays,
+  workoutLogs,
+} from '@/db/schema';
 import { createTestDb } from '@/test/sqlite';
 
 vi.mock('@/db/client', async () => ({ db: await createTestDb() }));
@@ -15,7 +26,17 @@ const U = 'u1';
 
 describe('exercise settings', () => {
   beforeEach(() => {
-    for (const table of [exerciseSettings, workoutDays, routines, programs, exercises, users]) {
+    for (const table of [
+      exerciseSettings,
+      workoutLogs,
+      workoutDayExercises,
+      userPrograms,
+      workoutDays,
+      routines,
+      programs,
+      exercises,
+      users,
+    ]) {
       db.delete(table).run();
     }
     db.insert(users).values({ id: U, email: null, authKind: 'local' }).run();
@@ -70,5 +91,72 @@ describe('exercise settings', () => {
 
     expect(slot.defaultRestSeconds).toBe(120);
     expect(slot.badges).toBeNull();
+  });
+
+  it('propagates badge/rest edits into enrolled slots and the active session snapshot', () => {
+    db.insert(programs).values({ id: 'p2', name: 'P2', isCustom: true, userId: U }).run();
+    db.insert(routines).values({ id: 'r2', programId: 'p2', name: '', orderIndex: 0 }).run();
+    db.insert(workoutDays).values({ id: 'd2', routineId: 'r2', name: '', orderIndex: 0 }).run();
+    db.insert(userPrograms)
+      .values({ id: 'up1', userId: U, programId: 'p2', status: 'active' })
+      .run();
+    db.insert(workoutDayExercises)
+      .values({
+        id: 'slot1',
+        workoutDayId: 'd2',
+        exerciseId: 'deadlift',
+        orderIndex: 1,
+        userProgramId: 'up1',
+      })
+      .run();
+    // A template-scoped slot must NOT be touched.
+    db.insert(workoutDayExercises)
+      .values({ id: 'slotT', workoutDayId: 'd2', exerciseId: 'deadlift', orderIndex: 2 })
+      .run();
+    db.insert(workoutLogs)
+      .values({
+        id: 'log1',
+        userId: U,
+        userProgramId: 'up1',
+        workoutDayId: 'd2',
+        weekNumber: 1,
+        status: 'in_progress',
+        plannedSnapshot: [
+          {
+            slotId: 'slot1',
+            exerciseId: 'deadlift',
+            name: 'Deadlift',
+            setGroups: [{ sets: 3, reps: 8 }],
+            restSeconds: 120,
+            badges: [],
+            alternativeExerciseIds: [],
+            notes: null,
+          },
+        ],
+      })
+      .run();
+
+    upsertExerciseSetting(U, 'deadlift', { restSeconds: 210, badges: ['PAUSA LARGA'] });
+
+    const [slot] = db
+      .select()
+      .from(workoutDayExercises)
+      .where(eq(workoutDayExercises.id, 'slot1'))
+      .all();
+    expect(slot.defaultRestSeconds).toBe(210);
+    expect(slot.badges).toEqual(['PAUSA LARGA']);
+
+    const [template] = db
+      .select()
+      .from(workoutDayExercises)
+      .where(eq(workoutDayExercises.id, 'slotT'))
+      .all();
+    expect(template.badges).toBeNull();
+
+    const [log] = db.select().from(workoutLogs).where(eq(workoutLogs.id, 'log1')).all();
+    expect(log.plannedSnapshot?.[0]).toMatchObject({
+      badges: ['PAUSA LARGA'],
+      restSeconds: 210,
+    });
   });
 });

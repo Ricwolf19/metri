@@ -10,6 +10,7 @@ import type { CalcChart as Chart } from '@/features/calculators/types';
 import { BadgesEditor } from '@/features/training/components/BadgesEditor';
 import { ExerciseDocButton } from '@/features/training/components/ExerciseDocButton';
 import { ExerciseFrames } from '@/features/training/components/ExerciseFrames';
+import { ExerciseNote } from '@/features/training/components/ExerciseNote';
 import { getExercise } from '@/features/training/exercises.repo';
 import { EXERCISE_CONTENT } from '@/features/training/exercise-content';
 import {
@@ -179,6 +180,19 @@ const ExerciseHistory = () => {
               value={setting?.badges ?? []}
               onChange={(badges) => saveSetting({ badges: badges.length ? badges : null })}
             />
+          </Card>
+        </FadeInUp>
+      ) : null}
+
+      {/* The lifter's own note — surfaces on this exercise in every session. */}
+      {exercise && user ? (
+        <FadeInUp>
+          <Card className="mb-4">
+            <Text className="font-mono-medium text-xs uppercase tracking-wider text-ink-400">
+              {t('exNote.title')}
+            </Text>
+            <Text className="mb-3 mt-1 text-xs text-ink-500">{t('exNote.hint')}</Text>
+            <ExerciseNote userId={user.id} exerciseId={exercise.id} />
           </Card>
         </FadeInUp>
       ) : null}

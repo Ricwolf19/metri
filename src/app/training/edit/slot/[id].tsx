@@ -10,6 +10,7 @@ import {
   ChipRow,
   DurationPicker,
   HoldButton,
+  Input,
   Screen,
   SectionLabel,
   Stepper,
@@ -69,6 +70,7 @@ const EditSlot = () => {
     );
   });
   const [alternatives, setAlternatives] = useState<string[]>(slot?.alternativeExerciseIds ?? []);
+  const [notes, setNotes] = useState<string>(slot?.notes ?? '');
   // The picker appends alternatives and comes back; re-read them on focus.
   useFocusEffect(
     useCallback(() => {
@@ -88,6 +90,7 @@ const EditSlot = () => {
     saveSlotDraft(slot.id, {
       defaultRestSeconds: slot.defaultRestSeconds ?? DEFAULT_REST,
       badges,
+      notes,
       weeks: weeks.map((w) => ({
         weekNumber: w.weekNumber,
         values: toValues(w),
@@ -392,6 +395,20 @@ const EditSlot = () => {
             setBadges(next);
             setDirty(true);
           }}
+        />
+      </Card>
+
+      <SectionLabel label={t('editor.notes')} className="mb-1 mt-7" />
+      <Text className="mb-2 text-[11px] text-ink-500">{t('editor.notesHint')}</Text>
+      <Card>
+        <Input
+          value={notes}
+          onChangeText={(v) => {
+            setNotes(v);
+            setDirty(true);
+          }}
+          placeholder={t('editor.notesPh')}
+          multiline
         />
       </Card>
 

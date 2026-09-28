@@ -19,8 +19,16 @@ import {
 import { db } from '@/db/client';
 import { bodyMeasurements, bodyMetrics } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
+import { saveBmr } from '@/features/auth/users.repo';
 import { lbToKg } from '@/features/bmr/calc';
+import {
+  bmr as computeBmr,
+  tdee as computeTdee,
+  type BmrFormula,
+} from '@/features/calculators/math';
 import { saveMeasurements } from '@/features/body/body-measurements.repo';
+import { fmt } from '@/features/calculators/_shared';
+import { keptValue, recordCalculation } from '@/features/calculators/history.repo';
 import { deleteBodyMetric, saveBodyMetric } from '@/features/body/body-metrics.repo';
 import { navyFromTape } from '@/features/body/navy';
 import { enabledSites, siteHintKey, siteLabelKey, type SiteId } from '@/features/body/sites';
@@ -38,6 +46,13 @@ const parse = (raw: string | undefined): number | null => {
   if (!raw) return null;
   const n = Number(raw.replace(',', '.'));
   return Number.isFinite(n) && n > 0 ? n : null;
+};
+
+/** The stored `users.bmr_formula` value back to the calculator's short key. */
+const FORMULA_FROM_PROFILE: Record<string, BmrFormula> = {
+  mifflin_st_jeor: 'mifflin',
+  harris_benedict: 'harris',
+  katch_mcardle: 'katch',
 };
 
 /** What is already saved for a day, as the strings the form edits. */
@@ -72,7 +87,7 @@ const BodyCheckin = () => {
   const t = useT();
   const router = useRouter();
   const toast = useToast();
-  const { user, updateMyProfile } = useAuth();
+  const { user, updateMyProfile, reload } = useAuth();
   const { dateKey } = useDateFormat();
   const today = useTodayKey();
   const units = settings.getUnits();
@@ -95,10 +110,43 @@ const BodyCheckin = () => {
     setDirty(false);
   };
 
+  // Body fat from what is typed right now (US Navy method). A complete tape is
+  // saved automatically with the day — the estimate and the calculator agree
+  // by construction (both run the same formula on the same values).
+  const navyPctNow = (): number | null => {
+    const typedCm: Partial<Record<SiteId, number>> = {};
+    for (const site of sites) {
+      const typed = parse(draft.sites[site]);
+      if (typed != null) typedCm[site] = toCm(typed, units);
+    }
+    const navy = navyFromTape({
+      latestCm: typedCm,
+      sex: user?.sex ?? null,
+      heightCm: user?.heightCm ?? null,
+    });
+    return navy && 'pct' in navy ? navy.pct : null;
+  };
+
+  // What the kept body-fat entry lists as its inputs — the calculator's field names.
+  const tapeInputs = (): Record<string, number | string> => {
+    const out: Record<string, number | string> = {};
+    if (user?.sex) out.sex = user.sex;
+    if (user?.heightCm) out.height = user.heightCm;
+    for (const [site, field] of [
+      ['neck', 'neck'],
+      ['waist', 'waist'],
+      ['hips', 'hip'],
+    ] as const) {
+      const typed = parse(draft.sites[site]);
+      if (typed != null) out[field] = toCm(typed, units);
+    }
+    return out;
+  };
+
   const save = () => {
     const weight = parse(draft.weight);
-    if (weight != null) {
-      const kg = units === 'lb' ? lbToKg(weight) : weight;
+    const kg = weight != null ? (units === 'lb' ? lbToKg(weight) : weight) : null;
+    if (kg != null) {
       saveBodyMetric(userId, date, { weightKg: Math.round(kg * 100) / 100 });
     }
     const values: Partial<Record<SiteId, number | null>> = {};
@@ -109,6 +157,57 @@ const BodyCheckin = () => {
       else if (loaded.draft.sites[site]) values[site] = null;
     }
     saveMeasurements(userId, date, values);
+
+    // A complete tape auto-fills body fat (Navy) and, with a complete profile,
+    // the TDEE snapshot — no manual calculator round-trip.
+    const pct = navyPctNow();
+    if (pct != null) {
+      saveBodyMetric(userId, date, { bodyFatPct: pct });
+      updateMyProfile({ bodyFatPct: pct });
+      recordCalculation(userId, 'bodyfat', tapeInputs(), keptValue(fmt(pct), '%'));
+      if (
+        kg != null &&
+        user?.sex &&
+        user.age != null &&
+        user.heightCm != null &&
+        user.activityLevel
+      ) {
+        const formula = FORMULA_FROM_PROFILE[user.bmrFormula ?? ''] ?? 'mifflin';
+        const b = computeBmr(formula, {
+          sex: user.sex,
+          weightKg: kg,
+          heightCm: user.heightCm,
+          age: user.age,
+          bodyFatPct: pct,
+        });
+        if (b > 0) {
+          const tdee = computeTdee(b, user.activityLevel);
+          recordCalculation(
+            userId,
+            'tdee',
+            {
+              weight: kg,
+              height: user.heightCm,
+              age: user.age,
+              activity: user.activityLevel,
+              formula,
+            },
+            keptValue(fmt(Math.round(tdee)), 'kcal'),
+          );
+          saveBmr(user.id, {
+            bmr: b,
+            tdee,
+            bmrFormula: user.bmrFormula ?? 'mifflin_st_jeor',
+            sex: user.sex,
+            age: user.age,
+            heightCm: user.heightCm,
+            weightKg: kg,
+            activityLevel: user.activityLevel,
+          });
+          reload();
+        }
+      }
+    }
     setDirty(false);
     toast.success(t('body.checkinSaved'));
   };
@@ -130,22 +229,7 @@ const BodyCheckin = () => {
 
   const hasSaved = loaded.metricId != null || Object.keys(loaded.draft.sites).length > 0;
 
-  // Body fat from what is typed right now (US Navy method). Offered, never
-  // auto-saved: a new value re-scales protein, so it is the lifter's call.
-  const typedCm: Partial<Record<SiteId, number>> = {};
-  for (const site of sites) {
-    const typed = parse(draft.sites[site]);
-    if (typed != null) typedCm[site] = toCm(typed, units);
-  }
-  const navy = navyFromTape({ latestCm: typedCm, sex: user.sex, heightCm: user.heightCm });
-  const navyPct = navy && 'pct' in navy ? navy.pct : null;
-
-  const useNavy = () => {
-    if (navyPct == null) return;
-    saveBodyMetric(userId, date, { bodyFatPct: navyPct });
-    updateMyProfile({ bodyFatPct: navyPct });
-    toast.success(t('body.bodyFatSaved'));
-  };
+  const navyPct = navyPctNow();
   const lengthUnit = lengthUnitFor(units);
 
   return (
@@ -230,10 +314,7 @@ const BodyCheckin = () => {
           <Text className="text-sm leading-6 text-ink-200">
             {t('body.navyEstimate', { n: navyPct })}
           </Text>
-          <Text className="mt-1 text-xs leading-5 text-ink-500">{t('body.navyNote')}</Text>
-          <View className="mt-3">
-            <Button label={t('body.navyUse')} variant="secondary" onPress={useNavy} />
-          </View>
+          <Text className="mt-1 text-xs leading-5 text-ink-500">{t('body.navyAutoSaved')}</Text>
         </Card>
       ) : null}
 
