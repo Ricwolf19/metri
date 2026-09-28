@@ -771,16 +771,20 @@ const WorkoutSession = () => {
     if (!liveWorkoutId || sessionState.get()?.workoutId === liveWorkoutId) return;
     const started = getWorkout(liveWorkoutId);
     if (!started) return;
-    void ensureNotificationPermission().finally(() =>
-      showSession({
+    void ensureNotificationPermission().finally(() => {
+      // The permission prompt can outlast the session: a quick finish/abandon
+      // ends it first, and showing now would resurrect a notification (and
+      // session record) for a workout that is already over.
+      if (getWorkout(started.id)?.status !== 'in_progress') return;
+      void showSession({
         workoutId: started.id,
         startedAt: started.startedAt.getTime(),
         title: t('session.notifTitle'),
         exerciseName: started.plannedSnapshot?.[0]?.name ?? '',
         setLabel: '',
         nextLabel: '',
-      }),
-    );
+      });
+    });
   }, [liveWorkoutId, t]);
 
   const { units: unit, setUnits } = useUnits();
