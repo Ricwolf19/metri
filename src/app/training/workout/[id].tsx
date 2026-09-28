@@ -750,7 +750,9 @@ const WorkoutSession = () => {
   const dialog = useDialog();
   const { user } = useAuth();
   const { brand, brandContrast, muted } = useTheme();
-  useKeepAwake();
+  // The unmount can outlive the Activity (process killed, reload, OS teardown);
+  // releasing the lock then rejects, and there is nothing left to keep awake.
+  useKeepAwake(undefined, { suppressDeactivateWarnings: true });
 
   // Live, so a swap or a routine edit landing in the snapshot re-renders the
   // cards; the sync read covers the first frame before the query resolves.
