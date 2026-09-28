@@ -19,13 +19,13 @@ import {
 import { db } from '@/db/client';
 import { bodyMeasurements, bodyMetrics } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
-import { saveBmr } from '@/features/auth/users.repo';
 import { lbToKg } from '@/features/bmr/calc';
 import {
-  bmr as computeBmr,
-  tdee as computeTdee,
-  type BmrFormula,
-} from '@/features/calculators/math';
+  formulaFromProfile,
+  profileEnergySnapshot,
+  readingUpdatesProfile,
+} from '@/features/calculators/energy-snapshot';
+import { storeEnergySnapshot } from '@/features/calculators/energy-snapshot.repo';
 import { saveMeasurements } from '@/features/body/body-measurements.repo';
 import { fmt } from '@/features/calculators/_shared';
 import { keptValue, recordCalculation } from '@/features/calculators/history.repo';
@@ -46,13 +46,6 @@ const parse = (raw: string | undefined): number | null => {
   if (!raw) return null;
   const n = Number(raw.replace(',', '.'));
   return Number.isFinite(n) && n > 0 ? n : null;
-};
-
-/** The stored `users.bmr_formula` value back to the calculator's short key. */
-const FORMULA_FROM_PROFILE: Record<string, BmrFormula> = {
-  mifflin_st_jeor: 'mifflin',
-  harris_benedict: 'harris',
-  katch_mcardle: 'katch',
 };
 
 /** What is already saved for a day, as the strings the form edits. */
@@ -159,53 +152,32 @@ const BodyCheckin = () => {
     saveMeasurements(userId, date, values);
 
     // A complete tape auto-fills body fat (Navy) and, with a complete profile,
-    // the TDEE snapshot — no manual calculator round-trip.
+    // the TDEE snapshot — no manual calculator round-trip. The profile only
+    // follows a reading dated today: correcting a past day must not roll the
+    // current weight and body fat back.
     const pct = navyPctNow();
+    const current = readingUpdatesProfile(date, today);
     if (pct != null) {
       saveBodyMetric(userId, date, { bodyFatPct: pct });
-      updateMyProfile({ bodyFatPct: pct });
       recordCalculation(userId, 'bodyfat', tapeInputs(), keptValue(fmt(pct), '%'));
-      if (
-        kg != null &&
-        user?.sex &&
-        user.age != null &&
-        user.heightCm != null &&
-        user.activityLevel
-      ) {
-        const formula = FORMULA_FROM_PROFILE[user.bmrFormula ?? ''] ?? 'mifflin';
-        const b = computeBmr(formula, {
-          sex: user.sex,
-          weightKg: kg,
-          heightCm: user.heightCm,
-          age: user.age,
-          bodyFatPct: pct,
-        });
-        if (b > 0) {
-          const tdee = computeTdee(b, user.activityLevel);
-          recordCalculation(
-            userId,
-            'tdee',
-            {
-              weight: kg,
-              height: user.heightCm,
-              age: user.age,
-              activity: user.activityLevel,
-              formula,
-            },
-            keptValue(fmt(Math.round(tdee)), 'kcal'),
-          );
-          saveBmr(user.id, {
-            bmr: b,
-            tdee,
-            bmrFormula: user.bmrFormula ?? 'mifflin_st_jeor',
-            sex: user.sex,
-            age: user.age,
-            heightCm: user.heightCm,
-            weightKg: kg,
-            activityLevel: user.activityLevel,
-          });
-          reload();
-        }
+      if (current) updateMyProfile({ bodyFatPct: pct });
+      const snap =
+        current && user ? profileEnergySnapshot(user, { weightKg: kg, bodyFatPct: pct }) : null;
+      if (snap) {
+        recordCalculation(
+          userId,
+          'tdee',
+          {
+            weight: snap.weightKg,
+            height: snap.heightCm,
+            age: snap.age,
+            activity: snap.activityLevel ?? '',
+            formula: formulaFromProfile(snap.bmrFormula),
+          },
+          keptValue(fmt(Math.round(snap.tdee)), 'kcal'),
+        );
+        storeEnergySnapshot(userId, snap);
+        reload();
       }
     }
     setDirty(false);

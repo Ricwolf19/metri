@@ -17,21 +17,15 @@ import {
 } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { latestTapeCm } from '@/features/body/body-measurements.repo';
-import { saveBmr } from '@/features/auth/users.repo';
 import { useI18n, useT } from '@/i18n';
 import { useDateFormat } from '@/lib/useDateFormat';
 
 import { CALC_CONTENT } from '../content';
+import { energySnapshot } from '../energy-snapshot';
+import { storeEnergySnapshot } from '../energy-snapshot.repo';
 import { calculationHistoryQuery, keptValue, recordCalculation } from '../history.repo';
 import { initialCalcValues } from '../prefill';
-import {
-  type ActivityLevel,
-  type BmrFormula,
-  type Sex,
-  bmr as computeBmr,
-  bodyFatNavy,
-  tdee as computeTdee,
-} from '../math';
+import { type ActivityLevel, type BmrFormula, type Sex, bodyFatNavy } from '../math';
 import { CALCULATORS } from '../registry';
 import type { CalcChart as ChartSpec, CalcField, CalcId, CalcValues } from '../types';
 import { CalcChart } from './CalcChart';
@@ -44,13 +38,6 @@ const CHART_HEIGHT: Record<ChartSpec['kind'], number> = {
   bars: 200,
   ring: 185,
   barbell: 135,
-};
-
-/** Maps the calculator's short formula key to the profile's stored enum. */
-const FORMULA_ENUM: Record<BmrFormula, string> = {
-  mifflin: 'mifflin_st_jeor',
-  harris: 'harris_benedict',
-  katch: 'katch_mcardle',
 };
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
@@ -209,24 +196,17 @@ export const Calculator = ({ id, docId }: { id: CalcId; docId?: string }) => {
   const onSave = () => {
     if (!user || !result) return;
     if (id === 'tdee') {
-      const formula = str('formula') as BmrFormula;
-      const sex = str('sex') as Sex;
-      const activityLevel = str('activity') as ActivityLevel;
-      const weightKg = num('weight');
-      const heightCm = num('height');
-      const age = num('age');
-      const b = computeBmr(formula, { sex, weightKg, heightCm, age, bodyFatPct: num('bodyFat') });
-      if (b <= 0) return;
-      saveBmr(user.id, {
-        bmr: b,
-        tdee: computeTdee(b, activityLevel),
-        bmrFormula: FORMULA_ENUM[formula],
-        sex,
-        age,
-        heightCm,
-        weightKg,
-        activityLevel,
+      const snap = energySnapshot({
+        formula: str('formula') as BmrFormula,
+        sex: str('sex') as Sex,
+        activityLevel: str('activity') as ActivityLevel,
+        weightKg: num('weight'),
+        heightCm: num('height'),
+        age: num('age'),
+        bodyFatPct: num('bodyFat'),
       });
+      if (!snap) return;
+      storeEnergySnapshot(user.id, snap);
       reload();
     } else {
       const bf = bodyFatNavy({
