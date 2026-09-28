@@ -1,11 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
-import { isSessionInProgress } from '@/features/training/session-state';
-import { settings } from '@/lib/storage';
-
-import { decideCheckin } from './checkin-delay';
-
 /**
  * The app's single gateway to expo-notifications. Every schedule goes through a
  * registered channel kind, so adding a new notification type is: add the kind
@@ -15,58 +10,16 @@ import { decideCheckin } from './checkin-delay';
 
 export type ChannelKind = 'reminders';
 
-/** Rides on every scheduled notification so the foreground handler knows which
+/** Rides on every scheduled notification so a handler can tell which
  * catalogue event fired. */
 type NotificationData = { event?: string };
 type Content = { title: string; body?: string; data?: NotificationData };
-
-/** The event whose question has no answer mid-workout (see checkin-delay). */
-const CHECKIN_EVENT_ID = 'session-checkin';
 
 const SHOW = {
   shouldShowBanner: true,
   shouldShowList: true,
   shouldPlaySound: true,
   shouldSetBadge: false,
-};
-const HIDE = {
-  shouldShowBanner: false,
-  shouldShowList: false,
-  shouldPlaySound: false,
-  shouldSetBadge: false,
-};
-
-/**
- * A check-in landing mid-workout is swallowed and re-sent once the delay
- * passes (the re-send runs through here again, so a session still going
- * pushes it further). Only reachable while the app is in the foreground —
- * which a workout on screen is — since the OS draws background ones itself.
- */
-const postponeCheckin = (content: Notifications.NotificationContent): boolean => {
-  const data = content.data as NotificationData | undefined;
-  if (data?.event !== CHECKIN_EVENT_ID) return false;
-  const now = Date.now();
-  const decision = decideCheckin({
-    sessionActive: isSessionInProgress(now),
-    snoozedUntil: settings.getCheckinSnoozedUntil(),
-    now,
-  });
-  if (decision.ask) return false;
-  settings.setCheckinSnoozedUntil(decision.snoozeUntil);
-  void Notifications.scheduleNotificationAsync({
-    content: {
-      title: content.title ?? '',
-      body: content.body ?? '',
-      sound: SOUND,
-      data: { event: CHECKIN_EVENT_ID },
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DATE,
-      date: decision.snoozeUntil,
-      channelId: 'reminders',
-    },
-  }).catch(() => {});
-  return true;
 };
 
 /** Bundled via the expo-notifications plugin (app.json → `sounds`). Android
@@ -88,8 +41,9 @@ const CHANNELS: Record<
 /** Run once at startup: foreground display behavior + Android channels. */
 export const initNotifications = async (): Promise<void> => {
   Notifications.setNotificationHandler({
-    handleNotification: async (notification) =>
-      postponeCheckin(notification.request.content) ? HIDE : SHOW,
+    // No mid-session swallow here: the OS draws background notifications
+    // itself, so the check-in is held back at schedule time (checkin-hold).
+    handleNotification: async () => SHOW,
   });
   if (Platform.OS === 'android') {
     await Promise.all(
@@ -140,6 +94,17 @@ export const scheduleWeekly = (
       weekday,
       hour,
       minute,
+      channelId: kind,
+    },
+  });
+
+/** One-shot notification at an exact moment; returns the OS id. */
+export const scheduleOnce = (kind: ChannelKind, at: Date, content: Content): Promise<string> =>
+  Notifications.scheduleNotificationAsync({
+    content: { title: content.title, body: content.body ?? '', sound: SOUND, data: content.data },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: at,
       channelId: kind,
     },
   });

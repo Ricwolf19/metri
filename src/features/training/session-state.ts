@@ -3,7 +3,7 @@ import { SettingKeys, storage } from '@/lib/storage';
 
 /**
  * The in-flight workout session, or nothing. MMKV rather than a DB read so the
- * headless notification paths and the check-in delay can ask "is a session
+ * headless notification paths and the check-in hold can ask "is a session
  * on?" without the React tree. Copy is frozen at write time (like the rest
  * copy): a headless redraw has no i18n.
  */
@@ -20,7 +20,7 @@ export type ActiveSession = {
 
 /** A session left open longer than this is abandoned in all but name: it no
  * longer holds the check-in back. */
-const SESSION_STALE_MS = 4 * 60 * 60 * 1000;
+export const SESSION_STALE_MS = 4 * 60 * 60 * 1000;
 
 export const sessionState = {
   get(): ActiveSession | null {

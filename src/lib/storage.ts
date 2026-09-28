@@ -49,8 +49,8 @@ export const SettingKeys = {
   activeRest: 'training.activeRest',
   // In-flight workout session (see features/training/session-state).
   activeSession: 'training.activeSession',
-  // Check-in prompt postponed while a session runs (see notifications/checkin-delay).
-  checkinSnoozedUntil: 'notif.checkinSnoozedUntil',
+  // The day whose planned check-in a session holds back (see notifications/checkin-hold).
+  checkinHold: 'notif.checkinHold',
   // Latest known release + when it was fetched (see features/release).
   latestRelease: 'release.latest',
   latestReleaseCheckedAt: 'release.checkedAt',
@@ -187,12 +187,15 @@ export const settings = {
   setNotificationsEnabled(value: boolean) {
     storage.set(SettingKeys.notificationsEnabled, value);
   },
-  /** Check-in prompt postponed while a session runs (see notifications/checkin-delay). */
-  getCheckinSnoozedUntil(): number {
-    return storage.getNumber(SettingKeys.checkinSnoozedUntil) ?? 0;
+  /** The day whose planned check-in a session holds back (see notifications/checkin-hold). */
+  getCheckinHold<T>(): T | null {
+    return parseJson<T | null>(storage.getString(SettingKeys.checkinHold), null);
   },
-  setCheckinSnoozedUntil(until: number) {
-    storage.set(SettingKeys.checkinSnoozedUntil, until);
+  setCheckinHold(hold: unknown) {
+    storage.set(SettingKeys.checkinHold, JSON.stringify(hold));
+  },
+  clearCheckinHold() {
+    storage.remove(SettingKeys.checkinHold);
   },
   /** Latest known release version (see features/release). */
   getLatestRelease(): string | null {

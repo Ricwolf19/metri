@@ -8,13 +8,11 @@ import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 import type { SkipReason, TrainingDayStatus } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
 import { useT, type TranslationKey } from '@/i18n';
-import { settings } from '@/lib/storage';
 import { useDateFormat } from '@/lib/useDateFormat';
 import { useTodayKey } from '@/lib/useTodayKey';
 
 import { DEFAULT_CHECKIN_OFFSET_MIN, NOTIFICATION_EVENTS } from '@/features/notifications/events';
 import { getEventConfig } from '@/features/notifications/policies';
-import { decideCheckin } from '@/features/notifications/checkin-delay';
 import { isSessionInProgress } from '@/features/training/session-state';
 
 import { dateFromKey, localDateKey, markTrainingDay, rangeDaysQuery } from '../adherence.repo';
@@ -82,32 +80,16 @@ export const AdherenceCatchupBanner = () => {
   // once that moment passes. Snapshot the clock on focus — never read it in render.
   const [checkin] = useState(() => getEventConfig(CHECKIN_EVENT));
   const [nowMinutes, setNowMinutes] = useState(() => minutesOfDay(new Date()));
-  // Mid-workout the trained/rested/missed question has no answer yet: postpone
-  // it ~1h (decideCheckin re-arms the snooze while the session runs).
-  const [suppressed, setSuppressed] = useState(
-    () =>
-      !decideCheckin({
-        sessionActive: isSessionInProgress(),
-        snoozedUntil: settings.getCheckinSnoozedUntil(),
-        now: Date.now(),
-      }).ask,
-  );
+  // Mid-workout today's trained/rested/missed has no answer yet; older misses do.
+  const [sessionActive, setSessionActive] = useState(() => isSessionInProgress());
   useFocusEffect(
     useCallback(() => {
-      const now = Date.now();
-      const decision = decideCheckin({
-        sessionActive: isSessionInProgress(),
-        snoozedUntil: settings.getCheckinSnoozedUntil(),
-        now,
-      });
-      if (!decision.ask && decision.snoozeUntil > settings.getCheckinSnoozedUntil())
-        settings.setCheckinSnoozedUntil(decision.snoozeUntil);
-      setSuppressed(!decision.ask);
+      setSessionActive(isSessionInProgress());
       setNowMinutes(minutesOfDay(new Date()));
     }, []),
   );
 
-  if (!user || !weekdays?.length || suppressed) return null;
+  if (!user || !weekdays?.length) return null;
 
   // Oldest unresolved planned day, derived live so answering advances the ask.
   const logged = new Set(rows.map((r) => r.date));
@@ -120,6 +102,7 @@ export const AdherenceCatchupBanner = () => {
     checkinSchedule: checkin.schedule ?? [],
     offsetMinutes: checkin.offsetMinutes ?? DEFAULT_CHECKIN_OFFSET_MIN,
     nowMinutes,
+    sessionActive,
   });
   const gap = gaps[0] ?? null;
   if (!gap) return null;

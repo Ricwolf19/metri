@@ -197,11 +197,15 @@ Read `docs/sync.md` before touching `src/features/sync/`. Non-negotiables:
   as soon as a sound is attached, so the repeating buzz is driven from `lib/sounds.ts` instead.
 - **The "training in progress" notification shares `rest-notification.ts`.** notifee keeps ONE
   background handler per process, so a second module registering its own silently unhooks the
-  rest actions. `showSession` also writes the MMKV record (`training/session-state.ts`) that the
-  check-in delay reads; only finish/abandon call `endSession` — never a screen unmount, since
-  leaving the workout does not end it — and boot drops a record whose log is no longer open.
-  A check-in landing mid-session is swallowed by the foreground handler in `service.ts` and
-  re-sent ~1h later (`checkin-delay.ts`); scheduled content carries `data.event` for that.
+  rest actions. `showSession` also writes the MMKV record (`training/session-state.ts`); only
+  finish/abandon call `endSession` (AFTER finishing/abandoning the log) — never a screen unmount,
+  since leaving the workout does not end it — and boot drops a record whose log is no longer open.
+  **The check-in is anchored to the real session at schedule time, never swallowed in a handler**
+  (the OS draws it with the phone locked): a session's first `showSession` HOLDS that day's
+  weekly check-in entries back, `endSession` asks once at end + delay (nothing if finishing
+  already marked the day), and next week's held occurrence rides as a one-shot until a reconcile
+  after the hold expires restores the weekly trigger (`checkin-hold.ts`). Every hold write goes
+  through the reconciler's in-flight chain and every one-shot id is recorded under the event.
 - **`startRest` / `extendRest` / `endRest` are the only places the alarm starts or stops.** Screens
   never call `startAlarm` or `stopAlarm` themselves; a component that did would silence an alarm the
   service legitimately owns the moment the screen unmounted.

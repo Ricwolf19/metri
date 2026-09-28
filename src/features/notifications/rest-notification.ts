@@ -9,9 +9,14 @@ import notifee, {
   type Event,
 } from 'react-native-notify-kit';
 
+import { dayQuery } from '@/features/training/adherence.repo';
+import { localDateKey } from '@/features/training/dates';
 import { restState, type ActiveRest } from '@/features/training/rest-state';
 import { sessionState, type ActiveSession } from '@/features/training/session-state';
 import { startAlarm, stopAlarm } from '@/lib/sounds';
+import { session as authSession } from '@/lib/storage';
+
+import { holdCheckin, releaseCheckin } from './policies';
 
 /**
  * Rest-timer notification (the only module importing react-native-notify-kit).
@@ -279,10 +284,14 @@ const sessionBody = (session: ActiveSession) =>
 
 /**
  * Show (or redraw) the ongoing session notification and record the session —
- * the record is what the check-in delay reads, so it is kept on iOS too.
+ * kept on iOS too, since the catch-up banner and the check-in hold read it.
+ * Only the first call of a session holds the planned check-in back; redraws
+ * (one per logged set) must not re-run the reconciler.
  */
 export const showSession = async (session: ActiveSession): Promise<void> => {
+  const fresh = sessionState.get()?.workoutId !== session.workoutId;
   sessionState.set(session);
+  if (fresh) void holdCheckin(session.startedAt).catch(() => {});
   if (!isAndroid) return;
   await notifee
     .displayNotification({
@@ -308,14 +317,36 @@ export const showSession = async (session: ActiveSession): Promise<void> => {
     .catch(() => {});
 };
 
-/** Workout finished or abandoned: drop the notification and the record. */
+/** Finishing marks the day trained; a check-in afterwards would ask what is answered. */
+const isDayResolved = (startedAt: number): boolean => {
+  const userId = authSession.getUserId();
+  if (!userId) return false;
+  try {
+    return dayQuery(userId, localDateKey(new Date(startedAt))).get() !== undefined;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Workout finished or abandoned: drop the notification and the record, and
+ * re-anchor the check-in to the real end. Callers finish/abandon the log FIRST,
+ * so a finished day already reads as resolved here.
+ */
 export const endSession = async (): Promise<void> => {
+  const ended = sessionState.get();
   sessionState.clear();
   await notifee.cancelNotification(SESSION_ID).catch(() => {});
+  if (!ended) return;
+  await releaseCheckin({
+    startedAt: ended.startedAt,
+    endedAt: Date.now(),
+    dayResolved: isDayResolved(ended.startedAt),
+  }).catch(() => {});
 };
 
 /** Boot: a session record whose workout is no longer live (killed mid-session,
- * finished on another path) must not keep a notification or the check-in delay. */
+ * finished on another path) must not keep a notification or the check-in hold. */
 export const reconcileSession = async (isLive: (workoutId: string) => boolean): Promise<void> => {
   const session = sessionState.get();
   if (session && isLive(session.workoutId)) return;

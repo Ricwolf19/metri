@@ -20,6 +20,9 @@ export type CatchupInput = {
   offsetMinutes: number;
   /** Minutes since local midnight right now. */
   nowMinutes: number;
+  /** A workout is running right now: today has no answer yet. Only today is
+   * held back — yesterday's miss is still a question the lifter can answer. */
+  sessionActive?: boolean;
   /** How far back unresolved planned days stay askable. */
   daysBack?: number;
 };
@@ -36,6 +39,7 @@ export const selectCatchupGaps = ({
   checkinSchedule,
   offsetMinutes,
   nowMinutes,
+  sessionActive = false,
   daysBack = CATCHUP_DAYS_BACK,
 }: CatchupInput): string[] => {
   const past = findGaps(logged, plannedWeekdays, today, daysBack);
@@ -45,6 +49,7 @@ export const selectCatchupGaps = ({
   // training the day after a missed planned day surfaces that miss, not today.
   const todayWeekday = weekdayOfKey(today);
   const dueToday =
+    !sessionActive &&
     !logged.has(today) &&
     checkinSchedule.some(
       (entry) =>

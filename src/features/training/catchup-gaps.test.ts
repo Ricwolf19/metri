@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { selectCatchupGaps, type CatchupInput } from './catchup-gaps';
+import { localDateKey } from './dates';
 
 // 2026-09-26 is a Saturday (weekday 7, expo-numbered).
 const TODAY = '2026-09-26';
@@ -12,7 +13,8 @@ const allPlannedBut = (except: string[]): Set<string> => {
   const cursor = new Date(`${TODAY}T12:00:00`);
   for (let i = 1; i <= 30; i++) {
     cursor.setDate(cursor.getDate() - 1);
-    const key = cursor.toISOString().slice(0, 10);
+    // Local key: toISOString is UTC and shifts the day east of UTC+12.
+    const key = localDateKey(cursor);
     if (cursor.getDay() + 1 === 6 || cursor.getDay() + 1 === 7) {
       if (!except.includes(key)) logged.add(key);
     }
@@ -57,6 +59,13 @@ describe('selectCatchupGaps', () => {
 
   it('returns nothing without a schedule to break a streak against', () => {
     expect(selectCatchupGaps(base({ plannedWeekdays: null }))).toEqual([]);
+  });
+
+  it('a running session holds back only today, never the missed yesterday', () => {
+    const gaps = selectCatchupGaps(
+      base({ nowMinutes: 23 * 60, sessionActive: true, logged: allPlannedBut([YESTERDAY]) }),
+    );
+    expect(gaps).toEqual([YESTERDAY]);
   });
 
   it('orders multiple misses oldest-first after today', () => {
