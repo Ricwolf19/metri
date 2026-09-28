@@ -920,9 +920,13 @@ const WorkoutSession = () => {
     const startedAt = Date.now();
     const endsAt = startedAt + restSeconds * 1000;
     const ends = new Date(endsAt);
-    const next = nextSetLine(
-      nextSetSummary(planned, slotId, doneCount, (exerciseId) => setsFor(exerciseId).length),
+    const upcoming = nextSetSummary(
+      planned,
+      slotId,
+      doneCount,
+      (exerciseId) => setsFor(exerciseId).length,
     );
+    const next = nextSetLine(upcoming);
     const slot = planned.find((p) => p.slotId === slotId);
     const setLabel = slot
       ? t('session.setOf', { n: doneCount, total: Math.max(doneCount, plannedSets(slot)) })
@@ -954,7 +958,7 @@ const WorkoutSession = () => {
       title: t('session.notifTitle'),
       exerciseName: slot?.name ?? '',
       setLabel,
-      nextLabel: next === t('training.restLast') ? '' : next,
+      nextLabel: upcoming.kind === 'done' ? '' : next,
     });
   };
 
