@@ -44,6 +44,13 @@ describe('exercise catalog', () => {
 describe('exercise technique content', () => {
   const documented = Object.keys(EXERCISE_CONTENT);
 
+  // The floor crunch guide was once renamed onto `cable-crunch`, leaving the
+  // still-shipped floor movement with no guide at all.
+  it('keeps a guide for both crunches', () => {
+    expect(EXERCISE_CONTENT.crunch).toBeDefined();
+    expect(EXERCISE_CONTENT['cable-crunch']).toBeDefined();
+  });
+
   it('only documents exercises that ship in the catalog', () => {
     for (const id of documented) expect(SEED_IDS).toContain(id);
   });

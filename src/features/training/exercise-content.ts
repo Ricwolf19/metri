@@ -847,6 +847,38 @@ const CONTENT: Record<string, Record<Locale, ExerciseContent>> = {
       mistakes: [],
     },
   },
+  crunch: {
+    es: {
+      summary:
+        '**Abdomen** en el suelo: enrolla la columna llevando las costillas hacia la pelvis — el movimiento es corto y lo hace el abdomen, no el cuello.',
+      setup: [
+        'Boca arriba, **rodillas flexionadas y pies apoyados** en el suelo; manos junto a las sienes o cruzadas sobre el pecho.',
+      ],
+      execution: [
+        '**Enrolla la parte alta de la espalda** hasta despegar los omóplatos del suelo, sacando el aire.',
+        'Aprieta un segundo arriba y **baja controlando** hasta apoyar de nuevo los hombros.',
+      ],
+      mistakes: [
+        '**Tirar de la cabeza con las manos**: el cuello no hace el trabajo; deja espacio entre la barbilla y el pecho.',
+        '**Subir hasta sentarte**: a partir de ahí trabajan los flexores de cadera, no el abdomen.',
+      ],
+    },
+    en: {
+      summary:
+        '**Abs** on the floor: curl the spine bringing the ribs toward the pelvis — the movement is short and the abs do it, not the neck.',
+      setup: [
+        'On your back, **knees bent and feet flat** on the floor; hands by your temples or crossed over your chest.',
+      ],
+      execution: [
+        '**Curl the upper back** until the shoulder blades leave the floor, breathing out.',
+        'Squeeze for a second at the top and **lower under control** until the shoulders touch down again.',
+      ],
+      mistakes: [
+        '**Pulling the head with your hands**: the neck does not do the work; keep space between chin and chest.',
+        '**Coming all the way up to sitting**: past that point the hip flexors work, not the abs.',
+      ],
+    },
+  },
   'standing-calf-raise': {
     es: {
       summary:
