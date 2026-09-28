@@ -2,6 +2,7 @@ import { and, asc, eq, or, isNull } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import {
+  exerciseNotes,
   exerciseSettings,
   exercises,
   workoutDayExercises,
@@ -92,5 +93,9 @@ export const deleteCustomExercise = (id: string, userId: string): boolean => {
     db.delete(exerciseSettings).where(eq(exerciseSettings.id, setting.id)).run();
     recordDeletion('exercise_settings', setting.id);
   }
+  // So does the lifter's note. Local-only table: no tombstone to record.
+  db.delete(exerciseNotes)
+    .where(and(eq(exerciseNotes.exerciseId, id), eq(exerciseNotes.userId, userId)))
+    .run();
   return true;
 };
