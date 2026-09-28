@@ -41,9 +41,13 @@ import { warmupSeeds } from './warmup-content';
  * so `seedProgram` prunes template slots the seed no longer lists and
  * refreshes the meta of the ones it keeps. Enrolled copies are user rows and
  * keep whatever they were enrolled with.
+ *
+ * v8 upserts template week configs too (they used to be insert-only, so a
+ * prescription edit never reached an existing install). Editing a preset's
+ * prescription or slot meta needs a bump to land.
  */
 const SEED_KEY = 'training_seed_version';
-const SEED_VERSION = '7';
+const SEED_VERSION = '8';
 
 const alreadySeeded = (): boolean => {
   const [row] = db.select().from(appMeta).where(eq(appMeta.key, SEED_KEY)).all();
@@ -311,7 +315,23 @@ const seedProgram = (p: ProgramSeed): void => {
               intensityType: 'rir',
               setGroups: week.setGroups ?? null,
             })
-            .onConflictDoNothing()
+            .onConflictDoUpdate({
+              target: weekConfigs.id,
+              // Prescription edits land like slot meta does. The deterministic id
+              // is template-only, and the guard keeps an enrolled copy out even
+              // if one ever carried it.
+              set: {
+                sets: week.sets,
+                reps: week.reps,
+                repsMax: week.repsMax ?? null,
+                rirMin: week.rirMin ?? null,
+                rirMax: week.rirMax ?? null,
+                toFailure: week.toFailure ?? false,
+                restSeconds: week.restSeconds,
+                setGroups: week.setGroups ?? null,
+              },
+              setWhere: isNull(weekConfigs.userProgramId),
+            })
             .run();
         });
       });

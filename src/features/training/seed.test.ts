@@ -6,6 +6,7 @@ import {
   programs,
   routines,
   setLogs,
+  userPrograms,
   users,
   weekConfigs,
   workoutDayExercises,
@@ -20,6 +21,7 @@ vi.mock('@/lib/crypto', () => ({ randomId: () => crypto.randomUUID() }));
 const { db } = await import('@/db/client');
 const { seedTraining } = await import('./seed');
 const { EXERCISE_SEEDS } = await import('./exercises.seed');
+const { enrollInProgram } = await import('./enroll');
 
 const wipe = () => {
   for (const table of [
@@ -30,6 +32,7 @@ const wipe = () => {
     programs,
     setLogs,
     workoutLogs,
+    userPrograms,
     exercises,
     users,
   ]) {
@@ -209,5 +212,80 @@ describe('seedTraining v4', () => {
     ).toHaveLength(0);
     const curl = slots.find((sl) => sl.exerciseId === 'standing-leg-curl');
     expect(curl?.badges).toEqual(['O similar']);
+  });
+
+  it('v8 re-seed refreshes template week configs and never touches an enrolled copy', async () => {
+    // Arrange: a v7 install enrolled in Foundations, mid-session, whose template
+    // still carries an outdated prescription.
+    await seedTraining();
+    const tplDays = db
+      .select({ id: workoutDays.id })
+      .from(workoutDays)
+      .where(
+        and(like(workoutDays.routineId, 'metri-foundations%'), isNull(workoutDays.userProgramId)),
+      )
+      .all();
+    const enrollment = enrollInProgram(
+      'u-1',
+      'metri-foundations',
+      tplDays.map((d) => ({ dayId: d.id, weekday: 2, startMinute: 600 })),
+    );
+    const [tplSlot] = db
+      .select()
+      .from(workoutDayExercises)
+      .where(
+        and(
+          eq(workoutDayExercises.workoutDayId, 'metri-foundations-r1-d1'),
+          isNull(workoutDayExercises.userProgramId),
+        ),
+      )
+      .all();
+    const tplConfigId = `${tplSlot.id}-w1`;
+    const [seeded] = db.select().from(weekConfigs).where(eq(weekConfigs.id, tplConfigId)).all();
+    db.update(weekConfigs)
+      .set({ sets: 99, restSeconds: 5 })
+      .where(eq(weekConfigs.id, tplConfigId))
+      .run();
+    const [copyDay] = db
+      .select()
+      .from(workoutDays)
+      .where(eq(workoutDays.userProgramId, enrollment.id))
+      .all();
+    db.insert(workoutLogs)
+      .values({
+        id: 'live',
+        userId: 'u-1',
+        userProgramId: enrollment.id,
+        workoutDayId: copyDay.id,
+        weekNumber: 1,
+        status: 'in_progress',
+        plannedSnapshot: [],
+      })
+      .run();
+    const enrolled = () => ({
+      slots: db
+        .select()
+        .from(workoutDayExercises)
+        .where(eq(workoutDayExercises.userProgramId, enrollment.id))
+        .all(),
+      configs: db
+        .select()
+        .from(weekConfigs)
+        .where(eq(weekConfigs.userProgramId, enrollment.id))
+        .all(),
+      log: db.select().from(workoutLogs).where(eq(workoutLogs.id, 'live')).all(),
+    });
+    const before = enrolled();
+    expect(before.configs.length).toBeGreaterThan(0);
+    db.run(sql`UPDATE app_meta SET value = '7' WHERE key = 'training_seed_version'`);
+
+    // Act
+    await seedTraining();
+
+    // Assert
+    const [refreshed] = db.select().from(weekConfigs).where(eq(weekConfigs.id, tplConfigId)).all();
+    expect(refreshed.sets).toBe(seeded.sets);
+    expect(refreshed.restSeconds).toBe(seeded.restSeconds);
+    expect(enrolled()).toEqual(before);
   });
 });
