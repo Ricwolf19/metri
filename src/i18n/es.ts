@@ -782,6 +782,7 @@ export const es: Record<TranslationKey, string> = {
   'training.total': 'Total',
   'training.totalEquivalent': '= {value} {unit}',
   'training.applyWeight': 'Aplicar',
+  'training.tapToRemovePlate': 'Toca para quitar este disco',
   'training.reorderHint': 'Mantén presionada cualquier fila y arrástrala para cambiar el orden.',
   'training.reorder': 'Reordenar ejercicios',
   'training.prev': 'Anterior',

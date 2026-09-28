@@ -772,6 +772,7 @@ export const en = {
   'training.total': 'Total',
   'training.totalEquivalent': '= {value} {unit}',
   'training.applyWeight': 'Apply',
+  'training.tapToRemovePlate': 'Tap to remove this plate',
   'training.reorderHint': 'Hold any row and drag it to change the order.',
   'training.reorder': 'Reorder exercises',
   'training.prev': 'Prev',
