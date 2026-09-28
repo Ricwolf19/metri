@@ -17,6 +17,7 @@ type SessionDrafts = {
 };
 
 const EMPTY: SessionDrafts = { rows: new Map(), counts: new Map() };
+const NO_COUNTS: SlotCounts = { warmup: 0, extra: 0 };
 
 /**
  * Session drafts live outside React: switching exercises in compact view
@@ -70,6 +71,9 @@ export const clearSessionDrafts = (logId: string): void => {
 export const readSessionDrafts = (logId: string): ReadonlyMap<DraftKey, RowDraft> =>
   read(logId).rows;
 
+export const readSlotCounts = (logId: string, slotId: string): SlotCounts =>
+  read(logId).counts.get(slotId) ?? NO_COUNTS;
+
 const subscribe = (listener: () => void) => {
   listeners.add(listener);
   return () => {
@@ -78,7 +82,6 @@ const subscribe = (listener: () => void) => {
 };
 
 const EMPTY_ROWS: ReadonlyMap<DraftKey, RowDraft> = new Map();
-const NO_COUNTS: SlotCounts = { warmup: 0, extra: 0 };
 
 export const useSessionDrafts = (logId: string): ReadonlyMap<DraftKey, RowDraft> =>
   useSyncExternalStore(
@@ -88,9 +91,6 @@ export const useSessionDrafts = (logId: string): ReadonlyMap<DraftKey, RowDraft>
   );
 
 export const useSlotCounts = (logId: string, slotId: string): SlotCounts => {
-  const getSnapshot = useCallback(
-    () => read(logId).counts.get(slotId) ?? NO_COUNTS,
-    [logId, slotId],
-  );
+  const getSnapshot = useCallback(() => readSlotCounts(logId, slotId), [logId, slotId]);
   return useSyncExternalStore(subscribe, getSnapshot, () => NO_COUNTS);
 };
