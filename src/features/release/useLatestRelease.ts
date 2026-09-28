@@ -6,7 +6,7 @@ import { isNetworkFailure } from '@/lib/network-errors';
 import { settings } from '@/lib/storage';
 import { captureError } from '@/lib/telemetry';
 
-import { isNewerVersion } from './version';
+import { isNewerVersion, shouldCheckRelease } from './version';
 
 /**
  * "New version available" indicator. Remote accounts only — a local user never
@@ -17,10 +17,11 @@ import { isNewerVersion } from './version';
  * a wrong prompt is worse than none.
  */
 
-const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+/** A gym's flaky signal can hang a request for minutes; a badge is not worth that. */
+const TIMEOUT_MS = 8000;
 
-const fetchLatestVersion = async (): Promise<string | null> => {
-  const res = await fetch(`${API_URL}/api/latest-version`);
+const fetchLatestVersion = async (signal: AbortSignal): Promise<string | null> => {
+  const res = await fetch(`${API_URL}/api/latest-version`, { signal });
   if (!res.ok) return null;
   const body = (await res.json().catch(() => null)) as { version?: unknown } | null;
   return typeof body?.version === 'string' ? body.version : null;
@@ -31,20 +32,30 @@ export const useUpdateAvailable = (): boolean => {
   const [latest, setLatest] = useState(() => settings.getLatestRelease());
 
   useEffect(() => {
-    if (!hasServerAccount) return;
-    if (Date.now() - settings.getLatestReleaseCheckedAt() < CHECK_INTERVAL_MS) return;
+    const now = Date.now();
+    const checkedAt = settings.getLatestReleaseCheckedAt();
+    if (!shouldCheckRelease({ hasServerAccount, checkedAt, now })) return;
+    // Stamped before the request: an offline phone would otherwise fail, stamp
+    // nothing, and try again on every mount.
+    settings.setLatestReleaseCheckedAt(now);
     let cancelled = false;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
     void (async () => {
       try {
-        const version = await fetchLatestVersion();
-        settings.setLatestReleaseCheckedAt(Date.now());
+        const version = await fetchLatestVersion(controller.signal);
         if (!version) return;
         settings.setLatestRelease(version);
         if (!cancelled) setLatest(version);
       } catch (e) {
-        if (!isNetworkFailure(e)) captureError(e);
+        // A timeout is an answer, not a defect.
+        if (!controller.signal.aborted && !isNetworkFailure(e)) captureError(e);
+      } finally {
+        clearTimeout(timer);
       }
     })();
+    // No abort on unmount: the attempt is already stamped, so let it land in
+    // MMKV for the next mount instead of spending the day's check on nothing.
     return () => {
       cancelled = true;
     };
