@@ -22,12 +22,8 @@ import {
 import { useDialog } from '@/components/ui';
 import { ScrollVisibilityProvider, useScrollVisibility } from '@/components/ui/scroll-visibility';
 import { useAuth } from '@/features/auth/auth-context';
-import {
-  abandonWorkout,
-  activeWorkoutQuery,
-  finishWorkout,
-} from '@/features/training/session.repo';
-import { endSession } from '@/features/notifications/rest-notification';
+import { closeSession } from '@/features/training/close-session';
+import { activeWorkoutQuery } from '@/features/training/session.repo';
 import { useAutoSync } from '@/features/sync/useAutoSync';
 import { useWidgetSync } from '@/features/widget/useWidgetSync';
 import { useT } from '@/i18n';
@@ -174,18 +170,12 @@ const TabsLayout = () => {
         actions: [
           {
             label: t('training.staleFinish'),
-            onPress: () => {
-              finishWorkout(activeWorkout.id);
-              void endSession();
-            },
+            onPress: () => closeSession('finish', activeWorkout.id, activeWorkout.userId),
           },
           {
             label: t('training.cancelWorkout'),
             style: 'destructive',
-            onPress: () => {
-              abandonWorkout(activeWorkout.id);
-              void endSession();
-            },
+            onPress: () => closeSession('abandon', activeWorkout.id, activeWorkout.userId),
           },
         ],
       });

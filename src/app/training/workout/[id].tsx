@@ -54,7 +54,6 @@ import { StepGroup } from '@/features/training/components/StepGroup';
 import { WeightCalculatorSheet } from '@/features/training/components/WeightCalculatorSheet';
 import {
   endRest,
-  endSession,
   extendRest,
   showSession,
   startRest,
@@ -68,12 +67,12 @@ import { dayDisplayName } from '@/features/training/labels';
 import { getExercise } from '@/features/training/exercises.repo';
 import { visualIdFor } from '@/features/training/exercise-visuals';
 import { exerciseHeads, muscleHeadKey, type MuscleHead } from '@/features/training/muscles';
+import { closeSession } from '@/features/training/close-session';
 import { getWorkoutDay } from '@/features/training/programs.repo';
 import { bumpValue, nextSetPrefill, weightText } from '@/features/training/set-prefill';
 import { sessionBadges } from '@/features/training/session-badges';
 import {
   clearDraft,
-  clearSessionDrafts,
   useSessionDrafts,
   useSlotCounts,
   writeDraft,
@@ -82,8 +81,6 @@ import {
   type RowDraft,
 } from '@/features/training/workout-drafts';
 import {
-  abandonWorkout,
-  finishWorkout,
   deleteSet,
   getWorkout,
   workoutQuery,
@@ -96,7 +93,6 @@ import {
   swapSnapshotExercise,
   type SessionSummary,
 } from '@/features/training/session.repo';
-import { syncTrainingReminder } from '@/features/training/reminders';
 import { prefillSourceKey, swapOptions } from '@/features/training/variants';
 import { warmupRamp } from '@/features/training/warmup';
 import { useI18n, useT, type TFunction } from '@/i18n';
@@ -979,11 +975,7 @@ const WorkoutSession = () => {
     if (finishing) return;
     setFinishing(true);
     setTimeout(() => {
-      finishWorkout(log.id);
-      void endRest();
-      clearSessionDrafts(log.id);
-      void endSession();
-      void syncTrainingReminder(log.userId);
+      closeSession('finish', log.id, log.userId);
       setSummary(null);
       // `settling` keeps the wait on screen while the tab mounts and runs its
       // queries; without it the hand-off flashes a half-built Train tab.
@@ -998,10 +990,7 @@ const WorkoutSession = () => {
       destructive: true,
       onConfirm: () => {
         playSound('discard');
-        abandonWorkout(log.id);
-        void endRest();
-        clearSessionDrafts(log.id);
-        void endSession();
+        closeSession('abandon', log.id, log.userId);
         router.replace('/training');
       },
     });
