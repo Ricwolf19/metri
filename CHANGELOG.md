@@ -1,5 +1,47 @@
 # Changelog
 
+## [1.12.0](https://github.com/Ricwolf19/metri/compare/metri-v1.11.0...metri-v1.12.0) (2026-09-28)
+
+
+### Features
+
+* **notifications:** anchor the check-in to the session ([7ff9f6e](https://github.com/Ricwolf19/metri/commit/7ff9f6e1e13d5342805729e318b0c46da73e1912))
+* **notifications:** open in-app links from taps ([6995c3d](https://github.com/Ricwolf19/metri/commit/6995c3d17691ca91ec1963fabeaf53f955414550))
+* **notifications:** training-in-progress notification and check-in delay ([f572e50](https://github.com/Ricwolf19/metri/commit/f572e50bdeadddbcf54abc7501882b339660ed50))
+* **plan:** export exercise notes and calc history ([ebd298d](https://github.com/Ricwolf19/metri/commit/ebd298d2e6a2b028cfc0d3ef5678e3cd40a0a37f))
+* **quiz:** knowledge check with radar result and stepped onboarding ([99bfa28](https://github.com/Ricwolf19/metri/commit/99bfa28d8113e5762bcfd9a5d24cee041399a996))
+* **quiz:** reveal the answer and why, then advance ([26f2b90](https://github.com/Ricwolf19/metri/commit/26f2b90ff10c70540368e682fba562d5f85d05bd))
+* **release:** check for updates and announce them ([a00f2ac](https://github.com/Ricwolf19/metri/commit/a00f2ac08280135154fca2e297a38639012422b4))
+* **release:** new-version indicator for remote accounts ([d6480c5](https://github.com/Ricwolf19/metri/commit/d6480c5404137f8b99da5f2cb8bfee16d56ac84c))
+* **training:** chronological session timeline in the day sheet ([b299481](https://github.com/Ricwolf19/metri/commit/b2994816663cf4e9fe39ccb3e5c459ad4bf856d2))
+* **training:** field-test backlog groups C, D and F ([4786908](https://github.com/Ricwolf19/metri/commit/4786908c1c2e57e4c08242098eb3ab6597735075))
+* **training:** harden set logging and add weight tools ([8543d91](https://github.com/Ricwolf19/metri/commit/8543d9116d87b853bafe124ffc95366d4ffeb0e1))
+* **training:** reorganize the workout screen ([46860c2](https://github.com/Ricwolf19/metri/commit/46860c2d9498b799941135e45b075b73532af22e))
+
+
+### Bug Fixes
+
+* **body:** update the profile only from today's check-in ([3d6c770](https://github.com/Ricwolf19/metri/commit/3d6c77017e0cbbf799377abc56a20c05eb7846b1))
+* **calculators:** skip repeated history entries ([38e5215](https://github.com/Ricwolf19/metri/commit/38e5215cdd37216f28a95261889539a49eecfa41))
+* **onboarding:** convert body weight with lbToKg ([4019915](https://github.com/Ricwolf19/metri/commit/40199151814c1c90593a0bc85314deb92fb444ab))
+* **quiz:** route back through onboarding's flow ([cf9b763](https://github.com/Ricwolf19/metri/commit/cf9b7636fcc4121256839d70c937a02a9f2e581b))
+* **release:** accept tagged versions, time out the check ([83cbf5b](https://github.com/Ricwolf19/metri/commit/83cbf5bf543df8164d3eee6f4803f535dfcd66cb))
+* **training:** delete a custom exercise's note with it ([fda2071](https://github.com/Ricwolf19/metri/commit/fda20717d914d1f3a34979b16a5d6882835c589b))
+* **training:** ignore keep-awake release after teardown ([f277c16](https://github.com/Ricwolf19/metri/commit/f277c166334dc9f021017b6b45d4ab0b855b13dd))
+* **training:** keep calculator loads exact, stack plates ([4b5d6e8](https://github.com/Ricwolf19/metri/commit/4b5d6e8f00127ee3f00ef3f288292d64ab630500))
+* **training:** restore the floor crunch guide ([a123c03](https://github.com/Ricwolf19/metri/commit/a123c03664d30fe97751827c5c0fe97c049aa5d2))
+* **training:** skip the session notice once it ended ([c40a93b](https://github.com/Ricwolf19/metri/commit/c40a93b810bc3f53ac89321ea4da122cc7486f4d))
+* **training:** stop slot edits clobbering live rest ([58b2403](https://github.com/Ricwolf19/metri/commit/58b2403374f5f26c96817a50a13be5784be0c6fc))
+* **training:** theme icon colors, label workout controls ([7b4cc6f](https://github.com/Ricwolf19/metri/commit/7b4cc6fd5ed6d393d47f797e21c947c7f042a558))
+* **training:** upsert template week configs on reseed ([e2d424b](https://github.com/Ricwolf19/metri/commit/e2d424b4a2448cf69ff6f3cd8b7ebeed47141a80))
+* **ui:** fit sheets to content without a first-open flash ([79cb06b](https://github.com/Ricwolf19/metri/commit/79cb06bacfcf799ec5a2ae2745f3a609b37ae3a9))
+* **ui:** reveal a select's checked option once ([c86eb8c](https://github.com/Ricwolf19/metri/commit/c86eb8c1fb98b34780c8a700e90bc6c38069565c))
+
+
+### Performance Improvements
+
+* **android:** ship arm-only apk with r8 minify ([a35f84e](https://github.com/Ricwolf19/metri/commit/a35f84ed3ecbe66673b88a232183b45dca25b717))
+
 ## [1.11.0](https://github.com/Ricwolf19/metri/compare/metri-v1.10.0...metri-v1.11.0) (2026-09-22)
 
 
