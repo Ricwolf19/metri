@@ -6,7 +6,7 @@ import { useTheme } from '@/theme/theme-context';
 
 import { ScrollArea } from './ScrollArea';
 import { revealOffset } from './reveal-offset';
-import { Sheet } from './Sheet';
+import { PICKER_STOPS, Sheet } from './Sheet';
 import { CONTROL_FONT_SCALE } from './typography';
 
 export type SelectItem<T extends string> = { value: T; label: string };
@@ -75,7 +75,7 @@ export const Select = <T extends string>({
         </View>
       </Pressable>
 
-      <Sheet visible={open} onClose={() => setOpen(false)}>
+      <Sheet visible={open} onClose={() => setOpen(false)} snapPoints={PICKER_STOPS}>
         <ScrollArea inSheet ref={listRef}>
           {label ? (
             <Text className="mb-1 px-2 font-mono-medium text-xs uppercase tracking-wider text-ink-400">

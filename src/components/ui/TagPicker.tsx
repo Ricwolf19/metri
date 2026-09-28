@@ -7,7 +7,7 @@ import { useTheme } from '@/theme/theme-context';
 import { Button } from './Button';
 import { revealOffset } from './reveal-offset';
 import { ScrollArea } from './ScrollArea';
-import { Sheet } from './Sheet';
+import { PICKER_STOPS, Sheet } from './Sheet';
 
 import { CONTROL_FONT_SCALE } from './typography';
 
@@ -101,7 +101,7 @@ export const TagPicker = ({ label, sections, value, onChange, placeholder, doneL
         <ChevronDownIcon color="#71717a" size={18} />
       </Pressable>
 
-      <Sheet visible={open} onClose={() => setOpen(false)}>
+      <Sheet visible={open} onClose={() => setOpen(false)} snapPoints={PICKER_STOPS}>
         <ScrollArea inSheet ref={listRef}>
           {sections.map((section) => (
             <View

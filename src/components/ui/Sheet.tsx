@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { Modal, Pressable, View, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
@@ -20,19 +20,26 @@ type Props = {
   children: React.ReactNode;
   /**
    * Explicit height stops as window percentages, e.g. `['55%', '92%']`. Omit for
-   * the default: the sheet takes its CONTENT's height, capped at half the screen.
+   * the default: the sheet takes its CONTENT's height, up to nearly full screen.
    */
   snapPoints?: string[];
-  /** Whether the handle can be dragged/tapped up to the last snap point. */
+  /**
+   * Whether the handle can be dragged/tapped up to the last snap point. Only
+   * meaningful with `snapPoints`: a content-sized sheet has a single stop.
+   */
   expandable?: boolean;
 };
 
 type Bounds = { min: number; max: number; stops: number[] };
 
-/** Content-sized sheets never take more than half the screen… */
-const FIT_CAP = 0.5;
-/** …and expand to this only when the content actually overflows the cap. */
-const FIT_EXPANDED = 0.92;
+/** Content-sized sheets show ALL of their content up to this share of the
+ * screen, then scroll. Capping them at half hid a form's own action buttons
+ * below the fold on first open (the plate calculator's Cancel / Apply). */
+const FIT_CAP = 0.92;
+/** Stops for option pickers (Select, TagPicker): half the screen, pulled up to
+ * nearly full when the list is longer — a list scrolls, so it never needs to
+ * open at full height the way a form with buttons does. */
+export const PICKER_STOPS = ['50%', '92%'];
 const RISE_MS = 220;
 const FALL_MS = 170;
 const SNAP_MS = 200;
@@ -105,12 +112,12 @@ const makeController = (
 
 /**
  * The height stops. `snapPoints` gives them explicitly; otherwise it is the fit
- * cap alone.
+ * cap alone (one stop: the sheet already hugs its content up to it).
  *
- * In BOTH cases the taller stops are only offered once the content is known to
- * overflow the first one: the sheet sizes to its content, so on a short list
- * dragging up would stretch nothing. Gating here is what keeps the handle hint
- * and the tap-to-toggle honest.
+ * Taller stops are only offered once the content is known to overflow the
+ * first one: the sheet sizes to its content, so on a short list dragging up
+ * would stretch nothing. Gating here is what keeps the handle hint and the
+ * tap-to-toggle honest.
  */
 const computeStops = (
   snapPoints: string[] | undefined,
@@ -124,7 +131,7 @@ const computeStops = (
     ? [...new Set(snapPoints.map((s) => cap(Math.round(windowHeight * pct(s)))))].sort(
         (a, b) => a - b,
       )
-    : [cap(Math.round(windowHeight * FIT_CAP)), cap(Math.round(windowHeight * FIT_EXPANDED))];
+    : [cap(Math.round(windowHeight * FIT_CAP))];
   const min = stops[0];
   if (!expandable || !overflows) return { min, max: min, stops: [min] };
   return { min, max: stops[stops.length - 1], stops };
@@ -181,9 +188,9 @@ const makePan = (
  * or pull it down to close; scrim tap, handle tap and hardware back close too.
  *
  * By default the sheet is **content-sized** — a five-option picker is five options
- * tall, not half an empty screen — and only grows draggable once its content
- * exceeds half the screen. Its resting state is fully visible; the animations
- * only decorate it. Motion rules: AGENTS.md#conventions.
+ * tall, a form shows every field and its buttons — up to nearly the full
+ * screen, then its `<ScrollArea inSheet>` scrolls. Its resting state is fully
+ * visible; the animations only decorate it. Motion rules: AGENTS.md#conventions.
  */
 export const Sheet = ({ visible, onClose, children, snapPoints, expandable = true }: Props) => {
   const { height: windowHeight } = useWindowDimensions();
@@ -220,7 +227,11 @@ export const Sheet = ({ visible, onClose, children, snapPoints, expandable = tru
     ctl.setBounds(computeStops(snapPoints, windowHeight, expandable, overflows, ceiling));
   }, [ctl, snapPoints, windowHeight, expandable, overflows, ceiling]);
 
-  useEffect(() => {
+  // Layout effect: a plain one runs AFTER the first paint, so a fresh sheet drew
+  // one frame fully open, then jumped below the edge to rise (open/close/open
+  // flicker). The resting state is still the shown position, so a skipped
+  // effect leaves the sheet visible, never hidden.
+  useLayoutEffect(() => {
     if (visible) ctl.enter();
   }, [visible, ctl]);
 

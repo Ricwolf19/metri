@@ -156,7 +156,10 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   React Compiler memoized it — verified on the emulator, so don't reintroduce that shape. Press
   feedback is a 110ms timing. Bounded lists that may overflow use `<ScrollArea>` so the edge
   chevron hints there is more — inside a sheet use `<ScrollArea inSheet>` (fills the sheet,
-  safe-area padded).
+  safe-area padded). A sheet with no `snapPoints` fits its WHOLE content up to 92% of the screen
+  (a form must never hide its own buttons below the fold); option pickers pass `PICKER_STOPS`
+  (half, pull up to 92%). The rise starts in a layout effect — a plain effect drew the first open
+  fully shown for a frame, then jumped away to rise.
 - **Dates** render through `useDateFormat()` (user preset in Settings), never `toLocaleDateString`
   in a screen. Storage keys stay 'YYYY-MM-DD'.
 - **Section headers** are `<SectionLabel label hint>`; the hint always stacks below the label (a
