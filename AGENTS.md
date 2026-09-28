@@ -193,6 +193,13 @@ Read `docs/sync.md` before touching `src/features/sync/`. Non-negotiables:
   carry a `-v2` suffix and the old ids are deleted on init. Bump the suffix whenever those settings
   change. Note a channel cannot carry both a sound and a vibration: Android sets `FLAG_MUTE_HAPTIC`
   as soon as a sound is attached, so the repeating buzz is driven from `lib/sounds.ts` instead.
+- **The "training in progress" notification shares `rest-notification.ts`.** notifee keeps ONE
+  background handler per process, so a second module registering its own silently unhooks the
+  rest actions. `showSession` also writes the MMKV record (`training/session-state.ts`) that the
+  check-in delay reads; only finish/abandon call `endSession` — never a screen unmount, since
+  leaving the workout does not end it — and boot drops a record whose log is no longer open.
+  A check-in landing mid-session is swallowed by the foreground handler in `service.ts` and
+  re-sent ~1h later (`checkin-delay.ts`); scheduled content carries `data.event` for that.
 - **`startRest` / `extendRest` / `endRest` are the only places the alarm starts or stops.** Screens
   never call `startAlarm` or `stopAlarm` themselves; a component that did would silence an alarm the
   service legitimately owns the moment the screen unmounted.
@@ -304,6 +311,10 @@ Read `docs/sync.md` before touching `src/features/sync/`. Non-negotiables:
   (`food-docs.ts`, one per `FoodCategory`) and their rows link to `/food/<id>`, which
   `openContentLink` routes into the app; adding a category needs an i18n key, a title/lead entry
   there, and nothing else.
+- **Knowledge check** (`features/quiz/`, `/quiz`, last onboarding step): one question per
+  (area, level), bilingual copy beside the data; area ids are persisted in MMKV — never rename.
+  It recommends, it never locks a guide. The update indicator (`features/release/`) runs for
+  remote accounts only and reads `GET /api/latest-version` on metri.info; a failure is silent.
 - **New synced tables ship web-first.** The server rejects a whole push containing an unknown
   table, so `metri.info`'s `SYNC_TABLES` must be deployed before the mobile build that writes it.
 - **Knowledge base** lives in `features/docs/content/{en,es}/<category>.ts`, aggregated by

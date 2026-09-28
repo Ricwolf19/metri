@@ -12,6 +12,8 @@ type RestCopy = {
   skipLabel: string;
   plus30Label: string;
   plus60Label: string;
+  /** "Bench press · Set 2/4" — what the lifter is resting between. */
+  currentLabel?: string;
 };
 
 /** The one in-flight rest, or nothing. Survives leaving the screen and the process. */

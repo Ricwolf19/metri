@@ -12,7 +12,7 @@ export type NextSet =
     }
   | { kind: 'done' };
 
-const plannedSets = (slot: PlannedSlot) => slot.setGroups.reduce((n, g) => n + g.sets, 0);
+export const plannedSets = (slot: PlannedSlot) => slot.setGroups.reduce((n, g) => n + g.sets, 0);
 
 const repsForSet = (slot: PlannedSlot, setIndex: number): string => {
   let i = setIndex;

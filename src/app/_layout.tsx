@@ -27,10 +27,12 @@ import { syncNotificationEvents } from '@/features/notifications/policies';
 import {
   initRestNotifications,
   openInitialRestNotification,
+  reconcileSession,
   subscribeRestEvents,
 } from '@/features/notifications/rest-notification';
 import { initNotifications } from '@/features/notifications/service';
 import { seedTraining } from '@/features/training/seed';
+import { getWorkout } from '@/features/training/session.repo';
 import { workoutScreenId } from '@/features/training/workout-route';
 import { preloadSounds } from '@/lib/sounds';
 import { I18nProvider, useI18n } from '@/i18n';
@@ -106,6 +108,8 @@ const RootLayout = () => {
   useEffect(() => {
     if (!success) return;
     preloadSounds();
+    // Needs the tables: a session record is stale unless its log is still open.
+    void reconcileSession((id) => getWorkout(id)?.status === 'in_progress');
     seedTraining()
       .catch((e) => console.warn('[seed] training failed:', e))
       .finally(() => setSeeded(true));

@@ -27,6 +27,7 @@ import {
   activeWorkoutQuery,
   finishWorkout,
 } from '@/features/training/session.repo';
+import { endSession } from '@/features/notifications/rest-notification';
 import { useAutoSync } from '@/features/sync/useAutoSync';
 import { useWidgetSync } from '@/features/widget/useWidgetSync';
 import { useT } from '@/i18n';
@@ -171,11 +172,20 @@ const TabsLayout = () => {
         title: t('training.staleTitle'),
         message: t('training.staleBody'),
         actions: [
-          { label: t('training.staleFinish'), onPress: () => finishWorkout(activeWorkout.id) },
+          {
+            label: t('training.staleFinish'),
+            onPress: () => {
+              finishWorkout(activeWorkout.id);
+              void endSession();
+            },
+          },
           {
             label: t('training.cancelWorkout'),
             style: 'destructive',
-            onPress: () => abandonWorkout(activeWorkout.id),
+            onPress: () => {
+              abandonWorkout(activeWorkout.id);
+              void endSession();
+            },
           },
         ],
       });

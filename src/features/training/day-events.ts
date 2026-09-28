@@ -17,6 +17,8 @@ export type LoggedSet = {
   rir: number | null;
   rpe: number | null;
   isFailure: boolean;
+  /** Epoch ms the set was logged — the session timeline's axis. */
+  loggedAt: number;
 };
 
 type LoggedExercise = { exerciseId: string; name: string; sets: LoggedSet[] };
@@ -82,6 +84,7 @@ export const getDayDetail = (userId: string, dateKey: string): DayDetail => {
         rir: set.rir,
         rpe: set.rpe,
         isFailure: set.isFailure,
+        loggedAt: set.createdAt.getTime(),
       });
       byExercise.set(set.exerciseId, entry);
     }

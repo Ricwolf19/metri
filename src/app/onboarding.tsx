@@ -18,6 +18,9 @@ import { LOCALES, useI18n } from '@/i18n';
 import { settings, type Units } from '@/lib/storage';
 import { ThemeSelect } from '@/theme/ThemeSelect';
 
+/** Preferences → about you → the optional knowledge check. */
+const STEPS = 3;
+
 const Onboarding = () => {
   const { t, locale, setLocale } = useI18n();
   const { finishOnboarding } = useAuth();
@@ -30,6 +33,7 @@ const Onboarding = () => {
   const [heightCm, setHeightCm] = useState('');
   const [weight, setWeight] = useState('');
   const [activity, setActivity] = useState<ActivityLevel>('moderate');
+  const [step, setStep] = useState(0);
 
   const localeSegments: Segment<'en' | 'es'>[] = LOCALES.map((l) => ({
     value: l.value,
@@ -48,6 +52,8 @@ const Onboarding = () => {
     label: t(`activity.${key}`),
   }));
 
+  // Saved when "about you" is left, so the quiz step runs as an onboarded user
+  // and quitting the app there never replays the form.
   const persist = (withMetrics: boolean) => {
     settings.setUnits(units);
     const ageN = Number(age);
@@ -68,7 +74,7 @@ const Onboarding = () => {
         : {},
     );
     toast.success(t('onb.savedToast'));
-    router.replace('/(tabs)');
+    setStep(2);
   };
 
   return (
@@ -80,86 +86,113 @@ const Onboarding = () => {
       <Text className="mt-6 text-center text-2xl font-sans-bold text-ink-50">
         {t('onb.welcome')}
       </Text>
-      <Text className="mb-8 mt-1 text-center text-sm text-ink-400">{t('onb.subtitle')}</Text>
+      <Text className="mt-1 text-center text-sm text-ink-400">{t('onb.subtitle')}</Text>
+      <Text className="mb-8 mt-3 text-center font-mono-medium text-xs uppercase tracking-wider text-ink-400">
+        {t('onb.step', { n: step + 1, total: STEPS })}
+      </Text>
 
-      <View className="gap-6">
-        <SegmentedControl
-          label={t('onb.language')}
-          segments={localeSegments}
-          value={locale}
-          onChange={setLocale}
-        />
-        <SegmentedControl
-          label={t('onb.units')}
-          segments={unitSegments}
-          value={units}
-          onChange={setUnits}
-        />
-        <View>
-          <Text className="mb-1.5 font-mono-medium text-xs uppercase tracking-wider text-ink-300">
-            {t('theme.title')}
-          </Text>
-          <ThemeSelect />
+      {step === 0 ? (
+        <View className="gap-6">
+          <SegmentedControl
+            label={t('onb.language')}
+            segments={localeSegments}
+            value={locale}
+            onChange={setLocale}
+          />
+          <SegmentedControl
+            label={t('onb.units')}
+            segments={unitSegments}
+            value={units}
+            onChange={setUnits}
+          />
+          <View>
+            <Text className="mb-1.5 font-mono-medium text-xs uppercase tracking-wider text-ink-300">
+              {t('theme.title')}
+            </Text>
+            <ThemeSelect />
+          </View>
+
+          <Button variant="brand" label={t('onb.next')} onPress={() => setStep(1)} />
         </View>
+      ) : step === 1 ? (
+        <View className="gap-6">
+          <View>
+            <Text className="text-base font-sans-semibold text-ink-50">{t('onb.aboutYou')}</Text>
+            <Text className="mt-0.5 text-xs text-ink-400">{t('onb.aboutYouHint')}</Text>
+          </View>
 
-        <View className="h-px bg-ink-700" />
+          <SegmentedControl
+            label={t('bmr.sex')}
+            segments={sexSegments}
+            value={sex}
+            onChange={setSex}
+          />
 
-        <View>
-          <Text className="text-base font-sans-semibold text-ink-50">{t('onb.aboutYou')}</Text>
-          <Text className="mt-0.5 text-xs text-ink-400">{t('onb.aboutYouHint')}</Text>
+          <View className="flex-row gap-3">
+            <View className="flex-1">
+              <Input
+                label={t('bmr.age')}
+                value={age}
+                onChangeText={setAge}
+                keyboardType="number-pad"
+                placeholder="28"
+                maxLength={3}
+              />
+            </View>
+            <View className="flex-1">
+              <Input
+                label={t('bmr.heightCm')}
+                value={heightCm}
+                onChangeText={setHeightCm}
+                keyboardType="decimal-pad"
+                placeholder="175"
+                maxLength={5}
+              />
+            </View>
+          </View>
+
+          <Input
+            label={`${t('bmr.weight')} (${units})`}
+            value={weight}
+            onChangeText={setWeight}
+            keyboardType="decimal-pad"
+            placeholder={units === 'kg' ? '72' : '160'}
+            maxLength={6}
+          />
+
+          <SegmentedControl
+            label={t('bmr.activity')}
+            segments={activitySegments}
+            value={activity}
+            onChange={setActivity}
+          />
+
+          <View className="mt-2 gap-3">
+            <Button variant="brand" label={t('onb.finish')} onPress={() => persist(true)} />
+            <Button label={t('common.skip')} variant="ghost" onPress={() => persist(false)} />
+            <Button label={t('onb.back')} variant="ghost" onPress={() => setStep(0)} />
+          </View>
         </View>
-
-        <SegmentedControl
-          label={t('bmr.sex')}
-          segments={sexSegments}
-          value={sex}
-          onChange={setSex}
-        />
-
-        <View className="flex-row gap-3">
-          <View className="flex-1">
-            <Input
-              label={t('bmr.age')}
-              value={age}
-              onChangeText={setAge}
-              keyboardType="number-pad"
-              placeholder="28"
-              maxLength={3}
+      ) : (
+        <View className="gap-6">
+          <View>
+            <Text className="text-base font-sans-semibold text-ink-50">{t('onb.quizTitle')}</Text>
+            <Text className="mt-1 text-sm leading-6 text-ink-400">{t('onb.quizBody')}</Text>
+          </View>
+          <View className="gap-3">
+            <Button
+              variant="brand"
+              label={t('onb.quizStart')}
+              onPress={() => router.replace({ pathname: '/quiz', params: { from: 'onboarding' } })}
+            />
+            <Button
+              label={t('onb.quizLater')}
+              variant="ghost"
+              onPress={() => router.replace('/(tabs)')}
             />
           </View>
-          <View className="flex-1">
-            <Input
-              label={t('bmr.heightCm')}
-              value={heightCm}
-              onChangeText={setHeightCm}
-              keyboardType="decimal-pad"
-              placeholder="175"
-              maxLength={5}
-            />
-          </View>
         </View>
-
-        <Input
-          label={`${t('bmr.weight')} (${units})`}
-          value={weight}
-          onChangeText={setWeight}
-          keyboardType="decimal-pad"
-          placeholder={units === 'kg' ? '72' : '160'}
-          maxLength={6}
-        />
-
-        <SegmentedControl
-          label={t('bmr.activity')}
-          segments={activitySegments}
-          value={activity}
-          onChange={setActivity}
-        />
-
-        <View className="mt-2 gap-3">
-          <Button variant="brand" label={t('onb.finish')} onPress={() => persist(true)} />
-          <Button label={t('common.skip')} variant="ghost" onPress={() => persist(false)} />
-        </View>
-      </View>
+      )}
     </Screen>
   );
 };
