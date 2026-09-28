@@ -39,7 +39,6 @@ import {
   TimedModal,
   useDialog,
   useToast,
-  type Segment,
 } from '@/components/ui';
 import type { PlannedSlot, SetGroup, SetLog } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
@@ -67,8 +66,8 @@ import { dayDisplayName } from '@/features/training/labels';
 import { getExercise } from '@/features/training/exercises.repo';
 import { visualIdFor } from '@/features/training/exercise-visuals';
 import { exerciseHeads, muscleHeadKey, type MuscleHead } from '@/features/training/muscles';
-import { closeSession } from '@/features/training/close-session';
 import { getWorkoutDay } from '@/features/training/programs.repo';
+import { closeSession } from '@/features/training/close-session';
 import { bumpValue, nextSetPrefill, weightText } from '@/features/training/set-prefill';
 import { sessionBadges } from '@/features/training/session-badges';
 import {
@@ -99,15 +98,11 @@ import { useI18n, useT, type TFunction } from '@/i18n';
 import { settings, type Units, type WorkoutLayout } from '@/lib/storage';
 import { playSound } from '@/lib/sounds';
 import { useClockFormat } from '@/lib/useClockFormat';
+import { UNIT_SEGMENTS, useUnits } from '@/lib/useUnits';
 import { useTheme } from '@/theme/theme-context';
 
 // Lets the blocking overlay paint before the synchronous finish work.
 const OVERLAY_PAINT_MS = 50;
-
-const UNIT_SEGMENTS: Segment<Units>[] = [
-  { value: 'kg', label: 'kg' },
-  { value: 'lb', label: 'lb' },
-];
 
 /** What the lifter reports after a set; `rir: null` = deliberately skipped. */
 type RequestEffort = () => Promise<Effort | null>;
@@ -788,7 +783,7 @@ const WorkoutSession = () => {
     );
   }, [liveWorkoutId, t]);
 
-  const [unit, setUnit] = useState<Units>(settings.getUnits());
+  const { units: unit, setUnits } = useUnits();
   const [layout, setLayout] = useState<WorkoutLayout>(settings.getWorkoutLayout());
   const [showArt, setShowArt] = useState(() => settings.getShowExerciseArt());
   const [warmupOpen, setWarmupOpen] = useState(true);
@@ -1019,8 +1014,7 @@ const WorkoutSession = () => {
   // never scrolling away), and the choice is a per-user preference: Settings
   // edits the same key, so persist every toggle.
   const changeUnit = (next: Units) => {
-    settings.setUnits(next);
-    setUnit(next);
+    setUnits(next);
     pushProfile(user);
   };
 

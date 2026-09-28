@@ -39,6 +39,7 @@ import { settings, type ClockFormat, type Units } from '@/lib/storage';
 import { ThemeSelect } from '@/theme/ThemeSelect';
 import { DATE_FORMATS, formatDate, type DateFormat } from '@/lib/date-format';
 import { useDateFormat } from '@/lib/useDateFormat';
+import { UNIT_SEGMENTS, useUnits } from '@/lib/useUnits';
 import { useTheme } from '@/theme/theme-context';
 
 const MetricRow = ({ label, value }: { label: string; value: string }) => {
@@ -63,7 +64,7 @@ const Profile = () => {
   const [saving, setSaving] = useState(false);
 
   const [clock, setClock] = useState<ClockFormat>(settings.getClockFormat());
-  const [units, setUnits] = useState<Units>(settings.getUnits());
+  const { units, setUnits } = useUnits();
   const dateFormat = useDateFormat();
   const [sampleDate] = useState(() => new Date());
   if (!user) return null;
@@ -127,12 +128,7 @@ const Profile = () => {
     setLocale(next);
     if (user) pushProfile(user);
   };
-  const unitSegments: Segment<Units>[] = [
-    { value: 'kg', label: 'kg' },
-    { value: 'lb', label: 'lb' },
-  ];
   const onUnitsChange = (next: Units) => {
-    settings.setUnits(next);
     setUnits(next);
     // Units ride the account profile (as the locale does) — no-op for local users.
     pushProfile(user);
@@ -318,7 +314,7 @@ const Profile = () => {
         {t('profile.units')}
       </Text>
       <Card>
-        <SegmentedControl segments={unitSegments} value={units} onChange={onUnitsChange} />
+        <SegmentedControl segments={UNIT_SEGMENTS} value={units} onChange={onUnitsChange} />
         <Text className="mt-2 text-[11px] leading-4 text-ink-500">{t('profile.unitsHint')}</Text>
       </Card>
 
