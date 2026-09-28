@@ -13,7 +13,7 @@ import {
 } from '@/components/ui';
 import type { ActivityLevel, Sex } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
-import { ACTIVITY_LEVELS } from '@/features/bmr/calc';
+import { ACTIVITY_LEVELS, lbToKg } from '@/features/bmr/calc';
 import { LOCALES, useI18n } from '@/i18n';
 import { settings, type Units } from '@/lib/storage';
 import { ThemeSelect } from '@/theme/ThemeSelect';
@@ -68,7 +68,7 @@ const Onboarding = () => {
             sex,
             age: ageN,
             heightCm: heightN,
-            weightKg: units === 'lb' ? Math.round((weightN / 2.2046) * 10) / 10 : weightN,
+            weightKg: units === 'lb' ? Math.round(lbToKg(weightN) * 10) / 10 : weightN,
             activityLevel: activity,
           }
         : {},
