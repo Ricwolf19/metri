@@ -21,7 +21,7 @@ import { recordDeletion } from '@/features/sync/tombstones';
 import { randomId } from '@/lib/crypto';
 
 import { propagateSlotMeta } from './session.repo';
-import { getExerciseSetting } from './exercise-settings.repo';
+import { getExerciseSetting, slotSeed } from './exercise-settings.repo';
 import { exerciseHeads, type MuscleHead } from './muscles';
 
 import { refreshTrainingWeekdays } from './enroll';
@@ -418,11 +418,7 @@ export const addSlot = (
       workoutDayId: dayId,
       exerciseId,
       orderIndex,
-      defaultRestSeconds: preset?.restSeconds ?? 120,
-      badges: preset?.badges?.length ? preset.badges : null,
-      alternativeExerciseIds: preset?.alternativeExerciseIds?.length
-        ? preset.alternativeExerciseIds
-        : null,
+      ...slotSeed(preset),
       userProgramId,
     })
     .returning()
@@ -486,11 +482,8 @@ export const saveSlotDraft = (slotId: string, draft: SlotDraft): void => {
     upsertWeekConfig(slotId, week.weekNumber, slot.userProgramId, week.values, week.setGroups);
   }
   // The live session renders from its snapshot — keep its copy of the meta fresh.
-  propagateSlotMeta(slotId, {
-    badges: badges.length ? badges : [],
-    notes: notes || null,
-    restSeconds: draft.defaultRestSeconds,
-  });
+  // Rest re-resolves per session week so a week override survives a note edit.
+  propagateSlotMeta(slotId, { badges, notes: notes || null, rest: true });
 };
 
 export const deleteSlot = (slotId: string): void => {

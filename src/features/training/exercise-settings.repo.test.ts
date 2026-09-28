@@ -160,3 +160,43 @@ describe('exercise settings', () => {
     });
   });
 });
+
+it('moves only active-enrollment slots that still hold the previous default', () => {
+  db.insert(programs).values({ id: 'p3', name: 'P3', isCustom: true, userId: U }).run();
+  db.insert(routines).values({ id: 'r3', programId: 'p3', name: '', orderIndex: 0 }).run();
+  db.insert(workoutDays).values({ id: 'd3', routineId: 'r3', name: '', orderIndex: 0 }).run();
+  db.insert(userPrograms)
+    .values([
+      { id: 'active', userId: U, programId: 'p3', status: 'active' },
+      { id: 'done', userId: U, programId: 'p3', status: 'completed' },
+    ])
+    .run();
+  upsertExerciseSetting(U, 'deadlift', { restSeconds: 180 });
+  const stamp = new Date(1_000);
+  db.insert(workoutDayExercises)
+    .values([
+      // Still on the old default → follows the new one.
+      { id: 'match', workoutDayId: 'd3', exerciseId: 'deadlift', userProgramId: 'active' },
+      // Customised away from the old default → the lifter's choice stands.
+      { id: 'custom', workoutDayId: 'd3', exerciseId: 'deadlift', userProgramId: 'active' },
+      // A finished program is history.
+      { id: 'finished', workoutDayId: 'd3', exerciseId: 'deadlift', userProgramId: 'done' },
+    ])
+    .run();
+  db.update(workoutDayExercises).set({ defaultRestSeconds: 180, updatedAt: stamp }).run();
+  db.update(workoutDayExercises)
+    .set({ defaultRestSeconds: 75 })
+    .where(eq(workoutDayExercises.id, 'custom'))
+    .run();
+
+  upsertExerciseSetting(U, 'deadlift', { restSeconds: 240 });
+
+  const slot = (id: string) =>
+    db.select().from(workoutDayExercises).where(eq(workoutDayExercises.id, id)).all()[0];
+  expect(slot('match').defaultRestSeconds).toBe(240);
+  expect(slot('match').updatedAt.getTime()).not.toBe(stamp.getTime());
+  expect(slot('custom').defaultRestSeconds).toBe(75);
+  expect(slot('custom').updatedAt.getTime()).toBe(stamp.getTime());
+  expect(slot('finished').defaultRestSeconds).toBe(180);
+  expect(slot('finished').updatedAt.getTime()).toBe(stamp.getTime());
+});

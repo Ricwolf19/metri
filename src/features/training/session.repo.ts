@@ -66,6 +66,13 @@ const expandPrescription = (config: WeekConfig | null): SetGroup[] => {
   return [{ sets: 3, reps: 8 }];
 };
 
+/** The rest a session runs for a slot: the week's override wins over the slot
+ * default. `propagateSlotMeta` re-resolves with this same rule. */
+const resolveRest = (
+  slot: Pick<WorkoutDayExercise, 'defaultRestSeconds'>,
+  config: Pick<WeekConfig, 'restSeconds'> | null,
+): number | null => config?.restSeconds ?? slot.defaultRestSeconds ?? null;
+
 /**
  * Begin a session for a workout day at a routine-relative week. The week's
  * prescription is materialized into `plannedSnapshot` so the session renders
@@ -86,7 +93,7 @@ export const startWorkout = (
       // Frozen at session start in the user's locale (snapshots never re-resolve).
       name: exerciseDisplayName(exercise, locale),
       setGroups: expandPrescription(config),
-      restSeconds: config?.restSeconds ?? slot.defaultRestSeconds ?? null,
+      restSeconds: resolveRest(slot, config),
       badges: slot.badges ?? [],
       alternativeExerciseIds: slot.alternativeExerciseIds ?? [],
       notes: slot.notes ?? null,
@@ -362,34 +369,65 @@ export const swapSnapshotExercise = (
 };
 
 /**
- * Push slot meta edits (badges, note, default rest) into every in-progress
- * session whose snapshot contains the slot — editing a routine keeps the live
- * session in sync instead of stranding it with stale cues.
+ * Push slot meta edits (badges, note, rest) into every in-progress session
+ * whose snapshot contains the slot — editing a routine keeps the live session
+ * in sync instead of stranding it with stale cues.
+ *
+ * `rest: true` re-resolves the rest from the slot's CURRENT rows for each log's
+ * week, with the same precedence `startWorkout` uses — pushing the slot default
+ * straight in would clobber a per-week override (Foundations prescribes one).
+ * Badges describe the planned exercise, so a slot swapped to a variant keeps
+ * its own. Call after the slot/week rows are written.
  */
 export const propagateSlotMeta = (
   slotId: string,
-  meta: { badges?: string[]; notes?: string | null; restSeconds?: number | null },
+  meta: { badges?: string[]; notes?: string | null; rest?: boolean },
+  userId?: string,
 ): void => {
-  const logs = db.select().from(workoutLogs).where(eq(workoutLogs.status, 'in_progress')).all();
+  const logs = db
+    .select()
+    .from(workoutLogs)
+    .where(
+      and(
+        eq(workoutLogs.status, 'in_progress'),
+        userId ? eq(workoutLogs.userId, userId) : undefined,
+      ),
+    )
+    .all();
+  const [slot] = meta.rest
+    ? db.select().from(workoutDayExercises).where(eq(workoutDayExercises.id, slotId)).all()
+    : [];
   const now = new Date();
   for (const log of logs) {
     if (!log.plannedSnapshot?.some((p) => p.slotId === slotId)) continue;
+    const rest = slot ? resolveRest(slot, weekConfigFor(slotId, log.weekNumber)) : undefined;
     const next = log.plannedSnapshot.map((p) =>
       p.slotId === slotId
         ? {
             ...p,
-            ...(meta.badges !== undefined ? { badges: meta.badges } : {}),
+            ...(meta.badges !== undefined && !p.originalExerciseId ? { badges: meta.badges } : {}),
             ...(meta.notes !== undefined ? { notes: meta.notes } : {}),
-            ...(meta.restSeconds !== undefined ? { restSeconds: meta.restSeconds } : {}),
+            ...(rest !== undefined ? { restSeconds: rest } : {}),
           }
         : p,
     );
+    // Only a real change stamps the log: `updatedAt` is what sync pushes.
+    if (JSON.stringify(next) === JSON.stringify(log.plannedSnapshot)) continue;
     db.update(workoutLogs)
       .set({ plannedSnapshot: next, updatedAt: now })
       .where(eq(workoutLogs.id, log.id))
       .run();
   }
 };
+
+const weekConfigFor = (slotId: string, weekNumber: number): WeekConfig | null =>
+  db
+    .select()
+    .from(weekConfigs)
+    .where(
+      and(eq(weekConfigs.workoutDayExerciseId, slotId), eq(weekConfigs.weekNumber, weekNumber)),
+    )
+    .all()[0] ?? null;
 
 /** Persist a mid-session exercise reorder ("machine was taken, did legs first") —
  * the reordered snapshot IS the record of how the session actually ran. */

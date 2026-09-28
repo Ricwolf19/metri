@@ -349,7 +349,11 @@ Read `docs/sync.md` before touching `src/features/sync/`. Non-negotiables:
   derive from the exercises (`exerciseHeads` / `dayMuscleHeads`) — the manual focus-muscles
   picker is retired and `workout_days.focus_muscles` stays as dormant wire format.
 - **Per-exercise defaults** (`exercise_settings`, synced) seed `addSlot` (rest, badges,
-  alternatives) and are edited on `/training/exercise/[id]`. Slot prescriptions save-block
+  alternatives; `slotSeed`) and are edited on `/training/exercise/[id]`. An edit follows into
+  slots of ACTIVE enrollments only, and only for a field still holding the PREVIOUS default — a
+  slot the lifter customised, or a paused/finished program, keeps its values, and untouched slots
+  are never stamped. Live sessions re-resolve rest through `propagateSlotMeta` with
+  `startWorkout`'s rule (week override, then slot default); a swapped variant keeps its badges. Slot prescriptions save-block
   until every week has an effort method + sets + reps (`slot-draft.ts` owns that logic).
 - Conventional Commits (commitlint); husky runs lint-staged pre-commit and `bun run ci` pre-push.
 
