@@ -179,7 +179,10 @@ export const es: Record<TranslationKey, string> = {
   'training.warmupSet': 'Calentamiento',
   'training.warmupShort': 'C',
   'training.extraSet': 'Serie extra',
-  'training.holdForAlt': 'Mantén presionado para alternativas',
+  'training.setN': 'Serie {n}',
+  'training.target': 'Objetivo: {reps} reps',
+  'training.targetEffort': 'Objetivo: {reps} reps @ {effort}',
+  'training.repsShort': 'reps',
   'training.alternatives': 'Alternativas',
   'training.finishConfirm': '¿Terminar la sesión?',
   'training.finishConfirmBody':

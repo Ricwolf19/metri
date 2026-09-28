@@ -18,6 +18,7 @@ import {
   FlameIcon,
   ListIcon,
   PlusIcon,
+  SwapIcon,
   ViewGridIcon,
   XIcon,
 } from '@/components/icons';
@@ -28,7 +29,6 @@ import {
   BlockingOverlay,
   Card,
   ChipRow,
-  Input,
   ReorderRow,
   Screen,
   ScreenTitle,
@@ -47,6 +47,7 @@ import { lbToKg } from '@/features/bmr/calc';
 import { fromKg } from '@/features/training/progression';
 import { ExerciseDocButton } from '@/features/training/components/ExerciseDocButton';
 import { ExerciseFrames } from '@/features/training/components/ExerciseFrames';
+import { SetInput } from '@/features/training/components/SetInput';
 import { SessionNotes } from '@/features/training/components/SessionNotes';
 import { RestTimer } from '@/features/training/components/RestTimer';
 import { StepGroup } from '@/features/training/components/StepGroup';
@@ -62,10 +63,9 @@ import { restState, useActiveRest } from '@/features/training/rest-state';
 import { nextSetSummary, plannedSets, type NextSet } from '@/features/training/rest-summary';
 import { sessionState } from '@/features/training/session-state';
 import { formatClockTime } from '@/features/training/schedule';
-import { dayDisplayName } from '@/features/training/labels';
+import { dayDisplayName, targetLine, type SetTarget } from '@/features/training/labels';
 import { getExercise } from '@/features/training/exercises.repo';
 import { visualIdFor } from '@/features/training/exercise-visuals';
-import { exerciseHeads, muscleHeadKey, type MuscleHead } from '@/features/training/muscles';
 import { getWorkoutDay } from '@/features/training/programs.repo';
 import { closeSession } from '@/features/training/close-session';
 import { bumpValue, nextSetPrefill, weightText } from '@/features/training/set-prefill';
@@ -108,10 +108,7 @@ const OVERLAY_PAINT_MS = 50;
 type RequestEffort = () => Promise<Effort | null>;
 
 /** One planned set row, expanded from the snapshot's set groups. */
-type PlannedRow = {
-  groupLabel: string | null;
-  reps: number;
-  repsMax?: number;
+type PlannedRow = SetTarget & {
   /** The prescription asks for an effort reading (RIR range or to-failure). */
   wantsEffort: boolean;
 };
@@ -128,10 +125,10 @@ const expandRows = (groups: SetGroup[], t: TFunction): PlannedRow[] => {
   const multi = groups.length > 1;
   return groups.flatMap((g, gi) => {
     const intensity = groupIntensity(g, t);
-    const base = multi ? (gi === 0 ? t('training.topSet') : t('training.backOff')) : null;
-    const label = [base, intensity].filter(Boolean).join(' · ') || null;
+    const groupName = multi ? (gi === 0 ? t('training.topSet') : t('training.backOff')) : null;
     return Array.from({ length: g.sets }, () => ({
-      groupLabel: label,
+      groupName,
+      intensity,
       reps: g.reps,
       repsMax: g.repsMax,
       wantsEffort: !!(g.toFailure || g.rirMin != null || g.rirMax != null),
@@ -188,19 +185,11 @@ const ConvertibleWeight = ({ kg, unit }: { kg: number; unit: Units }) => {
   );
 };
 
-type PlanRowProps = {
-  label: string;
-  legend: string | null;
-  plan: string | null;
-};
-
 /** A set that has not come up yet: the plan, dimmed, no inputs. Sets are done in order. */
-const PendingRow = ({ label, legend, plan }: PlanRowProps) => (
+const PendingRow = ({ label, legend }: { label: string; legend: string | null }) => (
   <View className="flex-row items-center rounded-field bg-ink-850/40 px-3 py-2.5">
     <Text className="w-7 text-xs font-sans-semibold text-ink-600">{label}</Text>
-    <Text className="flex-1 text-xs text-ink-500">
-      {[legend, plan].filter(Boolean).join(' · ')}
-    </Text>
+    <Text className="flex-1 text-xs text-ink-500">{legend}</Text>
   </View>
 );
 
@@ -291,23 +280,27 @@ const ActiveRow = ({
           </Pressable>
         ) : null}
       </View>
-      <View className="flex-row items-center gap-2">
+      <View className="flex-row items-center gap-1.5">
         <View className="flex-1">
-          <Input
+          <SetInput
             value={draft.weight}
             onChangeText={(weight) => onChange({ weight })}
+            unitLabel={unit}
             keyboardType="decimal-pad"
-            placeholder={unit}
+            placeholder="0"
             maxLength={6}
+            accessibilityLabel={`${t('training.weight')} (${unit})`}
           />
         </View>
-        <View className="w-[84px]">
-          <Input
+        <View className="flex-1">
+          <SetInput
             value={draft.reps}
             onChangeText={(reps) => onChange({ reps })}
+            unitLabel={t('training.repsShort')}
             keyboardType="number-pad"
             placeholder={placeholder}
             maxLength={3}
+            accessibilityLabel={t('training.reps')}
           />
         </View>
         {onOpenCalculator ? (
@@ -315,7 +308,7 @@ const ActiveRow = ({
             onPress={onOpenCalculator}
             accessibilityRole="button"
             accessibilityLabel={t('training.calculatorTitle')}
-            className="h-12 w-11 items-center justify-center rounded-field border border-ink-700 bg-ink-800"
+            className="h-12 w-10 items-center justify-center rounded-field border border-ink-700 bg-ink-800"
           >
             <DumbbellIcon color={muted} size={18} />
           </Pressable>
@@ -542,11 +535,23 @@ const ExerciseCard = ({
           className="flex-1 pr-2"
         >
           <Text className="text-base font-sans-semibold text-ink-50">{planned.name}</Text>
-          {swapIds.length ? (
-            <Text className="mt-0.5 text-[11px] text-ink-500">{t('training.holdForAlt')}</Text>
-          ) : null}
         </Pressable>
-        <ExerciseDocButton exerciseId={planned.exerciseId} size={17} />
+        {/* A visible swap icon beside the guide, not a "hold for alternatives"
+            hint line; the long-press on the name still works. */}
+        <View className="flex-row items-center gap-1">
+          {swapIds.length ? (
+            <Pressable
+              onPress={pickAlternative}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t('training.alternatives')}
+              className="h-8 w-8 items-center justify-center"
+            >
+              <SwapIcon color={muted} size={17} />
+            </Pressable>
+          ) : null}
+          <ExerciseDocButton exerciseId={planned.exerciseId} size={17} />
+        </View>
       </View>
 
       {badges.length ? (
@@ -616,22 +621,15 @@ const ExerciseCard = ({
               />
             );
           }
-          const plan = row ? `${row.reps}${row.repsMax ? `–${row.repsMax}` : ''} reps` : null;
+          const legend = row ? targetLine(row, t) : null;
           if (key !== activeKey || activeIsWarmup) {
-            return (
-              <PendingRow
-                key={key}
-                label={String(i + 1)}
-                legend={row?.groupLabel ?? null}
-                plan={plan}
-              />
-            );
+            return <PendingRow key={key} label={String(i + 1)} legend={legend} />;
           }
           return (
             <ActiveRow
               key={key}
-              label={String(i + 1)}
-              legend={row?.groupLabel ?? null}
+              label={t('training.setN', { n: i + 1 })}
+              legend={legend}
               draft={draftFor(key)}
               unit={unit}
               placeholder={row ? `${row.reps}${row.repsMax ? `-${row.repsMax}` : ''}` : '0'}
@@ -749,7 +747,7 @@ const WorkoutSession = () => {
   const t = useT();
   const dialog = useDialog();
   const { user } = useAuth();
-  const { brand, brandContrast, muted } = useTheme();
+  const { brand, brandContrast, muted, danger } = useTheme();
   // The unmount can outlive the Activity (process killed, reload, OS teardown);
   // releasing the lock then rejects, and there is nothing left to keep awake.
   useKeepAwake(undefined, { suppressDeactivateWarnings: true });
@@ -867,16 +865,6 @@ const WorkoutSession = () => {
   const planned = log.plannedSnapshot ?? [];
   const listOrder = [...planned.filter((p) => !doneSlot(p)), ...planned.filter(doneSlot)];
 
-  // Muscles actually hit today, derived from the snapshot's exercises. Cheap
-  // enough to recompute (a handful of indexed lookups per render).
-  const muscles: MuscleHead[] = [];
-  for (const p of planned) {
-    const ex = getExercise(p.exerciseId);
-    if (!ex) continue;
-    for (const h of exerciseHeads(ex)) {
-      if (!muscles.includes(h)) muscles.push(h);
-    }
-  }
   const setsFor = (exerciseId: string) => sets.filter((s) => s.exerciseId === exerciseId);
 
   const totalPlannedSets = planned.reduce(
@@ -1086,8 +1074,21 @@ const WorkoutSession = () => {
         <TopBar
           showBack
           showAvatar={false}
+          title={day ? dayDisplayName(day, t) : t('training.workout')}
+          subtitle={t('training.weekN', { n: log.weekNumber })}
           right={
+            // Finish sits in the corner, where a confirming check is looked for;
+            // abandon steps inward. Both still confirm before acting.
             <View className="flex-row items-center gap-2">
+              <Pressable
+                hitSlop={8}
+                onPress={cancel}
+                accessibilityRole="button"
+                accessibilityLabel={t('training.cancelWorkout')}
+                className="h-9 w-9 items-center justify-center rounded-full bg-ink-800"
+              >
+                <XIcon color={danger} size={18} />
+              </Pressable>
               <Pressable
                 hitSlop={8}
                 onPress={finish}
@@ -1097,28 +1098,21 @@ const WorkoutSession = () => {
               >
                 <CheckIcon color={brandContrast} size={18} />
               </Pressable>
-              <Pressable
-                hitSlop={8}
-                onPress={cancel}
-                accessibilityRole="button"
-                accessibilityLabel={t('training.cancelWorkout')}
-                className="h-9 w-9 items-center justify-center rounded-full bg-ink-800"
-              >
-                <XIcon color="#ef4444" size={18} />
-              </Pressable>
             </View>
           }
         />
       }
     >
-      {/* Pinned session strip: what split, how long, how much is left. It stays
-       * put while the sets scroll, so the header costs one compact block. */}
-      <View className="px-5 pb-2 pt-1">
-        <Text className="text-base font-sans-bold text-ink-50" numberOfLines={1}>
-          {day ? dayDisplayName(day, t) : t('training.workout')}
-        </Text>
-        <View className="mt-0.5 flex-row items-center justify-between">
-          <Text className="text-xs text-ink-400">{t('training.weekN', { n: log.weekNumber })}</Text>
+      {/* Pinned session strip, stays put while the sets scroll. Split and week
+       * live in the top bar, so it costs two compact rows. */}
+      <View className="px-5 pb-3 pt-1">
+        <View className="flex-row items-center gap-3">
+          <View className="h-1 flex-1 overflow-hidden rounded-full bg-ink-800">
+            <View
+              className="h-full rounded-full bg-brand"
+              style={{ width: `${progress * 100}%` }}
+            />
+          </View>
           <View className="flex-row items-center gap-2">
             <ElapsedClock startedAt={log.startedAt} />
             <Text className="text-xs text-ink-600">·</Text>
@@ -1127,17 +1121,54 @@ const WorkoutSession = () => {
             </Text>
           </View>
         </View>
-        <View className="mt-1.5 flex-row items-center gap-3">
-          <View className="h-1 flex-1 overflow-hidden rounded-full bg-ink-800">
-            <View
-              className="h-full rounded-full bg-brand"
-              style={{ width: `${progress * 100}%` }}
-            />
-          </View>
-          {/* The unit toggle is pinned here — always visible, never in the top
-           * bar, and it survives scrolling the sets. */}
-          <View className="w-24">
+        {/* The unit toggle is pinned here, never in the top bar. */}
+        <View className="mt-2.5 flex-row items-center justify-between gap-2">
+          <View className="w-28">
             <SegmentedControl segments={UNIT_SEGMENTS} value={unit} onChange={changeUnit} />
+          </View>
+          <View className="flex-row gap-2">
+            <Pressable
+              onPress={toggleArt}
+              accessibilityRole="button"
+              accessibilityLabel={showArt ? t('training.artHide') : t('training.artShow')}
+              accessibilityState={{ selected: showArt }}
+              className={[
+                'h-10 w-10 items-center justify-center rounded-field border',
+                showArt ? 'border-brand/40 bg-brand/10' : 'border-ink-700 bg-ink-800',
+              ].join(' ')}
+            >
+              {showArt ? (
+                <EyeIcon color={brand} size={18} />
+              ) : (
+                <EyeClosedIcon color={muted} size={18} />
+              )}
+            </Pressable>
+            <Pressable
+              onPress={openReorder}
+              accessibilityRole="button"
+              accessibilityLabel={t('training.reorder')}
+              className="h-10 w-10 items-center justify-center rounded-field border border-ink-700 bg-ink-800"
+            >
+              <DragHandleIcon color={muted} size={18} />
+            </Pressable>
+            <Pressable
+              onPress={toggleLayout}
+              accessibilityRole="button"
+              accessibilityLabel={
+                layout === 'list' ? t('training.layoutCompact') : t('training.layoutList')
+              }
+              accessibilityState={{ selected: layout === 'cards' }}
+              className={[
+                'h-10 w-10 items-center justify-center rounded-field border',
+                layout === 'cards' ? 'border-brand/40 bg-brand/10' : 'border-ink-700 bg-ink-800',
+              ].join(' ')}
+            >
+              {layout === 'cards' ? (
+                <ViewGridIcon color={brand} size={18} />
+              ) : (
+                <ListIcon color={muted} size={18} />
+              )}
+            </Pressable>
           </View>
         </View>
       </View>
@@ -1150,57 +1181,6 @@ const WorkoutSession = () => {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {muscles.length ? (
-          <View className="mb-3">
-            <BadgeRow items={muscles.map((h) => ({ value: h, label: t(muscleHeadKey(h)) }))} />
-          </View>
-        ) : null}
-
-        <View className="mb-4 flex-row items-center justify-end gap-2">
-          <Pressable
-            onPress={toggleArt}
-            accessibilityRole="button"
-            accessibilityLabel={showArt ? t('training.artHide') : t('training.artShow')}
-            accessibilityState={{ selected: showArt }}
-            className={[
-              'h-10 w-10 items-center justify-center rounded-field border',
-              showArt ? 'border-brand/40 bg-brand/10' : 'border-ink-700 bg-ink-800',
-            ].join(' ')}
-          >
-            {showArt ? (
-              <EyeIcon color={brand} size={18} />
-            ) : (
-              <EyeClosedIcon color={muted} size={18} />
-            )}
-          </Pressable>
-          <Pressable
-            onPress={openReorder}
-            accessibilityRole="button"
-            accessibilityLabel={t('training.reorder')}
-            className="h-10 w-10 items-center justify-center rounded-field border border-ink-700 bg-ink-800"
-          >
-            <DragHandleIcon color={muted} size={18} />
-          </Pressable>
-          <Pressable
-            onPress={toggleLayout}
-            accessibilityRole="button"
-            accessibilityLabel={
-              layout === 'list' ? t('training.layoutCompact') : t('training.layoutList')
-            }
-            accessibilityState={{ selected: layout === 'cards' }}
-            className={[
-              'h-10 w-10 items-center justify-center rounded-field border',
-              layout === 'cards' ? 'border-brand/40 bg-brand/10' : 'border-ink-700 bg-ink-800',
-            ].join(' ')}
-          >
-            {layout === 'cards' ? (
-              <ViewGridIcon color={brand} size={18} />
-            ) : (
-              <ListIcon color={muted} size={18} />
-            )}
-          </Pressable>
-        </View>
-
         {exerciseChips}
 
         {/* Optional, and deliberately first: the warm-up is the part that gets

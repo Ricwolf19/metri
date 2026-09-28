@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { XIcon } from '@/components/icons';
-import { Button, ChipRow, Input, Sheet } from '@/components/ui';
+import { Button, ChipRow, Input, ScrollArea, ScrollRow, Sheet } from '@/components/ui';
+import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
+import { UnitSuffix } from '@/features/training/components/UnitSuffix';
 import { useT } from '@/i18n';
 import type { Units } from '@/lib/storage';
 import { useTheme } from '@/theme/theme-context';
@@ -90,7 +92,9 @@ export const WeightCalculatorSheet = ({ visible, onClose, unit, initialTotal, on
 
   return (
     <Sheet visible={visible} onClose={onClose}>
-      <View className="px-5 pb-8">
+      {/* Scrolls only when a small screen (or the keyboard) cannot fit the form;
+          the sheet itself grows to show every field and both buttons. */}
+      <ScrollArea inSheet keyboardShouldPersistTaps="handled">
         <Text className="mb-1 text-lg font-sans-bold text-ink-50">
           {t('training.calculatorTitle')}
         </Text>
@@ -110,7 +114,8 @@ export const WeightCalculatorSheet = ({ visible, onClose, unit, initialTotal, on
 
         <View className="mt-4">
           <Input
-            label={`${t('training.perSide')} (${unit})`}
+            label={t('training.perSide')}
+            rightSlot={<UnitSuffix label={unit} />}
             value={sideText}
             onChangeText={(text) => {
               setTouched(true);
@@ -127,35 +132,47 @@ export const WeightCalculatorSheet = ({ visible, onClose, unit, initialTotal, on
         </Text>
         {/* A side can hold several plates of one size (2 × 20), so an option
             always ADDS one; the loaded strip below is where one comes off. */}
-        <View className="flex-row flex-wrap gap-2">
+        <ScrollRow>
           {plateOptions(unit).map((p) => (
             <Pressable
               key={p}
               onPress={() => onAdd(p)}
               accessibilityRole="button"
               accessibilityLabel={`${p} ${unit}`}
-              className="rounded-full border border-ink-700 bg-ink-800 px-3.5 py-2"
+              className="shrink-0 rounded-full border border-ink-700 bg-ink-800 px-3.5 py-2"
             >
-              <Text className="text-sm font-sans-semibold text-ink-300">+{p}</Text>
+              <Text
+                maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+                className="text-sm font-sans-semibold text-ink-300"
+              >
+                +{p} {unit}
+              </Text>
             </Pressable>
           ))}
-        </View>
+        </ScrollRow>
         {plates.length > 0 ? (
-          <View className="mt-3 flex-row flex-wrap gap-2">
-            {plates.map((p, i) => (
-              <Pressable
-                // Duplicates are the point, so position disambiguates the key.
-                key={`${p}-${i}`}
-                onPress={() => onRemove(p)}
-                accessibilityRole="button"
-                accessibilityLabel={`${p} ${unit}`}
-                accessibilityHint={t('training.tapToRemovePlate')}
-                className="flex-row items-center gap-1 rounded-full border border-brand/40 bg-brand/15 py-2 pl-3.5 pr-2.5"
-              >
-                <Text className="text-sm font-sans-semibold text-brand">{p}</Text>
-                <XIcon color={muted} size={14} />
-              </Pressable>
-            ))}
+          <View className="mt-3">
+            <ScrollRow>
+              {plates.map((p, i) => (
+                <Pressable
+                  // Duplicates are the point, so position disambiguates the key.
+                  key={`${p}-${i}`}
+                  onPress={() => onRemove(p)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${p} ${unit}`}
+                  accessibilityHint={t('training.tapToRemovePlate')}
+                  className="shrink-0 flex-row items-center gap-1 rounded-full border border-brand/40 bg-brand/15 py-2 pl-3.5 pr-2.5"
+                >
+                  <Text
+                    maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+                    className="text-sm font-sans-semibold text-brand"
+                  >
+                    {p} {unit}
+                  </Text>
+                  <XIcon color={muted} size={14} />
+                </Pressable>
+              ))}
+            </ScrollRow>
           </View>
         ) : null}
 
@@ -189,7 +206,7 @@ export const WeightCalculatorSheet = ({ visible, onClose, unit, initialTotal, on
             />
           </View>
         </View>
-      </View>
+      </ScrollArea>
     </Sheet>
   );
 };

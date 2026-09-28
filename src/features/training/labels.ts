@@ -61,3 +61,25 @@ export const routineDisplayName = (
 /** Unnamed splits render a slug fallback ("split-1"). */
 export const dayDisplayName = (day: { name: string; orderIndex: number }, t: TFunction): string =>
   day.name.trim() || t('editor.splitFallback', { n: day.orderIndex + 1 });
+
+/** One planned set, as far as its target line needs it. */
+export type SetTarget = {
+  reps: number;
+  repsMax?: number;
+  /** RIR range or to-failure; '' when the prescription names no effort. */
+  intensity: string;
+  /** Top set / back-off when the prescription has several groups, else null. */
+  groupName: string | null;
+};
+
+/**
+ * What a set is expected to be, in one line: "Top set · Target: 6–8 reps @ RIR 1".
+ * The reps AND the effort, so the lifter never has to decode a bare "RIR 1-2".
+ */
+export const targetLine = (row: SetTarget, t: TFunction): string => {
+  const reps = `${row.reps}${row.repsMax ? `–${row.repsMax}` : ''}`;
+  const target = row.intensity
+    ? t('training.targetEffort', { reps, effort: row.intensity })
+    : t('training.target', { reps });
+  return [row.groupName, target].filter(Boolean).join(' · ');
+};

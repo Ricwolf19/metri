@@ -53,6 +53,7 @@ import {
   Expand,
   Eye,
   EyeClosed,
+  DataTransferBoth,
 } from 'iconoir-react-native';
 
 /** Square size in px (maps to width + height). */
@@ -126,3 +127,4 @@ export const PauseIcon = sized(Pause, 'PauseIcon');
 export const ExpandIcon = sized(Expand, 'ExpandIcon');
 export const EyeIcon = sized(Eye, 'EyeIcon');
 export const EyeClosedIcon = sized(EyeClosed, 'EyeClosedIcon');
+export const SwapIcon = sized(DataTransferBoth, 'SwapIcon');
