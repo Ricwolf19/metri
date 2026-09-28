@@ -34,8 +34,8 @@ export type PriorSet = { weightKg: number; reps: number };
 /**
  * What the next working-set row starts with. The set just completed wins
  * (same load for the back-off, whatever the plan said last week); before any
- * set is logged the fallback chain is last week's set at this position, then
- * the progression suggestion, then a plain 8-rep row.
+ * set is logged the fallback chain is last week's FIRST working set (the top
+ * set to match or beat), then the progression suggestion, then a plain 8-rep row.
  */
 export const nextSetPrefill = (input: {
   /** Working (non-warm-up) sets logged this session, in order. */
@@ -50,7 +50,7 @@ export const nextSetPrefill = (input: {
   const { logged, planReps, lastWeek, suggestedKg } = input;
   const justDone = logged[logged.length - 1];
   if (justDone) return { weightKg: justDone.weightKg, reps: planReps ?? justDone.reps };
-  const prior = lastWeek[0] ?? lastWeek[lastWeek.length - 1];
+  const prior = lastWeek[0];
   if (prior) return { weightKg: prior.weightKg, reps: planReps ?? prior.reps };
   return { weightKg: suggestedKg, reps: planReps ?? 8 };
 };
