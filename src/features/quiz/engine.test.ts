@@ -27,6 +27,9 @@ describe('quiz engine', () => {
       expect(q.answer).toBeLessThan(4);
       expect(q.prompt.en.length).toBeGreaterThan(0);
       expect(q.prompt.es.length).toBeGreaterThan(0);
+      // The reveal card teaches from this; an empty one would show a bare answer.
+      expect(q.why.en.length).toBeGreaterThan(0);
+      expect(q.why.es.length).toBeGreaterThan(0);
     }
   });
 

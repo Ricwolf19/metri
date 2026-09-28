@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 import { BackHandler, Pressable, Text, View } from 'react-native';
 
 import { TopBar } from '@/components/TopBar';
-import { Button, Card, Screen } from '@/components/ui';
+import { Button, Card, Screen, TimedModal } from '@/components/ui';
 import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 import { QUIZ_QUESTIONS } from '@/features/quiz/content';
 import {
@@ -27,10 +27,14 @@ const optionClass = (revealed: boolean, isAnswer: boolean, isPicked: boolean): s
   return 'border-ink-700 bg-ink-850 opacity-60';
 };
 
+// Long enough to read the explanation; a tap holds the card, a swipe skips it.
+const REVEAL_MS = 12_000;
+
 /**
  * Knowledge check (H2): one question per area at a time, climbing basic → pro
  * while the answers hold and closing an area at the first miss. Every answer
- * is revealed before moving on — the quiz teaches as much as it measures.
+ * is revealed with its why (a self-closing `TimedModal`, as in the workout
+ * summary) before moving on — the quiz teaches as much as it measures.
  * Reached from Explore and, optionally, as the last onboarding step.
  */
 const Quiz = () => {
@@ -173,19 +177,26 @@ const Quiz = () => {
         ) : null}
       </View>
 
-      {revealed ? (
-        <View className="mt-6">
-          <Text className="text-sm font-sans-semibold text-ink-50">
-            {t(correct ? 'quiz.correct' : 'quiz.incorrect')}
+      <TimedModal visible={revealed} onDone={next} durationMs={REVEAL_MS}>
+        <Text
+          className={['text-xl font-sans-bold', correct ? 'text-brand' : 'text-ink-50'].join(' ')}
+        >
+          {t(correct ? 'quiz.correct' : 'quiz.incorrect')}
+        </Text>
+        <Text className="mt-3 text-sm leading-5 text-ink-300">{question.prompt[locale]}</Text>
+        <View className="mt-4 rounded-field bg-brand/10 p-3">
+          <Text className="text-sm font-sans-semibold text-brand">
+            {t('quiz.answerWas', { answer: question.options[question.answer]![locale] })}
           </Text>
-          {!correct ? (
-            <Text className="mt-1 text-sm text-ink-300">
-              {t('quiz.answerWas', { answer: question.options[question.answer]![locale] })}
-            </Text>
-          ) : null}
-          <Button variant="brand" label={t('quiz.next')} onPress={next} className="mt-5" />
         </View>
-      ) : null}
+        <Text className="mt-4 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
+          {t('quiz.why')}
+        </Text>
+        <Text className="mt-1 text-sm leading-6 text-ink-200">{question.why[locale]}</Text>
+        <Text className="mt-5 text-center text-[11px] leading-4 text-ink-500">
+          {t('quiz.autoNext')}
+        </Text>
+      </TimedModal>
     </Screen>
   );
 };

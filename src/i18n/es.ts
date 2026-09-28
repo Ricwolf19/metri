@@ -1175,7 +1175,8 @@ export const es: Record<TranslationKey, string> = {
   'quiz.correct': 'Correcto.',
   'quiz.incorrect': 'No exactamente.',
   'quiz.answerWas': 'La respuesta: {answer}',
-  'quiz.next': 'Siguiente',
+  'quiz.why': 'Por qué',
+  'quiz.autoNext': 'Pasa sola a la siguiente pregunta. Toca para mantenerla, desliza para saltar.',
   'quiz.cardTitle': 'Prueba de conocimientos',
   'quiz.cardBody':
     'Descubre tu nivel en nutrición, entrenamiento, composición corporal y fundamentos.',
