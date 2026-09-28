@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.1](https://github.com/Ricwolf19/metri/compare/metri-v1.12.0...metri-v1.12.1) (2026-09-28)
+
+
+### Bug Fixes
+
+* **release:** read the runtime version from eas output ([c97b883](https://github.com/Ricwolf19/metri/commit/c97b883e4681b3a3dcb65ca7daee8b7b5d60fe2b))
+
 ## [1.12.0](https://github.com/Ricwolf19/metri/compare/metri-v1.11.0...metri-v1.12.0) (2026-09-28)
 
 
