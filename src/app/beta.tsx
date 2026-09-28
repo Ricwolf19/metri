@@ -1,17 +1,11 @@
 import { Linking, Text, View } from 'react-native';
 
-import {
-  DownloadIcon,
-  ExternalLinkIcon,
-  FlaskIcon,
-  GithubIcon,
-  MailIcon,
-} from '@/components/icons';
+import { DownloadIcon, FlaskIcon, GithubIcon, MailIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
-import { Button, Card, Screen, ScreenTitle, SectionLabel } from '@/components/ui';
-import { betaLinks } from '@/features/beta/links';
+import { Button, Card, Screen, ScreenTitle, SectionLabel, TextLink } from '@/components/ui';
+import { betaLinks, downloadPageUrl } from '@/features/beta/links';
 import { useRouter } from 'expo-router';
-import { useT } from '@/i18n';
+import { useI18n } from '@/i18n';
 import { APP_VERSION } from '@/lib/env';
 import { useTheme } from '@/theme/theme-context';
 
@@ -37,12 +31,12 @@ const Step = ({ n, text }: { n: number; text: string }) => (
  * Reached from the Home banner and from Profile.
  */
 const Beta = () => {
-  const t = useT();
+  const { t, locale } = useI18n();
   const router = useRouter();
   const { brand } = useTheme();
 
   // The system browser, not an in-app one: the APK link is a file download.
-  const open = (url: string) => Linking.openURL(url);
+  const open = (url: string) => void Linking.openURL(url).catch(() => {});
 
   return (
     <Screen
@@ -73,6 +67,13 @@ const Beta = () => {
         <Text className="mt-3 text-lg font-sans-bold text-ink-50">
           {t('beta.version', { version: APP_VERSION })}
         </Text>
+        {/* A browser link, never a fetch: local users stay off the network. */}
+        <TextLink
+          label={t('release.getLatest')}
+          center
+          className="mt-1.5"
+          onPress={() => open(downloadPageUrl(locale))}
+        />
         <Text className="mt-2 text-center text-sm leading-6 text-ink-300">
           {t('beta.introBody')}
         </Text>
@@ -102,19 +103,13 @@ const Beta = () => {
           label={t('beta.apkCta')}
           variant="secondary"
           leftIcon={<DownloadIcon color={brand} size={18} />}
-          onPress={() => open(betaLinks.apk)}
+          onPress={() => open(downloadPageUrl(locale))}
         />
         <Button
           label={t('beta.releasesCta')}
           variant="secondary"
           leftIcon={<GithubIcon color={brand} size={18} />}
           onPress={() => open(betaLinks.releases)}
-        />
-        <Button
-          label={t('beta.webCta')}
-          variant="outline"
-          leftIcon={<ExternalLinkIcon color={brand} size={18} />}
-          onPress={() => open(betaLinks.download)}
         />
       </View>
 

@@ -15,7 +15,7 @@ metri is **free and open source**, and **no account is required**: local mode ru
 
 With or without an account, metri is **offline-first**: everything you log is stored on this device first, in a local database and local files, and the app works with no connection. Without an account, **nothing ever leaves it**. We do **not** sell your data.
 
-If you create a free account, it mirrors your **profile** so a reinstall can restore it: display name, sex, age, height, current weight, body-fat %, activity level, your saved BMR/TDEE result, and your language, units and clock preferences. Nothing else is sent for a free account.
+If you create a free account, it mirrors your **profile** so a reinstall can restore it: display name, sex, age, height, current weight, body-fat %, activity level, your saved BMR/TDEE result, and your language, units and clock preferences, plus whether you want release emails. Nothing else is sent for a free account. Once a day, the app also asks metri.info for the latest version, so it can offer the update: an anonymous request that carries no account data. Local mode never makes it.
 
 **Cloud sync** is a Premium feature. Without Premium it **never runs** and nothing leaves your device. With Premium it is **automatic**: your training data is copied to our servers whenever the app opens or regains connection, so your other devices can read it back. There is no button and no toggle — the ring around your avatar shows the current status.
 
@@ -27,11 +27,11 @@ When the app crashes or hits an unexpected error, it sends a technical report to
 
 ### Emails
 
-While metri is in beta, we email the address on your account (if you created one) when a new version needs a manual install. Release announcements only — no marketing, no lists, and it ends when the app reaches the store. Local-mode users receive no emails — we do not have an address to write to.
+While metri is in beta, we email the address on your account (if you created one) about new versions. Release announcements only — no marketing, no lists, and it ends when the app reaches the store. They are on by default; turn them off any time in Profile. Local-mode users receive no emails — we do not have an address to write to.
 
 ### Permissions
 
-- **Notifications** — used only to deliver the reminders you create. Optional.
+- **Notifications** — used only to deliver the reminders you create and, with an account, one notice per new version. Optional.
 - **Camera / Photos** — used only to capture the progress photos you choose to add. Images never leave your device.
 
 You can erase everything at any time by deleting the app or clearing its storage.
@@ -52,7 +52,7 @@ metri es **gratis y open source**, y **no requiere cuenta**: el modo local ejecu
 
 Con o sin cuenta, metri es **offline-first**: todo lo que registras se guarda primero en este dispositivo, en una base de datos y archivos locales, y la app funciona sin conexión. Sin cuenta, **nada sale de él**. **No** vendemos tus datos.
 
-Si creas una cuenta gratuita, esta refleja tu **perfil** para poder restaurarlo al reinstalar: nombre, sexo, edad, estatura, peso actual, % de grasa corporal, nivel de actividad, tu resultado guardado de TMB/GET y tus preferencias de idioma, unidades y reloj. Una cuenta gratuita no envía nada más.
+Si creas una cuenta gratuita, esta refleja tu **perfil** para poder restaurarlo al reinstalar: nombre, sexo, edad, estatura, peso actual, % de grasa corporal, nivel de actividad, tu resultado guardado de TMB/GET y tus preferencias de idioma, unidades y reloj, además de si quieres correos de nuevas versiones. Una cuenta gratuita no envía nada más. Una vez al día, la app también consulta a metri.info cuál es la última versión, para ofrecerte la actualización: una petición anónima que no lleva datos de tu cuenta. El modo local nunca la hace.
 
 La **sincronización en la nube** es una función de Premium. Sin Premium **nunca se ejecuta** y nada sale de tu dispositivo. Con Premium es **automática**: tus datos de entrenamiento se copian a nuestros servidores cada vez que abres la app o recuperas conexión, para que tus otros dispositivos puedan leerlos. No hay botón ni interruptor — el anillo alrededor de tu avatar muestra el estado actual.
 
@@ -64,11 +64,11 @@ Cuando la app falla o encuentra un error inesperado, envía un reporte técnico 
 
 ### Correos
 
-Mientras metri está en beta, te escribimos al correo de tu cuenta (si creaste una) cuando una nueva versión necesita instalación manual. Solo avisos de release — sin marketing, sin listas, y termina cuando la app llegue a la tienda. En modo local no recibes correos — no tenemos dirección a la cual escribir.
+Mientras metri está en beta, te escribimos al correo de tu cuenta (si creaste una) sobre las nuevas versiones. Solo avisos de release — sin marketing, sin listas, y termina cuando la app llegue a la tienda. Están activados por defecto; puedes desactivarlos cuando quieras en tu Perfil. En modo local no recibes correos — no tenemos dirección a la cual escribir.
 
 ### Permisos
 
-- **Notificaciones** — solo para enviarte los recordatorios que creas. Opcional.
+- **Notificaciones** — solo para enviarte los recordatorios que creas y, con cuenta, un aviso por cada nueva versión. Opcional.
 - **Cámara / Fotos** — solo para capturar las fotos de progreso que decidas agregar. Las imágenes nunca salen de tu dispositivo.
 
 Puedes borrar todo en cualquier momento eliminando la app o limpiando su almacenamiento.

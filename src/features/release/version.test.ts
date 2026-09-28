@@ -57,4 +57,13 @@ describe('shouldCheckRelease', () => {
     );
     expect(shouldCheckRelease({ hasServerAccount: true, checkedAt: 0, now: NOW })).toBe(true);
   });
+
+  it('checks when the stamp is in the future (the clock went back)', () => {
+    expect(shouldCheckRelease({ hasServerAccount: true, checkedAt: NOW + DAY, now: NOW })).toBe(
+      true,
+    );
+    expect(shouldCheckRelease({ hasServerAccount: false, checkedAt: NOW + DAY, now: NOW })).toBe(
+      false,
+    );
+  });
 });

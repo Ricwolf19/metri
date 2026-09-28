@@ -45,4 +45,7 @@ export const shouldCheckRelease = ({
   hasServerAccount: boolean;
   checkedAt: number;
   now: number;
-}): boolean => hasServerAccount && now - checkedAt >= CHECK_INTERVAL_MS;
+}): boolean =>
+  // A stamp in the future means the clock went back: without the escape it
+  // would mute the check until the clock caught up again.
+  hasServerAccount && (checkedAt > now || now - checkedAt >= CHECK_INTERVAL_MS);

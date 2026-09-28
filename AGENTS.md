@@ -29,7 +29,7 @@ src/db/          schema.ts, client.ts, migrations/ (generated)
 src/features/    training (repos, schedule, editors' components, analytics engine), metrics
                  (tab sections + layout), auth, sync, plan (export/import), body (check-in, goals),
                  nutrition (food diary), notifications, calculators, widget, legal, home, explore,
-                 docs (content/{en,es}/*)
+                 release (update check + card), quiz, docs (content/{en,es}/*)
 src/i18n/        en.ts + es.ts (flat keys), provider
 src/lib/         storage (MMKV), date helpers, telemetry, small hooks (useDateFormat, useTodayKey…)
 src/test/        sql.js harness for repo tests
@@ -320,8 +320,18 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   there, and nothing else.
 - **Knowledge check** (`features/quiz/`, `/quiz`, last onboarding step): one question per
   (area, level), bilingual copy beside the data; area ids are persisted in MMKV — never rename.
-  It recommends, it never locks a guide. The update indicator (`features/release/`) runs for
-  remote accounts only and reads `GET /api/latest-version` on metri.info; a failure is silent.
+  It recommends, it never locks a guide.
+- **Release check** (`features/release/`, accounts only): once a day `useAppUpdate` fetches
+  metri.info `/api/latest-version`, validates it (`parseLatestRelease`) and caches it in MMKV; a
+  failure is silent. "Newer" is not "download an APK": `updateKind` sends a same-`runtimeVersion`
+  release through OTA (stage, then "Restart to update") and only a runtime change to the APK. Each
+  newer version gets ONE local notification (master switch + existing permission, never prompts;
+  an OTA version is announced only once staged, so the tap lands on a card). Release emails are an
+  account toggle mirrored by `pushProfile` (`releaseEmails`, server default on). Local users never
+  fetch — they get the installed version and the language-aware web download link only.
+  `features/release/ota.ts` is the only caller of expo-updates.
+- **Notification taps** open `data.url` only when `appLinkFrom` accepts it (`metri://` scheme
+  only) — a payload naming a web page must never open outside the app.
 - **New synced tables ship web-first.** The server rejects a whole push containing an unknown
   table, so `metri.info`'s `SYNC_TABLES` must be deployed before the mobile build that writes it.
 - **Knowledge base** lives in `features/docs/content/{en,es}/<category>.ts`, aggregated by

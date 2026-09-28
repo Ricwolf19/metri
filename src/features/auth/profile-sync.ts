@@ -28,6 +28,8 @@ type RemoteProfile = {
   unitsPreference: string | null;
   locale: string | null;
   clockFormat: string | null;
+  /** Absent on a server that predates release emails. */
+  releaseEmails?: boolean | null;
 };
 
 const headers = (): Record<string, string> => {
@@ -58,6 +60,9 @@ export const restoreRemoteProfile = async (userId: string): Promise<boolean> => 
     }
     if (profile.clockFormat === '12' || profile.clockFormat === '24') {
       settings.setClockFormat(profile.clockFormat as ClockFormat);
+    }
+    if (typeof profile.releaseEmails === 'boolean') {
+      settings.setReleaseEmails(profile.releaseEmails);
     }
 
     // Profile + body metrics. Only overwrite with real values.
@@ -110,6 +115,7 @@ export const pushProfile = (user: PublicUser): void => {
       units: settings.getUnits(),
       locale: settings.getLocale(),
       clockFormat: settings.getClockFormat(),
+      releaseEmails: settings.getReleaseEmails(),
     }),
   }).catch(() => {});
 };

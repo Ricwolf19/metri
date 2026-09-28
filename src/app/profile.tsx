@@ -2,13 +2,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Pressable, Text, View } from 'react-native';
 
-import {
-  CameraIcon,
-  ChevronRightIcon,
-  DownloadIcon,
-  LogOutIcon,
-  StarIcon,
-} from '@/components/icons';
+import { CameraIcon, ChevronRightIcon, LogOutIcon, StarIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import {
   Avatar,
@@ -18,8 +12,10 @@ import {
   PressableScale,
   Screen,
   ScreenTitle,
+  SectionLabel,
   SegmentedControl,
   type Segment,
+  Switch,
   useDialog,
   useToast,
   Select,
@@ -29,12 +25,13 @@ import {
 import { useAuth } from '@/features/auth/auth-context';
 import { RoleBadge } from '@/features/auth/components/RoleBadge';
 import { pushProfile } from '@/features/auth/profile-sync';
-import { betaLinks } from '@/features/beta/links';
+import { betaLinks, downloadPageUrl } from '@/features/beta/links';
 import { pickFromCamera, pickFromLibrary } from '@/features/photos/capture';
 import { deletePhotoFiles, persistAvatar } from '@/features/photos/media';
-import { useUpdateAvailable } from '@/features/release/useLatestRelease';
+import { UpdateCard } from '@/features/release/components/UpdateCard';
+import { useAppUpdate } from '@/features/release/useAppUpdate';
 import { LOCALES, useI18n, type Locale } from '@/i18n';
-import { WEB_URL } from '@/lib/env';
+import { APP_VERSION, WEB_URL } from '@/lib/env';
 import { settings, type ClockFormat, type Units } from '@/lib/storage';
 import { ThemeSelect } from '@/theme/ThemeSelect';
 import { DATE_FORMATS, formatDate, type DateFormat } from '@/lib/date-format';
@@ -54,8 +51,9 @@ const MetricRow = ({ label, value }: { label: string; value: string }) => {
 const Profile = () => {
   const { user, isPremium, isLocalOnly, tier, updateMyProfile, signOut } = useAuth();
   const { t, locale, setLocale } = useI18n();
-  const { brand, brandContrast } = useTheme();
-  const updateAvailable = useUpdateAvailable();
+  const { brand } = useTheme();
+  const update = useAppUpdate();
+  const [releaseEmails, setReleaseEmails] = useState(() => settings.getReleaseEmails());
   const toast = useToast();
   const dialog = useDialog();
   const router = useRouter();
@@ -128,6 +126,11 @@ const Profile = () => {
     setLocale(next);
     if (user) pushProfile(user);
   };
+  const onReleaseEmailsChange = (next: boolean) => {
+    settings.setReleaseEmails(next);
+    setReleaseEmails(next);
+    pushProfile(user);
+  };
   const onUnitsChange = (next: Units) => {
     setUnits(next);
     // Units ride the account profile (as the locale does) — no-op for local users.
@@ -192,23 +195,7 @@ const Profile = () => {
         </Card>
       </PressableScale>
 
-      {/* A newer build is out (remote accounts only — see features/release). */}
-      {updateAvailable ? (
-        <PressableScale onPress={() => Linking.openURL(betaLinks.download)} className="mt-4">
-          <Card className="flex-row items-center">
-            <View className="mr-4 h-11 w-11 items-center justify-center rounded-field bg-brand">
-              <DownloadIcon color={brandContrast} size={20} />
-            </View>
-            <View className="flex-1 pr-2">
-              <Text className="text-base font-sans-semibold text-ink-50">
-                {t('release.updateTitle')}
-              </Text>
-              <Text className="mt-0.5 text-sm text-ink-400">{t('release.updateBody')}</Text>
-            </View>
-            <ChevronRightIcon color={brand} />
-          </Card>
-        </PressableScale>
-      ) : null}
+      {update ? <UpdateCard update={update} className="mt-4" /> : null}
 
       {/* Sync is automatic with Premium — no button. The ring around the avatar
           in the top bar is the status surface. */}
@@ -282,6 +269,34 @@ const Profile = () => {
             onPress={() => Linking.openURL(betaLinks.feedback)}
           />
         </View>
+      </Card>
+
+      {/* Updates. The download page is a browser link, so local users get it
+          too without touching the network; release emails are account-only. */}
+      <SectionLabel label={t('release.sectionTitle')} />
+      <Card>
+        <MetricRow label={t('release.installed')} value={APP_VERSION} />
+        <TextLink
+          label={t('release.getLatest')}
+          size="base"
+          className="mt-2"
+          onPress={() => void Linking.openURL(downloadPageUrl(locale)).catch(() => {})}
+        />
+        {isLocalOnly ? null : (
+          <View className="mt-4 flex-row items-center gap-4 border-t border-ink-600 pt-4">
+            <View className="flex-1">
+              <Text className="text-sm font-sans-medium text-ink-100">{t('release.emails')}</Text>
+              <Text className="mt-0.5 text-[11px] leading-4 text-ink-500">
+                {t('release.emailsHint')}
+              </Text>
+            </View>
+            <Switch
+              value={releaseEmails}
+              onValueChange={onReleaseEmailsChange}
+              accessibilityLabel={t('release.emails')}
+            />
+          </View>
+        )}
       </Card>
 
       {/* Appearance */}

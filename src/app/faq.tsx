@@ -3,9 +3,9 @@ import { Linking, Text, View } from 'react-native';
 import { ExternalLinkIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import { Button, Card, Screen, ScreenTitle, SectionLabel, TextLink } from '@/components/ui';
-import { betaLinks } from '@/features/beta/links';
+import { betaLinks, downloadPageUrl } from '@/features/beta/links';
 import { useRouter } from 'expo-router';
-import { useT, type TranslationKey } from '@/i18n';
+import { type TranslationKey, useI18n, useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
 const QA = ({ q, a }: { q: string; a: string }) => (
@@ -30,6 +30,7 @@ const RING: { color: string; key: TranslationKey }[] = [
  */
 const Faq = () => {
   const t = useT();
+  const { locale } = useI18n();
   const router = useRouter();
   const { brand } = useTheme();
   const open = (url: string) => Linking.openURL(url);
@@ -113,7 +114,7 @@ const Faq = () => {
           label={t('beta.webCta')}
           variant="secondary"
           leftIcon={<ExternalLinkIcon color={brand} size={18} />}
-          onPress={() => open(betaLinks.download)}
+          onPress={() => open(downloadPageUrl(locale))}
         />
       </View>
     </Screen>

@@ -14,6 +14,7 @@ import { AdherenceCatchupBanner } from '@/features/training/components/Adherence
 import { WeekStrip } from '@/features/training/components/WeekStrip';
 import { DocsPromoBanner } from '@/features/docs/DocsPromoBanner';
 import { EnergyCard } from '@/features/home/components/EnergyCard';
+import { HomeUpdateCard } from '@/features/release/components/HomeUpdateCard';
 import { WidgetPromoBanner } from '@/features/widget/components/WidgetPromoBanner';
 import { useI18n, useT } from '@/i18n';
 import { settings } from '@/lib/storage';
@@ -54,6 +55,8 @@ const Home = () => {
     >
       <PremiumIntroModal />
       <AnnouncementModal />
+
+      <HomeUpdateCard />
 
       <FadeInUp>
         <View className="mb-4">

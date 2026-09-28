@@ -51,9 +51,15 @@ export const SettingKeys = {
   activeSession: 'training.activeSession',
   // The day whose planned check-in a session holds back (see notifications/checkin-hold).
   checkinHold: 'notif.checkinHold',
-  // Latest known release + when it was fetched (see features/release).
-  latestRelease: 'release.latest',
+  // Latest known release payload + when it was fetched (see features/release).
+  // `release.latest` (the version-only cache) is retired: never reuse that id.
+  latestReleasePayload: 'release.payload',
   latestReleaseCheckedAt: 'release.checkedAt',
+  // Last version announced by a system notification / hidden from Home.
+  releaseNotified: 'release.notified',
+  releaseDismissed: 'release.dismissed',
+  // Release-announcement emails, mirrored to the account profile.
+  releaseEmails: 'release.emails',
   // Highest level cleared per quiz area (see features/quiz).
   quizScores: 'quiz.scores',
 } as const;
@@ -197,18 +203,39 @@ export const settings = {
   clearCheckinHold() {
     storage.remove(SettingKeys.checkinHold);
   },
-  /** Latest known release version (see features/release). */
-  getLatestRelease(): string | null {
-    return storage.getString(SettingKeys.latestRelease) ?? null;
+  /** Cached `/api/latest-version` payload, unvalidated — run it through
+   * `parseLatestRelease` (see features/release). */
+  getLatestReleasePayload(): unknown {
+    return parseJson<unknown>(storage.getString(SettingKeys.latestReleasePayload), null);
   },
-  setLatestRelease(version: string) {
-    storage.set(SettingKeys.latestRelease, version);
+  setLatestReleasePayload(payload: unknown) {
+    storage.set(SettingKeys.latestReleasePayload, JSON.stringify(payload));
   },
   getLatestReleaseCheckedAt(): number {
     return storage.getNumber(SettingKeys.latestReleaseCheckedAt) ?? 0;
   },
   setLatestReleaseCheckedAt(at: number) {
     storage.set(SettingKeys.latestReleaseCheckedAt, at);
+  },
+  getReleaseNotified(): string | null {
+    return storage.getString(SettingKeys.releaseNotified) ?? null;
+  },
+  setReleaseNotified(version: string) {
+    storage.set(SettingKeys.releaseNotified, version);
+  },
+  /** The release version whose Home card the user hid (the next version shows again). */
+  getReleaseDismissed(): string | null {
+    return storage.getString(SettingKeys.releaseDismissed) ?? null;
+  },
+  setReleaseDismissed(version: string) {
+    storage.set(SettingKeys.releaseDismissed, version);
+  },
+  /** Release-announcement emails for accounts. Default on (the server's default too). */
+  getReleaseEmails(): boolean {
+    return storage.getBoolean(SettingKeys.releaseEmails) ?? true;
+  },
+  setReleaseEmails(value: boolean) {
+    storage.set(SettingKeys.releaseEmails, value);
   },
   /** Highest level cleared per quiz area, as stored JSON (see features/quiz). */
   getQuizScores(): string | undefined {
