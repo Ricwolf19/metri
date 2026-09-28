@@ -18,7 +18,7 @@ describe('validateImport — envelope', () => {
     ['wrong app', doc({}, { app: 'other' }), 'invalid'],
     ['missing version', doc({}, { exportVersion: undefined }), 'invalid'],
     ['old version', doc({}, { exportVersion: 1 }), 'version'],
-    ['future version', doc({}, { exportVersion: 5 }), 'version'],
+    ['future version', doc({}, { exportVersion: 6 }), 'version'],
     ['data not an object', doc({}, { data: 'x' }), 'invalid'],
     ['table not an array', doc({ programs: {} }), 'invalid'],
   ])('rejects %s', (_, input, reason) => {
@@ -30,7 +30,7 @@ describe('validateImport — envelope', () => {
     expect(validateImport(doc())).toEqual({ ok: true });
   });
 
-  it.each([2, 3, 4])('accepts export version %i', (exportVersion) => {
+  it.each([2, 3, 4, 5])('accepts export version %i', (exportVersion) => {
     expect(validateImport(doc({}, { exportVersion }))).toEqual({ ok: true });
   });
 

@@ -5,7 +5,9 @@ import {
   bodyGoals,
   bodyMeasurements,
   bodyMetrics,
+  calculationHistory,
   customFoods,
+  exerciseNotes,
   exercises,
   foodLogs,
   programs,
@@ -22,14 +24,17 @@ import {
   workoutLogs,
 } from '@/db/schema';
 
-const EXPORT_VERSION = 4;
+const EXPORT_VERSION = 5;
 
 /** Everything the user owns as one JSON document. Identity/entitlement fields and device paths are
  * excluded; ids ship for in-file integrity and are regenerated on import.
  *
  * `progressPhotos` carries **metadata only** (the image files never leave the device, and the
  * on-disk paths are meaningless elsewhere). It ships so the weight/date timeline is extractable —
- * it is deliberately absent from IMPORT_TABLES, since a row without its file is unusable. */
+ * it is deliberately absent from IMPORT_TABLES, since a row without its file is unusable.
+ *
+ * v5 adds the two local-only tables (`exerciseNotes`, `calculationHistory`): sync never carries
+ * them, so the file is the only way they leave the device. */
 export const buildExport = (userId: string) => {
   const [u] = db.select().from(users).where(eq(users.id, userId)).all();
 
@@ -114,6 +119,12 @@ export const buildExport = (userId: string) => {
       bodyGoals: db.select().from(bodyGoals).where(eq(bodyGoals.userId, userId)).all(),
       customFoods: db.select().from(customFoods).where(eq(customFoods.userId, userId)).all(),
       foodLogs: db.select().from(foodLogs).where(eq(foodLogs.userId, userId)).all(),
+      exerciseNotes: db.select().from(exerciseNotes).where(eq(exerciseNotes.userId, userId)).all(),
+      calculationHistory: db
+        .select()
+        .from(calculationHistory)
+        .where(eq(calculationHistory.userId, userId))
+        .all(),
       progressPhotos: db
         .select({
           id: progressPhotos.id,

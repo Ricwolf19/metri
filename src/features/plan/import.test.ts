@@ -4,7 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   bodyGoals,
   bodyMeasurements,
+  calculationHistory,
   customFoods,
+  exerciseNotes,
   foodLogs,
   exercises,
   programs,
@@ -163,7 +165,7 @@ describe('buildExport — data freedom guarantees', () => {
 
     const doc = JSON.parse(JSON.stringify(buildExport(U1)));
 
-    expect(doc.exportVersion).toBe(4);
+    expect(doc.exportVersion).toBe(5);
     expect(doc.data.progressPhotos).toHaveLength(1);
     const [photo] = doc.data.progressPhotos;
     // The weight/date timeline is extractable...
@@ -377,5 +379,74 @@ describe('importUserData — food tables', () => {
 
     const [log] = db.select().from(foodLogs).where(eq(foodLogs.userId, U2)).all();
     expect(log.foodId).toBe('catalog:chicken-breast');
+  });
+});
+
+describe('importUserData — local-only tables (v5)', () => {
+  beforeEach(() => {
+    wipe();
+    db.delete(exerciseNotes).run();
+    db.delete(calculationHistory).run();
+    seedWorld(U1);
+    db.insert(users).values({ id: U2, email: null, authKind: 'local' }).run();
+    db.insert(exerciseNotes)
+      .values([
+        { id: 'n-custom', userId: U1, exerciseId: `${U1}-custom`, note: 'slow eccentric' },
+        { id: 'n-cat', userId: U1, exerciseId: 'barbell-back-squat', note: 'belt above 140' },
+      ])
+      .run();
+    db.insert(calculationHistory)
+      .values({
+        id: 'c1',
+        userId: U1,
+        calcId: 'tdee',
+        inputs: { weight: 80 },
+        primaryValue: '2450 kcal',
+      })
+      .run();
+  });
+
+  const notesOf = (userId: string) =>
+    db.select().from(exerciseNotes).where(eq(exerciseNotes.userId, userId)).all();
+
+  it('round-trips notes and calculator history, repointing a note at the imported custom exercise', () => {
+    const doc = JSON.parse(JSON.stringify(buildExport(U1)));
+    expect(validateImport(doc)).toEqual({ ok: true });
+
+    const summary = importUserData(U2, doc);
+
+    expect(summary.exerciseNotes).toBe(2);
+    expect(summary.calculationHistory).toBe(1);
+    const [custom] = db.select().from(exercises).where(eq(exercises.userId, U2)).all();
+    const notes = notesOf(U2);
+    expect(notes.find((n) => n.note === 'slow eccentric')?.exerciseId).toBe(custom.id);
+    expect(notes.find((n) => n.note === 'belt above 140')?.exerciseId).toBe('barbell-back-squat');
+    expect(notes.every((n) => !['n-custom', 'n-cat'].includes(n.id))).toBe(true);
+    const [calc] = db
+      .select()
+      .from(calculationHistory)
+      .where(eq(calculationHistory.userId, U2))
+      .all();
+    expect(calc).toMatchObject({ calcId: 'tdee', primaryValue: '2450 kcal' });
+  });
+
+  it('keeps the note already on the device for the same exercise', () => {
+    db.insert(exerciseNotes)
+      .values({ id: 'own', userId: U2, exerciseId: 'barbell-back-squat', note: 'mine' })
+      .run();
+
+    importUserData(U2, JSON.parse(JSON.stringify(buildExport(U1))));
+
+    const squat = notesOf(U2).filter((n) => n.exerciseId === 'barbell-back-squat');
+    expect(squat.map((n) => n.note)).toEqual(['mine']);
+  });
+
+  it('still accepts a v4 file, which has neither key', () => {
+    const v5 = JSON.parse(JSON.stringify(buildExport(U1)));
+    const { exerciseNotes: _n, calculationHistory: _c, ...data } = v5.data;
+    const v4 = { ...v5, exportVersion: 4, data };
+
+    expect(validateImport(v4)).toEqual({ ok: true });
+    expect(importUserData(U2, v4).exerciseNotes).toBe(0);
   });
 });

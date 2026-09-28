@@ -7,9 +7,9 @@ export type ImportValidation =
   { ok: true } | { ok: false; reason: 'invalid' | 'version'; issues?: ImportIssue[] };
 
 /** Versions this build can restore. Every bump so far only ADDS keys (v3: export-only
- * `progressPhotos` metadata; v4: the body and food tables), so an older file is a valid newer
- * one minus those keys — they all import identically. */
-const SUPPORTED_IMPORT_VERSIONS = [2, 3, 4] as const;
+ * `progressPhotos` metadata; v4: the body and food tables; v5: exercise notes and calculator
+ * history), so an older file is a valid newer one minus those keys — they all import identically. */
+const SUPPORTED_IMPORT_VERSIONS = [2, 3, 4, 5] as const;
 
 export const IMPORT_TABLES = [
   'exercises',
@@ -28,6 +28,8 @@ export const IMPORT_TABLES = [
   'bodyGoals',
   'customFoods',
   'foodLogs',
+  'exerciseNotes',
+  'calculationHistory',
 ] as const;
 
 export type ImportTable = (typeof IMPORT_TABLES)[number];
@@ -74,6 +76,8 @@ const REQUIRED: Record<ImportTable, FieldSpec> = {
     name: 'string',
     kcal: 'number',
   },
+  exerciseNotes: { exerciseId: 'string', note: 'string' },
+  calculationHistory: { calcId: 'string', primaryValue: 'string' },
 };
 
 const rowIssues = (table: ImportTable, row: unknown, index: number): ImportIssue[] => {
@@ -97,7 +101,11 @@ export const validateImport = (raw: unknown): ImportValidation => {
   if (doc.app !== 'metri' || typeof doc.exportVersion !== 'number') {
     return { ok: false, reason: 'invalid' };
   }
-  if (!SUPPORTED_IMPORT_VERSIONS.includes(doc.exportVersion as 2 | 3 | 4)) {
+  if (
+    !SUPPORTED_IMPORT_VERSIONS.includes(
+      doc.exportVersion as (typeof SUPPORTED_IMPORT_VERSIONS)[number],
+    )
+  ) {
     return { ok: false, reason: 'version' };
   }
   if (typeof doc.data !== 'object' || doc.data === null) return { ok: false, reason: 'invalid' };

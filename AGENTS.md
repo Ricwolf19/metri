@@ -13,7 +13,9 @@ capability; nothing may ever gate a user out of their own data. Import is additi
 regenerated (FKs rewritten, including inside JSON payloads), ownership is forced to the importer,
 `updatedAt` is stamped so sync pushes the rows, and a repeated import duplicates rather than
 merges. `EXPORT_VERSION` 3 added export-only `progressPhotos` metadata (never the file paths); 4 adds the
-body and food tables. Bumps only ever ADD keys, so `validate-import.ts` accepts 2–4. Cloud sync is
+body and food tables; 5 adds the local-only `exerciseNotes` and `calculationHistory` (sync never
+carries them — a note on an existing exercise keeps the device's copy). Bumps only ever ADD keys, so
+`validate-import.ts` accepts 2–5. Cloud sync is
 Premium-only and automatic. `README.md` is the presentation card only; the long-form docs live in
 `docs/`: `android-setup.md` (JDK 17, reset, wireless), `release.md` (CI/release walkthrough),
 `sync.md` (protocol, mobile half — server half in the web repo's `docs/sync.md`), `brand.md`.
