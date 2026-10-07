@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.13.0](https://github.com/Ricwolf19/metri/compare/metri-v1.12.1...metri-v1.13.0) (2026-10-07)
+
+
+### Features
+
+* **theme:** add the info tone ([f56989f](https://github.com/Ricwolf19/metri/commit/f56989f2f68f4a20652fd07d8261cec8afe583c6))
+* **training:** blue done chips and one badge line ([dba9c3d](https://github.com/Ricwolf19/metri/commit/dba9c3de34bce912f11b67fb353629ec36f18151))
+* **training:** equipment load model and unilateral flag ([c79f086](https://github.com/Ricwolf19/metri/commit/c79f086ae36bb50004b622f1f1fe39f12053659d))
+* **training:** equipment variants in the catalog ([aafece7](https://github.com/Ricwolf19/metri/commit/aafece77aab735b7ceeed424203a2ac54aa8e6fa))
+* **training:** one session notification and load sheet ([55d98fe](https://github.com/Ricwolf19/metri/commit/55d98fef1aa58026578c8e22b92c46c16acc6c14))
+* **training:** rest strip as a number line ([65dae62](https://github.com/Ricwolf19/metri/commit/65dae6291935cd8ecb0c503e4959bf3982aa7b82))
+* **training:** stable load sheet locked to equipment ([3caedc0](https://github.com/Ricwolf19/metri/commit/3caedc021c89e9eaa0bbd15bd5359c84c8ea0c2d))
+* **ui:** centred rows, done chips, mixed badge tones ([57841be](https://github.com/Ricwolf19/metri/commit/57841be9089fd7f7043f2ecf6d56d128c9a85d42))
+
+
+### Bug Fixes
+
+* **ui:** mount sheets at the closed position ([ab5b78b](https://github.com/Ricwolf19/metri/commit/ab5b78b0b2a5443917c75324f1b9f26ad7ac6d39))
+* **ui:** sheet reopen flicker and keyboard lift ([3984def](https://github.com/Ricwolf19/metri/commit/3984defc377b2c8b5e6df973ffd10b39d654223f))
+
 ## [1.12.1](https://github.com/Ricwolf19/metri/compare/metri-v1.12.0...metri-v1.12.1) (2026-09-28)
 
 
