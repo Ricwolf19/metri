@@ -185,17 +185,17 @@ const makePan = (
  * tall, a form shows every field and its buttons — up to nearly the full
  * screen, then its `<ScrollArea inSheet>` scrolls. Motion rules: AGENTS.md#conventions.
  *
- * Resting states, no animation required: OPEN is `offset = 0` (the shared
- * value's initial, so the very first open is visible with no effect at all) and
- * CLOSED is `offset = sheetHeight`. `Animated.View` paints its first frame from
- * the shared values AS THEY ARE at mount, so every close path — hand-closed or
- * parent-flipped `visible` — plays the fall and only then unmounts the Modal; a
- * parent that unmounted it with `offset` still 0 made the next open paint one
- * frame fully open, then drop below the edge to rise (appear / disappear /
- * appear). A re-open's rise rides on a deps-keyed layout effect that re-runs on
- * every open; the effect-dependent shape AGENTS.md warns about was one that did
- * NOT re-run and hid the resting state. This is the hand-close path that
- * already ships, applied to every close.
+ * Resting states: CLOSED is `offset = sheetHeight` (and the shared value's
+ * initial `bounds.min`, so a fresh sheet's first frame is below the edge);
+ * OPEN is `offset = 0`, reached by `enter()` in a layout effect keyed on the
+ * open counter, which re-runs on EVERY open. `Animated.View` paints its first
+ * frame from the shared values AS THEY ARE at mount, so every close path —
+ * hand-closed or parent-flipped `visible` — plays the fall and only then
+ * unmounts the Modal, and a mount never starts at 0: both shapes drew one
+ * open frame, then a drop below the edge, then the rise (appear / disappear /
+ * appear). The effect-dependent shape AGENTS.md warns about was an effect that
+ * did NOT re-run and hid the resting state; a deps-keyed layout effect is the
+ * hand-close path that already ships, applied to every open.
  */
 export const Sheet = ({ visible, onClose, children, snapPoints, expandable = true }: Props) => {
   const { height: windowHeight } = useWindowDimensions();
@@ -237,7 +237,12 @@ export const Sheet = ({ visible, onClose, children, snapPoints, expandable = tru
   const resizable = bounded.stops.length > 1;
 
   const limit = useSharedValue(bounded.min);
-  const offset = useSharedValue(0);
+  // Starts CLOSED: `Animated.View` paints its first frame from the shared
+  // value as it is at mount, so an initial 0 drew a fresh sheet fully open for
+  // one frame before the rise effect dropped it below the edge (appear /
+  // disappear / appear on every first open). The rise is a deps-keyed layout
+  // effect that re-runs on each open; see the component comment.
+  const offset = useSharedValue(bounded.min);
   const bounds = useSharedValue<Bounds>(bounded);
   const startLimit = useSharedValue(bounded.min);
   const sheetHeight = useSharedValue(0);
