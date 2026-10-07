@@ -48,9 +48,11 @@ import { warmupSeeds } from './warmup-content';
  *
  * v9 adds `unilateral` to the catalog (per-side logging); the upsert below is
  * what flips it on existing installs.
+ *
+ * v10 adds equipment variants (one row per kit, grouped in `variants.ts`).
  */
 const SEED_KEY = 'training_seed_version';
-const SEED_VERSION = '9';
+const SEED_VERSION = '10';
 
 const alreadySeeded = (): boolean => {
   const [row] = db.select().from(appMeta).where(eq(appMeta.key, SEED_KEY)).all();
@@ -207,6 +209,9 @@ const seedExercises = (): void => {
           equipment: ex.equipment,
           unilateral: ex.unilateral ?? false,
           isCustom: false,
+          // A legacy id demoted to a custom row (v4) and shipped again later
+          // (v10) comes back as catalog: the owner it was handed to must go too.
+          userId: null,
           updatedAt: new Date(),
         },
       })

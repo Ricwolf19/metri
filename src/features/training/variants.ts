@@ -10,14 +10,44 @@ import type { PlannedSlot } from '@/db/schema';
  */
 const FAMILIES: readonly (readonly string[])[] = [
   ['overhead-press', 'seated-barbell-press', 'seated-dumbbell-press', 'machine-shoulder-press'],
-  ['barbell-bench-press', 'machine-chest-press'],
+  [
+    'barbell-bench-press',
+    'dumbbell-bench-press',
+    'smith-machine-bench-press',
+    'machine-chest-press',
+  ],
+  ['incline-bench-press', 'incline-dumbbell-press'],
   ['dumbbell-fly', 'cable-fly'],
-  ['lateral-raise', 'cable-lateral-raise'],
-  ['machine-row', 'dumbbell-row', 'seated-cable-row', 't-bar-row'],
-  ['barbell-back-squat', 'hack-squat', 'leg-press'],
+  ['lateral-raise', 'cable-lateral-raise', 'machine-lateral-raise'],
+  [
+    'machine-row',
+    'dumbbell-row',
+    'seated-cable-row',
+    't-bar-row',
+    'barbell-row',
+    'chest-supported-row',
+  ],
+  ['lat-pulldown', 'pull-up', 'assisted-pull-up'],
+  ['barbell-back-squat', 'goblet-squat', 'smith-machine-squat', 'hack-squat', 'leg-press'],
+  // One leg at a time: a lunge family rather than a squat variant, so the
+  // per-side log and the dumbbell-per-hand entry stay among their own kind.
+  ['bulgarian-split-squat', 'walking-lunge', 'reverse-lunge'],
+  ['romanian-deadlift', 'dumbbell-romanian-deadlift'],
   ['lying-leg-curl', 'standing-leg-curl'],
+  ['standing-calf-raise', 'seated-calf-raise', 'single-leg-calf-raise'],
   ['crunch', 'cable-crunch'],
+  // Supinated curls only: the hammer curl is a different grip, not different kit.
+  [
+    'barbell-curl',
+    'dumbbell-curl',
+    'cable-curl',
+    'preacher-curl',
+    'machine-preacher-curl',
+    'spider-curl',
+    'incline-dumbbell-curl',
+  ],
   ['overhead-tricep-extension', 'cable-overhead-extension', 'french-press'],
+  ['cable-kickback', 'dumbbell-kickback'],
 ];
 
 const FAMILY_OF: ReadonlyMap<string, readonly string[]> = new Map(

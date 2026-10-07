@@ -89,6 +89,42 @@ export const EXERCISE_NAMES: Record<string, Record<Locale, string>> = {
   },
   'french-press': { es: 'Press francés', en: 'French Press' },
   'cable-kickback': { es: 'Kickback en polea', en: 'Cable Kickback' },
+  // Equipment variants (seed v10)
+  'dumbbell-bench-press': { es: 'Press banca con mancuernas', en: 'Dumbbell Bench Press' },
+  'smith-machine-bench-press': { es: 'Press banca en Smith', en: 'Smith Machine Bench Press' },
+  'incline-dumbbell-press': {
+    es: 'Press inclinado con mancuernas',
+    en: 'Incline Dumbbell Press',
+  },
+  'goblet-squat': { es: 'Sentadilla goblet', en: 'Goblet Squat' },
+  'smith-machine-squat': { es: 'Sentadilla en Smith', en: 'Smith Machine Squat' },
+  'walking-lunge': { es: 'Desplantes caminando', en: 'Walking Lunge' },
+  'reverse-lunge': { es: 'Desplantes hacia atrás', en: 'Reverse Lunge' },
+  'barbell-row': { es: 'Remo con barra', en: 'Barbell Row' },
+  'chest-supported-row': {
+    es: 'Remo con mancuernas en banco inclinado',
+    en: 'Chest-Supported Dumbbell Row',
+  },
+  'pull-up': { es: 'Dominadas', en: 'Pull-Up' },
+  'assisted-pull-up': { es: 'Dominadas asistidas', en: 'Assisted Pull-Up' },
+  'dumbbell-romanian-deadlift': {
+    es: 'Peso muerto rumano con mancuernas',
+    en: 'Dumbbell Romanian Deadlift',
+  },
+  'hip-thrust': { es: 'Hip thrust con barra', en: 'Barbell Hip Thrust' },
+  'dumbbell-curl': { es: 'Curl de bíceps con mancuernas', en: 'Dumbbell Bicep Curl' },
+  'cable-curl': { es: 'Curl de bíceps en polea', en: 'Cable Bicep Curl' },
+  'machine-preacher-curl': { es: 'Curl Scott en máquina', en: 'Machine Preacher Curl' },
+  'dumbbell-kickback': { es: 'Kickback con mancuerna', en: 'Dumbbell Kickback' },
+  'machine-lateral-raise': {
+    es: 'Elevaciones laterales en máquina',
+    en: 'Machine Lateral Raise',
+  },
+  'seated-calf-raise': { es: 'Gemelos sentado', en: 'Seated Calf Raise' },
+  'single-leg-calf-raise': {
+    es: 'Gemelos a una pierna con mancuerna',
+    en: 'Single-Leg Dumbbell Calf Raise',
+  },
 };
 
 /** Technique cues per exercise id. */

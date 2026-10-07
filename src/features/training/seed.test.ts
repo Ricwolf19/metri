@@ -106,8 +106,12 @@ describe('seedTraining v4', () => {
       'bulgarian-split-squat',
       'cable-kickback',
       'cable-lateral-raise',
+      'dumbbell-kickback',
       'dumbbell-row',
+      'reverse-lunge',
+      'single-leg-calf-raise',
       'standing-leg-curl',
+      'walking-lunge',
     ]);
   });
 
@@ -133,7 +137,7 @@ describe('seedTraining v4', () => {
     // Arrange: a pre-v4 world — legacy seeds, one referenced by a logged set.
     db.insert(users).values({ id: 'u-1', email: null, authKind: 'local', displayName: 'R' }).run();
     db.insert(exercises)
-      .values({ id: 'pull-up', name: 'Pull-Up', category: 'back', isCustom: false })
+      .values({ id: 'face-pull', name: 'Face Pull', category: 'back', isCustom: false })
       .run();
     db.insert(exercises)
       .values({ id: 'russian-twist', name: 'Russian Twist', category: 'core', isCustom: false })
@@ -153,7 +157,7 @@ describe('seedTraining v4', () => {
       .values({
         id: 'set-1',
         workoutLogId: 'log-1',
-        exerciseId: 'pull-up',
+        exerciseId: 'face-pull',
         setNumber: 1,
         weightKg: 0,
         reps: 8,
@@ -164,14 +168,14 @@ describe('seedTraining v4', () => {
     await seedTraining();
 
     // Assert: referenced → demoted custom owned by u-1; unreferenced → gone.
-    const [pullUp] = db.select().from(exercises).where(eq(exercises.id, 'pull-up')).all();
-    expect(pullUp?.isCustom).toBe(true);
-    expect(pullUp?.userId).toBe('u-1');
+    const [facePull] = db.select().from(exercises).where(eq(exercises.id, 'face-pull')).all();
+    expect(facePull?.isCustom).toBe(true);
+    expect(facePull?.userId).toBe('u-1');
     const twist = db.select().from(exercises).where(eq(exercises.id, 'russian-twist')).all();
     expect(twist).toHaveLength(0);
     // History untouched.
     const [set] = db.select().from(setLogs).where(eq(setLogs.id, 'set-1')).all();
-    expect(set?.exerciseId).toBe('pull-up');
+    expect(set?.exerciseId).toBe('face-pull');
   });
 
   it('week-4 intensification carries the RIR-0 top set + back-offs', async () => {
