@@ -14,7 +14,6 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChevronDownIcon } from '@/components/icons';
 import { useTheme } from '@/theme/theme-context';
@@ -24,9 +23,9 @@ type Props = ScrollViewProps & {
   ref?: React.Ref<ScrollView>;
   /** Height cap outside a sheet. Inside a sheet the sheet itself caps the height. */
   maxHeight?: number;
-  /** Size to the sheet's content (shrinking when the sheet caps it), and pad for
-   * the safe area. NOT `flex: 1` — that would fill the cap and bring back the
-   * dead space under short option lists. */
+  /** Size to the sheet's content (shrinking when the sheet caps it). NOT
+   * `flex: 1` — that would fill the cap and bring back the dead space under
+   * short option lists. The sheet pads the safe area itself. */
   inSheet?: boolean;
   className?: string;
   children: React.ReactNode;
@@ -66,7 +65,7 @@ const Hint = ({ up }: { up: boolean }) => {
 /**
  * A bounded scroll view that tells the user there is more: a gently nudging
  * chevron appears at the edge that still has content (bottom and/or top).
- * Inside a `<Sheet>` pass `inSheet` (fills the sheet, safe-area padded).
+ * Inside a `<Sheet>` pass `inSheet` (fills the sheet; the sheet pads the safe area).
  */
 export const ScrollArea = ({
   ref,
@@ -78,7 +77,6 @@ export const ScrollArea = ({
   contentContainerStyle,
   ...rest
 }: Props) => {
-  const insets = useSafeAreaInsets();
   const [viewport, setViewport] = useState(0);
   const [content, setContent] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -103,7 +101,7 @@ export const ScrollArea = ({
         onScroll={handleScroll}
         scrollEventThrottle={32}
         contentContainerStyle={[
-          inSheet ? { paddingHorizontal: 20, paddingBottom: insets.bottom + 20 } : null,
+          inSheet ? { paddingHorizontal: 20, paddingBottom: 20 } : null,
           contentContainerStyle,
         ]}
       >

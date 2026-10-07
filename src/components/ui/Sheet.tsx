@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { Modal, Pressable, View, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
 import Animated, {
   Easing,
   runOnJS,
@@ -12,6 +13,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Scrim } from './Scrim';
+import { computeStops, keyboardLift, keyboardLimit, type Bounds } from './sheet-math';
 
 type Props = {
   visible: boolean;
@@ -30,12 +32,6 @@ type Props = {
   expandable?: boolean;
 };
 
-type Bounds = { min: number; max: number; stops: number[] };
-
-/** Content-sized sheets show ALL of their content up to this share of the
- * screen, then scroll. Capping them at half hid a form's own action buttons
- * below the fold on first open (the plate calculator's Cancel / Apply). */
-const FIT_CAP = 0.92;
 /** Stops for option pickers (Select, TagPicker): half the screen, pulled up to
  * nearly full when the list is longer — a list scrolls, so it never needs to
  * open at full height the way a form with buttons does. */
@@ -53,8 +49,6 @@ const HANDLE_WIDTH = 40;
  * affordance, a loop is noise. */
 const HINT_MS = 420;
 
-const pct = (stop: string): number => Math.min(1, Math.max(0.2, parseFloat(stop) / 100));
-
 // Shared-value writes stay in module-scope factories (AGENTS.md#architecture-invariants).
 // `limit` is the sheet's MAX height: short content renders shorter than it and the
 // sheet hugs the content; long content is clamped to it and scrolls. `offset`
@@ -67,7 +61,27 @@ const makeController = (
   hint: SharedValue<number>,
 ) => {
   let closing = false;
+  /** When the running fall comes to rest, so a second close path waits it out. */
+  let restsAt = 0;
   let onClose = () => {};
+  // Every close path ends here: `offset` rests at the CLOSED position and the
+  // handle hint is blank, so the next mount's first frame is below the edge.
+  const fall = () => {
+    closing = true;
+    restsAt = Date.now() + FALL_MS;
+    offset.value = withTiming(sheetHeight.value || limit.value, {
+      duration: FALL_MS,
+      easing: Easing.in(Easing.quad),
+    });
+  };
+  const afterFall = (done: () => void) =>
+    setTimeout(
+      () => {
+        hint.value = 0;
+        done();
+      },
+      Math.max(0, restsAt - Date.now()),
+    );
   return {
     setOnClose: (next: () => void) => {
       onClose = next;
@@ -82,6 +96,8 @@ const makeController = (
     /** Called when the Modal mounts: start below the edge, rise into place. */
     enter: () => {
       closing = false;
+      // Blank the handle before the first frame; `hintAt` sweeps it after paint.
+      hint.value = 0;
       limit.value = bounds.value.min;
       // Rise from the cap rather than the measured height — it is at least as
       // tall, so the sheet still starts off-screen without waiting on layout.
@@ -95,12 +111,17 @@ const makeController = (
     /** Sheet-initiated close: play the fall, then let the parent flip `visible`. */
     close: () => {
       if (closing) return;
-      closing = true;
-      offset.value = withTiming(sheetHeight.value || limit.value, {
-        duration: FALL_MS,
-        easing: Easing.in(Easing.quad),
-      });
-      setTimeout(() => onClose(), FALL_MS);
+      fall();
+      afterFall(onClose);
+    },
+    /**
+     * Parent-initiated close (`visible` flipped false): play the fall unless one
+     * is already running, then unmount once it rests. Returns the timer so the
+     * caller can cancel the unmount on a re-open mid-fall.
+     */
+    leave: (unmount: () => void) => {
+      if (!closing) fall();
+      return afterFall(unmount);
     },
     toggle: () => {
       const { min, max } = bounds.value;
@@ -108,33 +129,6 @@ const makeController = (
       limit.value = withTiming(target, { duration: SNAP_MS, easing: EASE_OUT });
     },
   };
-};
-
-/**
- * The height stops. `snapPoints` gives them explicitly; otherwise it is the fit
- * cap alone (one stop: the sheet already hugs its content up to it).
- *
- * Taller stops are only offered once the content is known to overflow the
- * first one: the sheet sizes to its content, so on a short list dragging up
- * would stretch nothing. Gating here is what keeps the handle hint and the
- * tap-to-toggle honest.
- */
-const computeStops = (
-  snapPoints: string[] | undefined,
-  windowHeight: number,
-  expandable: boolean,
-  overflows: boolean,
-  ceiling: number,
-): Bounds => {
-  const cap = (px: number) => Math.min(px, ceiling);
-  const stops = snapPoints
-    ? [...new Set(snapPoints.map((s) => cap(Math.round(windowHeight * pct(s)))))].sort(
-        (a, b) => a - b,
-      )
-    : [cap(Math.round(windowHeight * FIT_CAP))];
-  const min = stops[0];
-  if (!expandable || !overflows) return { min, max: min, stops: [min] };
-  return { min, max: stops[stops.length - 1], stops };
 };
 
 // Pan on the handle: up/down resizes between the stops, below the sheet's own
@@ -189,8 +183,19 @@ const makePan = (
  *
  * By default the sheet is **content-sized** — a five-option picker is five options
  * tall, a form shows every field and its buttons — up to nearly the full
- * screen, then its `<ScrollArea inSheet>` scrolls. Its resting state is fully
- * visible; the animations only decorate it. Motion rules: AGENTS.md#conventions.
+ * screen, then its `<ScrollArea inSheet>` scrolls. Motion rules: AGENTS.md#conventions.
+ *
+ * Resting states, no animation required: OPEN is `offset = 0` (the shared
+ * value's initial, so the very first open is visible with no effect at all) and
+ * CLOSED is `offset = sheetHeight`. `Animated.View` paints its first frame from
+ * the shared values AS THEY ARE at mount, so every close path — hand-closed or
+ * parent-flipped `visible` — plays the fall and only then unmounts the Modal; a
+ * parent that unmounted it with `offset` still 0 made the next open paint one
+ * frame fully open, then drop below the edge to rise (appear / disappear /
+ * appear). A re-open's rise rides on a deps-keyed layout effect that re-runs on
+ * every open; the effect-dependent shape AGENTS.md warns about was one that did
+ * NOT re-run and hid the resting state. This is the hand-close path that
+ * already ships, applied to every close.
  */
 export const Sheet = ({ visible, onClose, children, snapPoints, expandable = true }: Props) => {
   const { height: windowHeight } = useWindowDimensions();
@@ -198,15 +203,36 @@ export const Sheet = ({ visible, onClose, children, snapPoints, expandable = tru
   /** A full-height sheet still stops below the status bar. */
   const ceiling = windowHeight - insets.top - 8;
   /**
+   * The open boundary, derived during render from a `visible` flip (the React
+   * "adjust state on prop change" shape — not a layout measurement, so no
+   * effect sets it). `gen` counts opens; `falling` keeps the Modal mounted
+   * while a parent-initiated close plays the fall, and a re-open mid-fall
+   * clears it so the pending unmount is dropped.
+   */
+  const [seen, setSeen] = useState(visible);
+  const [gen, setGen] = useState(0);
+  const [falling, setFalling] = useState(false);
+  if (visible !== seen) {
+    setSeen(visible);
+    if (visible) {
+      setGen(gen + 1);
+      setFalling(false);
+    } else {
+      setFalling(true);
+    }
+  }
+  const mounted = visible || falling;
+  /**
    * Latches true on the first layout that reaches the smallest stop, and resets
    * on the next open. The latch belongs to one OPEN, not to the component: a
    * single <Sheet> instance serves every selection, so a tall session must not
-   * leave the next rest day expandable to full height over empty space.
+   * leave the next rest day expandable to full height over empty space. Keyed
+   * on the open counter, not `visible` — that is true again on the second open.
    * Derived during render (never set from an effect) — same shape as
    * `useReorderedList`.
    */
-  const [latch, setLatch] = useState({ visible, overflows: false });
-  const overflows = latch.visible === visible ? latch.overflows : false;
+  const [latch, setLatch] = useState({ gen, overflows: false });
+  const overflows = latch.gen === gen ? latch.overflows : false;
   const bounded = computeStops(snapPoints, windowHeight, expandable, overflows, ceiling);
   const resizable = bounded.stops.length > 1;
 
@@ -216,6 +242,13 @@ export const Sheet = ({ visible, onClose, children, snapPoints, expandable = tru
   const startLimit = useSharedValue(bounded.min);
   const sheetHeight = useSharedValue(0);
   const hint = useSharedValue(0);
+  // Android never resizes a `statusBarTranslucent` Modal for the IME
+  // (edge-to-edge), so translating the sheet is the only way to keep a field
+  // above the keyboard; keyboard-controller reports the keyboard inside RN
+  // Modals through its `ModalAttachedWatcher`. `height` is 0 closed and
+  // NEGATIVE while open, `progress` runs 0..1. Needs `KeyboardProvider`
+  // (`app/_layout.tsx`).
+  const { height: kb, progress: kbProgress } = useReanimatedKeyboardAnimation();
   const [ctl] = useState(() => makeController(limit, offset, bounds, sheetHeight, hint));
   const [pan] = useState(() => makePan(limit, offset, bounds, startLimit, sheetHeight, ctl.close));
 
@@ -229,24 +262,37 @@ export const Sheet = ({ visible, onClose, children, snapPoints, expandable = tru
 
   // Layout effect: a plain one runs AFTER the first paint, so a fresh sheet drew
   // one frame fully open, then jumped below the edge to rise (open/close/open
-  // flicker). The resting state is still the shown position, so a skipped
-  // effect leaves the sheet visible, never hidden.
+  // flicker). Keyed on `gen` so a re-open while the Modal is still mounted
+  // (mid-fall) rises again. The resting state is still the shown position, so a
+  // skipped effect leaves the sheet visible, never hidden.
   useLayoutEffect(() => {
     if (visible) ctl.enter();
-  }, [visible, ctl]);
+  }, [visible, gen, ctl]);
 
   useEffect(() => {
     if (visible) ctl.hintAt();
-  }, [visible, ctl]);
+  }, [visible, gen, ctl]);
+
+  // Parent-initiated close: fall, then unmount. The cleanup drops the unmount
+  // when a re-open clears `falling` before the fall rests.
+  useEffect(() => {
+    if (!falling) return;
+    const timer = ctl.leave(() => setFalling(false));
+    return () => clearTimeout(timer);
+  }, [falling, ctl]);
 
   const scrimStyle = useAnimatedStyle(() => ({
     opacity: SCRIM_OPACITY * (1 - offset.value / Math.max(1, sheetHeight.value || limit.value)),
   }));
   // `maxHeight`, not `height`: short content keeps its own height (the sheet hugs
-  // it), long content is clamped here and scrolls inside.
+  // it), long content is clamped here and scrolls inside. The keyboard shrinks
+  // the cap and lifts the sheet (`sheet-math.ts`).
+  const bottomInset = insets.bottom;
   const sheetStyle = useAnimatedStyle(() => ({
-    maxHeight: limit.value,
-    transform: [{ translateY: offset.value }],
+    maxHeight: keyboardLimit(limit.value, kb.value),
+    transform: [
+      { translateY: keyboardLift(offset.value, kb.value, bottomInset, kbProgress.value) },
+    ],
   }));
   const hintStyle = useAnimatedStyle(() => ({ width: HANDLE_WIDTH * hint.value }));
 
@@ -257,7 +303,7 @@ export const Sheet = ({ visible, onClose, children, snapPoints, expandable = tru
 
   return (
     <Modal
-      visible={visible}
+      visible={mounted}
       transparent
       animationType="none"
       statusBarTranslucent
@@ -277,7 +323,7 @@ export const Sheet = ({ visible, onClose, children, snapPoints, expandable = tru
             // setState per frame — re-rendering mid-gesture is what stalled a
             // fast pull to the top. Once true it can never go back: the content
             // that overflowed the smallest stop is still there.
-            if (!overflows && h >= bounded.min - 1) setLatch({ visible, overflows: true });
+            if (!overflows && h >= bounded.min - 1) setLatch({ gen, overflows: true });
           }}
           style={[{ paddingBottom: insets.bottom }, sheetStyle]}
           className="overflow-hidden rounded-t-[28px] border-t border-ink-700 bg-ink-900"
