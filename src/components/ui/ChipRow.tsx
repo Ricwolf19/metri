@@ -2,7 +2,12 @@ import { Pressable, Text } from 'react-native';
 
 import { ScrollRow } from './ScrollRow';
 
-export type ChipItem<T extends string> = { value: T; label: string };
+export type ChipItem<T extends string> = {
+  value: T;
+  label: string;
+  /** Finished (an exercise with every set logged): `info` tone, so the row reads as progress. */
+  done?: boolean;
+};
 
 type Props<T extends string> = {
   items: ChipItem<T>[];
@@ -27,13 +32,18 @@ export const ChipRow = <T extends string>({ items, value, onChange }: Props<T>) 
           accessibilityState={{ selected: active }}
           className={[
             'shrink-0 rounded-full border px-4 py-2',
-            active ? 'border-brand/40 bg-brand/15' : 'border-ink-700 bg-ink-800',
+            active
+              ? 'border-brand/40 bg-brand/15'
+              : item.done
+                ? 'border-info/30 bg-info/10'
+                : 'border-ink-700 bg-ink-800',
           ].join(' ')}
         >
           <Text
-            className={['text-sm font-sans-semibold', active ? 'text-brand' : 'text-ink-300'].join(
-              ' ',
-            )}
+            className={[
+              'text-sm font-sans-semibold',
+              active ? 'text-brand' : item.done ? 'text-info' : 'text-ink-300',
+            ].join(' ')}
           >
             {item.label}
           </Text>

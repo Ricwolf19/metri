@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ScrollView,
   View,
@@ -15,6 +15,12 @@ type Props = {
   /** Classes for the item row itself; defaults to `gap-2`. */
   className?: string;
   contentStyle?: ViewStyle;
+  /**
+   * A content x to put in the middle of the frame on the first layout — for a
+   * strip whose natural start is its centre (the rest shortcuts open on the
+   * −30 s | +30 s seam, the common taps, and scroll outward to the extremes).
+   */
+  centerX?: number;
 };
 
 /**
@@ -51,10 +57,24 @@ const Cue = ({ side }: { side: 'left' | 'right' }) => {
  * than a wrapping strip: wrapped badges grow downwards and push the content the
  * screen is about below the fold.
  */
-export const ScrollRow = ({ children, className, contentStyle }: Props) => {
+export const ScrollRow = ({ children, className, contentStyle, centerX }: Props) => {
+  const ref = useRef<ScrollView>(null);
   const [frame, setFrame] = useState(0);
   const [content, setContent] = useState(0);
   const [offset, setOffset] = useState(0);
+  const centered = useRef(false);
+
+  // Once per mount, as soon as both sizes are known: the row is a native
+  // scroll view, so the initial position is an imperative call, not a prop.
+  // The scroll event it emits updates the cues like any other scroll.
+  useEffect(() => {
+    if (centered.current || centerX == null || !frame || !content) return;
+    centered.current = true;
+    ref.current?.scrollTo({
+      x: Math.max(0, Math.min(content - frame, centerX - frame / 2)),
+      animated: false,
+    });
+  }, [centerX, frame, content]);
 
   const overflowing = content > frame + 1;
   const canRight = overflowing && content - frame - offset > EDGE;
@@ -73,6 +93,7 @@ export const ScrollRow = ({ children, className, contentStyle }: Props) => {
   return (
     <View>
       <ScrollView
+        ref={ref}
         horizontal
         showsHorizontalScrollIndicator={false}
         onScroll={track}

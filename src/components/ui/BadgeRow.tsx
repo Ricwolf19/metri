@@ -2,14 +2,19 @@ import { Pressable, Text, View } from 'react-native';
 
 import { ScrollRow } from './ScrollRow';
 
+type Tone = 'muted' | 'brand' | 'info';
+
 type Badge = {
   /** Stable key and, unless `label` says otherwise, the text shown. */
   value: string;
   label?: string;
   onPress?: () => void;
+  /** Overrides the row's tone / face for this badge, so a fact about the
+   * exercise (per side, `info`, sans) can share the line with technique cues
+   * (brand, mono) instead of stacking under them. */
+  tone?: Tone;
+  mono?: boolean;
 };
-
-type Tone = 'muted' | 'brand' | 'info';
 
 type Props = {
   items: Badge[];
@@ -42,18 +47,22 @@ export const BadgeRow = ({ items, tone = 'muted', mono = false }: Props) => {
   return (
     <ScrollRow className="gap-1.5">
       {items.map((item) => {
+        const itemTone = item.tone ?? tone;
+        const itemMono = item.mono ?? mono;
         const text = (
           <Text
             numberOfLines={1}
             className={[
-              mono ? 'font-mono-medium text-[10px] tracking-wide' : 'text-[11px] font-sans-medium',
-              LABEL[tone],
+              itemMono
+                ? 'font-mono-medium text-[10px] tracking-wide'
+                : 'text-[11px] font-sans-medium',
+              LABEL[itemTone],
             ].join(' ')}
           >
             {item.label ?? item.value}
           </Text>
         );
-        const className = ['shrink-0 rounded-full px-2.5 py-1', PILL[tone]].join(' ');
+        const className = ['shrink-0 rounded-full px-2.5 py-1', PILL[itemTone]].join(' ');
 
         return item.onPress ? (
           <Pressable
