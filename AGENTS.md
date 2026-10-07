@@ -14,8 +14,9 @@ regenerated (FKs rewritten, including inside JSON payloads), ownership is forced
 `updatedAt` is stamped so sync pushes the rows, and a repeated import duplicates rather than
 merges. `EXPORT_VERSION` 3 added export-only `progressPhotos` metadata (never the file paths); 4 adds the
 body and food tables; 5 adds the local-only `exerciseNotes` and `calculationHistory` (sync never
-carries them — a note on an existing exercise keeps the device's copy). Bumps only ever ADD keys, so
-`validate-import.ts` accepts 2–5. Cloud sync is
+carries them — a note on an existing exercise keeps the device's copy); 6 adds `exerciseSettings`
+(one per (user, exercise), the device's copy wins) — the `load` and `unilateral` columns ride on
+rows already exported. Bumps only ever ADD keys, so `validate-import.ts` accepts 2–6. Cloud sync is
 Premium-only and automatic. `README.md` is the presentation card only; this file holds the rules
 (the sync protocol's server half lives in the web repo's `docs/sync.md`).
 
@@ -93,6 +94,10 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   `lib/sync/contract.ts`. Synced column names are a wire format: **add, never rename.**
 - Repo delete sites for synced tables must call `recordDeletion` right after the hard delete.
 - Failures are silent by design — the avatar ring is the only user-facing signal.
+- **A new synced COLUMN needs no web change** — the mirror is opaque jsonb and the client
+  intersects incoming keys against its live table (web `docs/sync.md`, "Schema drift"); only a
+  new TABLE touches the web allow-list. `exercises.unilateral`, `exercise_settings.load` and
+  `set_logs.load` shipped this way.
 - **A 401/403 is an answer, not a retry.** `syncFailure` raises `SyncAuthError` (`sync/errors.ts`)
   and `useAutoSync` stops the loop instead of backing off into it. An empty
   `authClient.getCookie()` means the session is already gone, so `syncNow` refuses to send at all:
@@ -106,7 +111,10 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   metro/babel config — don't remove that config.
 - **NativeWind tokens, never raw hex** in components: `ink-*`/`accent` adapt per theme; `ink-950`
   stays constant; accent text = `text-accent`, accent fills = `bg-lime-400`; icon `color=` props use
-  `useTheme()` values. Icons come from the `@/components/icons` Iconoir barrel — add by mapping
+  `useTheme()` values. `info` (sky) is the one informational tone — a per-side tag, "a load
+  detail is saved" — never a selection or an active state, which stay lime. The sole hex
+  exception is `components/BarGraphic.tsx`: Olympic plate colours are the plate's identity, data
+  not theme. Icons come from the `@/components/icons` Iconoir barrel — add by mapping
   there, don't import `iconoir-react-native` in screens.
 - **i18n**: flat dotted keys in `src/i18n/{en,es}.ts` — add to BOTH (tsc + `i18n:check` enforce).
 - **Server/technical strings never reach the UI.** A caught error shows a translated message and
@@ -183,24 +191,34 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   the rest-over trigger shares the notification id so it replaces the countdown). Action presses
   can arrive headless — `index.js` registers the background handler — so those paths touch only
   MMKV and notifee. Scheduled reminders stay on `expo-notifications` (`service.ts`).
-- **The rest runs as a notifee foreground service**, registered at the bundle entry beside the
-  background handler. That is the only reason the alarm can ring at all: with the app merely
-  backgrounded there is no React tree left to run it, and Android stops plain audio when the
-  screen goes off. The service owns the countdown too, because exact alarms are denied by default
-  from Android 14 on for anything that is not a clock, so the `AlarmManager` trigger can land
-  minutes late in Doze — it stays armed only as a fallback for a service the OS killed, and the
-  service cancels it on the way to ringing so nothing sounds twice. The service needs
-  `foregroundService.types` in the notify-kit plugin config, and a plugin change means a prebuild.
+- **The session runs as a notifee foreground service** (`session-service.ts`, a pure loop with
+  injected clock/sleep/effects), registered at the bundle entry beside the background handler.
+  It spans the whole workout — idling at 5 s between rests, ticking at 1 s during one — and
+  `endSession` is the ONLY place it stops; `endRest` redraws the training face and leaves it
+  running. That is the only reason the alarm can ring at all: with the app merely backgrounded
+  there is no React tree left to run it, and Android stops plain audio when the screen goes off.
+  The service owns the countdown too, because exact alarms are denied by default from Android 14
+  on for anything that is not a clock, so the `AlarmManager` trigger can land minutes late in
+  Doze — it stays armed only as a fallback for a service the OS killed (same id, `rest-alarm-v2`
+  carries the sound), and the service cancels it on the way to ringing so nothing sounds twice.
+  The service needs `foregroundService.types` in the notify-kit plugin config, and a plugin
+  change means a prebuild.
 - **A registered notification channel is immutable.** Changing a channel's sound or importance in
-  code is silently ignored on every device that already has it, which is why the rest channel ids
-  carry a `-v2` suffix and the old ids are deleted on init. Bump the suffix whenever those settings
-  change. Note a channel cannot carry both a sound and a vibration: Android sets `FLAG_MUTE_HAPTIC`
+  code is silently ignored on every device that already has it, which is why the channel ids
+  carry a version suffix (`training-v1`, `rest-alarm-v2`) and the old ids (`RETIRED_CHANNELS`)
+  are deleted on init. Bump the suffix whenever those settings change. Note a channel cannot carry both a sound and a vibration: Android sets `FLAG_MUTE_HAPTIC`
   as soon as a sound is attached, so the repeating buzz is driven from `lib/sounds.ts` instead.
-- **The "training in progress" notification shares `rest-notification.ts`.** notifee keeps ONE
-  background handler per process, so a second module registering its own silently unhooks the
-  rest actions. `showSession` also writes the MMKV record (`training/session-state.ts`); only
-  finish/abandon call `endSession` (AFTER finishing/abandoning the log) — never a screen unmount,
-  since leaving the workout does not end it — and boot drops a record whose log is no longer open.
+- **There is ONE training notification** (`rest-notification.ts`, id `session`, channel
+  `training-v1`): it changes face — training (next set, target, load, session clock), rest
+  (countdown + Skip/+30 s/+1 min), rest over (ringing, Ready/+30 s) — and never disappears before
+  finish/abandon. A re-display with the SAME id only re-notifies the foreground service; a second
+  id would be refused while it runs. The face is derived from MMKV by `notification-content.ts`
+  (pure, tested) and the copy (`NextSetCopy`, the rest labels) is frozen at write time because
+  the headless redraws have no i18n. notifee keeps ONE background handler per process, so a
+  second module registering its own silently unhooks the actions. `showSession` writes the MMKV
+  record (`training/session-state.ts`); only finish/abandon call `endSession` (AFTER
+  finishing/abandoning the log) — never a screen unmount, since leaving the workout does not end
+  it — and boot redraws a record whose log is still open, drops one that is not.
   **The check-in is anchored to the real session at schedule time, never swallowed in a handler**
   (the OS draws it with the phone locked): a session's first `showSession` HOLDS that day's
   weekly check-in entries back, `endSession` asks once at end + delay (nothing if finishing
@@ -209,7 +227,8 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   through the reconciler's in-flight chain and every one-shot id is recorded under the event.
 - **`startRest` / `extendRest` / `endRest` are the only places the alarm starts or stops.** Screens
   never call `startAlarm` or `stopAlarm` themselves; a component that did would silence an alarm the
-  service legitimately owns the moment the screen unmounted.
+  service legitimately owns the moment the screen unmounted. `extendRest` takes negative seconds
+  (`shiftRestEnd`); a reduction past zero ENDS the rest rather than ringing the lifter's own tap.
 - **Sound cues** go through `lib/sounds.ts` — the only module importing `expo-audio`. Players are
   created once and kept (decoding on first play stutters), every call is try/caught (a cue must
   never break a save) and the rest alarm loops until `stopAlarm()`. Notification sounds are a
@@ -218,8 +237,8 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   `rest_alarm.wav`, never `rest-alarm.wav`. The looping rest-over alert needs its OWN channel:
   sound is fixed per channel on Android, so it cannot share one with the silent countdown.
   **A channel is immutable once a device has registered it** — changing its sound or importance
-  in code is silently ignored there, so bump the id suffix (`rest-timer-v2`) and add the old id
-  to `RETIRED_CHANNELS` or the change only reaches fresh installs.
+  in code is silently ignored there, so bump the id suffix (`training-v1`, `rest-alarm-v2`) and
+  add the old id to `RETIRED_CHANNELS` or the change only reaches fresh installs.
 - **Notification events** (`features/notifications/events.ts`) are a fixed catalogue the user tunes
   but never extends. Each carries a `group` (`events` | `knowledge` | `reminders`, the settings
   sections) and a `tuning` that decides its controls: `program` (read-only, follows the schedule),
@@ -261,6 +280,20 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   excludes them — volume, PRs, e1RM, progression and the muscle models — so a new aggregate must
   filter them too. They never start the prescribed rest and carry no RIR (submaximal by
   definition); `warmup.ts` only suggests the ramp, the lifter still confirms each row.
+- **`weight_kg` is the number the lifter names; `set_logs.load` is how it was built.** A bar +
+  plates total, a stack, or ONE dumbbell (per hand, per side on a unilateral exercise). Volume
+  reads the DERIVED total through `setVolumeKg` (`features/training/load.ts`; in SQL,
+  `json_extract(load, '$.hands')`) — only two dumbbells double the number; PRs, e1RM, the
+  suggestion and prefill stay on `weight_kg` (a dumbbell PR is "the 30s"). Pre-upgrade dumbbell
+  rows carry no detail and count ×1, so a lifter's weekly volume steps up the week they start
+  using the sheet — accepted, no migration. The sheet (`WeightCalculatorSheet`) opens in the mode
+  of `exercises.equipment`, remembers the last config on `exercise_settings.load` (written only
+  from the sheet's Apply; never a slot field, never propagates), and `reconcileLoad` drops a
+  detail the lifter typed over. Prefill is keyed by the exercise on the card, and a variant swap
+  clears the slot's draft details (`clearDraftLoads`).
+- **`exercises.unilateral`** (seed v9 for the catalog, a toggle on custom exercises) only tags
+  and captions — one `set_logs` row per set, the weight per side; left/right rows are a later
+  step, not a column to add casually.
 - **Warm-up routines** (`warmup_routines`, synced) are a different thing: the work AROUND the
   session, a flat ordered `steps` JSON, never a program tree. Shipped ones carry a NULL `user_id`
   and `is_custom = 0`, are re-upserted by the seed (edit the copy in `warmup-content.ts` and it
@@ -342,7 +375,8 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   Home pins `DEFAULT_PINNED` (`features/home/quick-actions.ts`) until the user customizes.
 - **Seed ids are a contract.** Catalog exercise ids and preset template ids (`metri-foundations`,
   `metri-progression`) are referenced by user history and enrolled copies. `seedTraining` is
-  versioned in `app_meta`; removing a built-in exercise goes through the demote-or-delete
+  versioned in `app_meta` (v9 flips `unilateral` through the upsert); removing a built-in
+  exercise goes through the demote-or-delete
   migration in `seed.ts` (never a bare delete), and retired template ids (pb-2-0, ul-4, fb-3)
   are never reused. Bilingual catalog/preset copy lives in content modules
   (`exercise-content.ts`, `programs/index.ts`), not the i18n dictionaries.
