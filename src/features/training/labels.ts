@@ -1,4 +1,4 @@
-import type { Equipment, IntensityType } from '@/db/schema';
+import type { Equipment, IntensityType, SetGroup } from '@/db/schema';
 import type { Locale, TFunction } from '@/i18n';
 import type { TranslationKey } from '@/i18n/en';
 
@@ -70,6 +70,15 @@ export type SetTarget = {
   intensity: string;
   /** Top set / back-off when the prescription has several groups, else null. */
   groupName: string | null;
+};
+
+/** The effort a set group asks for: "Failure", "RIR 2", "RIR 1-2" or nothing. */
+export const groupIntensity = (g: SetGroup, t: TFunction): string => {
+  if (g.toFailure) return t('training.failure');
+  if (g.rirMin == null && g.rirMax == null) return '';
+  if (g.rirMax == null || g.rirMin === g.rirMax) return `RIR ${g.rirMin ?? g.rirMax}`;
+  if (g.rirMin == null) return `RIR ${g.rirMax}`;
+  return `RIR ${g.rirMin}-${g.rirMax}`;
 };
 
 /**

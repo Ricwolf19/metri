@@ -33,6 +33,8 @@ describe('nextSetSummary', () => {
     const next = nextSetSummary(planned, 'a', 1, () => 0);
     expect(next).toEqual({
       kind: 'same',
+      slotId: 'a',
+      exerciseId: 'ex-a',
       exerciseName: 'Bench press',
       setNumber: 2,
       setTotal: 3,
@@ -44,6 +46,8 @@ describe('nextSetSummary', () => {
     const next = nextSetSummary(planned, 'a', 3, () => 0);
     expect(next).toEqual({
       kind: 'next',
+      slotId: 'b',
+      exerciseId: 'ex-b',
       exerciseName: 'Incline press',
       setNumber: 1,
       setTotal: 3,
@@ -56,11 +60,22 @@ describe('nextSetSummary', () => {
     const next = nextSetSummary(planned, 'b', 3, (id) => done[id] ?? 0);
     expect(next).toEqual({
       kind: 'next',
+      slotId: 'a',
+      exerciseId: 'ex-a',
       exerciseName: 'Bench press',
       setNumber: 2,
       setTotal: 3,
       reps: '8-10',
     });
+  });
+
+  it('counts what `doneFor` hands it — a caller that includes warm-ups skips a planned set', () => {
+    // Incline press has 3 planned sets and 1 working set done; a warm-up
+    // counted as done would announce set 3 instead of set 2.
+    const working = nextSetSummary(planned, 'a', 3, () => 1);
+    const withWarmup = nextSetSummary(planned, 'a', 3, () => 2);
+    expect(working).toMatchObject({ exerciseName: 'Incline press', setNumber: 2 });
+    expect(withWarmup).toMatchObject({ exerciseName: 'Incline press', setNumber: 3 });
   });
 
   it('reports done when every planned set is logged', () => {

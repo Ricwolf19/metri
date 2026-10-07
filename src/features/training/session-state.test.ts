@@ -17,9 +17,8 @@ const session = (startedAt: number) => ({
   workoutId: 'w1',
   startedAt,
   title: 'Training in progress',
-  exerciseName: 'Squat',
-  setLabel: '',
-  nextLabel: '',
+  next: null,
+  doneLabel: 'All planned sets done',
 });
 
 describe('isSessionInProgress', () => {

@@ -349,6 +349,30 @@ export const lastWeekSets = (
     .all();
 };
 
+/**
+ * The newest working set of this exercise in any COMPLETED session — the
+ * prefill source for a set not yet logged this session ("what did I do last
+ * time?"). The open session is excluded by status, so its own sets never feed
+ * back; those are seeded from the row just logged instead.
+ */
+export const lastLoggedSet = (exerciseId: string): SetLog | null => {
+  const [row] = db
+    .select({ set: setLogs })
+    .from(setLogs)
+    .innerJoin(workoutLogs, eq(workoutLogs.id, setLogs.workoutLogId))
+    .where(
+      and(
+        eq(setLogs.exerciseId, exerciseId),
+        eq(setLogs.isWarmup, false),
+        eq(workoutLogs.status, 'completed'),
+      ),
+    )
+    .orderBy(desc(setLogs.createdAt), desc(setLogs.setNumber))
+    .limit(1)
+    .all();
+  return row?.set ?? null;
+};
+
 /** Swap a snapshot slot to an alternative exercise for THIS session only. */
 export const swapSnapshotExercise = (
   logId: string,
@@ -508,9 +532,10 @@ export const sessionSummary = (logId: string, locale: Locale = 'en'): SessionSum
 /* ── Suggested weight (progressive overload) ───────────────────────────────── */
 
 /**
- * Suggest a working weight from the last completed session's heaviest top set
- * for this exercise: estimate 1RM (Epley) then back-solve for the target reps +
- * RIR. Returns null when there's no history (the user enters it manually).
+ * Suggest a working weight from the most recently logged working set of this
+ * exercise in a completed session: estimate 1RM (Epley) then back-solve for
+ * the target reps + RIR. Returns null when there's no history (the user enters
+ * it manually).
  */
 export const suggestedWeight = (
   exerciseId: string,
@@ -529,6 +554,7 @@ export const suggestedWeight = (
       ),
     )
     .orderBy(desc(setLogs.createdAt))
+    .limit(1)
     .all();
 
   if (!last) return null;

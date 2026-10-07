@@ -1,25 +1,13 @@
 import { Text, View } from 'react-native';
 import Svg, { Circle, G } from 'react-native-svg';
 
+import { BarGraphic } from '@/components/BarGraphic';
 import { useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
 import type { CalcChart as Chart } from '../types';
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
-
-/** Standard Olympic kg plate colours, with a neutral fallback. */
-const PLATE_COLORS: Record<number, string> = {
-  25: '#ef4444',
-  20: '#3b82f6',
-  15: '#eab308',
-  10: '#22c55e',
-  5: '#e5e7eb',
-  2.5: '#f97316',
-  1.25: '#a1a1aa',
-};
-const plateColor = (p: number) => PLATE_COLORS[p] ?? '#a1a1aa';
-const plateHeight = (p: number) => 22 + (Math.min(p, 25) / 25) * 42;
 
 type Size = 'sm' | 'md' | 'lg';
 const DIM: Record<Size, number> = { sm: 96, md: 132, lg: 168 };
@@ -95,29 +83,7 @@ export const CalcChart = ({ chart, size = 'md' }: { chart: Chart; size?: Size })
   }
 
   if (chart.kind === 'barbell') {
-    const stack = chart.plates.flatMap((p) => Array.from({ length: p.count }, () => p.plate));
-    return (
-      <View className="w-full flex-row flex-wrap items-center justify-center gap-y-1 overflow-hidden rounded-card border border-ink-700 bg-ink-900/40 px-2 py-4">
-        <View style={{ height: 6, width: 36, borderRadius: 2, backgroundColor: '#71717a' }} />
-        {stack.length === 0 ? (
-          <View style={{ height: 6, width: 64, backgroundColor: '#52525b' }} />
-        ) : (
-          stack.map((p, i) => (
-            <View
-              key={i}
-              style={{
-                height: plateHeight(p),
-                width: 9,
-                marginHorizontal: 1.5,
-                borderRadius: 2,
-                backgroundColor: plateColor(p),
-              }}
-            />
-          ))
-        )}
-        <View style={{ height: 10, width: 8, borderRadius: 2, backgroundColor: '#71717a' }} />
-      </View>
-    );
+    return <BarGraphic plates={chart.plates} mirror={false} />;
   }
 
   if (chart.kind === 'split') {

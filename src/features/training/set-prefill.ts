@@ -1,3 +1,4 @@
+import type { LoadDetail } from '@/db/schema';
 import { kgToLb } from '@/features/bmr/calc';
 import type { Units } from '@/lib/storage';
 
@@ -29,28 +30,36 @@ export const bumpValue = (current: number, delta: number): string => {
 export const weightText = (kg: number, unit: Units): string =>
   trimNumber(Math.round((unit === 'lb' ? kgToLb(kg) : kg) * 100) / 100);
 
-export type PriorSet = { weightKg: number; reps: number };
+export type PriorSet = { weightKg: number; reps: number; load?: LoadDetail | null };
 
 /**
  * What the next working-set row starts with. The set just completed wins
- * (same load for the back-off, whatever the plan said last week); before any
- * set is logged the fallback chain is last week's FIRST working set (the top
- * set to match or beat), then the progression suggestion, then a plain 8-rep row.
+ * (same load for the back-off, whatever the plan says); before any set is
+ * logged this session the row repeats the NEWEST set of the exercise from any
+ * completed session — weight AND reps, what the lifter actually did last time,
+ * not last week's top set and the plan's lower bound — then the progression
+ * suggestion, then a plain 8-rep row.
  */
 export const nextSetPrefill = (input: {
   /** Working (non-warm-up) sets logged this session, in order. */
   logged: PriorSet[];
   /** Planned reps for this row, when the prescription defines them. */
   planReps: number | undefined;
-  /** Last week's sets for this slot, in order. */
-  lastWeek: PriorSet[];
+  /** The newest logged working set of this exercise across completed sessions. */
+  lastSet: PriorSet | null;
   /** Progression suggestion (kg), when history supports one. */
   suggestedKg: number | null;
-}): { weightKg: number | null; reps: number } => {
-  const { logged, planReps, lastWeek, suggestedKg } = input;
+}): { weightKg: number | null; reps: number; load: LoadDetail | null } => {
+  const { logged, planReps, lastSet, suggestedKg } = input;
   const justDone = logged[logged.length - 1];
-  if (justDone) return { weightKg: justDone.weightKg, reps: planReps ?? justDone.reps };
-  const prior = lastWeek[0];
-  if (prior) return { weightKg: prior.weightKg, reps: planReps ?? prior.reps };
-  return { weightKg: suggestedKg, reps: planReps ?? 8 };
+  // The detail rides along with the same-session load (same plates for the
+  // back-off); a past session's detail is re-derived from the saved config.
+  if (justDone)
+    return {
+      weightKg: justDone.weightKg,
+      reps: planReps ?? justDone.reps,
+      load: justDone.load ?? null,
+    };
+  if (lastSet) return { weightKg: lastSet.weightKg, reps: lastSet.reps, load: null };
+  return { weightKg: suggestedKg, reps: planReps ?? 8, load: null };
 };

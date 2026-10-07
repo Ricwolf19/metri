@@ -4,6 +4,8 @@ import type { PlannedSlot } from '@/db/schema';
 export type NextSet =
   | {
       kind: 'same' | 'next';
+      slotId: string;
+      exerciseId: string;
       exerciseName: string;
       setNumber: number;
       setTotal: number;
@@ -12,7 +14,7 @@ export type NextSet =
     }
   | { kind: 'done' };
 
-export const plannedSets = (slot: PlannedSlot) => slot.setGroups.reduce((n, g) => n + g.sets, 0);
+const plannedSets = (slot: PlannedSlot) => slot.setGroups.reduce((n, g) => n + g.sets, 0);
 
 const repsForSet = (slot: PlannedSlot, setIndex: number): string => {
   let i = setIndex;
@@ -27,7 +29,8 @@ const repsForSet = (slot: PlannedSlot, setIndex: number): string => {
 /**
  * Next set after a rest: the same exercise while it has planned sets left, then
  * the next exercise (in snapshot order, wrapping) with sets left, else done.
- * `doneInCurrent` includes the set just logged; `doneFor` reads the others.
+ * `doneInCurrent` includes the set just logged; `doneFor` reads the others and
+ * must count WORKING sets only — a warm-up counted here skips a planned set.
  */
 export const nextSetSummary = (
   planned: PlannedSlot[],
@@ -42,6 +45,8 @@ export const nextSetSummary = (
     if (doneInCurrent < total) {
       return {
         kind: 'same',
+        slotId: current.slotId,
+        exerciseId: current.exerciseId,
         exerciseName: current.name,
         setNumber: doneInCurrent + 1,
         setTotal: total,
@@ -56,6 +61,8 @@ export const nextSetSummary = (
     if (done < total) {
       return {
         kind: 'next',
+        slotId: slot.slotId,
+        exerciseId: slot.exerciseId,
         exerciseName: slot.name,
         setNumber: done + 1,
         setTotal: total,

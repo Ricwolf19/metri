@@ -2,23 +2,67 @@ import { useEffect, useRef, useState } from 'react';
 import { AppState, Pressable, Text, View } from 'react-native';
 
 import { CheckIcon, TimerIcon, XIcon } from '@/components/icons';
+import { ScrollRow } from '@/components/ui';
 import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
-import { useT } from '@/i18n';
+import { useT, type TFunction } from '@/i18n';
 import { mmss } from '@/lib/duration';
 import { useTheme } from '@/theme/theme-context';
 
 type Props = {
   /** Wall-clock target (epoch ms) from the persisted rest state. */
   endsAt: number;
+  /** Positive extends, negative shortens; the owner ends the rest when it hits zero. */
   onExtend: (seconds: number) => void;
   onDone: () => void;
 };
 
-const EXTENSIONS = [
-  { seconds: 30, key: 'training.restPlus30' },
-  { seconds: 60, key: 'training.restPlus1' },
-  { seconds: 120, key: 'training.restPlus2' },
-] as const;
+/**
+ * Shortcuts in one scrolling strip: the common extensions sit at scroll 0, the
+ * reductions behind a divider. Bounded on purpose (+5 / −3 min): a longer rest
+ * is a new rest, and the strip must stay one line (AGENTS.md: a strip of
+ * badges scrolls, it never wraps).
+ */
+const EXTEND_SECONDS = [30, 60, 120, 180, 240, 300] as const;
+const REDUCE_SECONDS = [-30, -60, -120, -180] as const;
+
+const shiftLabel = (t: TFunction, seconds: number): string => {
+  const minutes = Math.abs(seconds) / 60;
+  if (seconds === 30) return t('training.restPlus30');
+  if (seconds === -30) return t('training.restMinus30');
+  return seconds > 0
+    ? t('training.restPlusMin', { n: minutes })
+    : t('training.restMinusMin', { n: minutes });
+};
+
+const ShiftPill = ({
+  seconds,
+  onPress,
+  t,
+}: {
+  seconds: number;
+  onPress: (seconds: number) => void;
+  t: TFunction;
+}) => (
+  <Pressable
+    onPress={() => onPress(seconds)}
+    accessibilityRole="button"
+    accessibilityLabel={shiftLabel(t, seconds)}
+    className={[
+      'min-h-12 items-center justify-center rounded-field border px-4',
+      seconds > 0 ? 'border-brand/30 bg-brand/10' : 'border-ink-700 bg-ink-800',
+    ].join(' ')}
+  >
+    <Text
+      maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+      className={[
+        'text-sm font-sans-semibold tabular-nums',
+        seconds > 0 ? 'text-brand' : 'text-ink-300',
+      ].join(' ')}
+    >
+      {shiftLabel(t, seconds)}
+    </Text>
+  </Pressable>
+);
 
 /**
  * Rest countdown banner, sized for a glance from the bench: the countdown is
@@ -97,22 +141,16 @@ export const RestTimer = ({ endsAt, onExtend, onDone }: Props) => {
           {over ? <CheckIcon color={brandContrast} size={18} /> : <XIcon color={brand} size={18} />}
         </Pressable>
       </View>
-      <View className="mt-3 flex-row gap-2">
-        {EXTENSIONS.map((ext) => (
-          <Pressable
-            key={ext.seconds}
-            onPress={() => onExtend(ext.seconds)}
-            accessibilityRole="button"
-            className="min-h-12 flex-1 items-center justify-center rounded-field border border-ink-700 bg-ink-800"
-          >
-            <Text
-              maxFontSizeMultiplier={CONTROL_FONT_SCALE}
-              className="text-sm font-sans-semibold text-ink-200"
-            >
-              {t(ext.key)}
-            </Text>
-          </Pressable>
-        ))}
+      <View className="mt-3">
+        <ScrollRow className="items-center gap-2">
+          {EXTEND_SECONDS.map((s) => (
+            <ShiftPill key={s} seconds={s} onPress={onExtend} t={t} />
+          ))}
+          <View className="mx-1 h-8 w-px bg-ink-700" />
+          {REDUCE_SECONDS.map((s) => (
+            <ShiftPill key={s} seconds={s} onPress={onExtend} t={t} />
+          ))}
+        </ScrollRow>
       </View>
     </View>
   );

@@ -2,7 +2,7 @@ import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { useKeepAwake } from 'expo-keep-awake';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+import { AppState, Modal, Pressable, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import ReorderableList, { reorderItems } from 'react-native-reorderable-list';
@@ -40,7 +40,14 @@ import {
   useDialog,
   useToast,
 } from '@/components/ui';
-import type { PlannedSlot, SetGroup, SetLog } from '@/db/schema';
+import type {
+  Equipment,
+  ExerciseSetting,
+  PlannedSlot,
+  SetGroup,
+  SetLog,
+  WorkoutLog,
+} from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
 import { pushProfile } from '@/features/auth/profile-sync';
 import { lbToKg } from '@/features/bmr/calc';
@@ -55,16 +62,30 @@ import { WeightCalculatorSheet } from '@/features/training/components/WeightCalc
 import {
   endRest,
   extendRest,
+  redrawSession,
   showSession,
   startRest,
 } from '@/features/notifications/rest-notification';
 import { ensureNotificationPermission } from '@/features/notifications/service';
 import { restState, useActiveRest } from '@/features/training/rest-state';
-import { nextSetSummary, plannedSets, type NextSet } from '@/features/training/rest-summary';
-import { sessionState } from '@/features/training/session-state';
-import { formatClockTime } from '@/features/training/schedule';
-import { dayDisplayName, targetLine, type SetTarget } from '@/features/training/labels';
-import { getExercise } from '@/features/training/exercises.repo';
+import { nextSetSummary, type NextSet } from '@/features/training/rest-summary';
+import {
+  sessionState,
+  type ActiveSession,
+  type NextSetCopy,
+} from '@/features/training/session-state';
+import {
+  dayDisplayName,
+  groupIntensity,
+  targetLine,
+  type SetTarget,
+} from '@/features/training/labels';
+import { exerciseFactsQuery, getExercise } from '@/features/training/exercises.repo';
+import {
+  exerciseSettingsQuery,
+  upsertExerciseSetting,
+} from '@/features/training/exercise-settings.repo';
+import { defaultHands, describeLoad, hasLoadDetail, reconcileLoad } from '@/features/training/load';
 import { visualIdFor } from '@/features/training/exercise-visuals';
 import { getWorkoutDay } from '@/features/training/programs.repo';
 import { closeSession } from '@/features/training/close-session';
@@ -72,6 +93,7 @@ import { bumpValue, nextSetPrefill, weightText } from '@/features/training/set-p
 import { sessionBadges } from '@/features/training/session-badges';
 import {
   clearDraft,
+  clearDraftLoads,
   useSessionDrafts,
   useSlotCounts,
   writeDraft,
@@ -83,6 +105,7 @@ import {
   deleteSet,
   getWorkout,
   workoutQuery,
+  lastLoggedSet,
   lastWeekSets,
   logSet,
   reorderSnapshot,
@@ -97,7 +120,6 @@ import { warmupRamp } from '@/features/training/warmup';
 import { useI18n, useT, type TFunction } from '@/i18n';
 import { settings, type Units, type WorkoutLayout } from '@/lib/storage';
 import { playSound } from '@/lib/sounds';
-import { useClockFormat } from '@/lib/useClockFormat';
 import { UNIT_SEGMENTS, useUnits } from '@/lib/useUnits';
 import { useTheme } from '@/theme/theme-context';
 
@@ -111,14 +133,6 @@ type RequestEffort = () => Promise<Effort | null>;
 type PlannedRow = SetTarget & {
   /** The prescription asks for an effort reading (RIR range or to-failure). */
   wantsEffort: boolean;
-};
-
-const groupIntensity = (g: SetGroup, t: TFunction): string => {
-  if (g.toFailure) return t('training.failure');
-  if (g.rirMin == null && g.rirMax == null) return '';
-  if (g.rirMax == null || g.rirMin === g.rirMax) return `RIR ${g.rirMin ?? g.rirMax}`;
-  if (g.rirMin == null) return `RIR ${g.rirMax}`;
-  return `RIR ${g.rirMin}-${g.rirMax}`;
 };
 
 const expandRows = (groups: SetGroup[], t: TFunction): PlannedRow[] => {
@@ -219,6 +233,11 @@ const LoggedRow = ({
       </View>
       <Text className="w-7 text-xs font-sans-semibold text-ink-400">{label}</Text>
       <View className="flex-1 flex-row items-center">
+        {/* Two dumbbells read as "2 × 30 kg × 10": the count goes first so it
+            cannot be mistaken for the reps. */}
+        {logged.load?.kind === 'dumbbell' && logged.load.hands === 2 ? (
+          <Text className="text-sm font-sans-medium text-ink-400">2 × </Text>
+        ) : null}
         <ConvertibleWeight kg={logged.weightKg} unit={unit} />
         <Text className="text-sm font-sans-medium text-ink-100">
           {' '}
@@ -249,6 +268,8 @@ const ActiveRow = ({
   onConfirm,
   onRemove,
   onOpenCalculator,
+  detailActive = false,
+  caption,
 }: {
   label: string;
   legend: string | null;
@@ -259,9 +280,13 @@ const ActiveRow = ({
   onConfirm: () => void;
   onRemove?: () => void;
   onOpenCalculator?: () => void;
+  /** A load detail is saved for this exercise: the sheet icon says so in `info`. */
+  detailActive?: boolean;
+  /** Per-hand / total, or how the load is built — the row stays a plain number. */
+  caption?: string | null;
 }) => {
   const t = useT();
-  const { brandContrast, muted } = useTheme();
+  const { brandContrast, muted, info } = useTheme();
 
   return (
     <View className="rounded-field border border-brand/40 bg-ink-850 px-3 py-2">
@@ -308,9 +333,12 @@ const ActiveRow = ({
             onPress={onOpenCalculator}
             accessibilityRole="button"
             accessibilityLabel={t('training.calculatorTitle')}
-            className="h-12 w-10 items-center justify-center rounded-field border border-ink-700 bg-ink-800"
+            className={[
+              'h-12 w-10 items-center justify-center rounded-field border',
+              detailActive ? 'border-info/40 bg-info/10' : 'border-ink-700 bg-ink-800',
+            ].join(' ')}
           >
-            <DumbbellIcon color={muted} size={18} />
+            <DumbbellIcon color={detailActive ? info : muted} size={18} />
           </Pressable>
         ) : null}
         <Pressable
@@ -322,6 +350,7 @@ const ActiveRow = ({
           <CheckIcon color={brandContrast} size={22} />
         </Pressable>
       </View>
+      {caption ? <Text className="mt-1.5 text-xs text-ink-400">{caption}</Text> : null}
     </View>
   );
 };
@@ -332,9 +361,24 @@ type CardProps = {
   sets: SetLog[];
   unit: Units;
   lastWeek: SetLog[];
+  /** Newest working set of this exercise from any completed session (prefill). */
+  lastSet: SetLog | null;
+  /** Progression suggestion (kg) for the first set, when history supports one. */
+  suggestedKg: number | null;
+  /** How the exercise is loaded and whether each side is logged on its own. */
+  facts: { equipment: Equipment | null; unilateral: boolean } | null;
+  /** The owner's defaults for the exercise on the card (its last load config). */
+  loadSetting: ExerciseSetting | null;
+  userId: string;
   showArt: boolean;
   requestEffort: RequestEffort;
-  onLogged: (info: { restSeconds: number; slotId: string; doneCount: number }) => void;
+  onLogged: (info: {
+    restSeconds: number;
+    slotId: string;
+    doneCount: number;
+    /** The row just written: the live query has not caught up yet. */
+    logged: SetLog;
+  }) => void;
   /** Scroll target when the screen opens from the rest notification. */
   focused: boolean;
   onFocusLayout: (y: number) => void;
@@ -346,6 +390,11 @@ const ExerciseCard = ({
   sets,
   unit,
   lastWeek,
+  lastSet,
+  suggestedKg: suggested,
+  facts,
+  loadSetting,
+  userId,
   showArt,
   requestEffort,
   onLogged,
@@ -377,13 +426,8 @@ const ExerciseCard = ({
   // instead of letting the row read `.length` off nothing.
   const badges = sessionBadges(planned.badges);
 
-  const suggested = useMemo(
-    () => suggestedWeight(planned.exerciseId, rows[0]?.reps ?? 8, 2),
-    [planned.exerciseId, rows],
-  );
-
   // Ramp toward the first working set, whatever that set is going to weigh.
-  const firstWorkingKg = working[0]?.weightKg ?? lastWeek[0]?.weightKg ?? suggested;
+  const firstWorkingKg = working[0]?.weightKg ?? lastSet?.weightKg ?? suggested;
   const ramp = warmupRamp(firstWorkingKg);
   const warmupPrefill = (i: number): { weightKg: number | null; reps: number } =>
     ramp[i] ?? ramp[ramp.length - 1] ?? { weightKg: null, reps: 5 };
@@ -407,26 +451,34 @@ const ExerciseCard = ({
         weight: fill.weightKg != null ? weightText(fill.weightKg, unit) : '',
         reps: String(fill.reps),
         effort: null,
+        load: null,
       };
     }
     const i = Number(key);
-    // The set just completed seeds the next one; last week / the suggestion
-    // only apply before the first set of the exercise is logged.
+    // The set just completed seeds the next one; the newest past set / the
+    // suggestion only apply before the first set of the exercise is logged.
     const fill = nextSetPrefill({
       logged: working,
       planReps: rows[i]?.reps,
-      lastWeek,
+      lastSet,
       suggestedKg: suggested,
     });
     return {
       weight: fill.weightKg != null ? weightText(fill.weightKg, unit) : '',
       reps: String(fill.reps),
       effort: null,
+      load: fill.load,
     };
   };
   const draftFor = (key: RowKey): RowDraft => drafts.get(storeKey(key)) ?? seedDraft(key);
+  // Typing (or ±) over the weight invalidates how it was built: only the sheet
+  // writes `load`, and it always writes the matching text with it.
   const patchDraft = (key: RowKey, patch: Partial<RowDraft>) =>
-    writeDraft(workoutLogId, storeKey(key), { ...draftFor(key), ...patch });
+    writeDraft(workoutLogId, storeKey(key), {
+      ...draftFor(key),
+      ...patch,
+      ...('weight' in patch && !('load' in patch) ? { load: null } : {}),
+    });
 
   const setWarmupRows = (n: number) =>
     writeSlotCounts(workoutLogId, planned.slotId, { warmup: Math.max(0, n), extra: extraRows });
@@ -464,11 +516,17 @@ const ExerciseCard = ({
       return;
     }
     const weightKg = unit === 'lb' ? lbToKg(w) : w;
-    logSet({
+    const logged = logSet({
       workoutLogId,
       exerciseId: planned.exerciseId,
       weightKg,
       reps: r,
+      load: reconcileLoad({
+        draft: draft.load,
+        setting: loadSetting?.load,
+        weightKg,
+        unilateral: facts?.unilateral,
+      }),
       ...(isWarmup
         ? { isWarmup: true }
         : { rir: effort?.rir ?? null, isFailure: effort?.failure ?? false }),
@@ -482,6 +540,7 @@ const ExerciseCard = ({
       restSeconds: planned.restSeconds ?? 120,
       slotId: planned.slotId,
       doneCount: doneCount + 1,
+      logged,
     });
   };
 
@@ -503,7 +562,10 @@ const ExerciseCard = ({
       actions: [
         ...options.map((e) => ({
           label: e.name,
-          onPress: () => swapSnapshotExercise(workoutLogId, planned.slotId, e.id, e.name),
+          onPress: () => {
+            swapSnapshotExercise(workoutLogId, planned.slotId, e.id, e.name);
+            clearDraftLoads(workoutLogId, planned.slotId);
+          },
         })),
         { label: t('common.cancel'), style: 'cancel' as const },
       ],
@@ -512,6 +574,27 @@ const ExerciseCard = ({
 
   const activeDraft = activeKey ? draftFor(activeKey) : null;
   const activeRow = activeKey && !activeIsWarmup ? (rows[Number(activeKey)] ?? null) : null;
+  const detailActive = hasLoadDetail(loadSetting);
+  /** What the number in the row means, when it is not simply the total. */
+  const rowCaption = (draft: RowDraft): string | null => {
+    const value = Number(draft.weight);
+    if (draft.weight === '' || !Number.isFinite(value)) return null;
+    const draftDumbbell = draft.load?.kind === 'dumbbell' ? draft.load : null;
+    if (draftDumbbell || loadSetting?.load?.kind === 'dumbbell') {
+      const hands = draftDumbbell?.hands ?? defaultHands(facts?.unilateral);
+      if (hands === 2)
+        return t('load.perHandCaption', {
+          perHand: draft.weight,
+          // Already in the display unit; only the float noise of ×2 is trimmed.
+          total: Math.round(value * 200) / 100,
+          unit,
+        });
+      return t('load.perSideCaption', { value: draft.weight, unit });
+    }
+    if (facts?.unilateral) return t('load.perSideCaption', { value: draft.weight, unit });
+    if (draft.load) return describeLoad(draft.load, unit).parts;
+    return null;
+  };
 
   return (
     <Card
@@ -564,6 +647,18 @@ const ExerciseCard = ({
         </View>
       ) : null}
 
+      {facts?.unilateral ? (
+        <View className="mt-2">
+          <BadgeRow
+            tone="info"
+            items={[{ value: 'unilateral', label: t('training.unilateral') }]}
+          />
+          <Text className="mt-1 text-xs leading-4 text-ink-400">
+            {t('training.unilateralHint')}
+          </Text>
+        </View>
+      ) : null}
+
       <SessionNotes slotNote={planned.notes} exerciseId={planned.exerciseId} />
 
       {lastWeek.length ? (
@@ -599,6 +694,8 @@ const ExerciseCard = ({
               onConfirm={() => void confirm(activeKey)}
               onRemove={() => setWarmupRows(warmupRows - 1)}
               onOpenCalculator={() => setCalcOpen(true)}
+              detailActive={detailActive}
+              caption={rowCaption(activeDraft)}
             />
           ) : null}
         </View>
@@ -636,6 +733,8 @@ const ExerciseCard = ({
               onChange={(patch) => patchDraft(key, patch)}
               onConfirm={() => void confirm(key)}
               onOpenCalculator={() => setCalcOpen(true)}
+              detailActive={detailActive}
+              caption={rowCaption(draftFor(key))}
             />
           );
         })}
@@ -726,14 +825,20 @@ const ExerciseCard = ({
         ) : null}
       </View>
 
-      {/* Per-side / total calculator: applies straight into the live row's draft. */}
+      {/* The load sheet applies straight into the live row's draft, and a
+          changed setup is remembered on the exercise for the next session. */}
       <WeightCalculatorSheet
         visible={calcOpen}
         onClose={() => setCalcOpen(false)}
         unit={unit}
-        initialTotal={activeDraft?.weight ?? ''}
-        onApply={(weight) => {
-          if (activeKey) patchDraft(activeKey, { weight });
+        initialWeight={activeDraft?.weight ?? ''}
+        initialLoad={activeDraft?.load ?? loadSetting?.load ?? null}
+        equipment={facts?.equipment ?? null}
+        unilateral={!!facts?.unilateral}
+        onApply={({ weightText, load, changed }) => {
+          if (!activeKey) return;
+          patchDraft(activeKey, { weight: weightText, load });
+          if (changed && load) upsertExerciseSetting(userId, planned.exerciseId, { load });
         }}
       />
     </Card>
@@ -765,30 +870,6 @@ const WorkoutSession = () => {
     if (current && current.workoutId !== id) void endRest();
   }, [id]);
 
-  // The "training in progress" notification lives from the first visit until
-  // finish/abandon — deliberately NOT torn down on unmount: leaving the screen
-  // (tab switch) does not end the session, and the check-in delay reads it.
-  const liveWorkoutId = log?.status === 'in_progress' ? log.id : null;
-  useEffect(() => {
-    if (!liveWorkoutId || sessionState.get()?.workoutId === liveWorkoutId) return;
-    const started = getWorkout(liveWorkoutId);
-    if (!started) return;
-    void ensureNotificationPermission().finally(() => {
-      // The permission prompt can outlast the session: a quick finish/abandon
-      // ends it first, and showing now would resurrect a notification (and
-      // session record) for a workout that is already over.
-      if (getWorkout(started.id)?.status !== 'in_progress') return;
-      void showSession({
-        workoutId: started.id,
-        startedAt: started.startedAt.getTime(),
-        title: t('session.notifTitle'),
-        exerciseName: started.plannedSnapshot?.[0]?.name ?? '',
-        setLabel: '',
-        nextLabel: '',
-      });
-    });
-  }, [liveWorkoutId, t]);
-
   const { units: unit, setUnits } = useUnits();
   const [layout, setLayout] = useState<WorkoutLayout>(settings.getWorkoutLayout());
   const [showArt, setShowArt] = useState(() => settings.getShowExerciseArt());
@@ -818,7 +899,6 @@ const WorkoutSession = () => {
   }, []);
   const activeRest = useActiveRest();
   const rest = activeRest?.workoutId === log?.id ? activeRest : null;
-  const clock = useClockFormat();
   const scrollRef = useRef<ComponentRef<typeof KeyboardAwareScrollView>>(null);
   const cardY = useRef(new Map<string, number>());
   const [summary, setSummary] = useState<SessionSummary | null>(null);
@@ -827,8 +907,10 @@ const WorkoutSession = () => {
   const day = workoutDayId ? getWorkoutDay(workoutDayId) : null;
   const { data: sets } = useLiveQuery(setLogsQuery(typeof id === 'string' ? id : ''), [id]);
 
-  // Prefill source: last week's sets per snapshot slot — re-read when a slot
-  // swaps exercise, so a variant never inherits another variant's loads.
+  // Prefill sources per snapshot slot, keyed by the exercise ON the slot and
+  // re-read when a slot swaps exercise, so a variant never inherits another
+  // variant's loads. "Last week" feeds the card's reference line; the newest
+  // logged set of the exercise seeds the first row.
   const prefillKey = prefillSourceKey(log?.plannedSnapshot ?? []);
   const lastWeekBySlot = useMemo(() => {
     if (!log?.plannedSnapshot || !workoutDayId) return new Map<string, SetLog[]>();
@@ -836,6 +918,34 @@ const WorkoutSession = () => {
       log.plannedSnapshot.map((p) => [
         p.slotId,
         lastWeekSets(p.exerciseId, workoutDayId, log.weekNumber - 1),
+      ]),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [log?.id, prefillKey]);
+  const lastSetBySlot = useMemo(() => {
+    if (!log?.plannedSnapshot) return new Map<string, SetLog | null>();
+    return new Map(log.plannedSnapshot.map((p) => [p.slotId, lastLoggedSet(p.exerciseId)]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [log?.id, prefillKey]);
+  // What each card needs to know about its exercise beyond the snapshot, keyed
+  // by the exercise ON the slot (never the slot): a swap shows the variant's
+  // own tag and its own saved load. Deps are load-bearing (AGENTS.md).
+  const exerciseIds = (log?.plannedSnapshot ?? []).map((p) => p.exerciseId);
+  const { data: factRows } = useLiveQuery(exerciseFactsQuery(exerciseIds), [prefillKey]);
+  const { data: settingRows } = useLiveQuery(exerciseSettingsQuery(user?.id ?? '', exerciseIds), [
+    user?.id,
+    prefillKey,
+  ]);
+  const factsById = new Map(factRows.map((r) => [r.id, r]));
+  const settingById = new Map(settingRows.map((r) => [r.exerciseId, r]));
+  // Lifted out of the card so the notification's "next load" is the same
+  // number the row will open with.
+  const suggestedBySlot = useMemo(() => {
+    if (!log?.plannedSnapshot) return new Map<string, number | null>();
+    return new Map(
+      log.plannedSnapshot.map((p) => [
+        p.slotId,
+        suggestedWeight(p.exerciseId, p.setGroups[0]?.reps ?? 8, 2),
       ]),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -859,6 +969,83 @@ const WorkoutSession = () => {
     const y = cardY.current.get(focusSlot);
     if (y != null) scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
   }, [focusSlot]);
+
+  const workingSetsFor = (exerciseId: string) =>
+    sets.filter((s) => !s.isWarmup && s.exerciseId === exerciseId);
+  const doneFor = (exerciseId: string) => workingSetsFor(exerciseId).length;
+
+  /**
+   * The next set as frozen copy for the notification: what the card will show
+   * once the lifter gets there, prefilled by the same chain the row uses.
+   * `justLogged` is folded in because the live query lags the write by a tick.
+   */
+  const nextSetCopy = (
+    planned: PlannedSlot[],
+    upcoming: NextSet,
+    justLogged?: SetLog,
+  ): NextSetCopy | null => {
+    if (upcoming.kind === 'done') return null;
+    const slot = planned.find((p) => p.slotId === upcoming.slotId);
+    if (!slot) return null;
+    const row = expandRows(slot.setGroups, t)[upcoming.setNumber - 1];
+    const logged = workingSetsFor(slot.exerciseId);
+    if (justLogged?.exerciseId === slot.exerciseId && !logged.some((s) => s.id === justLogged.id))
+      logged.push(justLogged);
+    const fill = nextSetPrefill({
+      logged,
+      planReps: row?.reps,
+      lastSet: lastSetBySlot.get(slot.slotId) ?? null,
+      suggestedKg: suggestedBySlot.get(slot.slotId) ?? null,
+    });
+    return {
+      slotId: slot.slotId,
+      exerciseName: slot.name,
+      setLabel: t('session.setOf', { n: upcoming.setNumber, total: upcoming.setTotal }),
+      targetLabel: row ? targetLine(row, t) : '',
+      weightLabel: fill.weightKg != null ? `${weightText(fill.weightKg, unit)} ${unit}` : '',
+    };
+  };
+
+  const sessionRecord = (workout: WorkoutLog, next: NextSetCopy | null): ActiveSession => ({
+    workoutId: workout.id,
+    startedAt: workout.startedAt.getTime(),
+    title: t('session.notifTitle'),
+    next,
+    doneLabel: t('training.restLast'),
+  });
+
+  // The "training in progress" notification lives from the first visit until
+  // finish/abandon — deliberately NOT torn down on unmount: leaving the screen
+  // (tab switch) does not end the session, and the check-in delay reads it.
+  const liveWorkoutId = log?.status === 'in_progress' ? log.id : null;
+  useEffect(() => {
+    if (!liveWorkoutId || sessionState.get()?.workoutId === liveWorkoutId) return;
+    const started = getWorkout(liveWorkoutId);
+    if (!started) return;
+    void ensureNotificationPermission().finally(() => {
+      // The permission prompt can outlast the session: a quick finish/abandon
+      // ends it first, and showing now would resurrect a notification (and
+      // session record) for a workout that is already over.
+      if (getWorkout(started.id)?.status !== 'in_progress') return;
+      // The first face names the first open set; every logged set redraws it.
+      const snapshot = started.plannedSnapshot ?? [];
+      const first = nextSetSummary(snapshot, '', 0, doneFor);
+      void showSession(sessionRecord(started, nextSetCopy(snapshot, first)));
+    });
+    // The helpers close over the live sets and prefill maps: a stale read on
+    // this one-time draw is corrected by the first logged set.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveWorkoutId, t]);
+
+  // The OS may kill the foreground service alone and take the card with it;
+  // a re-post of the current face is idempotent and cheap.
+  useEffect(() => {
+    if (!liveWorkoutId) return;
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active' && sessionState.get()?.workoutId === liveWorkoutId) void redrawSession();
+    });
+    return () => sub.remove();
+  }, [liveWorkoutId]);
 
   if (!user || !log || log.status !== 'in_progress') return <Redirect href="/training" />;
 
@@ -885,71 +1072,40 @@ const WorkoutSession = () => {
       setEffortResolve(() => resolver);
     });
 
-  const nextSetLine = (next: NextSet): string => {
-    if (next.kind === 'done') return t('training.restLast');
-    const key = next.kind === 'same' ? 'training.restNext' : 'training.restNextNew';
-    return t(key, {
-      exercise: next.exerciseName,
-      n: next.setNumber,
-      total: next.setTotal,
-      reps: next.reps,
-    });
-  };
-
-  // Rest copy is frozen at start (an event, not render) so the lock-screen
-  // notification can be redrawn headlessly without i18n.
+  // Copy is frozen here (an event, not render) so the one notification can be
+  // redrawn headlessly without i18n. The session face is written first and the
+  // rest layered on it, so the card never shows a stale next set mid-rest.
   const onLogged = ({
     restSeconds,
     slotId,
     doneCount,
+    logged,
   }: {
     restSeconds: number;
     slotId: string;
     doneCount: number;
+    logged: SetLog;
   }) => {
     const startedAt = Date.now();
-    const endsAt = startedAt + restSeconds * 1000;
-    const ends = new Date(endsAt);
-    const upcoming = nextSetSummary(
-      planned,
-      slotId,
-      doneCount,
-      (exerciseId) => setsFor(exerciseId).length,
-    );
-    const next = nextSetLine(upcoming);
-    const slot = planned.find((p) => p.slotId === slotId);
-    const setLabel = slot
-      ? t('session.setOf', { n: doneCount, total: Math.max(doneCount, plannedSets(slot)) })
-      : '';
-    const currentLabel = [slot?.name, setLabel].filter(Boolean).join(' · ');
-    const endsLabel = t('training.restEndsAt', {
-      time: formatClockTime(ends.getHours() * 60 + ends.getMinutes(), clock),
-    });
+    const upcoming = nextSetSummary(planned, slotId, doneCount, doneFor);
+    const record = sessionRecord(log, nextSetCopy(planned, upcoming, logged));
     const restPayload = {
       workoutId: log.id,
       slotId,
       startedAt,
-      endsAt,
+      endsAt: startedAt + restSeconds * 1000,
       copy: {
         restingTitle: t('training.restOngoingTitle'),
-        restingBody: `${next} · ${endsLabel}`,
         overTitle: t('training.restDoneTitle'),
-        overBody: next,
         skipLabel: t('training.skip'),
+        readyLabel: t('training.restReady'),
         plus30Label: t('training.restPlus30'),
         plus60Label: t('training.restPlus1'),
-        currentLabel,
       },
     };
-    void ensureNotificationPermission().finally(() => startRest(restPayload));
-    void showSession({
-      workoutId: log.id,
-      startedAt: log.startedAt.getTime(),
-      title: t('session.notifTitle'),
-      exerciseName: slot?.name ?? '',
-      setLabel,
-      nextLabel: upcoming.kind === 'done' ? '' : next,
-    });
+    void showSession(record).finally(() =>
+      ensureNotificationPermission().finally(() => startRest(restPayload)),
+    );
   };
 
   // Confirmed before anything happens: the two header buttons sit side by side,
@@ -1056,6 +1212,11 @@ const WorkoutSession = () => {
         sets={setsFor(p.exerciseId)}
         unit={unit}
         lastWeek={lastWeekBySlot.get(p.slotId) ?? []}
+        lastSet={lastSetBySlot.get(p.slotId) ?? null}
+        suggestedKg={suggestedBySlot.get(p.slotId) ?? null}
+        facts={factsById.get(p.exerciseId) ?? null}
+        loadSetting={settingById.get(p.exerciseId) ?? null}
+        userId={user.id}
         showArt={showArt}
         requestEffort={requestEffort}
         onLogged={onLogged}

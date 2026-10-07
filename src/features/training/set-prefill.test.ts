@@ -34,46 +34,58 @@ describe('weightText', () => {
 });
 
 describe('nextSetPrefill', () => {
-  const lastWeek = [{ weightKg: 80, reps: 8 }];
+  const lastSet = { weightKg: 80, reps: 9 };
 
   it('prefills from the set just completed (same load for the back-off)', () => {
     const fill = nextSetPrefill({
       logged: [{ weightKg: 100, reps: 6 }],
       planReps: 8,
-      lastWeek,
+      lastSet,
       suggestedKg: 90,
     });
-    expect(fill).toEqual({ weightKg: 100, reps: 8 });
+    expect(fill).toEqual({ weightKg: 100, reps: 8, load: null });
+  });
+
+  it('carries the just-done set’s load detail into the next row', () => {
+    const load = { kind: 'dumbbell' as const, perHandKg: 30, hands: 2 as const };
+    const fill = nextSetPrefill({
+      logged: [{ weightKg: 30, reps: 10, load }],
+      planReps: 10,
+      lastSet,
+      suggestedKg: null,
+    });
+    expect(fill).toEqual({ weightKg: 30, reps: 10, load });
   });
 
   it('uses the logged set’s own reps when the plan defines none', () => {
     const fill = nextSetPrefill({
       logged: [{ weightKg: 40, reps: 12 }],
       planReps: undefined,
-      lastWeek,
+      lastSet,
       suggestedKg: null,
     });
-    expect(fill).toEqual({ weightKg: 40, reps: 12 });
+    expect(fill).toEqual({ weightKg: 40, reps: 12, load: null });
   });
 
-  it('falls back to last week before anything is logged', () => {
+  it('repeats the newest set of the exercise — weight AND reps — before anything is logged', () => {
     const fill = nextSetPrefill({
       logged: [],
       planReps: 10,
-      lastWeek,
+      lastSet,
       suggestedKg: 90,
     });
-    expect(fill).toEqual({ weightKg: 80, reps: 10 });
+    // The plan's lower bound stays a placeholder; the value is what was done last time.
+    expect(fill).toEqual({ weightKg: 80, reps: 9, load: null });
   });
 
   it('falls back to the suggestion and a plain 8-rep row with no history', () => {
     const fill = nextSetPrefill({
       logged: [],
       planReps: undefined,
-      lastWeek: [],
+      lastSet: null,
       suggestedKg: 60,
     });
-    expect(fill).toEqual({ weightKg: 60, reps: 8 });
+    expect(fill).toEqual({ weightKg: 60, reps: 8, load: null });
   });
 });
 
