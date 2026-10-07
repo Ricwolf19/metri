@@ -17,13 +17,15 @@ type Props = {
 };
 
 /**
- * Shortcuts in one scrolling strip: the common extensions sit at scroll 0, the
- * reductions behind a divider. Bounded on purpose (+5 / −3 min): a longer rest
- * is a new rest, and the strip must stay one line (AGENTS.md: a strip of
- * badges scrolls, it never wraps).
+ * Shortcuts in one scrolling strip laid out like a number line: reductions on
+ * the left (gray), extensions on the right (brand), the smallest of each at
+ * the seam in the middle, where the strip opens — the common taps are the
+ * ±30 s / ±1 min, the extremes scroll outward. Bounded on purpose (+5 /
+ * −3 min): a longer rest is a new rest, and the strip must stay one line
+ * (AGENTS.md: a strip of badges scrolls, it never wraps).
  */
+const REDUCE_SECONDS = [-180, -120, -60, -30] as const;
 const EXTEND_SECONDS = [30, 60, 120, 180, 240, 300] as const;
-const REDUCE_SECONDS = [-30, -60, -120, -180] as const;
 
 const shiftLabel = (t: TFunction, seconds: number): string => {
   const minutes = Math.abs(seconds) / 60;
@@ -77,6 +79,8 @@ export const RestTimer = ({ endsAt, onExtend, onDone }: Props) => {
   const [remaining, setRemaining] = useState(() => Math.ceil((endsAt - Date.now()) / 1000));
   const firedRef = useRef(false);
   const over = remaining <= 0;
+  /** Content x of the seam between − and +, where the strip opens. */
+  const [seamX, setSeamX] = useState<number>();
 
   useEffect(() => {
     firedRef.current = false;
@@ -105,8 +109,8 @@ export const RestTimer = ({ endsAt, onExtend, onDone }: Props) => {
   return (
     <View
       className={[
-        'rounded-card border px-4 py-4',
-        over ? 'border-brand bg-brand/20' : 'border-brand/30 bg-brand/10',
+        'rounded-card border bg-ink-800 px-4 py-4',
+        over ? 'border-brand' : 'border-brand/30',
       ].join(' ')}
     >
       <View className="flex-row items-center justify-between">
@@ -142,12 +146,15 @@ export const RestTimer = ({ endsAt, onExtend, onDone }: Props) => {
         </Pressable>
       </View>
       <View className="mt-3">
-        <ScrollRow className="items-center gap-2">
-          {EXTEND_SECONDS.map((s) => (
+        <ScrollRow className="items-center gap-2" centerX={seamX}>
+          {REDUCE_SECONDS.map((s) => (
             <ShiftPill key={s} seconds={s} onPress={onExtend} t={t} />
           ))}
-          <View className="mx-1 h-8 w-px bg-ink-700" />
-          {REDUCE_SECONDS.map((s) => (
+          <View
+            className="mx-1 h-8 w-px bg-ink-600"
+            onLayout={(e) => setSeamX(e.nativeEvent.layout.x + e.nativeEvent.layout.width / 2)}
+          />
+          {EXTEND_SECONDS.map((s) => (
             <ShiftPill key={s} seconds={s} onPress={onExtend} t={t} />
           ))}
         </ScrollRow>
