@@ -161,7 +161,14 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   state must be visible without any animation running**: shared values start at the shown
   position and effects only decorate. A Modal-hosted view whose visibility depended on an
   effect-started reanimated animation opened invisible (touches landed, nothing drew) once the
-  React Compiler memoized it — verified on the emulator, so don't reintroduce that shape. Press
+  React Compiler memoized it — verified on the emulator, so don't reintroduce that shape. The
+  ONE exception is `<Sheet>`, whose `offset` starts at the CLOSED position: `Animated.View`
+  paints its first frame from the shared value as it is at mount, so starting at 0 drew every
+  first open fully shown for a frame, then dropped it below the edge to rise (the "double
+  render" seen in the gym). Its rise is a `useLayoutEffect` keyed on an open counter that
+  re-runs on every open and every close plays the fall before the Modal unmounts; the
+  memoization bug was an effect that did not re-run, not this shape. If a sheet ever opens
+  invisible, that layout effect is the first suspect. Press
   feedback is a 110ms timing. Bounded lists that may overflow use `<ScrollArea>` so the edge
   chevron hints there is more — inside a sheet use `<ScrollArea inSheet>` (fills the sheet,
   safe-area padded). A sheet with no `snapPoints` fits its WHOLE content up to 92% of the screen
