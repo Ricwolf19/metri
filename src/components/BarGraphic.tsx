@@ -20,6 +20,8 @@ const PLATE_COLORS: Record<number, string> = {
 };
 const plateColor = (p: number) => PLATE_COLORS[p] ?? '#a1a1aa';
 const plateHeight = (p: number) => 22 + (Math.min(p, 25) / 25) * 42;
+/** Tallest plate (64) plus breathing room; the box never changes size. */
+const GRAPHIC_HEIGHT = 96;
 
 const Plate = ({ plate }: { plate: number }) => (
   <View
@@ -55,7 +57,11 @@ export const BarGraphic = ({
   const sleeve = <View style={{ height: 6, width: 28, borderRadius: 2, backgroundColor: muted }} />;
   const collar = <View style={{ height: 10, width: 6, borderRadius: 2, backgroundColor: muted }} />;
   return (
-    <View className="w-full flex-row items-center justify-center overflow-hidden rounded-card border border-ink-700 bg-ink-900/40 px-2 py-4">
+    <View
+      // A fixed box: adding plates must not move the controls under it.
+      style={{ height: GRAPHIC_HEIGHT }}
+      className="w-full flex-row items-center justify-center overflow-hidden rounded-card border border-ink-700 bg-ink-900/40 px-2"
+    >
       {mirror ? (
         <>
           {sleeve}

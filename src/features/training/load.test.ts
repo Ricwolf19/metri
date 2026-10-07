@@ -8,6 +8,7 @@ import {
   describeLoad,
   hasLoadDetail,
   kgToUnit,
+  loadModesFor,
   loadTotalKg,
   machineLoads,
   reconcileLoad,
@@ -88,6 +89,15 @@ describe('units', () => {
     for (const e of all) expect(e in LOAD_KIND_FOR).toBe(true);
     expect(LOAD_KIND_FOR.cable).toBe('machine');
     expect(LOAD_KIND_FOR.bodyweight).toBeNull();
+  });
+
+  it('locks the sheet mode to the equipment and frees it only when unknown', () => {
+    expect(loadModesFor('machine')).toEqual(['machine']);
+    expect(loadModesFor('cable')).toEqual(['machine']);
+    expect(loadModesFor('kettlebell')).toEqual(['dumbbell']);
+    expect(loadModesFor('bodyweight')).toEqual(['none']);
+    expect(loadModesFor('other')).toHaveLength(4);
+    expect(loadModesFor(null)).toHaveLength(4);
   });
 
   it('survives an lb round-trip through kg storage', () => {

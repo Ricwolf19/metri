@@ -6,6 +6,8 @@ import { plateOptions } from './plate-math';
 
 export type { LoadDetail };
 export type LoadKind = LoadDetail['kind'];
+/** A sheet mode: how the load is built, or a plain number. */
+export type LoadMode = LoadKind | 'none';
 
 /**
  * How a load is BUILT, separate from the number the lifter names.
@@ -25,6 +27,19 @@ export const LOAD_KIND_FOR: Record<Equipment, LoadKind | null> = {
   kettlebell: 'dumbbell',
   bodyweight: null,
   other: null,
+};
+
+const EVERY_MODE: LoadMode[] = ['barbell', 'machine', 'dumbbell', 'none'];
+
+/**
+ * The modes the sheet may offer for an exercise. Known equipment LOCKS the
+ * mode — a hack squat cannot be loaded with dumbbells, and a free number on a
+ * stack machine only hides what was lifted; the choice exists for the
+ * unspecified kinds and for custom exercises without equipment.
+ */
+export const loadModesFor = (equipment: Equipment | null | undefined): LoadMode[] => {
+  if (!equipment || equipment === 'other') return EVERY_MODE;
+  return [LOAD_KIND_FOR[equipment] ?? 'none'];
 };
 
 /** Float-noise guard, same rule as `set-prefill`: 3 decimals covers every real increment. */

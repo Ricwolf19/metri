@@ -1,4 +1,4 @@
-import { View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { Input } from '@/components/ui';
 import { UnitSuffix } from '@/features/training/components/UnitSuffix';
@@ -65,12 +65,14 @@ export const MachineLoadForm = ({
           />
         </View>
       </View>
+      <LoadSectionLabel label={t('load.pickLoad')} />
+      {/* The area is always there: the grid filling it must not shove the
+          "other" field and the buttons down once the increment is typed. */}
       {pins.length ? (
-        <>
-          <LoadSectionLabel label={t('load.pickLoad')} />
-          <MachineLoadGrid loads={pins} unit={unit} selected={step} onSelect={onPick} />
-        </>
-      ) : null}
+        <MachineLoadGrid loads={pins} unit={unit} selected={step} onSelect={onPick} />
+      ) : (
+        <Text className="min-h-11 text-xs leading-4 text-ink-500">{t('load.pinsHint')}</Text>
+      )}
       <View className="mt-4">
         <Input
           label={t('load.otherLoad')}

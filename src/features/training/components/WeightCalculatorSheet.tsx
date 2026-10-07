@@ -8,14 +8,14 @@ import { useT } from '@/i18n';
 import type { Units } from '@/lib/storage';
 
 import {
-  LOAD_KIND_FOR,
   defaultHands,
   kgToUnit,
+  loadModesFor,
   machineLoads,
   snapPlate,
   unitToKg,
   type LoadDetail,
-  type LoadKind,
+  type LoadMode,
 } from '../load';
 import {
   addPlate,
@@ -32,8 +32,6 @@ import { BarbellLoadForm } from './load/BarbellLoadForm';
 import { DumbbellLoadForm } from './load/DumbbellLoadForm';
 import { LoadSectionLabel } from './load/LoadSectionLabel';
 import { MachineLoadForm } from './load/MachineLoadForm';
-
-type Mode = LoadKind | 'none';
 
 export type LoadApply = {
   /** The row's weight text in the display unit: a total, or ONE dumbbell. */
@@ -83,7 +81,7 @@ export const WeightCalculatorSheet = ({
   onApply,
 }: Props) => {
   const t = useT();
-  const [mode, setMode] = useState<Mode>('none');
+  const [mode, setMode] = useState<LoadMode>('none');
   // Barbell
   const [barId, setBarId] = useState(BARS[0].id);
   const [plates, setPlates] = useState<number[]>([]);
@@ -109,9 +107,11 @@ export const WeightCalculatorSheet = ({
     setWasVisible(visible);
     if (visible) {
       setTouched(false);
-      const kind: Mode =
-        initialLoad?.kind ?? (equipment ? LOAD_KIND_FOR[equipment] : null) ?? 'none';
-      setMode(kind);
+      // Known equipment locks the mode; a saved detail of another kind (a
+      // custom exercise whose equipment changed) yields to it.
+      const offered = loadModesFor(equipment);
+      const saved = initialLoad?.kind;
+      setMode(saved && offered.includes(saved) ? saved : offered[0]);
       const row = num(initialWeight);
       // Barbell: the saved plates when the row still carries them, else split
       // the row's total over the saved (or default) bar.
@@ -232,12 +232,14 @@ export const WeightCalculatorSheet = ({
     return { weightText: plainText, load: null, changed: true };
   };
 
-  const modeItems: { value: Mode; label: string }[] = [
-    { value: 'barbell', label: t('load.kindBarbell') },
-    { value: 'machine', label: t('load.kindMachine') },
-    { value: 'dumbbell', label: t('load.kindDumbbell') },
-    { value: 'none', label: t('load.kindNone') },
-  ];
+  const modes = loadModesFor(equipment);
+  const modeLabel: Record<LoadMode, string> = {
+    barbell: t('load.kindBarbell'),
+    machine: t('load.kindMachine'),
+    dumbbell: t('load.kindDumbbell'),
+    none: t('load.kindNone'),
+  };
+  const modeItems = modes.map((value) => ({ value, label: modeLabel[value] }));
 
   return (
     <Sheet visible={visible} onClose={onClose}>
@@ -249,8 +251,12 @@ export const WeightCalculatorSheet = ({
         </Text>
         <Text className="mb-4 text-sm leading-5 text-ink-400">{t('load.sheetHint')}</Text>
 
-        <LoadSectionLabel label={t('load.kind')} first />
-        <ChipRow items={modeItems} value={mode} onChange={edit(setMode)} />
+        {modes.length > 1 ? (
+          <>
+            <LoadSectionLabel label={t('load.kind')} first />
+            <ChipRow items={modeItems} value={mode} onChange={edit(setMode)} />
+          </>
+        ) : null}
 
         {mode === 'barbell' ? (
           <BarbellLoadForm
