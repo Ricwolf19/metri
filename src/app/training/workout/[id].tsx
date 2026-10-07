@@ -637,25 +637,31 @@ const ExerciseCard = ({
         </View>
       </View>
 
-      {badges.length ? (
+      {/* Cues and facts share ONE line — a second strip pushed the sets down. */}
+      {badges.length || facts?.unilateral ? (
         <View className="mt-2">
           <BadgeRow
             mono
             tone="brand"
-            items={badges.map((b, i) => ({ value: `${b}-${i}`, label: b }))}
+            items={[
+              ...badges.map((b, i) => ({ value: `${b}-${i}`, label: b })),
+              ...(facts?.unilateral
+                ? [
+                    {
+                      value: 'unilateral',
+                      label: t('training.unilateral'),
+                      tone: 'info' as const,
+                      mono: false,
+                    },
+                  ]
+                : []),
+            ]}
           />
-        </View>
-      ) : null}
-
-      {facts?.unilateral ? (
-        <View className="mt-2">
-          <BadgeRow
-            tone="info"
-            items={[{ value: 'unilateral', label: t('training.unilateral') }]}
-          />
-          <Text className="mt-1 text-xs leading-4 text-ink-400">
-            {t('training.unilateralHint')}
-          </Text>
+          {facts?.unilateral ? (
+            <Text className="mt-1 text-xs leading-4 text-ink-400">
+              {t('training.unilateralHint')}
+            </Text>
+          ) : null}
         </View>
       ) : null}
 
@@ -1196,7 +1202,8 @@ const WorkoutSession = () => {
         <ChipRow
           items={planned.map((p, i) => ({
             value: String(i),
-            label: `${i + 1}. ${doneSlot(p) ? t('training.exerciseDone', { name: p.name }) : p.name}`,
+            label: `${i + 1}. ${p.name}`,
+            done: doneSlot(p),
           }))}
           value={layout === 'cards' ? String(idx) : null}
           onChange={(v) => jumpToExercise(Number(v))}
