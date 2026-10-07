@@ -1,4 +1,4 @@
-import { and, asc, eq, or, isNull } from 'drizzle-orm';
+import { and, asc, eq, inArray, or, isNull } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import {
@@ -32,12 +32,22 @@ export const exercisesQuery = (userId: string, category?: ExerciseCategory) => {
     .orderBy(asc(exercises.name));
 };
 
+/** What the session needs to know about an exercise beyond its snapshot: how
+ * it is loaded and whether each side is logged on its own. Live, so a custom
+ * exercise edited mid-program is reflected on the card. */
+export const exerciseFactsQuery = (ids: string[]) =>
+  db
+    .select({ id: exercises.id, equipment: exercises.equipment, unilateral: exercises.unilateral })
+    .from(exercises)
+    .where(inArray(exercises.id, ids.length ? ids : ['']));
+
 /* ── Custom exercises (user-authored library entries) ────────────────────────── */
 
 export type ExerciseInput = {
   name: string;
   category: ExerciseCategory;
   equipment?: Equipment | null;
+  unilateral?: boolean;
   primaryMuscles?: string[] | null;
   instructions?: string | null;
 };
@@ -50,6 +60,7 @@ export const createCustomExercise = (userId: string, input: ExerciseInput): Exer
       name: input.name,
       category: input.category,
       equipment: input.equipment ?? null,
+      unilateral: input.unilateral ?? false,
       primaryMuscles: input.primaryMuscles ?? null,
       instructions: input.instructions ?? null,
       isCustom: true,

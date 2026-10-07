@@ -8,6 +8,7 @@ import {
   calculationHistory,
   customFoods,
   exerciseNotes,
+  exerciseSettings,
   exercises,
   foodLogs,
   programs,
@@ -24,7 +25,7 @@ import {
   workoutLogs,
 } from '@/db/schema';
 
-const EXPORT_VERSION = 5;
+const EXPORT_VERSION = 6;
 
 /** Everything the user owns as one JSON document. Identity/entitlement fields and device paths are
  * excluded; ids ship for in-file integrity and are regenerated on import.
@@ -34,7 +35,9 @@ const EXPORT_VERSION = 5;
  * it is deliberately absent from IMPORT_TABLES, since a row without its file is unusable.
  *
  * v5 adds the two local-only tables (`exerciseNotes`, `calculationHistory`): sync never carries
- * them, so the file is the only way they leave the device. */
+ * them, so the file is the only way they leave the device. v6 adds `exerciseSettings` (the
+ * per-exercise defaults, including the last load config); the `load` and `unilateral` columns
+ * ride on rows that were already exported. */
 export const buildExport = (userId: string) => {
   const [u] = db.select().from(users).where(eq(users.id, userId)).all();
 
@@ -120,6 +123,11 @@ export const buildExport = (userId: string) => {
       customFoods: db.select().from(customFoods).where(eq(customFoods.userId, userId)).all(),
       foodLogs: db.select().from(foodLogs).where(eq(foodLogs.userId, userId)).all(),
       exerciseNotes: db.select().from(exerciseNotes).where(eq(exerciseNotes.userId, userId)).all(),
+      exerciseSettings: db
+        .select()
+        .from(exerciseSettings)
+        .where(eq(exerciseSettings.userId, userId))
+        .all(),
       calculationHistory: db
         .select()
         .from(calculationHistory)

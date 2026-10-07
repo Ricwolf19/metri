@@ -18,7 +18,7 @@ describe('validateImport — envelope', () => {
     ['wrong app', doc({}, { app: 'other' }), 'invalid'],
     ['missing version', doc({}, { exportVersion: undefined }), 'invalid'],
     ['old version', doc({}, { exportVersion: 1 }), 'version'],
-    ['future version', doc({}, { exportVersion: 6 }), 'version'],
+    ['future version', doc({}, { exportVersion: 7 }), 'version'],
     ['data not an object', doc({}, { data: 'x' }), 'invalid'],
     ['table not an array', doc({ programs: {} }), 'invalid'],
   ])('rejects %s', (_, input, reason) => {
@@ -30,8 +30,16 @@ describe('validateImport — envelope', () => {
     expect(validateImport(doc())).toEqual({ ok: true });
   });
 
-  it.each([2, 3, 4, 5])('accepts export version %i', (exportVersion) => {
+  it.each([2, 3, 4, 5, 6])('accepts export version %i', (exportVersion) => {
     expect(validateImport(doc({}, { exportVersion }))).toEqual({ ok: true });
+  });
+
+  it('requires the exercise of a v6 setting', () => {
+    const v6 = doc({ exerciseSettings: [{ id: 'es1', restSeconds: 90 }] }, { exportVersion: 6 });
+    expect(validateImport(v6)).toMatchObject({
+      ok: false,
+      issues: [{ table: 'exerciseSettings', index: 0, field: 'exerciseId' }],
+    });
   });
 
   it('ignores the export-only progressPhotos key a v3 file carries', () => {

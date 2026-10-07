@@ -7,6 +7,7 @@ import {
   calculationHistory,
   customFoods,
   exerciseNotes,
+  exerciseSettings,
   foodLogs,
   exercises,
   programs,
@@ -116,6 +117,7 @@ const seedWorld = (userId: string) => {
 
 const wipe = () => {
   for (const table of [
+    exerciseSettings,
     setLogs,
     workoutLogs,
     trainingDays,
@@ -165,7 +167,7 @@ describe('buildExport — data freedom guarantees', () => {
 
     const doc = JSON.parse(JSON.stringify(buildExport(U1)));
 
-    expect(doc.exportVersion).toBe(5);
+    expect(doc.exportVersion).toBe(6);
     expect(doc.data.progressPhotos).toHaveLength(1);
     const [photo] = doc.data.progressPhotos;
     // The weight/date timeline is extractable...
@@ -439,6 +441,47 @@ describe('importUserData — local-only tables (v5)', () => {
 
     const squat = notesOf(U2).filter((n) => n.exerciseId === 'barbell-back-squat');
     expect(squat.map((n) => n.note)).toEqual(['mine']);
+  });
+
+  it('round-trips exercise settings with their load config, repointed at the imported custom exercise', () => {
+    const load = { kind: 'dumbbell' as const, perHandKg: 30, hands: 2 as const };
+    db.insert(exerciseSettings)
+      .values([
+        { id: 'es-custom', userId: U1, exerciseId: `${U1}-custom`, restSeconds: 90, load },
+        { id: 'es-cat', userId: U1, exerciseId: 'barbell-back-squat', restSeconds: 180 },
+      ])
+      .run();
+    const doc = JSON.parse(JSON.stringify(buildExport(U1)));
+    expect(doc.exportVersion).toBe(6);
+    expect(validateImport(doc)).toEqual({ ok: true });
+
+    const summary = importUserData(U2, doc);
+
+    expect(summary.exerciseSettings).toBe(2);
+    const [custom] = db.select().from(exercises).where(eq(exercises.userId, U2)).all();
+    const mine = db.select().from(exerciseSettings).where(eq(exerciseSettings.userId, U2)).all();
+    expect(mine.find((s) => s.restSeconds === 90)).toMatchObject({ exerciseId: custom.id, load });
+    expect(mine.find((s) => s.restSeconds === 180)?.exerciseId).toBe('barbell-back-squat');
+    expect(mine.every((s) => !['es-custom', 'es-cat'].includes(s.id))).toBe(true);
+  });
+
+  it('keeps the setting already on the device for the same exercise', () => {
+    db.insert(exerciseSettings)
+      .values({ id: 'theirs', userId: U1, exerciseId: 'barbell-back-squat', restSeconds: 180 })
+      .run();
+    db.insert(exerciseSettings)
+      .values({ id: 'own', userId: U2, exerciseId: 'barbell-back-squat', restSeconds: 60 })
+      .run();
+
+    importUserData(U2, JSON.parse(JSON.stringify(buildExport(U1))));
+
+    const squat = db
+      .select()
+      .from(exerciseSettings)
+      .where(eq(exerciseSettings.userId, U2))
+      .all()
+      .filter((s) => s.exerciseId === 'barbell-back-squat');
+    expect(squat.map((s) => s.restSeconds)).toEqual([60]);
   });
 
   it('still accepts a v4 file, which has neither key', () => {

@@ -150,6 +150,8 @@ export const exercises = sqliteTable(
     primaryMuscles: text('primary_muscles', { mode: 'json' }).$type<string[]>(),
     secondaryMuscles: text('secondary_muscles', { mode: 'json' }).$type<string[]>(),
     equipment: text('equipment').$type<Equipment>(),
+    /** One side at a time (a split squat, a single-arm row): the logged weight is per side. */
+    unilateral: integer('unilateral', { mode: 'boolean' }).notNull().default(false),
     imageUrl: text('image_url'),
     instructions: text('instructions'),
     isCustom: integer('is_custom', { mode: 'boolean' }).notNull().default(false),
@@ -378,6 +380,22 @@ export const workoutLogs = sqliteTable(
 export type WorkoutLog = typeof workoutLogs.$inferSelect;
 export type NewWorkoutLog = typeof workoutLogs.$inferInsert;
 
+/**
+ * How a logged load was built. `weight_kg` stays "the number the lifter
+ * names" — the bar + plates total, the stack, or ONE dumbbell — and this is
+ * what turns it into a system total at render (`features/training/load.ts`).
+ * Stored on the set (history) and on `exercise_settings` (the last-used
+ * config that seeds the next session). Wire format: add fields, never rename.
+ */
+export type LoadDetail =
+  /** `platesKg` is ONE side, largest first; `barKg` 0 is a plate-loaded machine. */
+  | { kind: 'barbell'; barKg: number; platesKg: number[] }
+  /** A stack or pin machine: `baseKg + steps × incrementKg`. */
+  | { kind: 'machine'; baseKg: number; incrementKg: number; steps: number }
+  /** `hands` is frozen at log time from the exercise's unilateral flag, so the
+   * total of a dumbbell set never depends on a flag that may change later. */
+  | { kind: 'dumbbell'; perHandKg: number; hands: 1 | 2 };
+
 /** A single logged set — the core training datum. Weight stored in kg. */
 export const setLogs = sqliteTable(
   'set_logs',
@@ -394,6 +412,8 @@ export const setLogs = sqliteTable(
     isFailure: integer('is_failure', { mode: 'boolean' }).notNull().default(false),
     notes: text('notes'),
     restBeforeSeconds: integer('rest_before_seconds'),
+    /** How the load was built; null for a plain typed number (and all pre-upgrade rows). */
+    load: text('load', { mode: 'json' }).$type<LoadDetail>(),
     createdAt: tsMs('created_at').notNull().default(NOW_MS),
     updatedAt: tsMs('updated_at'),
   },
@@ -639,6 +659,8 @@ export const exerciseSettings = sqliteTable(
     restSeconds: integer('rest_seconds'),
     badges: text('badges', { mode: 'json' }).$type<string[]>(),
     alternativeExerciseIds: text('alternative_exercise_ids', { mode: 'json' }).$type<string[]>(),
+    /** The last load config applied in a session (bar, stack increment, dumbbell): seeds the sheet next time. */
+    load: text('load', { mode: 'json' }).$type<LoadDetail>(),
     createdAt: tsMs('created_at').notNull().default(NOW_MS),
     updatedAt: tsMs('updated_at').notNull().default(NOW_MS),
   },

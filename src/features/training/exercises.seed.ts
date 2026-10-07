@@ -20,6 +20,8 @@ export type ExerciseSeed = {
   primaryMuscles: MuscleHead[];
   secondaryMuscles: MuscleHead[];
   equipment: Equipment;
+  /** One side at a time: the lifter logs the weight per side (seed v9). */
+  unilateral?: true;
 };
 
 export const EXERCISE_SEEDS: ExerciseSeed[] = [
@@ -144,6 +146,7 @@ export const EXERCISE_SEEDS: ExerciseSeed[] = [
     primaryMuscles: ['hamstrings'],
     secondaryMuscles: [],
     equipment: 'machine',
+    unilateral: true,
   },
   {
     id: 'barbell-curl',
@@ -243,6 +246,7 @@ export const EXERCISE_SEEDS: ExerciseSeed[] = [
     primaryMuscles: ['side_delts'],
     secondaryMuscles: [],
     equipment: 'cable',
+    unilateral: true,
   },
   {
     id: 'rear-delt-fly',
@@ -283,6 +287,7 @@ export const EXERCISE_SEEDS: ExerciseSeed[] = [
     primaryMuscles: ['lats', 'mid_back'],
     secondaryMuscles: ['biceps'],
     equipment: 'dumbbell',
+    unilateral: true,
   },
   {
     id: 'seated-cable-row',
@@ -315,6 +320,7 @@ export const EXERCISE_SEEDS: ExerciseSeed[] = [
     primaryMuscles: ['quads', 'glutes'],
     secondaryMuscles: ['hamstrings'],
     equipment: 'dumbbell',
+    unilateral: true,
   },
   {
     id: 'preacher-curl',
@@ -379,5 +385,6 @@ export const EXERCISE_SEEDS: ExerciseSeed[] = [
     primaryMuscles: ['triceps'],
     secondaryMuscles: [],
     equipment: 'cable',
+    unilateral: true,
   },
 ];

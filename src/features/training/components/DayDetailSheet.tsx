@@ -18,6 +18,7 @@ import { adherenceDot } from '../adherence-colors';
 import { dayDisplayName, exerciseDisplayName } from '../labels';
 import { dayQuery, markTrainingDay } from '../adherence.repo';
 import { getDayDetail, type LoggedSet } from '../day-events';
+import { setVolumeKg } from '../load';
 import { fromKg } from '../progression';
 import { DeleteSessionButton } from './DeleteSessionButton';
 import { SessionTimeline } from './SessionTimeline';
@@ -222,7 +223,7 @@ export const DayDetailSheet = ({
                   .slice(0, 8)
                   .map((ex) => ({
                     label: displayName(ex).slice(0, 6),
-                    value: ex.sets.reduce((n, s) => n + s.weightKg * s.reps, 0),
+                    value: ex.sets.reduce((n, s) => n + setVolumeKg(s), 0),
                   }))}
                 lines={workouts
                   .flatMap((w) => w.exercises)

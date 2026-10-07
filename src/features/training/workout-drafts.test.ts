@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   clearDraft,
+  clearDraftLoads,
   clearSessionDrafts,
   readSessionDrafts,
   readSlotCounts,
@@ -15,6 +16,20 @@ describe('workout draft store', () => {
   afterEach(() => {
     clearSessionDrafts('log-1');
     clearSessionDrafts('log-2');
+  });
+
+  it('drops only the load details of a swapped slot, keeping its typed rows', () => {
+    const load = { kind: 'barbell' as const, barKg: 20, platesKg: [20] };
+    writeDraft('log-1', 'slot-a:0', { weight: '60', reps: '8', effort: null, load });
+    writeDraft('log-1', 'slot-b:0', { weight: '30', reps: '10', effort: null, load });
+    clearDraftLoads('log-1', 'slot-a');
+    expect(readSessionDrafts('log-1').get('slot-a:0')).toEqual({
+      weight: '60',
+      reps: '8',
+      effort: null,
+      load: null,
+    });
+    expect(readSessionDrafts('log-1').get('slot-b:0')?.load).toEqual(load);
   });
 
   it('keeps drafts across simulated unmounts (store outlives the screen)', () => {

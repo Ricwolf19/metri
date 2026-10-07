@@ -1,4 +1,4 @@
-import { and, eq, isNotNull } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import {
@@ -6,6 +6,7 @@ import {
   userPrograms,
   workoutDayExercises,
   type ExerciseSetting,
+  type LoadDetail,
   type WorkoutDayExercise,
 } from '@/db/schema';
 import { randomId } from '@/lib/crypto';
@@ -24,7 +25,21 @@ type SettingPatch = {
   restSeconds?: number | null;
   badges?: string[] | null;
   alternativeExerciseIds?: string[] | null;
+  /** Written only by the session's weight sheet; it is not a slot field and never propagates. */
+  load?: LoadDetail | null;
 };
+
+/** Live: the settings of the exercises on a session's cards (deps: the user and the slot→exercise key). */
+export const exerciseSettingsQuery = (userId: string, exerciseIds: string[]) =>
+  db
+    .select()
+    .from(exerciseSettings)
+    .where(
+      and(
+        eq(exerciseSettings.userId, userId),
+        inArray(exerciseSettings.exerciseId, exerciseIds.length ? exerciseIds : ['']),
+      ),
+    );
 
 /** Plain rest for a slot when the owner configured none. */
 const FALLBACK_REST_SECONDS = 120;

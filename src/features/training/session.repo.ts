@@ -12,6 +12,7 @@ import {
   workoutDays,
   workoutLogs,
   type Exercise,
+  type LoadDetail,
   type PlannedSlot,
   type SetGroup,
   type SetLog,
@@ -25,6 +26,7 @@ import { recordDeletion } from '@/features/sync/tombstones';
 
 import { localDateKey, markTrainingDay, releaseTrainingDay } from './adherence.repo';
 import { advanceUserProgram, rewindUserProgram } from './enroll';
+import { setVolumeKg } from './load';
 import { estimate1Rm, roundToPlate, weightForReps } from './progression';
 
 /* ── Active session ──────────────────────────────────────────────────────── */
@@ -214,7 +216,9 @@ export const programSessionsQuery = (userProgramId: string) =>
       dayName: workoutDays.name,
       dayOrder: workoutDays.orderIndex,
       setCount: sql<number>`count(${setLogs.id})`,
-      volumeKg: sql<number>`coalesce(sum(${setLogs.weightKg} * ${setLogs.reps}), 0)`,
+      // The typed number IS the total for a bar or a stack; only two dumbbells
+      // double it (`load.ts` `setVolumeKg`, in SQL for the live aggregate).
+      volumeKg: sql<number>`coalesce(sum(${setLogs.weightKg} * ${setLogs.reps} * coalesce(json_extract(${setLogs.load}, '$.hands'), 1)), 0)`,
     })
     .from(workoutLogs)
     .leftJoin(workoutDays, eq(workoutDays.id, workoutLogs.workoutDayId))
@@ -271,6 +275,7 @@ export type LogSetInput = {
   isWarmup?: boolean;
   isFailure?: boolean;
   restBeforeSeconds?: number | null;
+  load?: LoadDetail | null;
 };
 
 /** Append a set; the set number is derived from the sets already logged for it. */
@@ -296,6 +301,7 @@ export const logSet = (input: LogSetInput): SetLog => {
       isWarmup: input.isWarmup ?? false,
       isFailure: input.isFailure ?? false,
       restBeforeSeconds: input.restBeforeSeconds ?? null,
+      load: input.load ?? null,
     })
     .returning()
     .all();
@@ -462,7 +468,7 @@ export const sessionSummary = (logId: string, locale: Locale = 'en'): SessionSum
     .from(setLogs)
     .where(and(eq(setLogs.workoutLogId, logId), eq(setLogs.isWarmup, false)))
     .all();
-  const volumeKg = Math.round(rows.reduce((sum, r) => sum + r.weightKg * r.reps, 0));
+  const volumeKg = Math.round(rows.reduce((sum, r) => sum + setVolumeKg(r), 0));
   const durationSeconds = log
     ? Math.max(0, Math.round((Date.now() - log.startedAt.getTime()) / 1000))
     : 0;

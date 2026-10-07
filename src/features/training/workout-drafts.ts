@@ -1,10 +1,18 @@
 import { useCallback, useSyncExternalStore } from 'react';
 
+import type { LoadDetail } from '@/db/schema';
+
 /** What the lifter reports after a set; `rir: null` = deliberately skipped. */
 export type Effort = { rir: number | null; failure: boolean };
 
-/** The in-progress inputs of one set row — strings, exactly what was typed. */
-export type RowDraft = { weight: string; reps: string; effort: Effort | null };
+/** The in-progress inputs of one set row — strings, exactly what was typed,
+ * plus how the weight was built when it came from the sheet (kg). */
+export type RowDraft = {
+  weight: string;
+  reps: string;
+  effort: Effort | null;
+  load?: LoadDetail | null;
+};
 
 /** `${slotId}:${rowKey}` — rowKey is the exercise-card row (`0`, `1`, …, `w0`, …). */
 export type DraftKey = string;
@@ -53,6 +61,23 @@ export const clearDraft = (logId: string, key: DraftKey): void => {
   const rows = new Map(session.rows);
   rows.delete(key);
   setSession(logId, { ...session, rows });
+};
+
+/**
+ * A slot swapped to another exercise keeps its typed rows but not how they were
+ * built: a bar + plates detail logged against a dumbbell variant would lie.
+ */
+export const clearDraftLoads = (logId: string, slotId: string): void => {
+  const session = read(logId);
+  const rows = new Map(session.rows);
+  let changed = false;
+  for (const [key, draft] of rows) {
+    if (key.startsWith(`${slotId}:`) && draft.load) {
+      rows.set(key, { ...draft, load: null });
+      changed = true;
+    }
+  }
+  if (changed) setSession(logId, { ...session, rows });
 };
 
 export const writeSlotCounts = (logId: string, slotId: string, counts: SlotCounts): void => {

@@ -92,6 +92,37 @@ describe('seedTraining v4', () => {
     expect(pDays).toHaveLength(4);
   });
 
+  it('v9 marks the per-side movements unilateral and nothing else', async () => {
+    await seedTraining();
+
+    const flagged = db
+      .select({ id: exercises.id })
+      .from(exercises)
+      .where(eq(exercises.unilateral, true))
+      .all()
+      .map((r) => r.id)
+      .sort();
+    expect(flagged).toEqual([
+      'bulgarian-split-squat',
+      'cable-kickback',
+      'cable-lateral-raise',
+      'dumbbell-row',
+      'standing-leg-curl',
+    ]);
+  });
+
+  it('v9 re-seed flips the flag on an install that already had the row', async () => {
+    db.insert(exercises)
+      .values({ id: 'dumbbell-row', name: 'Row', category: 'back', isCustom: false })
+      .run();
+    db.run(sql`INSERT INTO app_meta (key, value) VALUES ('training_seed_version', '8')`);
+
+    await seedTraining();
+
+    const [row] = db.select().from(exercises).where(eq(exercises.id, 'dumbbell-row')).all();
+    expect(row.unilateral).toBe(true);
+  });
+
   it('is idempotent per version flag', async () => {
     await seedTraining();
     await seedTraining();

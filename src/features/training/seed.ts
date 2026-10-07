@@ -45,9 +45,12 @@ import { warmupSeeds } from './warmup-content';
  * v8 upserts template week configs too (they used to be insert-only, so a
  * prescription edit never reached an existing install). Editing a preset's
  * prescription or slot meta needs a bump to land.
+ *
+ * v9 adds `unilateral` to the catalog (per-side logging); the upsert below is
+ * what flips it on existing installs.
  */
 const SEED_KEY = 'training_seed_version';
-const SEED_VERSION = '8';
+const SEED_VERSION = '9';
 
 const alreadySeeded = (): boolean => {
   const [row] = db.select().from(appMeta).where(eq(appMeta.key, SEED_KEY)).all();
@@ -188,6 +191,7 @@ const seedExercises = (): void => {
         primaryMuscles: ex.primaryMuscles,
         secondaryMuscles: ex.secondaryMuscles,
         equipment: ex.equipment,
+        unilateral: ex.unilateral ?? false,
         imageUrl: null,
         isCustom: false,
       })
@@ -201,6 +205,7 @@ const seedExercises = (): void => {
           primaryMuscles: ex.primaryMuscles,
           secondaryMuscles: ex.secondaryMuscles,
           equipment: ex.equipment,
+          unilateral: ex.unilateral ?? false,
           isCustom: false,
           updatedAt: new Date(),
         },

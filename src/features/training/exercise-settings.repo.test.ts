@@ -56,6 +56,32 @@ describe('exercise settings', () => {
     expect(setting?.badges).toEqual(['CON PAUSA']);
   });
 
+  it('stores the last load config without touching any slot', () => {
+    db.insert(programs).values({ id: 'p', name: 'P', isCustom: true, userId: U }).run();
+    db.insert(routines).values({ id: 'r', programId: 'p', name: '', orderIndex: 0 }).run();
+    db.insert(workoutDays).values({ id: 'd', routineId: 'r', name: '', orderIndex: 0 }).run();
+    db.insert(userPrograms).values({ id: 'up', userId: U, programId: 'p', status: 'active' }).run();
+    db.insert(workoutDayExercises)
+      .values({
+        id: 'slot',
+        workoutDayId: 'd',
+        exerciseId: 'deadlift',
+        orderIndex: 1,
+        userProgramId: 'up',
+        defaultRestSeconds: 120,
+      })
+      .run();
+    const load = { kind: 'barbell' as const, barKg: 20, platesKg: [20, 10] };
+    const slotRow = () =>
+      db.select().from(workoutDayExercises).where(eq(workoutDayExercises.id, 'slot')).all()[0];
+    const before = slotRow();
+
+    upsertExerciseSetting(U, 'deadlift', { load });
+
+    expect(getExerciseSetting(U, 'deadlift')?.load).toEqual(load);
+    expect(slotRow()).toEqual(before);
+  });
+
   it('seeds a new slot with the owner defaults', () => {
     db.insert(programs).values({ id: 'p', name: 'P', isCustom: true, userId: U }).run();
     db.insert(routines).values({ id: 'r', programId: 'p', name: '', orderIndex: 0 }).run();

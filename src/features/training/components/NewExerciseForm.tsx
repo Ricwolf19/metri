@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import {
   Button,
   Card,
   Input,
   Select,
+  Switch,
   TagPicker,
   type SelectItem,
   type TagSection,
@@ -45,6 +46,7 @@ export const NewExerciseForm = ({
   const [name, setName] = useState('');
   const [muscles, setMuscles] = useState<string[]>([]);
   const [equipment, setEquipment] = useState<Equipment>();
+  const [unilateral, setUnilateral] = useState(false);
 
   const submit = () => {
     if (name.trim().length < 2) return toast.error(t('editor.exerciseName'));
@@ -56,6 +58,7 @@ export const NewExerciseForm = ({
         category: HEAD_CATEGORY[heads[0]],
         primaryMuscles: heads,
         equipment: equipment ?? null,
+        unilateral,
       }),
     );
   };
@@ -93,6 +96,19 @@ export const NewExerciseForm = ({
         onChange={setEquipment}
         placeholder="—"
       />
+      <View className="flex-row items-center gap-4">
+        <View className="flex-1">
+          <Text className="text-sm font-sans-medium text-ink-100">{t('editor.unilateral')}</Text>
+          <Text className="mt-0.5 text-[11px] leading-4 text-ink-500">
+            {t('editor.unilateralHint')}
+          </Text>
+        </View>
+        <Switch
+          value={unilateral}
+          onValueChange={setUnilateral}
+          accessibilityLabel={t('editor.unilateral')}
+        />
+      </View>
       <View className="flex-row gap-2">
         <View className="flex-1">
           <Button label={t('common.cancel')} variant="secondary" onPress={onCancel} />

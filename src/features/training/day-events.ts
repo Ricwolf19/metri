@@ -1,9 +1,10 @@
 import { and, asc, desc, eq, gte, lt, sql } from 'drizzle-orm';
 
 import { db } from '@/db/client';
-import { exercises, setLogs, users, workoutDays, workoutLogs } from '@/db/schema';
+import { exercises, setLogs, users, workoutDays, workoutLogs, type LoadDetail } from '@/db/schema';
 
 import { dayBounds } from './dates';
+import { setVolumeKg } from './load';
 
 /**
  * Everything the app recorded on a calendar day — the data behind the day
@@ -13,6 +14,8 @@ import { dayBounds } from './dates';
 export type LoggedSet = {
   setNumber: number;
   weightKg: number;
+  /** How the load was built (kg); absent on pre-upgrade rows and in older callers. */
+  load?: LoadDetail | null;
   reps: number;
   rir: number | null;
   rpe: number | null;
@@ -81,6 +84,7 @@ export const getDayDetail = (userId: string, dateKey: string): DayDetail => {
         setNumber: set.setNumber,
         weightKg: set.weightKg,
         reps: set.reps,
+        load: set.load,
         rir: set.rir,
         rpe: set.rpe,
         isFailure: set.isFailure,
@@ -94,7 +98,7 @@ export const getDayDetail = (userId: string, dateKey: string): DayDetail => {
       dayOrder: day?.orderIndex ?? null,
       durationSeconds: log.durationSeconds,
       setCount: sets.length,
-      volumeKg: Math.round(sets.reduce((sum, { set }) => sum + set.weightKg * set.reps, 0)),
+      volumeKg: Math.round(sets.reduce((sum, { set }) => sum + setVolumeKg(set), 0)),
       exercises: [...byExercise.values()],
     };
   });

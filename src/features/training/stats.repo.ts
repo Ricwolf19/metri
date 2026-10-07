@@ -1,9 +1,10 @@
 import { and, asc, desc, eq, gte, inArray } from 'drizzle-orm';
 
 import { db } from '@/db/client';
-import { exercises, setLogs, workoutLogs } from '@/db/schema';
+import { exercises, setLogs, workoutLogs, type SetLog } from '@/db/schema';
 
 import { localDateKey } from './adherence.repo';
+import { setVolumeKg } from './load';
 import { sessionAdherence, type EffortAdherence, type EffortSet } from './effort-stats';
 import type { LoadedSet, MuscleIndex } from './muscle-load';
 
@@ -25,11 +26,16 @@ const firstMondayFor = (weeks: number): Date => {
   return d;
 };
 
-export type VolumeSet = { weightKg: number; reps: number; createdAt: Date };
+export type VolumeSet = Pick<SetLog, 'weightKg' | 'reps' | 'load'> & { createdAt: Date };
 
 export const weeklyVolumeQuery = (userId: string, weeks = 8) =>
   db
-    .select({ weightKg: setLogs.weightKg, reps: setLogs.reps, createdAt: setLogs.createdAt })
+    .select({
+      weightKg: setLogs.weightKg,
+      reps: setLogs.reps,
+      load: setLogs.load,
+      createdAt: setLogs.createdAt,
+    })
     .from(setLogs)
     .innerJoin(workoutLogs, eq(workoutLogs.id, setLogs.workoutLogId))
     .where(
@@ -52,7 +58,7 @@ export const bucketVolume = (rows: VolumeSet[], weeks = 8): WeekVolume[] => {
   }
   for (const r of rows) {
     const key = weekStartKey(r.createdAt);
-    if (buckets.has(key)) buckets.set(key, (buckets.get(key) ?? 0) + r.weightKg * r.reps);
+    if (buckets.has(key)) buckets.set(key, (buckets.get(key) ?? 0) + setVolumeKg(r));
   }
   return [...buckets.entries()].map(([weekStart, volume]) => ({
     weekStart,
@@ -275,6 +281,7 @@ export const recentWorkouts = (userId: string, limit = 5): RecentWorkout[] => {
       workoutLogId: setLogs.workoutLogId,
       weightKg: setLogs.weightKg,
       reps: setLogs.reps,
+      load: setLogs.load,
     })
     .from(setLogs)
     .where(
@@ -293,7 +300,7 @@ export const recentWorkouts = (userId: string, limit = 5): RecentWorkout[] => {
     return {
       ...log,
       setCount: own.length,
-      volumeKg: Math.round(own.reduce((sum, s) => sum + s.weightKg * s.reps, 0)),
+      volumeKg: Math.round(own.reduce((sum, s) => sum + setVolumeKg(s), 0)),
     };
   });
 };

@@ -8,6 +8,7 @@ import {
   calculationHistory,
   customFoods,
   exerciseNotes,
+  exerciseSettings,
   exercises,
   foodLogs,
   programs,
@@ -44,6 +45,7 @@ const TABLES: Record<ImportTable, Parameters<typeof getTableColumns>[0]> = {
   customFoods,
   foodLogs,
   exerciseNotes,
+  exerciseSettings,
   calculationHistory,
 };
 
@@ -125,14 +127,15 @@ export const importUserData = (
 
         const insert = tx.insert(schema).values(value as never);
         // Unique per (user, date[, site]) — an existing day always wins over the file.
-        // Same for a note: one per (user, exercise), and the one on the device is the
-        // lifter's latest word. `exerciseId` already went through the id map, so a
-        // note on an imported custom exercise lands on the fresh copy (no conflict).
+        // Same for a note or a setting: one per (user, exercise), and the one on the
+        // device is the lifter's latest word. `exerciseId` already went through the id
+        // map, so one on an imported custom exercise lands on the fresh copy (no conflict).
         if (
           table === 'trainingDays' ||
           table === 'bodyMetrics' ||
           table === 'bodyMeasurements' ||
-          table === 'exerciseNotes'
+          table === 'exerciseNotes' ||
+          table === 'exerciseSettings'
         ) {
           insert.onConflictDoNothing().run();
         } else insert.run();

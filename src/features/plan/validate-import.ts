@@ -8,8 +8,9 @@ export type ImportValidation =
 
 /** Versions this build can restore. Every bump so far only ADDS keys (v3: export-only
  * `progressPhotos` metadata; v4: the body and food tables; v5: exercise notes and calculator
- * history), so an older file is a valid newer one minus those keys — they all import identically. */
-const SUPPORTED_IMPORT_VERSIONS = [2, 3, 4, 5] as const;
+ * history; v6: exercise settings), so an older file is a valid newer one minus those keys — they
+ * all import identically. */
+const SUPPORTED_IMPORT_VERSIONS = [2, 3, 4, 5, 6] as const;
 
 export const IMPORT_TABLES = [
   'exercises',
@@ -29,6 +30,7 @@ export const IMPORT_TABLES = [
   'customFoods',
   'foodLogs',
   'exerciseNotes',
+  'exerciseSettings',
   'calculationHistory',
 ] as const;
 
@@ -77,6 +79,7 @@ const REQUIRED: Record<ImportTable, FieldSpec> = {
     kcal: 'number',
   },
   exerciseNotes: { exerciseId: 'string', note: 'string' },
+  exerciseSettings: { exerciseId: 'string' },
   calculationHistory: { calcId: 'string', primaryValue: 'string' },
 };
 
