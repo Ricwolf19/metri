@@ -50,6 +50,9 @@ module.exports = {
         // Brand (metri.info parity): lime CTA/active color + its contrast text.
         brand: 'rgb(var(--brand) / <alpha-value>)',
         brandContrast: 'rgb(var(--brand-contrast) / <alpha-value>)',
+        // Informational signal (a per-side tag, "a load detail is saved"):
+        // distinct from lime, which already means active / selected.
+        info: 'rgb(var(--info) / <alpha-value>)',
         // Secondary "PR" orange — used sparingly (mirrors web --flame).
         flame: '#ff6b35',
       },

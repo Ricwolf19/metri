@@ -9,11 +9,12 @@ type Badge = {
   onPress?: () => void;
 };
 
-type Tone = 'muted' | 'brand';
+type Tone = 'muted' | 'brand' | 'info';
 
 type Props = {
   items: Badge[];
-  /** `brand` marks prescriptions the lifter must honour; `muted` is context. */
+  /** `brand` marks prescriptions the lifter must honour; `muted` is context;
+   * `info` is a fact about the exercise (per side) — never a selection. */
   tone?: Tone;
   /** Renders the text in the monospaced face, for cues like `Bench 30°` — case as typed. */
   mono?: boolean;
@@ -22,8 +23,13 @@ type Props = {
 const PILL: Record<Tone, string> = {
   muted: 'bg-ink-800',
   brand: 'border border-brand/25 bg-brand/10',
+  info: 'border border-info/25 bg-info/10',
 };
-const LABEL: Record<Tone, string> = { muted: 'text-ink-300', brand: 'text-brand' };
+const LABEL: Record<Tone, string> = {
+  muted: 'text-ink-300',
+  brand: 'text-brand',
+  info: 'text-info',
+};
 
 /**
  * A strip of small pills on one sideways-scrolling line — muscles a session

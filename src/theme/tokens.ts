@@ -31,6 +31,7 @@ export const THEME_VARS: Record<ThemeScheme, Record<string, string>> = {
     '--accent-fill': '190 248 43', // lime-400 — button/CTA fills on dark
     '--brand': '190 248 43', // lime-400 — CTA / active
     '--brand-contrast': '8 9 13', // ink-950 — text on brand fills
+    '--info': '56 189 248', // sky-400 — informational, never "active"
   },
   light: {
     '--ink-900': '250 250 250', // app background (near-white)
@@ -49,6 +50,7 @@ export const THEME_VARS: Record<ThemeScheme, Record<string, string>> = {
     '--accent-fill': '132 204 22', // lime-600 — calmer green for fills on white
     '--brand': '77 124 15', // lime-800 — CTA / active on light
     '--brand-contrast': '247 254 231', // lime-50 — text on brand fills
+    '--info': '3 105 161', // sky-700 — informational on white
   },
 };
 

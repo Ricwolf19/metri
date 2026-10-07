@@ -27,6 +27,8 @@ type ThemeContextValue = {
   muted: string;
   /** Destructive icon color (red-500) — delete / discard glyphs. */
   danger: string;
+  /** Informational icon color (sky): a per-side tag, a saved load detail. Never "active". */
+  info: string;
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -82,6 +84,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       brandContrast: scheme === 'dark' ? '#08090d' : '#f7fee7',
       muted: '#71717a',
       danger: '#ef4444',
+      info: scheme === 'dark' ? '#38bdf8' : '#0369a1',
     };
   }, [preference, scheme, setPreference]);
 
