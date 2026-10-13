@@ -8,8 +8,16 @@ vi.mock('@/db/client', async () => ({ db: await createTestDb() }));
 vi.mock('@/lib/crypto', () => ({ randomId: () => crypto.randomUUID() }));
 
 const { db } = await import('@/db/client');
-const { effortSummary, effortSets, monthlyWorkouts, recentWorkouts, workoutCounts, loadedSets } =
-  await import('./stats.repo');
+const {
+  effortSummary,
+  effortSets,
+  monthlyWorkouts,
+  recentWorkouts,
+  workoutCounts,
+  loadedSets,
+  exerciseSetsSinceQuery,
+  groupByExercise,
+} = await import('./stats.repo');
 
 const U = 'u-1';
 const EPOCH = new Date('2020-01-01');
@@ -201,5 +209,99 @@ describe('effortSets and loadedSets', () => {
       isFailure: false,
     });
     expect(typeof loadedSets(U, EPOCH)[0].at).toBe('number');
+  });
+});
+
+describe('exerciseSetsSinceQuery + groupByExercise', () => {
+  beforeEach(() => {
+    wipe();
+    db.insert(exercises)
+      .values({ id: 'squat', name: 'Squat', category: 'legs', primaryMuscles: ['quads'] })
+      .run();
+  });
+
+  /** A completed session that logs sets of several exercises, in the order given. */
+  const multi = (
+    completedAt: Date,
+    sets: { exerciseId: string; weightKg: number; isWarmup?: boolean }[],
+    status: 'completed' | 'in_progress' = 'completed',
+  ) => {
+    const id = `multi-${seq++}`;
+    db.insert(workoutLogs)
+      .values({
+        id,
+        userId: U,
+        userProgramId: 'up',
+        workoutDayId: 'day',
+        weekNumber: 1,
+        status,
+        startedAt: completedAt,
+        completedAt: status === 'completed' ? completedAt : null,
+      })
+      .run();
+    const counted = new Map<string, number>();
+    sets.forEach((s, i) => {
+      const n = (counted.get(s.exerciseId) ?? 0) + 1;
+      counted.set(s.exerciseId, n);
+      db.insert(setLogs)
+        .values({
+          id: `${id}-set-${i}`,
+          workoutLogId: id,
+          exerciseId: s.exerciseId,
+          setNumber: n,
+          weightKg: s.weightKg,
+          reps: 5,
+          isWarmup: s.isWarmup ?? false,
+          createdAt: completedAt,
+        })
+        .run();
+    });
+    return id;
+  };
+
+  it('carries the stored exercise name on every row and groups sessions per exercise', () => {
+    const d1 = new Date('2026-09-01');
+    const d2 = new Date('2026-09-08');
+    multi(d1, [
+      { exerciseId: 'bench', weightKg: 80 },
+      { exerciseId: 'squat', weightKg: 100 },
+      { exerciseId: 'bench', weightKg: 82.5 },
+    ]);
+    multi(d2, [{ exerciseId: 'squat', weightKg: 105 }]);
+
+    const rows = exerciseSetsSinceQuery(U, EPOCH).all();
+    // Rows come per session, then set number: exercises interleave and the grouper splits them.
+    expect(rows.map((r) => r.exerciseName)).toEqual(['Bench', 'Squat', 'Bench', 'Squat']);
+
+    const { sessions, names } = groupByExercise(rows);
+    expect(names.get('bench')).toBe('Bench');
+    expect(sessions.get('bench')).toHaveLength(1);
+    expect(sessions.get('bench')?.[0].sets.map((s) => s.weightKg)).toEqual([80, 82.5]);
+    expect(sessions.get('squat')?.map((s) => s.sets[0].weightKg)).toEqual([100, 105]);
+  });
+
+  it('excludes warm-ups and sessions still open, and honours `since`', () => {
+    multi(new Date('2026-01-10'), [{ exerciseId: 'bench', weightKg: 60 }]);
+    multi(new Date('2026-09-01'), [
+      { exerciseId: 'bench', weightKg: 40, isWarmup: true },
+      { exerciseId: 'bench', weightKg: 80 },
+    ]);
+    multi(new Date('2026-09-02'), [{ exerciseId: 'squat', weightKg: 100 }], 'in_progress');
+
+    const rows = exerciseSetsSinceQuery(U, new Date('2026-06-01')).all();
+    expect(rows.map((r) => [r.exerciseId, r.weightKg])).toEqual([['bench', 80]]);
+  });
+
+  it('orders sets by number inside a session so the top set of each is comparable', () => {
+    const d = new Date('2026-09-01');
+    multi(d, [
+      { exerciseId: 'bench', weightKg: 70 },
+      { exerciseId: 'bench', weightKg: 75 },
+      { exerciseId: 'bench', weightKg: 72.5 },
+    ]);
+    const [session] = groupByExercise(exerciseSetsSinceQuery(U, EPOCH).all()).sessions.get(
+      'bench',
+    )!;
+    expect(session.sets.map((s) => s.weightKg)).toEqual([70, 75, 72.5]);
   });
 });

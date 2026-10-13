@@ -364,6 +364,21 @@ describe('seedTraining v4', () => {
     expect(enrolled()).toEqual(before);
   });
 
+  it('v13 re-seed stamps the RM-test week on an existing template routine and nothing else', async () => {
+    await seedTraining();
+    db.update(routines)
+      .set({ rmTestWeek: null, name: 'Renamed by the lifter' })
+      .where(eq(routines.id, 'metri-progression-p1'))
+      .run();
+    db.run(sql`UPDATE app_meta SET value = '12' WHERE key = 'training_seed_version'`);
+
+    await seedTraining();
+
+    const [p1] = db.select().from(routines).where(eq(routines.id, 'metri-progression-p1')).all();
+    expect(p1.rmTestWeek).toBe(4);
+    expect(p1.name).toBe('Renamed by the lifter');
+  });
+
   it('v12 retires the 2-split phase-3 TEMPLATE and leaves an enrolled copy of it alone', async () => {
     // Arrange: a v11 install whose template still has the old r3 and a user enrolled in it.
     await seedTraining();

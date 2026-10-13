@@ -122,6 +122,11 @@ describe('validateImport — rows', () => {
     ['wrong primitive', { programs: [{ id: 'p', name: 3 }] }, 'name'],
     ['unknown enum', { exercises: [{ id: 'e', name: 'x', category: 'neck' }] }, 'category'],
     [
+      'unknown day status',
+      { trainingDays: [{ id: 'd', date: '2026-01-05', status: 'nap' }] },
+      'status',
+    ],
+    [
       'numeric field as string',
       { setLogs: [{ id: 's', workoutLogId: 'w', exerciseId: 'e', weightKg: '80', reps: 8 }] },
       'weightKg',
@@ -132,6 +137,12 @@ describe('validateImport — rows', () => {
     if (result.ok) return;
     const [table] = Object.keys(data);
     expect(result.issues).toContainEqual({ table, index: 0, field });
+  });
+
+  it.each(['trained', 'rest', 'skipped', 'active'])('accepts the %s day status', (status) => {
+    expect(
+      validateImport(doc({ trainingDays: [{ id: 'd', date: '2026-01-05', status }] })),
+    ).toEqual({ ok: true });
   });
 
   it('reports every issue, not just the first', () => {
