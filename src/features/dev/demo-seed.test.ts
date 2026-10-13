@@ -53,6 +53,21 @@ describe('demo seed (dev only)', () => {
     expect(enrollment.currentWeek).toBe(2);
   });
 
+  it('numbers sets per exercise within a log, like logSet, when a split repeats one', () => {
+    seedDemoData(U, 'en');
+    const seen = new Set<string>();
+    for (const s of db.select().from(setLogs).all()) {
+      const key = `${s.workoutLogId}:${s.exerciseId}:${s.setNumber}`;
+      expect(seen.has(key), `duplicate set number ${key}`).toBe(false);
+      seen.add(key);
+    }
+    // Foundations Side B lists cable-crunch twice: its second slot continues the count.
+    const perLog = new Map<string, number>();
+    for (const s of db.select().from(setLogs).where(eq(setLogs.exerciseId, 'cable-crunch')).all())
+      perLog.set(s.workoutLogId, Math.max(perLog.get(s.workoutLogId) ?? 0, s.setNumber));
+    expect(Math.max(...perLog.values())).toBeGreaterThan(3);
+  });
+
   it('refuses to seed over an enrollment and wipes everything it wrote', () => {
     expect(seedDemoData(U, 'es')).not.toBeNull();
     expect(seedDemoData(U, 'es')).toBeNull();

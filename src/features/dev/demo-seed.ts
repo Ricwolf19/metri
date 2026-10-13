@@ -184,6 +184,10 @@ export const seedDemoData = (userId: string, locale: Locale): DemoSeedSummary | 
       .orderBy(workoutDayExercises.orderIndex)
       .all();
     let clock = at.getTime() + 5 * 60_000;
+    // Set numbers count per (log, exercise) like `logSet`: a split that lists
+    // the same exercise twice (Foundations Side B) continues at 4, never
+    // restarts at 1, or the day sheet's per-exercise rows get duplicate keys.
+    const counted = new Map<string, number>();
     for (const { slot, config } of slots) {
       const fact = facts.get(slot.exerciseId);
       const base = baseKg(fact?.equipment ?? null, fact?.category ?? 'other');
@@ -192,12 +196,14 @@ export const seedDemoData = (userId: string, locale: Locale): DemoSeedSummary | 
       const sets = config?.sets ?? 3;
       const reps = config?.reps ?? 10;
       for (let n = 1; n <= sets; n++) {
+        const setNumber = (counted.get(slot.exerciseId) ?? 0) + 1;
+        counted.set(slot.exerciseId, setNumber);
         db.insert(setLogs)
           .values({
             id: randomId(),
             workoutLogId: logId,
             exerciseId: slot.exerciseId,
-            setNumber: n,
+            setNumber,
             weightKg,
             reps: n === sets && random() < 0.4 ? Math.max(1, reps - 1) : reps,
             rir: config?.toFailure ? null : 2,
