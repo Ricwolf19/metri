@@ -6,7 +6,7 @@ import { View } from 'react-native';
 import { Card, Stat } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { computeStreak, getActiveTrainingWeekdays } from '@/features/training/adherence.repo';
-import { fromKg } from '@/features/training/progression';
+import { fromKgHalf } from '@/features/training/progression';
 import { bucketVolume, weeklyVolumeQuery } from '@/features/training/stats.repo';
 import { useT } from '@/i18n';
 import { settings } from '@/lib/storage';
@@ -32,7 +32,7 @@ export const SummarySection = ({ headerRight }: MetricsSectionProps) => {
         <Stat label={t('metrics.streak')} value={`${streak}`} unit={t('metrics.days')} />
         <Stat
           label={t('metrics.weekVolume')}
-          value={fmtVol(fromKg(volume[volume.length - 1]?.volume ?? 0, unit))}
+          value={fmtVol(fromKgHalf(volume[volume.length - 1]?.volume ?? 0, unit))}
           unit={unit}
         />
       </Card>

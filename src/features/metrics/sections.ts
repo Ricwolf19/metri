@@ -6,6 +6,7 @@ import { AnalyticsSection } from './components/AnalyticsSection';
 import { BodySection } from './components/BodySection';
 import { ConsistencySection } from './components/ConsistencySection';
 import { ExerciseHistorySection } from './components/ExerciseHistorySection';
+import { ExerciseTrendsSection } from './components/ExerciseTrendsSection';
 import { PhotosSection } from './components/PhotosSection';
 import { SummarySection } from './components/SummarySection';
 import { orderedIds, visibleIds, type MetricsLayout, type MetricsSectionId } from './layout';
@@ -27,6 +28,7 @@ const SECTIONS: Record<MetricsSectionId, Omit<MetricsSection, 'id'>> = {
   analytics: { labelKey: 'metrics.sectionAnalytics', Component: AnalyticsSection },
   exercises: { labelKey: 'metrics.sectionExercises', Component: ExerciseHistorySection },
   photos: { labelKey: 'metrics.sectionPhotos', Component: PhotosSection },
+  exerciseTrends: { labelKey: 'metrics.sectionExerciseTrends', Component: ExerciseTrendsSection },
 };
 
 const resolve = (ids: MetricsSectionId[]): MetricsSection[] =>

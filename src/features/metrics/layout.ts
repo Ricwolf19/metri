@@ -5,7 +5,7 @@
  * Ids are persisted in MMKV: never rename or reuse one.
  */
 export type MetricsSectionId =
-  'consistency' | 'summary' | 'body' | 'analytics' | 'photos' | 'exercises';
+  'consistency' | 'summary' | 'body' | 'analytics' | 'photos' | 'exercises' | 'exerciseTrends';
 
 /**
  * The order metri ships: are you showing up, how are the headline numbers,
@@ -19,6 +19,8 @@ export const SECTION_IDS: MetricsSectionId[] = [
   'analytics',
   'exercises',
   'photos',
+  // Shipped after the others: a saved layout appends it (see `orderedIds`).
+  'exerciseTrends',
 ];
 
 /** What the user arranged: the order they dragged, plus what they switched off. */

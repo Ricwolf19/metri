@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, gte, inArray } from 'drizzle-orm';
 
 import { db } from '@/db/client';
-import { exercises, setLogs, workoutLogs, type SetLog } from '@/db/schema';
+import { exercises, setLogs, workoutLogs, type LoadDetail, type SetLog } from '@/db/schema';
 
 import { localDateKey } from './adherence.repo';
 import { setVolumeKg } from './load';
@@ -70,17 +70,27 @@ export const bucketVolume = (rows: VolumeSet[], weeks = 8): WeekVolume[] => {
 export type ExerciseSession = {
   logId: string;
   completedAt: Date;
-  sets: { weightKg: number; reps: number }[];
+  /** Working sets in order; `load` lets volume count two dumbbells (`setVolumeKg`). */
+  sets: { weightKg: number; reps: number; load: LoadDetail | null }[];
 };
 
-/** All completed working sets of one exercise, grouped per session, newest first. */
-export const exerciseHistory = (userId: string, exerciseId: string): ExerciseSession[] => {
-  const rows = db
+type HistoryRow = {
+  logId: string;
+  completedAt: Date | null;
+  weightKg: number;
+  reps: number;
+  load: LoadDetail | null;
+};
+
+/** Live: every completed working set of one exercise, newest session first (deps: user + exercise). */
+export const exerciseHistoryQuery = (userId: string, exerciseId: string) =>
+  db
     .select({
       logId: workoutLogs.id,
       completedAt: workoutLogs.completedAt,
       weightKg: setLogs.weightKg,
       reps: setLogs.reps,
+      load: setLogs.load,
     })
     .from(setLogs)
     .innerJoin(workoutLogs, eq(workoutLogs.id, setLogs.workoutLogId))
@@ -92,12 +102,13 @@ export const exerciseHistory = (userId: string, exerciseId: string): ExerciseSes
         eq(setLogs.isWarmup, false),
       ),
     )
-    .orderBy(desc(workoutLogs.completedAt), asc(setLogs.setNumber))
-    .all();
+    .orderBy(desc(workoutLogs.completedAt), asc(setLogs.setNumber));
 
+/** Rows of one exercise (already ordered by session, then set) folded into sessions. */
+export const groupSessions = (rows: readonly HistoryRow[]): ExerciseSession[] => {
   const sessions: ExerciseSession[] = [];
   for (const r of rows) {
-    const set = { weightKg: r.weightKg, reps: r.reps };
+    const set = { weightKg: r.weightKg, reps: r.reps, load: r.load };
     const last = sessions[sessions.length - 1];
     if (last?.logId === r.logId) last.sets.push(set);
     else sessions.push({ logId: r.logId, completedAt: r.completedAt ?? new Date(0), sets: [set] });
@@ -105,20 +116,50 @@ export const exerciseHistory = (userId: string, exerciseId: string): ExerciseSes
   return sessions;
 };
 
-export type TopSetWeek = { weekStart: string; label: string; topKg: number };
+/** Live: every completed working set since `since`, across exercises, with the
+ * exercise's stored name riding along so the section needs no second read. */
+export const exerciseSetsSinceQuery = (userId: string, since: Date) =>
+  db
+    .select({
+      exerciseId: setLogs.exerciseId,
+      exerciseName: exercises.name,
+      logId: workoutLogs.id,
+      completedAt: workoutLogs.completedAt,
+      weightKg: setLogs.weightKg,
+      reps: setLogs.reps,
+      load: setLogs.load,
+    })
+    .from(setLogs)
+    .innerJoin(workoutLogs, eq(workoutLogs.id, setLogs.workoutLogId))
+    .innerJoin(exercises, eq(exercises.id, setLogs.exerciseId))
+    .where(
+      and(
+        eq(workoutLogs.userId, userId),
+        eq(workoutLogs.status, 'completed'),
+        eq(setLogs.isWarmup, false),
+        gte(workoutLogs.completedAt, since),
+      ),
+    )
+    .orderBy(asc(workoutLogs.completedAt), asc(setLogs.setNumber));
 
-/** Heaviest working set per calendar week, oldest → newest (last `weeks`). */
-export const topSetByWeek = (sessions: ExerciseSession[], weeks = 8): TopSetWeek[] => {
-  const buckets = new Map<string, number>();
-  for (const s of sessions) {
-    const key = weekStartKey(s.completedAt);
-    const top = Math.max(...s.sets.map((x) => x.weightKg));
-    buckets.set(key, Math.max(buckets.get(key) ?? 0, top));
+type ExerciseRow = HistoryRow & { exerciseId: string; exerciseName: string };
+
+/** The rows of `exerciseSetsSinceQuery` as sessions per exercise, plus each exercise's stored name. */
+export const groupByExercise = (
+  rows: readonly ExerciseRow[],
+): { sessions: Map<string, ExerciseSession[]>; names: Map<string, string> } => {
+  const byExercise = new Map<string, HistoryRow[]>();
+  const names = new Map<string, string>();
+  for (const r of rows) {
+    const list = byExercise.get(r.exerciseId) ?? [];
+    list.push(r);
+    byExercise.set(r.exerciseId, list);
+    names.set(r.exerciseId, r.exerciseName);
   }
-  return [...buckets.entries()]
-    .sort(([a], [b]) => (a < b ? -1 : 1))
-    .slice(-weeks)
-    .map(([weekStart, topKg]) => ({ weekStart, label: weekLabel(weekStart), topKg }));
+  return {
+    sessions: new Map([...byExercise.entries()].map(([id, list]) => [id, groupSessions(list)])),
+    names,
+  };
 };
 
 export type LoggedExercise = { exerciseId: string; name: string; sessions: number };

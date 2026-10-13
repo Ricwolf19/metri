@@ -43,8 +43,10 @@ import {
   weeklyVolumeQuery,
   workoutCounts,
 } from '@/features/training/stats.repo';
+import { fromKgHalf } from '@/features/training/progression';
 import { useT } from '@/i18n';
 import { useDateFormat } from '@/lib/useDateFormat';
+import { useUnits } from '@/lib/useUnits';
 import { useNow } from '@/lib/useNow';
 import { useTheme } from '@/theme/theme-context';
 
@@ -68,6 +70,8 @@ export const AnalyticsSection = ({ headerRight }: MetricsSectionProps) => {
   const t = useT();
   const theme = useTheme();
   const { user } = useAuth();
+  // Volume rows are kg from SQL; everything shown converts and rounds to the half.
+  const { units: unit } = useUnits();
   const { date: formatDate } = useDateFormat();
   const now = useNow();
 
@@ -172,7 +176,7 @@ export const AnalyticsSection = ({ headerRight }: MetricsSectionProps) => {
     bars: volume.map((w, i) => ({
       label: w.label,
       value: w.volume,
-      display: fmtVol(w.volume),
+      display: fmtVol(fromKgHalf(w.volume, unit)),
       color: theme.brand,
       highlight: i === volume.length - 1,
     })),
@@ -296,7 +300,9 @@ export const AnalyticsSection = ({ headerRight }: MetricsSectionProps) => {
               <Text className="ml-3 shrink-0 text-xs text-ink-400">
                 {t('stats.setsCount', { n: w.setCount })}
               </Text>
-              <Text className="ml-3 shrink-0 text-xs text-ink-500">{w.volumeKg} kg</Text>
+              <Text className="ml-3 shrink-0 text-xs text-ink-500">
+                {fromKgHalf(w.volumeKg, unit)} {unit}
+              </Text>
             </View>
           ))}
         </Card>

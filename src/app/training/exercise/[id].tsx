@@ -1,26 +1,47 @@
+import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Linking, Pressable, Text, View } from 'react-native';
 
+import { ShareIcon, StarIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
-import { Card, DurationPicker, FadeInUp, Screen, ScreenTitle, TextLink } from '@/components/ui';
+import {
+  Card,
+  DurationPicker,
+  FadeInUp,
+  IconButton,
+  Screen,
+  ScreenTitle,
+  TextLink,
+} from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
-import { CalcChart } from '@/features/calculators/components/CalcChart';
-import type { CalcChart as Chart } from '@/features/calculators/types';
 import { BadgesEditor } from '@/features/training/components/BadgesEditor';
 import { ExerciseDocButton } from '@/features/training/components/ExerciseDocButton';
 import { ExerciseFrames } from '@/features/training/components/ExerciseFrames';
+import { ExerciseTrendCard } from '@/features/training/components/ExerciseTrendCard';
+import { MachineLoadChooser } from '@/features/training/components/MachineLoadChooser';
 import { ExerciseNote } from '@/features/training/components/ExerciseNote';
 import { getExercise } from '@/features/training/exercises.repo';
 import { EXERCISE_CONTENT } from '@/features/training/exercise-content';
+import { buildExerciseSeries } from '@/features/training/exercise-trend';
+import { exerciseShareModel } from '@/features/share/models';
+import { ShareSheet } from '@/features/share/ShareSheet';
 import {
   getExerciseSetting,
   upsertExerciseSetting,
+  type SettingPatch,
 } from '@/features/training/exercise-settings.repo';
 import { visualIdFor } from '@/features/training/exercise-visuals';
 import { exerciseDisplayName } from '@/features/training/labels';
-import { fromKg } from '@/features/training/progression';
-import { exerciseHistory, topSetByWeek } from '@/features/training/stats.repo';
+import {
+  machineLoadKind,
+  PLATE_MACHINE_SEED,
+  POST_MACHINE_SEED,
+  STACK_MACHINE_SEED,
+  type MachineKind,
+} from '@/features/training/load';
+import { fromKgHalf } from '@/features/training/progression';
+import { exerciseHistoryQuery, groupSessions } from '@/features/training/stats.repo';
 import { useI18n, useT } from '@/i18n';
 import { mmss } from '@/lib/duration';
 import { settings, type Units } from '@/lib/storage';
@@ -31,9 +52,9 @@ import { useTheme } from '@/theme/theme-context';
 const fmtSession = (sets: { weightKg: number; reps: number }[], unit: Units): string => {
   const first = sets[0]?.weightKg ?? 0;
   if (sets.every((s) => s.weightKg === first)) {
-    return `${fromKg(first, unit)}${unit} × ${sets.map((s) => s.reps).join(',')}`;
+    return `${fromKgHalf(first, unit)}${unit} × ${sets.map((s) => s.reps).join(',')}`;
   }
-  return sets.map((s) => `${fromKg(s.weightKg, unit)}×${s.reps}`).join(' · ');
+  return sets.map((s) => `${fromKgHalf(s.weightKg, unit)}×${s.reps}`).join(' · ');
 };
 
 /**
@@ -74,47 +95,70 @@ const ExerciseHistory = () => {
   const t = useT();
   const { locale } = useI18n();
   const { dayMonth } = useDateFormat();
-  const { brand } = useTheme();
+  const { brand, muted } = useTheme();
   const unit = settings.getUnits();
 
   const exercise = id ? getExercise(id) : null;
-  const sessions = useMemo(
-    () =>
-      (user && id ? exerciseHistory(user.id, id) : []).sort(
-        (a, b) => b.completedAt.getTime() - a.completedAt.getTime(),
-      ),
-    [user, id],
+  // Live, with deps: a screen mounted before auth resolves must not stay bound
+  // to an empty user (AGENTS.md), and a set deleted elsewhere re-renders here.
+  const { data: rows } = useLiveQuery(exerciseHistoryQuery(user?.id ?? '', id ?? ''), [
+    user?.id,
+    id,
+  ]);
+  const sessions = useMemo(() => groupSessions(rows), [rows]);
+  const points = useMemo(() => buildExerciseSeries(sessions), [sessions]);
+  const prLogIds = useMemo(
+    () => new Set(points.filter((p) => p.isPr).map((p) => p.logId)),
+    [points],
   );
-  const weekly = useMemo(() => topSetByWeek(sessions), [sessions]);
   const [setting, setSetting] = useState(() =>
     user && id ? getExerciseSetting(user.id, id) : null,
   );
   const [restOpen, setRestOpen] = useState(false);
-
-  const chart: Chart = {
-    kind: 'bars',
-    max: Math.max(1, ...weekly.map((w) => w.topKg)),
-    bars: weekly.map((w, i) => ({
-      label: w.label,
-      value: w.topKg,
-      display: `${fromKg(w.topKg, unit)}${unit}`,
-      color: brand,
-      highlight: i === weekly.length - 1,
-    })),
-  };
+  const [sharing, setSharing] = useState(false);
 
   const dateLabel = dayMonth;
   const content = id ? (EXERCISE_CONTENT[id]?.[locale] ?? null) : null;
   const visualId = exercise ? visualIdFor(exercise) : null;
 
-  const saveSetting = (patch: { restSeconds?: number | null; badges?: string[] | null }) => {
+  const saveSetting = (patch: SettingPatch) => {
     if (!user || !id) return;
     upsertExerciseSetting(user.id, id, patch);
     setSetting(getExerciseSetting(user.id, id));
   };
+  // A machine's loading (plates vs pin stack) is chosen on the session card the
+  // first time; this is where it can be changed later. Switching kinds resets
+  // the saved config — the next session's sheet asks for the new base/pins.
+  const machineKind = exercise?.equipment === 'machine' ? machineLoadKind(setting?.load) : null;
+  const chooseMachineKind = (kind: MachineKind) =>
+    saveSetting({
+      load:
+        kind === 'plates'
+          ? PLATE_MACHINE_SEED
+          : kind === 'post'
+            ? POST_MACHINE_SEED
+            : STACK_MACHINE_SEED,
+    });
 
   return (
-    <Screen scroll contentClassName="px-5 pb-10" header={<TopBar showBack />}>
+    <Screen
+      scroll
+      contentClassName="px-5 pb-10"
+      header={
+        <TopBar
+          showBack
+          right={
+            exercise && points.length ? (
+              <IconButton
+                icon={<ShareIcon color={muted} size={18} />}
+                onPress={() => setSharing(true)}
+                accessibilityLabel={t('share.exercise')}
+              />
+            ) : undefined
+          }
+        />
+      }
+    >
       <ScreenTitle
         title={exercise ? exerciseDisplayName(exercise, locale) : t('exHistory.title')}
         subtitle={t('exHistory.subtitle')}
@@ -180,6 +224,12 @@ const ExerciseHistory = () => {
               value={setting?.badges ?? []}
               onChange={(badges) => saveSetting({ badges: badges.length ? badges : null })}
             />
+
+            {exercise.equipment === 'machine' ? (
+              <View className="mt-4">
+                <MachineLoadChooser value={machineKind} onChange={chooseMachineKind} />
+              </View>
+            ) : null}
           </Card>
         </FadeInUp>
       ) : null}
@@ -227,12 +277,9 @@ const ExerciseHistory = () => {
         </Card>
       ) : (
         <>
-          {weekly.length > 1 ? (
+          {points.length > 1 ? (
             <FadeInUp>
-              <Card>
-                <Text className="mb-3 text-xs text-ink-400">{t('exHistory.topSetWeek')}</Text>
-                <CalcChart chart={chart} />
-              </Card>
+              <ExerciseTrendCard points={points} unit={unit} />
             </FadeInUp>
           ) : null}
 
@@ -251,12 +298,31 @@ const ExerciseHistory = () => {
                   <Text className="flex-1 font-mono text-sm text-ink-100" numberOfLines={2}>
                     {fmtSession(s.sets, unit)}
                   </Text>
+                  {/* The star is the same record the finish modal announced. */}
+                  {prLogIds.has(s.logId) ? (
+                    <View className="ml-2 shrink-0" accessibilityLabel={t('exHistory.legendPr')}>
+                      <StarIcon color={brand} size={14} />
+                    </View>
+                  ) : null}
                 </Card>
               </FadeInUp>
             ))}
           </View>
         </>
       )}
+      {exercise ? (
+        <ShareSheet
+          visible={sharing}
+          onClose={() => setSharing(false)}
+          model={exerciseShareModel({
+            name: exerciseDisplayName(exercise, locale),
+            points,
+            unit,
+            formatDate: (at) => dayMonth(new Date(at)),
+            t,
+          })}
+        />
+      ) : null}
     </Screen>
   );
 };

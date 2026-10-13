@@ -12,6 +12,7 @@ import { useTheme } from '@/theme/theme-context';
  *   points   muted dots, no line   — the raw readings (noise)
  *   line     solid brand stroke    — the smoothed signal, the thing to judge
  *   target   dashed neutral stroke — where the plan says it should be
+ *   markers  hollow brand rings    — events on the line (a record)
  *
  * One measure, one axis. Deliberately not a charting library: the app draws
  * exactly this and the bars in `CalcChart`, and both want theme tokens.
@@ -26,11 +27,15 @@ type Props = {
   line?: readonly TrendPoint[];
   /** Planned values, drawn dashed. */
   target?: readonly TrendPoint[];
+  /** Points on the line worth a mark of their own (a PR), drawn as hollow rings. */
+  markers?: readonly TrendPoint[];
   /** Legend labels — a legend renders for every series that has data. */
-  labels: { points?: string; line?: string; target?: string };
+  labels: { points?: string; line?: string; target?: string; markers?: string };
   /** Shown under the plot, left and right (e.g. first and last date). */
   xLabels?: [string, string];
   unit?: string;
+  /** How the min–max range reads; one decimal by default. */
+  yFormat?: (value: number) => string;
   height?: number;
 };
 
@@ -48,9 +53,11 @@ export const TrendChart = ({
   points = [],
   line = [],
   target = [],
+  markers = [],
   labels,
   xLabels,
   unit = '',
+  yFormat = (v) => String(Math.round(v * 10) / 10),
   height = 132,
 }: Props) => {
   const { brand, scheme } = useTheme();
@@ -58,7 +65,7 @@ export const TrendChart = ({
   const ink = (token: string) => `rgb(${THEME_VARS[scheme][token]})`;
   const surface = ink('--ink-800'); // the raised Card this chart sits on
 
-  const all = [...points, ...line, ...target];
+  const all = [...points, ...line, ...target, ...markers];
   const xs = all.map((p) => p.x);
   const ys = all.map((p) => p.y);
   const xMin = Math.min(...xs);
@@ -115,6 +122,18 @@ export const TrendChart = ({
                 strokeWidth={2}
               />
             ))}
+            {/* A ring, not a bigger dot: the mark differs even in greyscale. */}
+            {markers.map((p, i) => (
+              <Circle
+                key={`m${i}`}
+                cx={px(p.x)}
+                cy={py(p.y)}
+                r={7}
+                fill="none"
+                stroke={brand}
+                strokeWidth={2}
+              />
+            ))}
           </Svg>
         ) : null}
       </View>
@@ -123,7 +142,7 @@ export const TrendChart = ({
         <Text className="text-[10px] text-ink-500">{xLabels?.[0] ?? ''}</Text>
         {all.length > 0 ? (
           <Text className="text-[10px] text-ink-500">
-            {Math.round(yLo * 10) / 10}–{Math.round(yHi * 10) / 10}
+            {yFormat(yLo)}–{yFormat(yHi)}
             {unit}
           </Text>
         ) : null}
@@ -139,6 +158,11 @@ export const TrendChart = ({
         {points.length > 0 && labels.points ? (
           <LegendItem label={labels.points}>
             <View className="h-1.5 w-1.5 rounded-full bg-ink-500" />
+          </LegendItem>
+        ) : null}
+        {markers.length > 0 && labels.markers ? (
+          <LegendItem label={labels.markers}>
+            <View className="h-3 w-3 rounded-full border-2 border-brand" />
           </LegendItem>
         ) : null}
         {target.length > 1 && labels.target ? (
