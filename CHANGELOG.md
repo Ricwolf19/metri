@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.14.0](https://github.com/Ricwolf19/metri/compare/metri-v1.13.0...metri-v1.14.0) (2026-10-13)
+
+
+### Features
+
+* **db:** rm test week, warm-up check, skipped and active statuses ([b657158](https://github.com/Ricwolf19/metri/commit/b6571583f64cad52927e84020489a7d8b029ce6a))
+* **dev:** seed three months of demo data by command ([4cf18ca](https://github.com/Ricwolf19/metri/commit/4cf18ca644406e12650658d502205a73579c4598))
+* **docs:** when to test a max, tables as grids ([d6398cf](https://github.com/Ricwolf19/metri/commit/d6398cf63f27ace96ff714d33cdc64248de4dcc1))
+* **lib:** shared number parsing and text folding ([0084c17](https://github.com/Ricwolf19/metri/commit/0084c17b6a7980b376d32bc08a17843a95c7da2a))
+* **metrics:** exercise trends, records and most improved ([2f68634](https://github.com/Ricwolf19/metri/commit/2f68634755ed57fa47101aed18fa315e00587b40))
+* **share:** one card template with session, exercise and plan models ([a5fa906](https://github.com/Ricwolf19/metri/commit/a5fa9068f286459e8179cb5083f173050128d12b))
+* **spotlight:** hold at the top of a tab to search everything ([0cde657](https://github.com/Ricwolf19/metri/commit/0cde657ac9840e88ca2a1f846326934c3ae39bd7))
+* **training:** foundations phase 3, rm test week, bilingual cues, art rules ([1073944](https://github.com/Ricwolf19/metri/commit/107394423ecc3dbc1c9541de1b095c4e2a282b1f))
+* **training:** page-by-page session with previous-set prefill ([35d2143](https://github.com/Ricwolf19/metri/commit/35d2143af5f6b15376817ba9f2be34ca2b0b94aa))
+* **training:** per-side input, machine kinds and input caps ([8084e95](https://github.com/Ricwolf19/metri/commit/8084e9550168f3a4c7c887dce0860fa019c01229))
+* **training:** skip a split without losing the week, more day marks ([2404b7d](https://github.com/Ricwolf19/metri/commit/2404b7da53ad9d3aea624f41b261fb84d4ce3940))
+* **ui:** icon button, option sheet, compact segments, solid wait ([0ca6a74](https://github.com/Ricwolf19/metri/commit/0ca6a74f58f84c49a367932c47cc490a79a3ec62))
+
+
+### Bug Fixes
+
+* **dev:** number seeded sets per exercise like logSet ([61295a5](https://github.com/Ricwolf19/metri/commit/61295a5f9f2f2b63175de5ddb9a908317b34b7c3))
+* **dev:** wait for the install before opening the seed link ([44dd62a](https://github.com/Ricwolf19/metri/commit/44dd62a17c8065e830647c521b4c9c1729906290))
+* **dev:** warm the app before sending the seed link ([2f8e4a2](https://github.com/Ricwolf19/metri/commit/2f8e4a2f87eac4f28c7090f255b6b37450ec4424))
+* **notifications:** stop only an owned service, honour a dismissed card ([f234844](https://github.com/Ricwolf19/metri/commit/f234844065cfdaf21a2e68ae05b13df960886134))
+* **sync:** a cold session store is not a reported failure ([bbb7494](https://github.com/Ricwolf19/metri/commit/bbb749494f00c77c91ff59d1861fe3868ebe6a72))
+
 ## [1.13.0](https://github.com/Ricwolf19/metri/compare/metri-v1.12.1...metri-v1.13.0) (2026-10-07)
 
 
