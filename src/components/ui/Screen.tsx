@@ -32,12 +32,7 @@ type Props = ViewProps & {
   header?: React.ReactNode;
   /** Sticky bottom slot (e.g. a Continue button) rendered outside the scroll. */
   footer?: React.ReactNode;
-  /**
-   * Scroll screens only: dragging at the very top and holding the finger there
-   * for `HOLD_MS` fires this (the spotlight). Detected from the scroll view's
-   * own drag events — no gesture handler sits on the scroll view, so scrolling
-   * is untouched.
-   */
+  /** Scroll screens only: fires after a drag held at the very top for `HOLD_MS`. @see AGENTS.md "Spotlight" */
   onPullHold?: () => void;
 };
 

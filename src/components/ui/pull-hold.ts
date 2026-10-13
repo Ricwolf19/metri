@@ -5,12 +5,11 @@
  *
  *   idle ──drag begins at the top──▶ holding ──HOLD_MS──▶ fired
  *
- * It is fed by the scroll view's OWN events (`onScrollBeginDrag`, `onScroll`,
- * `onScrollEndDrag`) and never by a gesture handler: wrapping the scroll view
- * in a detector stole its touches on Android. Scrolling away from the top or
- * letting go cancels; `fired` stays until the drag ends, so one hold opens one
- * spotlight. Android reports no negative offset (no bounce), so "at the top" is
- * simply `y <= 0` when the drag starts.
+ * Fed by the scroll view's own drag events (@see AGENTS.md "Spotlight" for why
+ * never a gesture handler). Scrolling away from the top or letting go cancels;
+ * `fired` stays until the drag ends, so one hold opens one spotlight. Android
+ * reports no negative offset (no bounce), so "at the top" is `y <= 0` when the
+ * drag starts.
  */
 type PullHoldState = 'idle' | 'holding' | 'fired';
 

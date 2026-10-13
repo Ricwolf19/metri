@@ -12,8 +12,7 @@ import { ConvertibleWeight } from './ConvertibleWeight';
 /**
  * The last time THIS exercise was trained, whatever split or week it sat in:
  * every working set as weight × reps, plus how the load was built when a set
- * carries that detail. "Last week" (same split, week − 1) showed nothing in
- * week 1 of every phase and nothing useful when the split changed.
+ * carries that detail.
  */
 export const LastTraining = ({ previous, unit }: { previous: PreviousSession; unit: Units }) => {
   const t = useT();

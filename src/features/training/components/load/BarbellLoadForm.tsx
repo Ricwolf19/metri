@@ -14,10 +14,8 @@ import { PlateBadgeRow } from './PlateBadgeRow';
 /**
  * The plates mode of the weight sheet: pick the bar (or type a plate-loaded
  * machine's base), tap plates onto ONE side (the other matches), see the
- * loaded bar. Plates only — the free per-side field is gone: the live row
- * already takes the per-side number, and a typed number here saved no
- * picture, which is the one thing this sheet exists to save. Presentational —
- * the sheet owns the state and the arithmetic. The layout is fixed: the
+ * loaded bar. Plates only: a number is typed in the row, a picture is built
+ * here. Presentational — the sheet owns the state and the arithmetic. The layout is fixed: the
  * graphic box never resizes and the rack is one row that counts in place, so
  * nothing the lifter is about to tap moves.
  */

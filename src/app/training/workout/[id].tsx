@@ -1052,8 +1052,7 @@ const WorkoutSession = () => {
 
   // One exercise per page: the chip strip is the navigation (it follows the
   // current page), Prev/Next step through, and the page holds nothing but the
-  // exercise at hand. The scrolling list of every card is gone — paging won in
-  // the gym, and two layouts meant two sets of scroll logic to keep right.
+  // exercise at hand.
   const idx = Math.min(cardIndex, Math.max(0, planned.length - 1));
   const current = planned[idx] ?? null;
   const goTo = (index: number) => {

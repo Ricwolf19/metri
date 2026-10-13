@@ -24,10 +24,9 @@ const STEPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const BTN = 'h-9 flex-1 items-center justify-center rounded-field border border-ink-700 bg-ink-800';
 
 /**
- * A −/+ pair showing its own step between the buttons. It carries no visible
- * caption: each pair sits directly under the field it drives, and the unit is
- * already on that field, so a "WEIGHT · KG" line only repeated what the row
- * said. Holding either button unlocks the step: the row becomes a strip of
+ * A −/+ pair showing its own step between the buttons. No visible caption:
+ * each pair sits under the field it drives, which already names the unit.
+ * Holding either button unlocks the step: the row becomes a strip of
  * sizes, and picking one locks it back in. The step is remembered, because a
  * lifter's plate jump does not change between sets.
  */

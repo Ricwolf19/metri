@@ -10,9 +10,8 @@ import { MachineLoadGrid } from './MachineLoadGrid';
 
 /**
  * The stack mode of the weight sheet: base weight + increment describe the
- * machine, the pins come up as a grid. No free "other" field — a number off
- * the stack is typed in the row itself, and typing it here saved nothing.
- * Presentational — the sheet owns the state and the arithmetic.
+ * machine, the pins come up as a grid. A number off the stack is typed in the
+ * row itself. Presentational — the sheet owns the state and the arithmetic.
  */
 export const MachineLoadForm = ({
   unit,

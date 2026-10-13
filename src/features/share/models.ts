@@ -9,9 +9,8 @@ import type { SessionSummary } from '../training/session.repo';
 /**
  * What a share card says, built as plain data so every entry point (the finish
  * modal, an exercise, a plan, later the Metrics cards) renders the ONE template
- * and the copy can be tested without a view. A card is a PNG the lifter builds
- * and hands to the OS share sheet themselves: nothing leaves the device on its
- * own, and no card ever carries a progress photo.
+ * and the copy can be tested without a view. @see AGENTS.md "Share cards" for
+ * what a card may carry.
  */
 export type ShareModel = ShareCardProps;
 

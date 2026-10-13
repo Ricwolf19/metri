@@ -66,8 +66,6 @@ const phase1Slots = (week1Sets: number): SlotSeed[] => {
     { exerciseId: 'back-extension', restSeconds: REST_LIGHT, weeks: ramp(12, REST_LIGHT) },
     { exerciseId: 'cable-crunch', restSeconds: REST_LIGHT, weeks: ramp(20, REST_LIGHT) },
     { exerciseId: 'standing-calf-raise', restSeconds: REST_LIGHT, weeks: ramp(12, REST_LIGHT) },
-    // No "or similar" cue: the swap arrows on the card already say a variant
-    // may stand in, and the cue read as a note the lifter had to act on.
     { exerciseId: 'standing-leg-curl', restSeconds: REST_DEFAULT, weeks: ramp(12, REST_DEFAULT) },
     { exerciseId: 'leg-press', restSeconds: REST_HEAVY, weeks: ramp(12, REST_HEAVY) },
     { exerciseId: 'machine-chest-press', restSeconds: REST_HEAVY, weeks: ramp(12, REST_HEAVY) },
