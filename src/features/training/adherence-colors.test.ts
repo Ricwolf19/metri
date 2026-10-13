@@ -29,6 +29,14 @@ describe('adherence colours', () => {
     expect(today.text).toBe('#bef82b');
   });
 
+  it('paints another activity between rest and trained: gray fill, brand text', () => {
+    expect(adherenceCell(dark, { status: 'active' }).text).toBe('#bef82b');
+    expect(adherenceCell(dark, { status: 'active' }).fill).not.toBe(
+      adherenceCell(dark, { status: 'rest' }).fill,
+    );
+    expect(adherenceDot(dark, 'active')).not.toBe('transparent');
+  });
+
   it('leaves future days bare and unlogged dots transparent', () => {
     expect(adherenceCell(dark, { future: true }).fill).toBe('transparent');
     expect(adherenceDot(dark, undefined)).toBe('transparent');

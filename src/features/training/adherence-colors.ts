@@ -12,11 +12,13 @@ const ON_MISSED = '#08090d';
 const rgb = (scheme: ThemeScheme, token: string) => `rgb(${THEME_VARS[scheme][token]})`;
 
 /** Fill + text for a calendar cell. Trained = brand on brand-contrast, missed = red on black,
- * rest = raised gray, unlogged past = sunken gray, today unlogged = brand text, future = bare. */
+ * other activity = mid gray with brand text, rest = raised gray, unlogged past = sunken gray,
+ * today unlogged = brand text, future = bare. */
 export const adherenceCell = (theme: Theme, cell: CellState): { fill: string; text: string } => {
   const { scheme } = theme;
   if (cell.status === 'trained') return { fill: theme.brand, text: theme.brandContrast };
   if (cell.status === 'skipped') return { fill: MISSED, text: ON_MISSED };
+  if (cell.status === 'active') return { fill: rgb(scheme, '--ink-500'), text: theme.brand };
   if (cell.status === 'rest')
     return { fill: rgb(scheme, '--ink-700'), text: rgb(scheme, '--ink-300') };
   if (cell.future) return { fill: 'transparent', text: rgb(scheme, '--ink-600') };
@@ -30,6 +32,7 @@ export const adherenceCell = (theme: Theme, cell: CellState): { fill: string; te
 export const adherenceDot = (theme: Theme, status: TrainingDayStatus | undefined): string => {
   if (status === 'trained') return theme.brand;
   if (status === 'skipped') return MISSED;
+  if (status === 'active') return rgb(theme.scheme, '--ink-400');
   if (status === 'rest') return rgb(theme.scheme, '--ink-500');
   return 'transparent';
 };

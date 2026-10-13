@@ -5,6 +5,7 @@ import {
   formatClockTime,
   isScheduleComplete,
   nextScheduledSplit,
+  plannedSplitForDate,
   prefillSchedule,
   reminderEntries,
   splitsForWeekday,
@@ -197,5 +198,19 @@ describe('suggestWeekdays', () => {
   it('clamps beyond a week instead of returning nothing', () => {
     expect(suggestWeekdays(9)).toHaveLength(7);
     expect(suggestWeekdays(0)).toEqual(suggestWeekdays(1));
+  });
+});
+
+describe('plannedSplitForDate', () => {
+  // 2026-09-14 is a Monday (expo weekday 2), 2026-09-16 a Wednesday (4).
+  const days = [scheduled('push', 2, 600), scheduled('pull', 5, 600), scheduled('legs', 2, 1080)];
+
+  it('maps a day onto the one split planned for its weekday', () => {
+    expect(plannedSplitForDate([days[0], days[1]], '2026-09-14')?.id).toBe('push');
+  });
+
+  it('is null when nothing is planned that weekday, or when two splits share it', () => {
+    expect(plannedSplitForDate(days, '2026-09-16')).toBeNull();
+    expect(plannedSplitForDate(days, '2026-09-14')).toBeNull();
   });
 });

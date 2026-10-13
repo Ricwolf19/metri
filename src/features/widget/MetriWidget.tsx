@@ -72,6 +72,7 @@ const dayStyle = (day: WeekDay, isToday: boolean) => {
   if (day.status === 'trained') return { bg: COLORS.accent, fg: COLORS.ink, border: false };
   if (day.status === 'skipped') return { bg: COLORS.skippedBg, fg: COLORS.skipped, border: false };
   if (day.status === 'rest') return { bg: COLORS.card, fg: COLORS.dim, border: false };
+  if (day.status === 'active') return { bg: COLORS.card, fg: COLORS.accent, border: false };
   return isToday
     ? { bg: COLORS.bg, fg: COLORS.accent, border: true }
     : { bg: COLORS.card, fg: COLORS.muted, border: false };

@@ -18,6 +18,7 @@ import { isSessionInProgress } from '@/features/training/session-state';
 import { dateFromKey, localDateKey, markTrainingDay, rangeDaysQuery } from '../adherence.repo';
 import { CATCHUP_DAYS_BACK, selectCatchupGaps } from '../catchup-gaps';
 import { activeEnrollmentQuery } from '../enroll';
+import { skipPlannedDay } from '../skip-split';
 import { SkipReasonChips } from './SkipReasonChips';
 
 const CHECKIN_EVENT = NOTIFICATION_EVENTS.find((e) => e.id === 'session-checkin')!;
@@ -112,15 +113,18 @@ export const AdherenceCatchupBanner = () => {
       setAskingReason(true);
       return;
     }
-    markTrainingDay(user.id, { date: gap, status, skipReason: skipReason ?? null });
+    // A miss on this week's planned split also resolves it, so the plan moves on.
+    if (status === 'skipped') skipPlannedDay(user.id, gap, skipReason ?? null);
+    else markTrainingDay(user.id, { date: gap, status });
     setAskingReason(false);
   };
 
   // Clearing a long gap in one tap. No reason is asked: one would be a guess
   // applied to every day at once, and the day sheet can still refine any of them.
+  // Oldest first: each skip may resolve a week and move the cursor to the next,
+  // which is what "all of those were missed" means for the plan.
   const markAllMissed = () => {
-    for (const date of gaps)
-      markTrainingDay(user.id, { date, status: 'skipped', skipReason: null });
+    for (const date of gaps) skipPlannedDay(user.id, date, null);
     setAskingReason(false);
   };
 

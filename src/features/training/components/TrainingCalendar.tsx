@@ -58,6 +58,7 @@ type Cell = { day: number; key: string; status?: TrainingDayStatus; future: bool
 const LEGEND: { status: TrainingDayStatus; key: TranslationKey }[] = [
   { status: 'trained', key: 'adherence.trained' },
   { status: 'rest', key: 'adherence.rest' },
+  { status: 'active', key: 'adherence.active' },
   { status: 'skipped', key: 'adherence.skipped' },
 ];
 

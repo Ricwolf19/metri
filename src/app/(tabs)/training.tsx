@@ -3,28 +3,50 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Text, View } from 'react-native';
 
-import { ChevronRightIcon, HistoryIcon, PlayIcon, PlusIcon, SparksIcon } from '@/components/icons';
+import type { SkipReason, WorkoutStatus } from '@/db/schema';
+
+import {
+  ChevronRightIcon,
+  HistoryIcon,
+  PlayIcon,
+  PlusIcon,
+  ShareIcon,
+  SparksIcon,
+} from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import {
   BlockingOverlay,
   Card,
   FadeInUp,
   HoldButton,
+  IconButton,
   PressableScale,
   Screen,
+  Sheet,
   Skeleton,
   useDialog,
   useToast,
   SectionLabel,
 } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
+import { isRmTestWeek } from '@/features/training/progression';
+import { routineShareModel, type ShareModel } from '@/features/share/models';
+import { ShareSheet } from '@/features/share/ShareSheet';
+import { slotsQuery } from '@/features/training/authoring.repo';
 import { ProgramCard } from '@/features/training/components/ProgramCard';
 import { presetProgramCopy } from '@/features/training/programs';
+import { SkipReasonChips } from '@/features/training/components/SkipReasonChips';
 import { SplitRow } from '@/features/training/components/SplitRow';
 import { abandonEnrollment, setEnrollmentPosition } from '@/features/training/enroll';
-import { WEEKDAY_KEY, dayDisplayName, routineDisplayName } from '@/features/training/labels';
+import {
+  WEEKDAY_KEY,
+  dayDisplayName,
+  exerciseDisplayName,
+  routineDisplayName,
+} from '@/features/training/labels';
 import { ownProgramsQuery, recommendedProgramsQuery } from '@/features/training/programs.repo';
 import { syncTrainingReminder } from '@/features/training/reminders';
+import { skipSplitFromPlan } from '@/features/training/skip-split';
 import {
   formatClockTime,
   nextScheduledSplit,
@@ -40,6 +62,7 @@ import {
 import { useEnrollment } from '@/features/training/useEnrollment';
 import { useI18n, useT } from '@/i18n';
 import { useClockFormat } from '@/lib/useClockFormat';
+import { useSpotlight } from '@/features/spotlight/SpotlightProvider';
 import { useTheme } from '@/theme/theme-context';
 
 // Lets the overlay paint before the synchronous write.
@@ -49,6 +72,7 @@ const OVERLAY_PAINT_MS = 50;
 const Training = () => {
   const router = useRouter();
   const t = useT();
+  const spotlight = useSpotlight();
   const { locale } = useI18n();
   const toast = useToast();
   const dialog = useDialog();
@@ -78,6 +102,10 @@ const Training = () => {
 
   // Snapshot on focus: an overnight tab shows the right day without a clock read in render.
   const [busy, setBusy] = useState<'starting' | 'abandoning' | null>(null);
+  // The split being skipped: a reason is asked in a sheet, then the plan moves on.
+  const [skipping, setSkipping] = useState<ScheduledDay | null>(null);
+  // The plan as a card: built when asked for, from the current phase's splits.
+  const [planShare, setPlanShare] = useState<ShareModel | null>(null);
   const [now, setNow] = useState(() => new Date());
   useFocusEffect(useCallback(() => setNow(new Date()), []));
   const today = weekdayOfDate(now);
@@ -100,7 +128,13 @@ const Training = () => {
 
   // Both flows write a tree of rows synchronously; the overlay paints first so
   // the tap never looks ignored.
-  const completed = new Set(completedRows.map((r) => r.dayId));
+  const resolvedStatus = new Map<string, WorkoutStatus>(
+    completedRows.map((r) => [r.dayId, r.status]),
+  );
+  const resolvedAs = (dayId: string): 'done' | 'skipped' | null => {
+    const status = resolvedStatus.get(dayId);
+    return status === 'completed' ? 'done' : status === 'skipped' ? 'skipped' : null;
+  };
 
   const begin = (dayId: string) => {
     const routine = structure?.currentRoutine;
@@ -118,15 +152,48 @@ const Training = () => {
     }, OVERLAY_PAINT_MS);
   };
 
-  // A split the plan already counts as done can be repeated, but not by accident.
+  // A split the plan already counts as resolved can still be trained, but not
+  // by accident: a skipped one asks a different question than a finished one.
   const startDay = (dayId: string) => {
-    if (!completed.has(dayId)) return begin(dayId);
+    const resolved = resolvedAs(dayId);
+    if (!resolved) return begin(dayId);
+    const skipped = resolved === 'skipped';
     dialog.confirm({
-      title: t('training.redoTitle'),
-      message: t('training.redoBody'),
+      title: t(skipped ? 'training.redoSkippedTitle' : 'training.redoTitle'),
+      message: t(skipped ? 'training.redoSkippedBody' : 'training.redoBody'),
       confirmLabel: t('training.redoConfirm'),
       onConfirm: () => begin(dayId),
     });
+  };
+
+  const sharePlan = () => {
+    if (!structure?.program) return;
+    setPlanShare(
+      routineShareModel({
+        programName:
+          presetProgramCopy(structure.program.id, locale)?.name ?? structure.program.name,
+        phaseLine: [
+          structure.currentRoutine ? routineDisplayName(structure.currentRoutine, t) : null,
+          t('training.weekOf', { week: structure.programWeek, total: structure.totalWeeks }),
+        ]
+          .filter(Boolean)
+          .join(' · '),
+        days: days.map((d) => ({
+          name: dayDisplayName(d, t),
+          exercises: slotsQuery(d.id)
+            .all()
+            .map((r) => ({ id: r.exercise.id, name: exerciseDisplayName(r.exercise, locale) })),
+        })),
+        t,
+      }),
+    );
+  };
+
+  const skip = (reason: SkipReason | null) => {
+    if (!enrollment || !skipping) return;
+    skipSplitFromPlan(user.id, enrollment, skipping, reason);
+    setSkipping(null);
+    toast.info(t('training.skippedToast'));
   };
 
   const abandon = () => {
@@ -148,6 +215,7 @@ const Training = () => {
       edges={['top']}
       contentClassName="px-5 pb-32"
       header={<TopBar menu showFaq showBeta />}
+      onPullHold={spotlight?.open}
     >
       {activeWorkout ? (
         <FadeInUp>
@@ -180,15 +248,36 @@ const Training = () => {
       {loaded && enrollment && structure?.program ? (
         <FadeInUp delay={60}>
           <Card>
-            <Text className="text-xl font-sans-bold text-ink-50">
-              {presetProgramCopy(structure.program.id, locale)?.name ?? structure.program.name}
-            </Text>
+            <View className="flex-row items-start">
+              <Text className="flex-1 pr-2 text-xl font-sans-bold text-ink-50">
+                {presetProgramCopy(structure.program.id, locale)?.name ?? structure.program.name}
+              </Text>
+              <IconButton
+                icon={<ShareIcon color={muted} size={16} />}
+                onPress={sharePlan}
+                accessibilityLabel={t('share.routine')}
+              />
+            </View>
             <Text className="mt-0.5 text-sm text-ink-400">
               {structure.currentRoutine
                 ? `${routineDisplayName(structure.currentRoutine, t)} · `
                 : ''}
               {t('training.weekOf', { week: structure.programWeek, total: structure.totalWeeks })}
             </Text>
+            {/* The block's test week: informational (sky), a tap opens the guide on how. */}
+            {isRmTestWeek(structure.currentRoutine, enrollment.currentWeek) ? (
+              <PressableScale
+                onPress={() =>
+                  router.push({ pathname: '/docs/[id]', params: { id: 'when-to-test-rm' } })
+                }
+                accessibilityRole="button"
+                className="mt-2 self-start rounded-full border border-info/30 bg-info/10 px-3 py-1"
+              >
+                <Text className="text-xs font-sans-semibold text-info">
+                  {t('training.rmTestWeek')}
+                </Text>
+              </PressableScale>
+            ) : null}
 
             {todaySplits.length ? (
               <>
@@ -202,9 +291,10 @@ const Training = () => {
                       name={dayDisplayName(day, t)}
                       label={scheduleLabel(day)}
                       emphasis="today"
-                      done={completed.has(day.id)}
+                      resolved={resolvedAs(day.id)}
                       disabled={playDisabled}
                       onPlay={() => startDay(day.id)}
+                      onSkip={() => setSkipping(day)}
                     />
                   ))}
                 </View>
@@ -229,9 +319,10 @@ const Training = () => {
                       name={dayDisplayName(day, t)}
                       label={scheduleLabel(day)}
                       emphasis="other"
-                      done={completed.has(day.id)}
+                      resolved={resolvedAs(day.id)}
                       disabled={playDisabled}
                       onPlay={() => startDay(day.id)}
+                      onSkip={() => setSkipping(day)}
                     />
                   ))}
                 </View>
@@ -326,6 +417,20 @@ const Training = () => {
           <ChevronRightIcon color={muted} />
         </Card>
       </PressableScale>
+      {/* "Not this week": the reason is the whole form, the plan moves on at once. */}
+      <Sheet visible={skipping !== null} onClose={() => setSkipping(null)}>
+        {/* Sheet content keeps the screen's 20-px gutter (`ScrollArea inSheet` does the same). */}
+        <View className="px-5 pb-6">
+          <Text className="text-lg font-sans-bold text-ink-50">{t('training.skipSplit')}</Text>
+          <Text className="mt-1 text-sm leading-5 text-ink-400">{t('training.skipSplitHint')}</Text>
+          <SkipReasonChips onPick={skip} />
+        </View>
+      </Sheet>
+      <ShareSheet
+        visible={planShare !== null}
+        onClose={() => setPlanShare(null)}
+        model={planShare}
+      />
       <BlockingOverlay
         visible={busy !== null || !settled}
         label={

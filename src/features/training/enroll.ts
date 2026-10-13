@@ -141,6 +141,7 @@ export const enrollInProgram = (
         name: presetRoutineName(programId, r.id, r.name, locale),
         orderIndex: r.orderIndex,
         durationWeeks: r.durationWeeks,
+        rmTestWeek: r.rmTestWeek,
         userProgramId,
       })
       .run();
@@ -263,7 +264,12 @@ export const advanceUserProgram = (userProgramId: string): void => {
     .run();
 };
 
-/** Every split of the routine has a completed session at this routine-relative week. */
+/**
+ * Every split of the routine is RESOLVED at this routine-relative week: a
+ * completed session, or a `skipped` log (the lifter said the split is not
+ * happening this week and the plan should move on). A week with an open or
+ * abandoned session is not resolved.
+ */
 const isWeekComplete = (userProgramId: string, routineId: string, weekNumber: number): boolean => {
   const days = db
     .select({ id: workoutDays.id })
@@ -280,7 +286,7 @@ const isWeekComplete = (userProgramId: string, routineId: string, weekNumber: nu
         and(
           eq(workoutLogs.userProgramId, userProgramId),
           eq(workoutLogs.weekNumber, weekNumber),
-          eq(workoutLogs.status, 'completed'),
+          inArray(workoutLogs.status, ['completed', 'skipped']),
         ),
       )
       .all()

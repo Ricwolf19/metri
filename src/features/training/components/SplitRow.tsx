@@ -1,8 +1,11 @@
 import { Pressable, Text, View } from 'react-native';
 
 import { PlaySolidIcon } from '@/components/icons';
+import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 import { useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
+
+import { MISSED } from '../adherence-colors';
 
 type Props = {
   name: string;
@@ -11,15 +14,26 @@ type Props = {
   /** `today` = the large brand Play; `other` = the compact chip. */
   emphasis: 'today' | 'other';
   disabled: boolean;
-  /** Already completed this program week: greyed, still tappable (with a warning upstream). */
-  done?: boolean;
+  /** Resolved this program week: `done` greys it, `skipped` marks it in the missed colour. Both stay tappable (a warning upstream). */
+  resolved?: 'done' | 'skipped' | null;
   onPlay: () => void;
+  /** Offered while unresolved: "not this week" — the plan moves on without a session. */
+  onSkip?: () => void;
 };
 
 /** One split of the active program with its Play control. */
-export const SplitRow = ({ name, label, emphasis, disabled, done = false, onPlay }: Props) => {
+export const SplitRow = ({
+  name,
+  label,
+  emphasis,
+  disabled,
+  resolved = null,
+  onPlay,
+  onSkip,
+}: Props) => {
   const t = useT();
   const { brand, brandContrast, muted } = useTheme();
+  const done = resolved !== null;
   const today = emphasis === 'today' && !done;
 
   return (
@@ -44,12 +58,33 @@ export const SplitRow = ({ name, label, emphasis, disabled, done = false, onPlay
         >
           {name}
         </Text>
-        {done ? (
+        {resolved === 'skipped' ? (
+          <Text className="mt-0.5 text-xs" style={{ color: MISSED }}>
+            {t('training.skippedThisWeek')}
+          </Text>
+        ) : done ? (
           <Text className="mt-0.5 text-xs text-ink-500">{t('training.doneThisWeek')}</Text>
         ) : label ? (
           <Text className="mt-0.5 text-xs text-ink-400">{label}</Text>
         ) : null}
       </View>
+      {onSkip && !done ? (
+        <Pressable
+          onPress={onSkip}
+          disabled={disabled}
+          hitSlop={6}
+          accessibilityRole="button"
+          accessibilityLabel={t('training.skipSplit')}
+          className={['mr-2 px-2 py-1', disabled ? 'opacity-40' : ''].join(' ')}
+        >
+          <Text
+            maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+            className="text-xs font-sans-semibold text-ink-400 underline"
+          >
+            {t('training.skipAction')}
+          </Text>
+        </Pressable>
+      ) : null}
       <Pressable
         onPress={onPlay}
         disabled={disabled}

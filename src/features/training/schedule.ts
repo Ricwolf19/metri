@@ -1,6 +1,8 @@
 import type { Routine, WorkoutDay } from '@/db/schema';
 import type { ClockFormat } from '@/lib/storage';
 
+import { dateFromKey } from './dates';
+
 /** Pure schedule logic (no DB). Weekday + start minute live on the enrolled copy only — AGENTS.md#conventions. */
 
 export type ScheduleEntry = { dayId: string; weekday: number; startMinute: number };
@@ -138,6 +140,19 @@ export const splitsForWeekday = (days: readonly ScheduledDay[], weekday: number)
 
 /** Expo weekday of a date. */
 export const weekdayOfDate = (date: Date): number => date.getDay() + 1;
+
+/**
+ * The one split planned on a calendar day ('YYYY-MM-DD'), or null when none is
+ * or several are (two splits on one weekday: the caller must pick explicitly).
+ */
+export const plannedSplitForDate = <T extends ScheduledDay>(
+  days: readonly T[],
+  dateKey: string,
+): T | null => {
+  const weekday = weekdayOfDate(dateFromKey(dateKey));
+  const matches = days.filter((d) => d.weekday === weekday);
+  return matches.length === 1 ? matches[0] : null;
+};
 
 /**
  * The next upcoming split relative to `now`, wrapping around the week. A split

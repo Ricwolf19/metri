@@ -18,21 +18,25 @@ import { adherenceDot } from '../adherence-colors';
 import { dayDisplayName, exerciseDisplayName } from '../labels';
 import { dayQuery, markTrainingDay } from '../adherence.repo';
 import { getDayDetail, type LoggedSet } from '../day-events';
+import { getWorkoutDay } from '../programs.repo';
+import { skipPlannedDay, unskipDay } from '../skip-split';
 import { setVolumeKg } from '../load';
-import { fromKg } from '../progression';
+import { fromKgHalf } from '../progression';
 import { DeleteSessionButton } from './DeleteSessionButton';
 import { SessionTimeline } from './SessionTimeline';
 import { SkipReasonChips } from './SkipReasonChips';
 
+// Four choices render as a 2×2 grid: four ES labels no longer fit one row.
 const STATUS_CHOICES: { status: TrainingDayStatus; key: TranslationKey }[] = [
   { status: 'trained', key: 'adherence.trained' },
   { status: 'rest', key: 'adherence.rest' },
+  { status: 'active', key: 'adherence.active' },
   { status: 'skipped', key: 'adherence.skipped' },
 ];
 
 const fmtDur = (s: number | null): string => (s ? `${Math.round(s / 60)}m` : '');
 const fmtSet = (s: LoggedSet, unit: Units, t: TFunction): string => {
-  const base = `${fromKg(s.weightKg, unit)}×${s.reps}`;
+  const base = `${fromKgHalf(s.weightKg, unit)}×${s.reps}`;
   if (s.isFailure) return `${base} ${t('set.failureShort')}`;
   if (s.rir != null) return `${base} ${t('intensity.rir')}${s.rir}`;
   if (s.rpe != null) return `${base} ${t('intensity.rpe')}${s.rpe}`;
@@ -84,13 +88,23 @@ export const DayDetailSheet = ({
 
   // Manual marking works for any past-or-today date, enrollment or not.
   const markable = !!user && !!date && date <= today;
+  // A skip that resolved a planned split carries a `skipped` log: it is the
+  // undo handle, deleted below, and it must go before the day is re-marked.
+  const skippedLogId =
+    adherence?.status === 'skipped' && adherence.workoutLogId ? adherence.workoutLogId : null;
+  const skippedSplit =
+    skippedLogId && adherence?.workoutDayId ? getWorkoutDay(adherence.workoutDayId) : null;
   const mark = (status: TrainingDayStatus, skipReason?: SkipReason) => {
     if (!user || !date) return;
     if (status === 'skipped' && !skipReason) {
       setAskingReason(true);
       return;
     }
-    markTrainingDay(user.id, { date, status, skipReason: skipReason ?? null });
+    if (status === 'skipped') skipPlannedDay(user.id, date, skipReason ?? null);
+    else {
+      if (skippedLogId) unskipDay(user.id, date);
+      markTrainingDay(user.id, { date, status });
+    }
     setMarking(false);
     setAskingReason(false);
   };
@@ -127,6 +141,19 @@ export const DayDetailSheet = ({
         ) : null}
 
         <View className="mt-2">
+          {skippedLogId ? (
+            <View className="mb-3 flex-row items-center gap-3 rounded-card border border-ink-700 bg-ink-850 p-4">
+              <View className="flex-1">
+                <Text className="text-sm font-sans-semibold text-ink-50">
+                  {t('dayDetail.skippedSplit', {
+                    split: skippedSplit ? dayDisplayName(skippedSplit, t) : t('editor.splits'),
+                  })}
+                </Text>
+                <Text className="mt-0.5 text-xs text-ink-400">{t('dayDetail.skippedHint')}</Text>
+              </View>
+              <DeleteSessionButton logId={skippedLogId} compact />
+            </View>
+          ) : null}
           {workouts.map((w) => (
             <View key={w.logId} className="mb-3 rounded-card border border-ink-700 bg-ink-850 p-4">
               <View className="flex-row items-center gap-3">
@@ -138,7 +165,7 @@ export const DayDetailSheet = ({
                   <Text className="mt-0.5 text-xs text-ink-400">
                     {t('dayDetail.setsLine', {
                       count: w.setCount,
-                      volume: fromKg(w.volumeKg, unit),
+                      volume: fromKgHalf(w.volumeKg, unit),
                       unit,
                     })}
                     {w.durationSeconds ? ` · ${fmtDur(w.durationSeconds)}` : ''}
@@ -214,7 +241,7 @@ export const DayDetailSheet = ({
                 title={workouts.map((w) => splitName(w)).join(' + ')}
                 subtitle={title}
                 metrics={[
-                  { label: t('share.volume'), value: `${fromKg(totalVolume, unit)} ${unit}` },
+                  { label: t('share.volume'), value: `${fromKgHalf(totalVolume, unit)} ${unit}` },
                   { label: t('share.sets'), value: `${totalSets}` },
                   { label: t('share.duration'), value: fmtDur(totalDuration) || '—' },
                 ]}
@@ -248,15 +275,17 @@ export const DayDetailSheet = ({
               askingReason ? (
                 <SkipReasonChips onPick={(r) => mark('skipped', r)} />
               ) : (
-                <View className="mt-4 flex-row gap-2">
+                <View className="mt-4 flex-row flex-wrap gap-2">
                   {STATUS_CHOICES.map((c) => (
                     <Pressable
                       key={c.status}
                       onPress={() => mark(c.status)}
                       accessibilityRole="button"
-                      className="flex-1 items-center rounded-field border border-ink-700 bg-ink-800 py-2.5"
+                      className="basis-[47%] grow items-center rounded-field border border-ink-700 bg-ink-800 py-2.5"
                     >
-                      <Text className="text-sm font-sans-medium text-ink-200">{t(c.key)}</Text>
+                      <Text numberOfLines={1} className="text-sm font-sans-medium text-ink-200">
+                        {t(c.key)}
+                      </Text>
                     </Pressable>
                   ))}
                 </View>

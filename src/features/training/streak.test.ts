@@ -6,7 +6,7 @@ import { findGaps, streakFromEntries } from './streak';
 const TODAY = '2026-09-16';
 const MON_WED_FRI = [2, 4, 6];
 
-const entries = (pairs: [string, 'trained' | 'rest' | 'skipped'][]) => new Map(pairs);
+const entries = (pairs: [string, 'trained' | 'rest' | 'skipped' | 'active'][]) => new Map(pairs);
 
 describe('streakFromEntries', () => {
   it.each([
@@ -29,6 +29,16 @@ describe('streakFromEntries', () => {
       ]),
       null,
       1,
+    ],
+    [
+      'another activity is neutral, like rest: it neither counts nor breaks',
+      entries([
+        ['2026-09-15', 'trained'],
+        ['2026-09-14', 'active'],
+        ['2026-09-13', 'trained'],
+      ]),
+      null,
+      2,
     ],
     [
       'with a schedule, unlogged NON-planned days are neutral',

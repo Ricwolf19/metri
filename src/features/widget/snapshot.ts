@@ -1,7 +1,7 @@
 import { storage, type LocaleCode } from '@/lib/storage';
 
 /** Adherence status for one day of the widget's week strip. */
-type WeekDayStatus = 'trained' | 'rest' | 'skipped' | 'none';
+type WeekDayStatus = 'trained' | 'rest' | 'skipped' | 'active' | 'none';
 export type WeekDay = { date: string; status: WeekDayStatus };
 
 /**

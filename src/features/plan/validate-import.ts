@@ -52,7 +52,7 @@ const REQUIRED: Record<ImportTable, FieldSpec> = {
   userPrograms: { programId: 'string' },
   workoutLogs: { userProgramId: 'string', workoutDayId: 'string' },
   setLogs: { workoutLogId: 'string', exerciseId: 'string', weightKg: 'number', reps: 'number' },
-  trainingDays: { date: 'string', status: ['trained', 'rest', 'skipped'] },
+  trainingDays: { date: 'string', status: ['trained', 'rest', 'skipped', 'active'] },
   reminders: { title: 'string' },
   bodyMetrics: { date: 'string' },
   bodyMeasurements: { date: 'string', site: 'string', valueCm: 'number' },

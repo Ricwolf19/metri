@@ -17,8 +17,8 @@ export const streakFromEntries = (
     const status = byDate.get(localDateKey(cursor));
     const planned = plannedWeekdays ? plannedWeekdays.includes(weekdayOf(cursor)) : true;
     if (status === 'trained') streak++;
-    else if (status === 'rest' || (status === undefined && !planned)) {
-      /* neutral — keep walking back */
+    else if (status === 'rest' || status === 'active' || (status === undefined && !planned)) {
+      /* neutral — keep walking back: a rest day or another activity neither counts nor breaks */
     } else if (!(first && status === undefined)) {
       // A missed (skipped) day or an unlogged planned day ends the streak.
       break;
