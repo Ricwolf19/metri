@@ -1,4 +1,5 @@
 import type { CustomFood } from '@/db/schema';
+import { fold } from '@/lib/text';
 import type { LocaleCode } from '@/lib/storage';
 
 /** Shelf the food sits on. Drives grouping and the knowledge-base pages, so a
@@ -73,7 +74,6 @@ export const fromCustom = (f: CustomFood): Food => ({
 });
 
 /** Lower-case, accents stripped — "plátano" must find "platano" and vice versa. */
-const fold = (s: string): string => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
 /**
  * Every query word must appear in the name. Names starting with the query's

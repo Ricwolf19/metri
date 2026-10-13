@@ -1,4 +1,5 @@
 import type { Locale } from '@/i18n';
+import { fold as norm } from '@/lib/text';
 
 import { en } from './content/en';
 import { es } from './content/es';
@@ -10,9 +11,6 @@ export const getDocs = (locale: Locale): DocSection[] => (locale === 'es' ? es :
 
 export const getDocById = (locale: Locale, id: string): DocSection | null =>
   getDocs(locale).find((d) => d.id === id) ?? null;
-
-/** Lowercase + strip accents (NFD-decompose, drop combining marks) for matching. */
-const norm = (s: string): string => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 /** Rank by where the query hits: title > tags > body. Accent-insensitive. */
 export const searchDocs = (docs: DocSection[], query: string): DocSection[] => {
