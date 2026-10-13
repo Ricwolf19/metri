@@ -53,7 +53,8 @@ sign-up at all.
   training recency) you can tap muscle by muscle, plus the numbers behind it: planned-vs-actual RIR,
   hard sets and monthly sessions. Fatigue is shown as the estimate it is.
 - **Deliberate by design** — irreversible actions are press-and-hold, edits are saved explicitly,
-  dates follow your preferred format, and any training day can be shared as a brand card.
+  dates follow your preferred format, and sessions, exercises, plans and training days share as
+  brand cards.
 
 > **Status:** **open beta on Android**, distributed as a direct APK download from
 > [metri.info/download](https://metri.info/download) while the Play Store listing is

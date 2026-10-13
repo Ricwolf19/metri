@@ -25,14 +25,17 @@ Premium-only and automatic. `README.md` is the presentation card only; this file
 ```
 src/app/         Expo Router screens: (auth), (tabs), training/{program,start,edit,workout,history},
                  metrics-customize, plan, profile…
-src/components/  ui/ (shared primitives — import from the barrel), icons/ (Iconoir barrel), TopBar
+src/components/  ui/ (shared primitives — import from the barrel; share/ holds the card template),
+                 icons/ (Iconoir barrel), TopBar
 src/db/          schema.ts, client.ts, migrations/ (generated)
 src/features/    training (repos, schedule, editors' components, analytics engine), metrics
                  (tab sections + layout), auth, sync, plan (export/import), body (check-in, goals),
                  nutrition (food diary), notifications, calculators, widget, legal, home, explore,
-                 release (update check + card), quiz, docs (content/{en,es}/*)
+                 release (update check + card), quiz, docs (content/{en,es}/*), share (card models
+                 + sheet), spotlight (hold-at-top search), dev (demo seed)
 src/i18n/        en.ts + es.ts (flat keys), provider
-src/lib/         storage (MMKV), date helpers, telemetry, small hooks (useDateFormat, useTodayKey…)
+src/lib/         storage (MMKV), date helpers, telemetry, numbers (parse/snap), text (fold), small
+                 hooks (useDateFormat, useTodayKey…)
 src/test/        sql.js harness for repo tests
 ```
 
@@ -96,8 +99,8 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
 - Failures are silent by design — the avatar ring is the only user-facing signal.
 - **A new synced COLUMN needs no web change** — the mirror is opaque jsonb and the client
   intersects incoming keys against its live table (web `docs/sync.md`, "Schema drift"); only a
-  new TABLE touches the web allow-list. `exercises.unilateral`, `exercise_settings.load` and
-  `set_logs.load` shipped this way.
+  new TABLE touches the web allow-list. `exercises.unilateral`, `exercise_settings.load`,
+  `set_logs.load`, `routines.rm_test_week` and `workout_logs.warmup_done` shipped this way.
 - **A 401/403 is an answer, not a retry.** `syncFailure` raises `SyncAuthError` (`sync/errors.ts`)
   and `useAutoSync` stops the loop instead of backing off into it. An empty
   `authClient.getCookie()` means the session is already gone, so `syncNow` refuses to send at all:
@@ -218,7 +221,9 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   (`stopService`): notify-kit delivers STOP through `startService`, so with no instance alive
   Android cold-starts one just to stop it and refuses its `startForeground` from the background
   — a fatal `ForegroundServiceStartNotAllowedException` that `reconcileSession` used to trigger
-  on every cold launch. A stop that finds the app backgrounded waits for the next foreground.
+  on every cold launch (notify-kit 10.8 catches it upstream; the guard stays because a stop with
+  nothing running is still a pointless service start). A stop that finds the app backgrounded
+  waits for the next foreground.
   `endRest` redraws the training face and leaves it running. That is the only reason the alarm can ring at all: with the app merely backgrounded
   there is no React tree left to run it, and Android stops plain audio when the screen goes off.
   The service owns the countdown too, because exact alarms are denied by default from Android 14
