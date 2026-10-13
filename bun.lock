@@ -52,7 +52,7 @@
         "react-native-markdown-display": "^7.0.2",
         "react-native-mmkv": "4.3.2",
         "react-native-nitro-modules": "^0.35.9",
-        "react-native-notify-kit": "10.7.1",
+        "react-native-notify-kit": "10.8.1",
         "react-native-reanimated": "4.5.1",
         "react-native-reorderable-list": "0.18.1",
         "react-native-safe-area-context": "~5.7.0",
@@ -1953,7 +1953,7 @@
 
     "react-native-nitro-modules": ["react-native-nitro-modules@0.35.9", "", { "peerDependencies": { "react": "*", "react-native": "*" } }, "sha512-yCO6eJ85SPPUo4a4an7H5oj6wPCSIT72fbjr5WZ/20n6zswaJ2gNNpnWtg2We0AZwkAOjSqkOJ0Vjc05p6kGiA=="],
 
-    "react-native-notify-kit": ["react-native-notify-kit@10.7.1", "", { "dependencies": { "@expo/image-utils": "^0.8.14" }, "optionalDependencies": { "chalk": "^4.1.0", "commander": "^12.0.0", "plist": "^3.1.0", "xcode": "^3.0.1" }, "peerDependencies": { "expo": "*", "react-native": ">=0.73.0" }, "optionalPeers": ["expo"], "bin": { "react-native-notify-kit": "cli/bin/react-native-notify-kit" } }, "sha512-bj00Un58FBwEOdxykfNurs0GAVM/7/dKcuViYJAx0XFuBBELXsV7HYAFFTppIIniGkV9+6jo8TsVJ0FNJ2ojNQ=="],
+    "react-native-notify-kit": ["react-native-notify-kit@10.8.1", "", { "dependencies": { "@expo/image-utils": "^0.8.14" }, "optionalDependencies": { "chalk": "^4.1.0", "commander": "^12.0.0", "plist": "^3.1.0", "xcode": "^3.0.1" }, "peerDependencies": { "expo": "*", "react-native": ">=0.73.0" }, "optionalPeers": ["expo"], "bin": { "react-native-notify-kit": "cli/bin/react-native-notify-kit" } }, "sha512-8+Gtyn3kadV0oPwg7tDRY5cqtfcONTvl0XrSdVYDfElJmBP243apODuT1TFwRwIh1P8RhMH73aStywVtTgASqw=="],
 
     "react-native-reanimated": ["react-native-reanimated@4.5.1", "", { "dependencies": { "react-native-is-edge-to-edge": "^1.3.1", "semver": "^7.7.3" }, "peerDependencies": { "react": "*", "react-native": "0.83 - 0.86", "react-native-worklets": "0.10.x" } }, "sha512-RnMvtDuR+68ig864gAvZCOdZehqhC5rFmMo0kn+ARfgVSTvFeF6IFLBVgMPUu0KwihaapEyW24WRi6nEyy1kSA=="],
 
