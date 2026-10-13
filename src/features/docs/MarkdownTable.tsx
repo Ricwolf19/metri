@@ -12,46 +12,84 @@ const nodeText = (node: ASTNode | undefined): string => {
 const childrenOfType = (node: ASTNode | undefined, type: string): ASTNode[] =>
   (node?.children ?? []).filter((c) => c.type === type);
 
+/** Up to this many columns a phone-width grid still reads; wider tables stack. */
+const GRID_MAX_COLUMNS = 4;
+
 /**
- * A markdown table rendered as a stack of cards instead of a horizontally
- * scrolling grid — far more readable on a phone. Each row becomes a card: the
- * first column is the title, and any remaining columns show as labelled lines
- * (using the table headers as labels).
+ * A markdown table as a compact grid: one header line, one row per line, the
+ * first column a little wider and bold. Cells wrap rather than scroll, so the
+ * grid never overflows the screen. A row per card (the previous layout) spent
+ * a whole card on three numbers and read like a form.
  */
-const ReadableTable = ({ headers, rows }: { headers: string[]; rows: string[][] }) => (
+const GridTable = ({ headers, rows }: { headers: string[]; rows: string[][] }) => (
+  <View className="mb-3 overflow-hidden rounded-card border border-ink-700">
+    <View className="flex-row border-b border-ink-700 bg-ink-850 px-3 py-2">
+      {headers.map((h, c) => (
+        <Text
+          key={c}
+          className={[
+            'font-mono-medium text-[10px] uppercase tracking-wider text-ink-400',
+            c === 0 ? 'flex-[1.3]' : 'flex-1 pl-2',
+          ].join(' ')}
+        >
+          {h}
+        </Text>
+      ))}
+    </View>
+    {rows.map((cells, r) => (
+      <View
+        key={r}
+        className={[
+          'flex-row px-3 py-2',
+          r < rows.length - 1 ? 'border-b border-ink-800' : '',
+        ].join(' ')}
+      >
+        {headers.map((_, c) => (
+          <Text
+            key={c}
+            className={[
+              'text-sm leading-5',
+              c === 0 ? 'flex-[1.3] font-sans-semibold text-ink-50' : 'flex-1 pl-2 text-ink-200',
+            ].join(' ')}
+          >
+            {cells[c] ?? ''}
+          </Text>
+        ))}
+      </View>
+    ))}
+  </View>
+);
+
+/** A wide table (more columns than a grid can hold): one card per row, labelled lines. */
+const StackedTable = ({ headers, rows }: { headers: string[]; rows: string[][] }) => (
   <View className="mb-3 gap-2">
     {rows.map((cells, r) => (
       <View key={r} className="rounded-card border border-ink-700 bg-ink-850 p-3">
-        {cells.map((value, c) => {
-          if (!value) return null;
-          // First column is the row's headline; the rest are labelled details.
-          if (c === 0) {
-            return (
-              <Text key={c} className="text-[15px] font-sans-semibold text-ink-50">
-                {value}
-              </Text>
-            );
-          }
-          return (
-            <View key={c} className={c === 1 && cells[0] ? 'mt-2' : 'mt-1.5'}>
+        {cells.map((value, c) =>
+          !value ? null : c === 0 ? (
+            <Text key={c} className="text-[15px] font-sans-semibold text-ink-50">
+              {value}
+            </Text>
+          ) : (
+            <View key={c} className="mt-1.5 flex-row items-baseline gap-2">
               {headers[c] ? (
-                <Text className="text-[11px] font-sans-semibold uppercase tracking-wider text-ink-400">
+                <Text className="w-20 font-mono-medium text-[10px] uppercase tracking-wider text-ink-400">
                   {headers[c]}
                 </Text>
               ) : null}
-              <Text className="text-sm leading-5 text-ink-200">{value}</Text>
+              <Text className="flex-1 text-sm leading-5 text-ink-200">{value}</Text>
             </View>
-          );
-        })}
+          ),
+        )}
       </View>
     ))}
   </View>
 );
 
 /**
- * Markdown render override: turn tables into a readable stacked-card layout
- * (no horizontal scrolling). Falls back to the default renderer if the table
- * structure can't be parsed.
+ * Markdown render override: tables as a grid (or stacked cards when too wide),
+ * never a horizontally scrolling block. Falls back to the default renderer if
+ * the table structure can't be parsed.
  */
 export const markdownRules: RenderRules = {
   table: (node, children) => {
@@ -62,6 +100,10 @@ export const markdownRules: RenderRules = {
     const rows = childrenOfType(tbody, 'tr').map((tr) => (tr.children ?? []).map(nodeText));
 
     if (rows.length === 0) return <View key={node.key}>{children}</View>;
-    return <ReadableTable key={node.key} headers={headers} rows={rows} />;
+    return headers.length <= GRID_MAX_COLUMNS ? (
+      <GridTable key={node.key} headers={headers} rows={rows} />
+    ) : (
+      <StackedTable key={node.key} headers={headers} rows={rows} />
+    );
   },
 };

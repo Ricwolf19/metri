@@ -368,4 +368,66 @@ Relacionado: [sobrecarga progresiva](/es/docs/progressive-overload),
 [volumen, frecuencia y descanso](/es/docs/volume-frequency),
 [técnica](/es/docs/lifting-technique).`,
   },
+  {
+    id: 'when-to-test-rm',
+    category: 'training',
+    title: 'Cuándo probar un máximo',
+    tags: ['1rm', 'rm', 'máximo', 'test', 'pico', 'descarga', 'bloque', 'e1rm'],
+    body: `Probar un máximo es una habilidad y un estrés, no un entrenamiento. En el
+momento correcto te dice dónde estás y fija los números del siguiente bloque; en
+el momento equivocado cuesta una semana de recuperación y devuelve un número
+que la fatiga ya había descontado.
+
+## Qué probar
+
+| Test      | Qué da                           | Quién                                                         |
+| --------- | -------------------------------- | ------------------------------------------------------------- |
+| 1RM real  | una repetición máxima            | quien lleva años bajo la barra, con seguros y ayudante        |
+| 3–5RM     | un triple o un quíntuple pesado, convertido | el resto — la [calculadora de 1RM](/tools/calculadora-1rm) hace la cuenta |
+
+Un máximo de 3 a 5 repeticiones da casi toda la información de un 1RM real con
+una fracción del riesgo, y su estimación cae dentro de un pequeño margen:
+
+e1RM = peso × (1 + reps / 30)
+
+## Cuándo
+
+- **La última semana de un bloque**, o la primera tras una descarga, cuando la
+  fatiga de las semanas anteriores ya se fue. metri marca esa semana en la rutina
+  ("semana de test de RM").
+- **Antes de una fase con porcentajes**: el número que pruebas es el número
+  sobre el que se construyen las semanas siguientes.
+- **Nunca a mitad de bloque ni cansado**: un test encima del volumen acumulado
+  sale un 5–10% bajo y arrastra todos los porcentajes.
+- **No tras un parón**: primero dos semanas de vuelta. Un test el primer día
+  mide la oxidación, no la fuerza.
+- Una vez por bloque basta. Más seguido y el test se convierte en el
+  entrenamiento.
+
+## Cómo
+
+| Serie    | Carga  | Reps | Descanso |
+| -------- | ------ | ---- | -------- |
+| 1        | ~40%   | 5    | 2 min    |
+| 2        | ~60%   | 3    | 2–3 min  |
+| 3        | ~75%   | 2    | 3 min    |
+| 4        | ~85%   | 1    | 3–5 min  |
+| 5        | ~92%   | 1    | 3–5 min  |
+| intentos | +2–5%  | 1    | 3–5 min  |
+
+Tres intentos como máximo. Seguros o ayudante en todo lo que vaya sobre la
+cabeza o sobre la espalda. El test ES la sesión de ese ejercicio: regístralo y
+deja ligero el resto del día.
+
+## Qué hacer con el número
+
+Anótalo donde lo lea el siguiente bloque y olvídalo cuatro semanas: las
+prescripciones y el RIR hacen el trabajo. Si la estimación de tu serie efectiva
+más pesada (metri la muestra en cada ejercicio como e1RM) ya está por encima del
+test, confía en el entrenamiento, no en el día del test.
+
+Relacionado: [sobrecarga progresiva](/docs/progressive-overload),
+[intensidad y RIR](/docs/training-intensity),
+[cómo funciona un programa](/docs/how-a-program-works).`,
+  },
 ];

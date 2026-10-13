@@ -343,4 +343,65 @@ Related: [progressive overload](/docs/progressive-overload),
 [volume, frequency & rest](/docs/volume-frequency),
 [technique](/docs/lifting-technique).`,
   },
+  {
+    id: 'when-to-test-rm',
+    category: 'training',
+    title: 'When to test a max',
+    tags: ['1rm', 'rm', 'max', 'test', 'peak', 'deload', 'block', 'e1rm'],
+    body: `Testing a max is a skill and a stressor, not a workout. Done at the right
+moment it tells you where you stand and sets the next block's numbers; done at
+the wrong one it costs a week of recovery and returns a number fatigue had
+already discounted.
+
+## What to test
+
+| Test     | What it gives                     | Who                                                          |
+| -------- | --------------------------------- | ------------------------------------------------------------ |
+| True 1RM | one maximal single                | lifters with years under the bar, safeties and a spotter     |
+| 3–5RM    | a heavy triple or five, converted | everyone else — the [1RM calculator](/tools/1rm-calculator) does the arithmetic |
+
+A rep max in the 3–5 range carries most of the information of a true max at a
+fraction of the risk, and its estimate lands within a few percent:
+
+e1RM = weight × (1 + reps / 30)
+
+## When
+
+- **The last week of a block**, or the first after a deload, once the fatigue
+  of the previous weeks is gone. metri marks that week on the routine
+  ("RM test week").
+- **Before a phase that prescribes percentages**: the number you test is the
+  number the coming weeks are built on.
+- **Never mid-block or tired**: a test on top of accumulated volume reads
+  5–10% low, then drags every percentage down with it.
+- **Not after a layoff**: two weeks back first. A test on the first day back
+  measures rust, not strength.
+- Once per block is plenty. More often and the test becomes the training.
+
+## How
+
+| Set      | Load   | Reps | Rest    |
+| -------- | ------ | ---- | ------- |
+| 1        | ~40%   | 5    | 2 min   |
+| 2        | ~60%   | 3    | 2–3 min |
+| 3        | ~75%   | 2    | 3 min   |
+| 4        | ~85%   | 1    | 3–5 min |
+| 5        | ~92%   | 1    | 3–5 min |
+| attempts | +2–5%  | 1    | 3–5 min |
+
+Three attempts at most. Safeties or a spotter on anything over the head or on
+the back. The test IS the session for that lift: log it and keep the rest of the
+day light.
+
+## What to do with the number
+
+Write it where the next block reads it, then forget it for four weeks — the
+prescriptions and the RIR do the work. If the estimate from your heaviest
+working set (metri shows it on every exercise as e1RM) is already above the
+test, trust the training, not the test day.
+
+Related: [progressive overload](/docs/progressive-overload),
+[intensity & RIR](/docs/training-intensity),
+[how a program works](/docs/how-a-program-works).`,
+  },
 ];
