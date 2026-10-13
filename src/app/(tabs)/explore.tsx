@@ -11,6 +11,7 @@ import type { CalcId } from '@/features/calculators/types';
 import { getDocs, searchDocs, type DocSection } from '@/features/docs';
 import { TOPICS } from '@/features/explore/topics';
 import { QuizCard } from '@/features/quiz/QuizCard';
+import { useSpotlight } from '@/features/spotlight/SpotlightProvider';
 import { useI18n, useT } from '@/i18n';
 
 const SectionHeader = ({ text }: { text: string }) => (
@@ -23,6 +24,7 @@ const SectionHeader = ({ text }: { text: string }) => (
  */
 const Explore = () => {
   const t = useT();
+  const spotlight = useSpotlight();
   const { locale } = useI18n();
   const { q } = useLocalSearchParams<{ q?: string }>();
   const [query, setQuery] = useState(q ?? '');
@@ -76,6 +78,7 @@ const Explore = () => {
       edges={['top']}
       contentClassName="px-5 pb-32"
       header={<TopBar menu showFaq showBeta />}
+      onPullHold={spotlight?.open}
     >
       <Input
         value={query}

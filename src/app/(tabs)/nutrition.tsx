@@ -23,6 +23,7 @@ import { DayTotalsCard } from '@/features/nutrition/components/DayTotalsCard';
 import { MealBlock } from '@/features/nutrition/components/MealBlock';
 import { MEALS } from '@/features/nutrition/diary';
 import { useDiary } from '@/features/nutrition/useDiary';
+import { useSpotlight } from '@/features/spotlight/SpotlightProvider';
 import { useT } from '@/i18n';
 import { useDateFormat } from '@/lib/useDateFormat';
 import { useTheme } from '@/theme/theme-context';
@@ -34,6 +35,7 @@ import { useTheme } from '@/theme/theme-context';
  */
 const Nutrition = () => {
   const t = useT();
+  const spotlight = useSpotlight();
   const router = useRouter();
   const { user } = useAuth();
   const { muted } = useTheme();
@@ -60,6 +62,7 @@ const Nutrition = () => {
       edges={['top']}
       contentClassName="px-5 pb-32"
       header={<TopBar menu showFaq showBeta />}
+      onPullHold={spotlight?.open}
     >
       <ScreenTitle title={t('nutrition.title')} subtitle={t('nutrition.subtitle')} />
 

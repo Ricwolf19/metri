@@ -7,6 +7,7 @@ import { FadeInUp, Screen } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { visibleSections } from '@/features/metrics/sections';
 import { useMetricsLayout } from '@/features/metrics/useMetricsLayout';
+import { useSpotlight } from '@/features/spotlight/SpotlightProvider';
 import { useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
@@ -19,6 +20,7 @@ import { useTheme } from '@/theme/theme-context';
  */
 const Metrics = () => {
   const t = useT();
+  const spotlight = useSpotlight();
   const router = useRouter();
   const { user } = useAuth();
   const { muted } = useTheme();
@@ -45,6 +47,7 @@ const Metrics = () => {
       edges={['top']}
       contentClassName="px-5 pb-32"
       header={<TopBar menu showFaq showBeta />}
+      onPullHold={spotlight?.open}
     >
       {sections.map(({ id, Component }, i) => (
         <FadeInUp key={id} delay={Math.min(i * 50, 150)}>

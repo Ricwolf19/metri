@@ -1,9 +1,11 @@
 import { remapProps } from 'nativewind';
+import { useEffect, useState } from 'react';
 import { View, type ViewProps } from 'react-native';
 import { KeyboardAvoidingView, KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import Animated, { interpolate, useAnimatedStyle } from 'react-native-reanimated';
+import Animated, { interpolate, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
 
+import { makePullHoldController } from './pull-hold-controller';
 import { useLocalScrollVisibility, useScrollVisibility } from './scroll-visibility';
 
 // NativeWind only maps `contentContainerClassName` on RN's own scroll views; on
@@ -30,6 +32,13 @@ type Props = ViewProps & {
   header?: React.ReactNode;
   /** Sticky bottom slot (e.g. a Continue button) rendered outside the scroll. */
   footer?: React.ReactNode;
+  /**
+   * Scroll screens only: dragging at the very top and holding the finger there
+   * for `HOLD_MS` fires this (the spotlight). Detected from the scroll view's
+   * own drag events — no gesture handler sits on the scroll view, so scrolling
+   * is untouched.
+   */
+  onPullHold?: () => void;
 };
 
 /**
@@ -50,6 +59,7 @@ export const Screen = ({
   contentClassName,
   header,
   footer,
+  onPullHold,
   children,
   ...rest
 }: Props) => {
@@ -61,6 +71,19 @@ export const Screen = ({
   const insets = useSafeAreaInsets();
   const shown = vis.shown;
   const floating = !!header;
+
+  // Hold-at-top: the controller (and its stable scroll handlers) is built once;
+  // the fire handler is re-pointed in an effect, so a re-render changes nothing
+  // the native scroll view is given.
+  const pullProgress = useSharedValue(0);
+  const [pull] = useState(() => makePullHoldController(pullProgress, vis.onScroll));
+  useEffect(() => {
+    pull.configure(onPullHold);
+  }, [pull, onPullHold]);
+  const pullBarAnim = useAnimatedStyle(() => ({
+    opacity: pullProgress.value > 0 ? 1 : 0,
+    transform: [{ scaleX: pullProgress.value }],
+  }));
 
   const headerAnim = useAnimatedStyle(() => {
     const v = shown.value;
@@ -80,7 +103,9 @@ export const Screen = ({
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
       contentContainerClassName={contentClassName}
-      onScroll={vis.onScroll}
+      onScroll={pull.onScroll}
+      onScrollBeginDrag={pull.onScrollBeginDrag}
+      onScrollEndDrag={pull.onScrollEndDrag}
       scrollEventThrottle={16}
     >
       {clearance}
@@ -130,6 +155,14 @@ export const Screen = ({
           <View className="overflow-hidden rounded-full border border-ink-700/60 bg-ink-850/95">
             {header}
           </View>
+          {/* The hold's progress, a hairline under the pill: fills over HOLD_MS, nothing at rest. */}
+          {onPullHold ? (
+            <Animated.View
+              pointerEvents="none"
+              className="mt-1 h-0.5 rounded-full bg-brand"
+              style={pullBarAnim}
+            />
+          ) : null}
         </Animated.View>
       </View>
     );

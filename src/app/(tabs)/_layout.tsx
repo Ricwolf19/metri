@@ -24,6 +24,7 @@ import { ScrollVisibilityProvider, useScrollVisibility } from '@/components/ui/s
 import { useAuth } from '@/features/auth/auth-context';
 import { closeSession } from '@/features/training/close-session';
 import { activeWorkoutQuery } from '@/features/training/session.repo';
+import { SpotlightProvider } from '@/features/spotlight/SpotlightProvider';
 import { useAutoSync } from '@/features/sync/useAutoSync';
 import { useWidgetSync } from '@/features/widget/useWidgetSync';
 import { useT } from '@/i18n';
@@ -196,64 +197,66 @@ const TabsLayout = () => {
 
   return (
     <ScrollVisibilityProvider>
-      <Tabs
-        tabBar={(props) => <FloatingTabBar {...props} />}
-        screenOptions={{
-          headerShown: false,
-          animation: 'shift',
-          // Lazy mounting made the user watch each section's first render — the
-          // entrance animation plus live queries landing a frame late read as a
-          // layout jump. Queries are local SQLite, so mounting all five up
-          // front is cheap and every tab opens already settled.
-          lazy: false,
-        }}
-      >
-        <Tabs.Screen
-          name="index"
-          options={{
-            title: t('tab.home'),
-            tabBarIcon: (p) => (
-              <TabBarIcon Icon={HomeIcon} color={p.color as string} focused={p.focused} />
-            ),
+      <SpotlightProvider>
+        <Tabs
+          tabBar={(props) => <FloatingTabBar {...props} />}
+          screenOptions={{
+            headerShown: false,
+            animation: 'shift',
+            // Lazy mounting made the user watch each section's first render — the
+            // entrance animation plus live queries landing a frame late read as a
+            // layout jump. Queries are local SQLite, so mounting all five up
+            // front is cheap and every tab opens already settled.
+            lazy: false,
           }}
-        />
-        <Tabs.Screen
-          name="training"
-          options={{
-            title: t('tab.train'),
-            tabBarIcon: (p) => (
-              <TabBarIcon Icon={DumbbellIcon} color={p.color as string} focused={p.focused} />
-            ),
-          }}
-        />
-        <Tabs.Screen
-          name="metrics"
-          options={{
-            title: t('tab.metrics'),
-            tabBarIcon: (p) => (
-              <TabBarIcon Icon={MetriIcon} color={p.color as string} focused={p.focused} />
-            ),
-          }}
-        />
-        <Tabs.Screen
-          name="nutrition"
-          options={{
-            title: t('tab.nutrition'),
-            tabBarIcon: (p) => (
-              <TabBarIcon Icon={AppleIcon} color={p.color as string} focused={p.focused} />
-            ),
-          }}
-        />
-        <Tabs.Screen
-          name="explore"
-          options={{
-            title: t('tab.explore'),
-            tabBarIcon: (p) => (
-              <TabBarIcon Icon={CompassIcon} color={p.color as string} focused={p.focused} />
-            ),
-          }}
-        />
-      </Tabs>
+        >
+          <Tabs.Screen
+            name="index"
+            options={{
+              title: t('tab.home'),
+              tabBarIcon: (p) => (
+                <TabBarIcon Icon={HomeIcon} color={p.color as string} focused={p.focused} />
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="training"
+            options={{
+              title: t('tab.train'),
+              tabBarIcon: (p) => (
+                <TabBarIcon Icon={DumbbellIcon} color={p.color as string} focused={p.focused} />
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="metrics"
+            options={{
+              title: t('tab.metrics'),
+              tabBarIcon: (p) => (
+                <TabBarIcon Icon={MetriIcon} color={p.color as string} focused={p.focused} />
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="nutrition"
+            options={{
+              title: t('tab.nutrition'),
+              tabBarIcon: (p) => (
+                <TabBarIcon Icon={AppleIcon} color={p.color as string} focused={p.focused} />
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="explore"
+            options={{
+              title: t('tab.explore'),
+              tabBarIcon: (p) => (
+                <TabBarIcon Icon={CompassIcon} color={p.color as string} focused={p.focused} />
+              ),
+            }}
+          />
+        </Tabs>
+      </SpotlightProvider>
     </ScrollVisibilityProvider>
   );
 };

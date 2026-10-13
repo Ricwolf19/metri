@@ -16,6 +16,7 @@ import { DocsPromoBanner } from '@/features/docs/DocsPromoBanner';
 import { EnergyCard } from '@/features/home/components/EnergyCard';
 import { HomeUpdateCard } from '@/features/release/components/HomeUpdateCard';
 import { WidgetPromoBanner } from '@/features/widget/components/WidgetPromoBanner';
+import { useSpotlight } from '@/features/spotlight/SpotlightProvider';
 import { useI18n, useT } from '@/i18n';
 import { settings } from '@/lib/storage';
 
@@ -28,6 +29,7 @@ const Home = () => {
   const { user } = useAuth();
   const router = useRouter();
   const t = useT();
+  const spotlight = useSpotlight();
   const { locale } = useI18n();
 
   // Pinned quick actions live in MMKV; the starter set shows until the user
@@ -52,6 +54,7 @@ const Home = () => {
       edges={['top']}
       contentClassName="px-5 pb-32"
       header={<TopBar menu showFaq showBeta />}
+      onPullHold={spotlight?.open}
     >
       <PremiumIntroModal />
       <AnnouncementModal />
