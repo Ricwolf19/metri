@@ -9,6 +9,8 @@ type Props<T extends string> = {
   segments: readonly Segment<T>[];
   value: T | undefined;
   onChange: (value: T) => void;
+  /** `sm` for a toggle that shares a line with other controls (the session's kg/lb). */
+  size?: 'md' | 'sm';
 };
 
 /** A pill-group selector — used for sex, activity level, units, formula, etc. */
@@ -17,7 +19,9 @@ export const SegmentedControl = <T extends string>({
   segments,
   value,
   onChange,
+  size = 'md',
 }: Props<T>) => {
+  const small = size === 'sm';
   return (
     <View className="w-full">
       {label ? (
@@ -25,7 +29,12 @@ export const SegmentedControl = <T extends string>({
           {label}
         </Text>
       ) : null}
-      <View className="w-full flex-row rounded-field border border-ink-600 bg-ink-800 p-1">
+      <View
+        className={[
+          'w-full flex-row rounded-field border border-ink-600 bg-ink-800',
+          small ? 'p-0.5' : 'p-1',
+        ].join(' ')}
+      >
         {segments.map((seg) => {
           const active = seg.value === value;
           return (
@@ -35,7 +44,8 @@ export const SegmentedControl = <T extends string>({
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
               className={[
-                'flex-1 items-center justify-center rounded-[0.375rem] px-1 py-2.5',
+                'flex-1 items-center justify-center rounded-[0.375rem] px-1',
+                small ? 'py-1' : 'py-2.5',
                 active ? 'bg-ink-50' : 'active:bg-ink-700',
               ].join(' ')}
             >
@@ -48,7 +58,7 @@ export const SegmentedControl = <T extends string>({
                 minimumFontScale={0.7}
                 style={{ textAlign: 'center' }}
                 className={[
-                  'text-sm font-sans-semibold',
+                  small ? 'text-xs font-sans-semibold' : 'text-sm font-sans-semibold',
                   active ? 'text-ink-900' : 'text-ink-300',
                 ].join(' ')}
               >

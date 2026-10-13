@@ -19,6 +19,10 @@ import {
   NavArrowRight,
   NavArrowLeft,
   NavArrowDown,
+  NavArrowUp,
+  DataTransferBoth,
+  Search,
+  ShareAndroid,
   FireFlame,
   LogOut,
   Gym,
@@ -47,13 +51,8 @@ import {
   Menu,
   PlaySolid,
   Sparks,
-  List,
-  ViewGrid,
   Pause,
   Expand,
-  Eye,
-  EyeClosed,
-  DataTransferBoth,
 } from 'iconoir-react-native';
 
 /** Square size in px (maps to width + height). */
@@ -93,6 +92,12 @@ export const CameraIcon = sized(Camera, 'CameraIcon');
 export const ChevronRightIcon = sized(NavArrowRight, 'ChevronRightIcon');
 export const ChevronLeftIcon = sized(NavArrowLeft, 'ChevronLeftIcon');
 export const ChevronDownIcon = sized(NavArrowDown, 'ChevronDownIcon');
+/** Trend arrows (a comparison indicator, see training/components/TrendArrow). */
+export const ArrowUpIcon = sized(NavArrowUp, 'ArrowUpIcon');
+export const ArrowDownIcon = sized(NavArrowDown, 'ArrowDownIcon');
+export const SearchIcon = sized(Search, 'SearchIcon');
+export const SwapIcon = sized(DataTransferBoth, 'SwapIcon');
+export const ShareIcon = sized(ShareAndroid, 'ShareIcon');
 export const FlameIcon = sized(FireFlame, 'FlameIcon');
 export const LogOutIcon = sized(LogOut, 'LogOutIcon');
 export const DumbbellIcon = sized(Gym, 'DumbbellIcon');
@@ -121,10 +126,5 @@ export const SmartphoneIcon = sized(SmartphoneDevice, 'SmartphoneIcon');
 export const DragHandleIcon = sized(Menu, 'DragHandleIcon');
 export const PlaySolidIcon = sized(PlaySolid, 'PlaySolidIcon');
 export const SparksIcon = sized(Sparks, 'SparksIcon');
-export const ListIcon = sized(List, 'ListIcon');
-export const ViewGridIcon = sized(ViewGrid, 'ViewGridIcon');
 export const PauseIcon = sized(Pause, 'PauseIcon');
 export const ExpandIcon = sized(Expand, 'ExpandIcon');
-export const EyeIcon = sized(Eye, 'EyeIcon');
-export const EyeClosedIcon = sized(EyeClosed, 'EyeClosedIcon');
-export const SwapIcon = sized(DataTransferBoth, 'SwapIcon');

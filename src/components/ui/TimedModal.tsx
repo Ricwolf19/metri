@@ -23,6 +23,10 @@ type Props = {
   onDone: () => void;
   /** How long the ring takes to empty. */
   durationMs?: number;
+  /** Holds the ring from outside (a sheet opened over the card); released, it resumes. */
+  paused?: boolean;
+  /** Controls under the card. Taps here never toggle the freeze: the card owns that. */
+  actions?: React.ReactNode;
   children: React.ReactNode;
 };
 
@@ -110,7 +114,14 @@ const makePan = (panX: SharedValue<number>, ctl: Controller) =>
  * result the user already asked for — it carries no decision, so it has no
  * buttons.
  */
-export const TimedModal = ({ visible, onDone, durationMs = 8000, children }: Props) => {
+export const TimedModal = ({
+  visible,
+  onDone,
+  durationMs = 8000,
+  paused = false,
+  actions,
+  children,
+}: Props) => {
   const { brand } = useTheme();
   const { width: screenW } = useWindowDimensions();
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -121,11 +132,17 @@ export const TimedModal = ({ visible, onDone, durationMs = 8000, children }: Pro
   const [ctl] = useState(() => makeController(life, panX));
   const [pan] = useState(() => makePan(panX, ctl));
 
-  // Derived during render, not in an effect: every open starts unfrozen.
+  // Derived during render, not in an effect: every open starts unfrozen, and an
+  // outside hold reads as frozen the moment it is asked for.
   const [prevVisible, setPrevVisible] = useState(visible);
   if (visible !== prevVisible) {
     setPrevVisible(visible);
-    if (visible) setFrozen(false);
+    if (visible) setFrozen(paused);
+  }
+  const [prevPaused, setPrevPaused] = useState(paused);
+  if (paused !== prevPaused) {
+    setPrevPaused(paused);
+    setFrozen(paused);
   }
 
   useEffect(() => {
@@ -137,6 +154,13 @@ export const TimedModal = ({ visible, onDone, durationMs = 8000, children }: Pro
     ctl.start();
     return ctl.clear;
   }, [visible, ctl]);
+
+  // An outside hold works like a tap-freeze, so the ring never lies about the wait.
+  useEffect(() => {
+    if (!visible) return;
+    if (paused) ctl.freeze();
+    else ctl.thaw();
+  }, [paused, visible, ctl]);
 
   const toggleFreeze = () => {
     setFrozen((was) => {
@@ -202,6 +226,7 @@ export const TimedModal = ({ visible, onDone, durationMs = 8000, children }: Pro
                     />
                   </Svg>
                 ) : null}
+                {actions ? <View className="mt-3">{actions}</View> : null}
               </Animated.View>
             </GestureDetector>
           </View>

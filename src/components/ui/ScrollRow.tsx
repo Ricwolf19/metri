@@ -21,6 +21,12 @@ type Props = {
    * −30 s | +30 s seam, the common taps, and scroll outward to the extremes).
    */
   centerX?: number;
+  /**
+   * A content x to keep in view as it changes — the selected chip of a strip
+   * that doubles as navigation. Unlike `centerX` it follows every change, so
+   * the current item is never parked off the edge.
+   */
+  focusX?: number;
 };
 
 /**
@@ -57,7 +63,7 @@ const Cue = ({ side }: { side: 'left' | 'right' }) => {
  * than a wrapping strip: wrapped badges grow downwards and push the content the
  * screen is about below the fold.
  */
-export const ScrollRow = ({ children, className, contentStyle, centerX }: Props) => {
+export const ScrollRow = ({ children, className, contentStyle, centerX, focusX }: Props) => {
   const ref = useRef<ScrollView>(null);
   const [frame, setFrame] = useState(0);
   const [content, setContent] = useState(0);
@@ -75,6 +81,14 @@ export const ScrollRow = ({ children, className, contentStyle, centerX }: Props)
       animated: false,
     });
   }, [centerX, frame, content]);
+
+  useEffect(() => {
+    if (focusX == null || !frame || !content) return;
+    ref.current?.scrollTo({
+      x: Math.max(0, Math.min(content - frame, focusX - frame / 2)),
+      animated: true,
+    });
+  }, [focusX, frame, content]);
 
   const overflowing = content > frame + 1;
   const canRight = overflowing && content - frame - offset > EDGE;
