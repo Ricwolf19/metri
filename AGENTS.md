@@ -112,9 +112,11 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
 - **NativeWind tokens, never raw hex** in components: `ink-*`/`accent` adapt per theme; `ink-950`
   stays constant; accent text = `text-accent`, accent fills = `bg-lime-400`; icon `color=` props use
   `useTheme()` values. `info` (sky) is the one informational tone — a per-side tag, "a load
-  detail is saved" — never a selection or an active state, which stay lime. The sole hex
-  exception is `components/BarGraphic.tsx`: Olympic plate colours are the plate's identity, data
-  not theme. Icons come from the `@/components/icons` Iconoir barrel — add by mapping
+  detail is saved", the swap-variant glyph (alternatives exist), the "more than last time" arrow
+  — never a selection or an active state, which stay lime. The sole hex
+  exceptions are `components/BarGraphic.tsx` (Olympic plate colours are the plate's identity, data
+  not theme) and `components/ui/share/palette.ts` (a share card is a PNG, always dark, never a
+  themed surface). Icons come from the `@/components/icons` Iconoir barrel — add by mapping
   there, don't import `iconoir-react-native` in screens.
 - **i18n**: flat dotted keys in `src/i18n/{en,es}.ts` — add to BOTH (tsc + `i18n:check` enforce).
 - **Server/technical strings never reach the UI.** A caught error shows a translated message and
@@ -135,6 +137,17 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   guard leaving with `useUnsavedGuard` (Save & leave / Discard / Cancel). Every irreversible action
   is a `<HoldButton>` (press-and-hold) — inline and inside dialogs (`style: 'destructive'` renders
   one). Toasts only for save/delete/start/abandon.
+- **`<BlockingOverlay>` is a SOLID surface** (`bg-ink-900`, the mark pulsing inside an orbiting
+  arc, always centred): a translucent wait showed the screens behind it mid-render. Use it for
+  every synchronous transition — start, finish, discard, a language switch, a bulk write.
+- **Preset cues ("Pausa 1s", "Agarre supino") resolve at render** through
+  `programs/badge-copy.ts` (`badgeLabel`, either language's spelling finds the pair); the stored
+  string stays whatever the seed or the lifter wrote.
+- **Dev-only demo data**: `bun run dev:seed` (`scripts/dev-seed.ts`, `--ios` for the simulator)
+  opens the deep link `metri://dev/seed`; the `src/app/dev/seed.tsx` screen (mounts under
+  `__DEV__` only, redirects otherwise) wipes the user's training, body and diary rows, creates a
+  local test lifter if the device has none, and writes three months through
+  `features/dev/demo-seed.ts`. Its copy is not in the dictionaries on purpose.
 - **Overlays** sit behind `<Scrim>`, never a bare translucent black — one backdrop for dialogs,
   sheets, the blocking wait and full-screen viewers. **iOS frosts, Android dims, and that is
   deliberate**: iOS blurs the window, so `BlurView` works inside a `Modal` with no setup, while
@@ -201,8 +214,12 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
 - **The session runs as a notifee foreground service** (`session-service.ts`, a pure loop with
   injected clock/sleep/effects), registered at the bundle entry beside the background handler.
   It spans the whole workout — idling at 5 s between rests, ticking at 1 s during one — and
-  `endSession` is the ONLY place it stops; `endRest` redraws the training face and leaves it
-  running. That is the only reason the alarm can ring at all: with the app merely backgrounded
+  `endSession` is the ONLY place it stops, **and only when this process started it**
+  (`stopService`): notify-kit delivers STOP through `startService`, so with no instance alive
+  Android cold-starts one just to stop it and refuses its `startForeground` from the background
+  — a fatal `ForegroundServiceStartNotAllowedException` that `reconcileSession` used to trigger
+  on every cold launch. A stop that finds the app backgrounded waits for the next foreground.
+  `endRest` redraws the training face and leaves it running. That is the only reason the alarm can ring at all: with the app merely backgrounded
   there is no React tree left to run it, and Android stops plain audio when the screen goes off.
   The service owns the countdown too, because exact alarms are denied by default from Android 14
   on for anything that is not a clock, so the `AlarmManager` trigger can land minutes late in
@@ -222,7 +239,10 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   id would be refused while it runs. The face is derived from MMKV by `notification-content.ts`
   (pure, tested) and the copy (`NextSetCopy`, the rest labels) is frozen at write time because
   the headless redraws have no i18n. notifee keeps ONE background handler per process, so a
-  second module registering its own silently unhooks the actions. `showSession` writes the MMKV
+  second module registering its own silently unhooks the actions. **A swiped-away card stays
+  away**: the DISMISSED event sets `hidden` on the session record and `draw` skips the training
+  and rest faces until the next session (rest-over still rings — it was asked for); a redraw never
+  clears the flag, only a fresh workout does. `showSession` writes the MMKV
   record (`training/session-state.ts`); only finish/abandon call `endSession` (AFTER
   finishing/abandoning the log) — never a screen unmount, since leaving the workout does not end
   it — and boot redraws a record whose log is still open, drops one that is not.
@@ -276,6 +296,11 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   The Home catch-up asks about unresolved planned days up to 30 back (trained / rest / missed, plus
   a bulk "all missed"), and about TODAY only once its scheduled session plus the check-in delay has
   passed — otherwise the check-in notification would ask a question the app offers nowhere to answer.
+  **A skipped planned split is a `workout_logs` row with `status: 'skipped'`** (no sets, excluded
+  from every stat and history list by status; `skip-split.ts` is the one writer): it RESOLVES the
+  week for `isWeekComplete`, so the plan moves on, while the streak still reads the day as missed.
+  Deleting that row is the undo (rewinds like a session). `active` ("other activity") is a fourth
+  day status, neutral for the streak like rest; `moved` is a skip reason. Both are wire format.
 - **Session history is append-only; deletion is the one undo.** A repeated split is a new
   `workout_logs` row, never a rewrite. `deleteWorkout` (reached from `/training/history` and the
   day sheet, both through `<DeleteSessionButton>`) hard-deletes the log + sets with tombstones, hands
@@ -283,21 +308,50 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   `rewindUserProgram` — the inverse of `advanceUserProgram`. Rewind only moves BACK, and never
   past the deleted week, so a position set by hand survives; it reopens a completed program only
   when nothing else is enrolled.
-- **Warm-up sets** are `set_logs.isWarmup` rows logged from the same screen. Every read path
-  excludes them — volume, PRs, e1RM, progression and the muscle models — so a new aggregate must
-  filter them too. They never start the prescribed rest and carry no RIR (submaximal by
-  definition); `warmup.ts` only suggests the ramp, the lifter still confirms each row.
+- **Warm-up is a per-session check, not logged sets.** `workout_logs.warmup_done` (synced,
+  nullable = not asked) is written by the card at the top of the session (`setWarmupDone`); the
+  per-exercise warm-up rows and the ramp suggestion were removed. `set_logs.isWarmup` stays as
+  wire format for the rows older builds wrote: every read path still excludes them — volume,
+  PRs, e1RM, progression and the muscle models — so a new aggregate must filter them too.
 - **`weight_kg` is the number the lifter names; `set_logs.load` is how it was built.** A bar +
   plates total, a stack, or ONE dumbbell (per hand, per side on a unilateral exercise). Volume
   reads the DERIVED total through `setVolumeKg` (`features/training/load.ts`; in SQL,
   `json_extract(load, '$.hands')`) — only two dumbbells double the number; PRs, e1RM, the
   suggestion and prefill stay on `weight_kg` (a dumbbell PR is "the 30s"). Pre-upgrade dumbbell
   rows carry no detail and count ×1, so a lifter's weekly volume steps up the week they start
-  using the sheet — accepted, no migration. The sheet (`WeightCalculatorSheet`) opens in the mode
-  of `exercises.equipment`, remembers the last config on `exercise_settings.load` (written only
-  from the sheet's Apply; never a slot field, never propagates), and `reconcileLoad` drops a
-  detail the lifter typed over. Prefill is keyed by the exercise on the card, and a variant swap
-  clears the slot's draft details (`clearDraftLoads`).
+  using the sheet — accepted, no migration. **The live row's INPUT is not always the total**
+  (`rowInputMode`): on a bar, or a machine the lifter marked as plate-loaded, the field takes the
+  weight PER SIDE beside a fixed base prefix and the total is derived (`RowDraft.weight` stays
+  the total, `RowDraft.side` is presentation); dumbbells take one dumbbell; the rest take the
+  total. Every change to the number — typing AND the ± buttons — re-derives the detail through
+  `deriveLoad` (plates split greedily onto the rack, a stack total onto its pin), so a bump never
+  drops the plates; the sheet is the one caller that hands its own `load`. Per side snaps to
+  0.25 kg / 0.5 lb and a dumbbell to .5 on blur and on confirm; reps are integers
+  (`lib/numbers.ts` holds the parsing, which accepts a comma). The sheet
+  (`WeightCalculatorSheet`) opens in the mode of `exercises.equipment`; a machine offers plates
+  or stack until the lifter chooses once (the card asks; `/training/exercise/[id]` can change it)
+  and the choice IS the kind of the saved `exercise_settings.load` (`machineLoadKind`: a
+  `barbell` detail whose bar is the sled = plates per side, the same with `sides: 1` = one post
+  that takes every plate once, a `machine` detail = stack; `LoadDetail.sides` is additive wire
+  format, absent = 2). The card asks in two steps (`MachineLoadChooser`: plates or stack, then per side or one
+  post). Inputs stop at `MAX_INPUT` per mode (250 kg a side, 100 kg a dumbbell,
+  500 kg a total) and the breakdown under the row is TEXT only ("20 + 2×(20, 2.5)") — plate
+  swatches were tried and removed. `load` is written
+  by the sheet's Apply and by that chooser only — never a slot field, never propagates — and
+  `reconcileLoad` still drops a detail that no longer adds up to the row. There is no free
+  "other load" or typed per-side field in the sheet: the row is where a number is typed, the
+  sheet is where a picture is built. Prefill is keyed by the exercise on the card, and a variant
+  swap clears the slot's draft details and per-side text (`clearDraftLoads`).
+- **Prefill reads the SAME ordinal set of the previous session of that exercise**
+  (`previousSessionSets`, any split, any week; warm-ups filtered BEFORE indexing because
+  `set_number` counts them) — weight and reps — and the card shows that session as "Last
+  training". The set just logged only seeds the next one when there is no history. The arrows
+  beside the inputs compare the typed value with that same set: `info` up, the adherence
+  `MISSED` red down — a comparison indicator, the one place those two tones mean neither a
+  state nor a miss.
+- **The session has ONE view**: one exercise per page, the `ChipRow` strip (`followSelection`)
+  as the navigation, Prev/Next on the row above the card. `settings.workoutLayout` is retired —
+  never reuse the id. The ± groups carry no visible caption (the field above them says the unit).
 - **`exercises.unilateral`** (seed v9 for the catalog, a toggle on custom exercises) only tags
   and captions — one `set_logs` row per set, the weight per side; left/right rows are a later
   step, not a column to add casually.
@@ -307,6 +361,25 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   lands on the next launch) and can only be copied, never edited or deleted; only `is_custom`
   rows sync. The shipped content follows RAMP (raise, activate, mobilise, potentiate) and static
   stretching stays after the session — don't "fix" that into a pre-lift stretch.
+- **Share cards** render ONE template (`components/ui/share/ShareCard`) from a pure `ShareModel`
+  (`features/share/models.ts`) inside `ShareSheet`, the only caller of `useShareCard`. Exercise
+  rows carry the FULL exercise name, clamped to one line with an ellipsis, with the result in a
+  fixed right-aligned column (codes were tried and read worse). A card is a PNG the lifter hands
+  to the OS share sheet themselves; no card ever carries a progress photo.
+- **Spotlight** (`features/spotlight/`) opens from `Screen`'s `onPullHold` — at the top of a tab,
+  drag down and hold the finger for `HOLD_MS` (1 s; the progress hairline only starts after
+  `HOLD_DEBOUNCE_MS`, so a scroll that merely began at the top never flashes it). The sheet opens
+  at a FIXED 60 % with the screens as quick options until something is typed — it must not resize
+  under the finger as results come and go. It is detected from the scroll view's OWN
+  `onScrollBeginDrag` / `onScroll` / `onScrollEndDrag` through the pure reducer in `pull-hold.ts`;
+  **never put a gesture detector on the scroll view** — a `Gesture.Native` + `Pan` wrapper stole its
+  touches on the emulator and nothing scrolled. Sources are read once per open; only tab screens
+  opt in. Android never intercepts a drag on content that fits the screen, so a short tab has no
+  spotlight gesture there (the Explore search still does).
+- **The RM-test week** is `routines.rm_test_week` (synced column, additive; copied by `enroll`, set
+  by the seed on templates only, edited in the routine editor, clamped by `clampRmTestWeek`).
+  `isRmTestWeek` drives the Train-tab chip (`info`) and the workout subtitle; the guide is
+  `/docs/when-to-test-rm`.
 - **The Metrics tab owns no content.** It renders the registry in `features/metrics/sections.ts`,
   ordered by the user's saved layout (`useMetricsLayout`, MMKV, edited on `/metrics-customize`).
   Adding a section = one entry there; ids are persisted, so never rename or reuse one, and a
@@ -382,7 +455,8 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   Home pins `DEFAULT_PINNED` (`features/home/quick-actions.ts`) until the user customizes.
 - **Seed ids are a contract.** Catalog exercise ids and preset template ids (`metri-foundations`,
   `metri-progression`) are referenced by user history and enrolled copies. `seedTraining` is
-  versioned in `app_meta` (v9 flips `unilateral` through the upsert); removing a built-in
+  versioned in `app_meta` (v9 flips `unilateral` through the upsert; v11 drops the "O similar" cue —
+  `RETIRED_BADGES` in `session-badges.ts` hides it on open snapshots); removing a built-in
   exercise goes through the demote-or-delete
   migration in `seed.ts` (never a bare delete), and retired template ids (pb-2-0, ul-4, fb-3)
   are never reused. Bilingual catalog/preset copy lives in content modules
@@ -392,7 +466,10 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   `features/training/labels.ts` (orderIndex is 0-based, slugs are 1-based). Don't re-add
   name-required validation to those editors and don't write generated names at create time.
 - **`assets/exercises/` is CC BY-SA 4.0 art** (Workout Guide / Everkinetic — provenance table in
-  its `ATTRIBUTION.md`). Keep that file, keep the visible credit line where frames render, and
+  its `ATTRIBUTION.md`). Frames render on the exercise detail screen and, as a still, on the
+  session card (the catalog list dropped them), and a catalog id never falls back to name matching — a variant
+  without its own frames shows none rather than a sibling's (`exercise-visuals.ts`; only custom
+  exercises match by name). Keep that file, keep the visible credit line where frames render, and
   add new frames as id-named files plus literal `require`s in `ExerciseFrames.tsx` (Metro only
   bundles statically reachable assets). Custom exercises match visuals by name in
   `exercise-visuals.ts`; no schema field is involved.
