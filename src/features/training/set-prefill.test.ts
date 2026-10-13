@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { bumpValue, nextSetPrefill, weightText } from './set-prefill';
+import {
+  bumpValue,
+  compareToPrevious,
+  nextSetPrefill,
+  previousSetFor,
+  weightText,
+} from './set-prefill';
 
 describe('bumpValue', () => {
   it('adds the step without rounding to a plate increment', () => {
@@ -27,70 +33,119 @@ describe('weightText', () => {
     expect(weightText(62.5, 'kg')).toBe('62.5');
   });
 
-  it('converts to lb with 2 decimals so the load survives the round-trip', () => {
-    // 60 kg = 132.28 lb; the lifter must see the load they actually lifted.
-    expect(weightText(60, 'lb')).toBe('132.28');
+  it('converts to lb at the nearest half: the number that goes on the bar', () => {
+    // 60 kg = 132.28 lb → 132.5.
+    expect(weightText(60, 'lb')).toBe('132.5');
+    expect(weightText(22.75, 'kg')).toBe('23');
   });
 });
 
 describe('nextSetPrefill', () => {
-  const lastSet = { weightKg: 80, reps: 9 };
+  const previous = [
+    { weightKg: 80, reps: 10 },
+    {
+      weightKg: 77.5,
+      reps: 9,
+      load: { kind: 'barbell' as const, barKg: 20, platesKg: [25, 2.5, 1.25] },
+    },
+    { weightKg: 75, reps: 8 },
+  ];
 
-  it('prefills from the set just completed (same load for the back-off)', () => {
+  it('seeds set N from set N of the previous session, weight AND reps', () => {
     const fill = nextSetPrefill({
-      logged: [{ weightKg: 100, reps: 6 }],
-      planReps: 8,
-      lastSet,
+      index: 1,
+      planReps: 12,
+      previous,
+      logged: [previous[0]],
       suggestedKg: 90,
     });
-    expect(fill).toEqual({ weightKg: 100, reps: 8, load: null });
+    expect(fill).toEqual({ weightKg: 77.5, reps: 9, load: previous[1].load });
   });
 
-  it('carries the just-done set’s load detail into the next row', () => {
-    const load = { kind: 'dumbbell' as const, perHandKg: 30, hands: 2 as const };
+  it('does not carry the heavier set just logged into a set that was lighter last time', () => {
     const fill = nextSetPrefill({
-      logged: [{ weightKg: 30, reps: 10, load }],
-      planReps: 10,
-      lastSet,
-      suggestedKg: null,
-    });
-    expect(fill).toEqual({ weightKg: 30, reps: 10, load });
-  });
-
-  it('uses the logged set’s own reps when the plan defines none', () => {
-    const fill = nextSetPrefill({
-      logged: [{ weightKg: 40, reps: 12 }],
+      index: 2,
       planReps: undefined,
-      lastSet,
+      previous,
+      logged: [
+        { weightKg: 85, reps: 10 },
+        { weightKg: 85, reps: 10 },
+      ],
       suggestedKg: null,
     });
-    expect(fill).toEqual({ weightKg: 40, reps: 12, load: null });
+    expect(fill.weightKg).toBe(75);
+    expect(fill.reps).toBe(8);
   });
 
-  it('repeats the newest set of the exercise — weight AND reps — before anything is logged', () => {
+  it("repeats the previous session's last set once this one runs longer", () => {
     const fill = nextSetPrefill({
+      index: 5,
+      planReps: 12,
+      previous,
       logged: [],
-      planReps: 10,
-      lastSet,
+      suggestedKg: null,
+    });
+    expect(fill).toMatchObject({ weightKg: 75, reps: 8 });
+  });
+
+  it('with no history, the set just completed seeds the next one and the plan sets the reps', () => {
+    const fill = nextSetPrefill({
+      index: 1,
+      planReps: 6,
+      previous: [],
+      logged: [{ weightKg: 100, reps: 8, load: null }],
       suggestedKg: 90,
     });
-    // The plan's lower bound stays a placeholder; the value is what was done last time.
-    expect(fill).toEqual({ weightKg: 80, reps: 9, load: null });
+    expect(fill).toEqual({ weightKg: 100, reps: 6, load: null });
   });
 
-  it('falls back to the suggestion and a plain 8-rep row with no history', () => {
-    const fill = nextSetPrefill({
-      logged: [],
-      planReps: undefined,
-      lastSet: null,
-      suggestedKg: 60,
+  it('falls back to the suggestion, then to a plain 8-rep row', () => {
+    expect(
+      nextSetPrefill({ index: 0, planReps: 5, previous: [], logged: [], suggestedKg: 90 }),
+    ).toEqual({
+      weightKg: 90,
+      reps: 5,
+      load: null,
     });
-    expect(fill).toEqual({ weightKg: 60, reps: 8, load: null });
+    expect(
+      nextSetPrefill({
+        index: 0,
+        planReps: undefined,
+        previous: [],
+        logged: [],
+        suggestedKg: null,
+      }),
+    ).toEqual({
+      weightKg: null,
+      reps: 8,
+      load: null,
+    });
   });
 });
 
-describe('weightText (logged values)', () => {
-  it('shows a quarter-kilo load exactly instead of rounding it to 1 decimal', () => {
-    expect(weightText(22.75, 'kg')).toBe('22.75');
+describe('previousSetFor', () => {
+  const previous = [
+    { weightKg: 80, reps: 10 },
+    { weightKg: 75, reps: 8 },
+  ];
+
+  it('is the same ordinal, else the last set, else nothing', () => {
+    expect(previousSetFor(previous, 0)).toBe(previous[0]);
+    expect(previousSetFor(previous, 7)).toBe(previous[1]);
+    expect(previousSetFor([], 0)).toBeNull();
+  });
+});
+
+describe('compareToPrevious', () => {
+  it('reads up, down and same within the tolerance', () => {
+    expect(compareToPrevious(82.5, 80)).toBe('up');
+    expect(compareToPrevious(77.5, 80)).toBe('down');
+    expect(compareToPrevious(80.01, 80, 0.02)).toBe('same');
+    expect(compareToPrevious(8, 8)).toBe('same');
+  });
+
+  it('is null while either side is unknown', () => {
+    expect(compareToPrevious(null, 80)).toBeNull();
+    expect(compareToPrevious(80, null)).toBeNull();
   });
 });

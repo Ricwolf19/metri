@@ -18,9 +18,9 @@ describe('workout draft store', () => {
     clearSessionDrafts('log-2');
   });
 
-  it('drops only the load details of a swapped slot, keeping its typed rows', () => {
+  it('drops only the load details (and the per-side text) of a swapped slot, keeping its typed rows', () => {
     const load = { kind: 'barbell' as const, barKg: 20, platesKg: [20] };
-    writeDraft('log-1', 'slot-a:0', { weight: '60', reps: '8', effort: null, load });
+    writeDraft('log-1', 'slot-a:0', { weight: '60', reps: '8', effort: null, load, side: '20' });
     writeDraft('log-1', 'slot-b:0', { weight: '30', reps: '10', effort: null, load });
     clearDraftLoads('log-1', 'slot-a');
     expect(readSessionDrafts('log-1').get('slot-a:0')).toEqual({
@@ -29,6 +29,7 @@ describe('workout draft store', () => {
       effort: null,
       load: null,
     });
+    expect(readSessionDrafts('log-1').get('slot-a:0')?.side).toBeUndefined();
     expect(readSessionDrafts('log-1').get('slot-b:0')?.load).toEqual(load);
   });
 
@@ -59,15 +60,15 @@ describe('workout draft store', () => {
 
   it('clears the whole session on finish/abandon', () => {
     writeDraft('log-1', 'slot-a:0', { weight: '100', reps: '8', effort: null });
-    writeSlotCounts('log-1', 'slot-a', { warmup: 2, extra: 1 });
+    writeSlotCounts('log-1', 'slot-a', { extra: 1 });
     clearSessionDrafts('log-1');
     expect(readSessionDrafts('log-1').size).toBe(0);
-    expect(readSlotCounts('log-1', 'slot-a')).toEqual({ warmup: 0, extra: 0 });
+    expect(readSlotCounts('log-1', 'slot-a')).toEqual({ extra: 0 });
   });
 
   it('keeps counts until the session is cleared', () => {
-    writeSlotCounts('log-1', 'slot-a', { warmup: 2, extra: 1 });
-    expect(readSlotCounts('log-1', 'slot-a')).toEqual({ warmup: 2, extra: 1 });
+    writeSlotCounts('log-1', 'slot-a', { extra: 1 });
+    expect(readSlotCounts('log-1', 'slot-a')).toEqual({ extra: 1 });
   });
 
   it("writing to one log leaves another log's snapshot identity unchanged", () => {

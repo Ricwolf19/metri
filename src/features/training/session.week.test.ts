@@ -71,6 +71,19 @@ describe('completedDaysQuery', () => {
     expect(completedDayIdsForWeek(ENROLLMENT, 2).size).toBe(0);
   });
 
+  it('returns a skipped split with its status, so the tab can tell it from a finished one', () => {
+    log({ id: 'l1', dayId: 'day-a', week: 2, status: 'completed' });
+    log({ id: 'l2', dayId: 'day-b', week: 2, status: 'skipped' });
+
+    const rows = completedDaysQuery(ENROLLMENT, 2).all();
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        { dayId: 'day-a', status: 'completed' },
+        { dayId: 'day-b', status: 'skipped' },
+      ]),
+    );
+  });
+
   it('counts a split repeated in the same week once', () => {
     log({ id: 'l1', dayId: 'day-a', week: 2, status: 'completed' });
     log({ id: 'l2', dayId: 'day-a', week: 2, status: 'completed' });

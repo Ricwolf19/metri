@@ -15,8 +15,6 @@ export const storage = createMMKV({ id: 'metri' });
 export type Units = 'kg' | 'lb';
 export type LocaleCode = 'en' | 'es';
 export type ThemePreference = 'system' | 'light' | 'dark';
-/** Two session views: a scrolling list, or one exercise at a time. */
-export type WorkoutLayout = 'list' | 'cards';
 export type ClockFormat = '24' | '12';
 
 export const SettingKeys = {
@@ -34,12 +32,12 @@ export const SettingKeys = {
   dismissedAnnouncements: 'announcements.dismissed',
   notificationsEnabled: 'settings.notificationsEnabled',
   localBannerSnoozedUntil: 'settings.localBannerSnoozedUntil',
-  workoutLayout: 'settings.workoutLayout',
+  // `settings.workoutLayout` is retired (the session has one view): never reuse the id.
   weightStep: 'settings.weightStep',
   repsStep: 'settings.repsStep',
   // Section order + hidden sections on the Metrics tab (see features/metrics).
   metricsLayout: 'metrics.layout',
-  showExerciseArt: 'settings.showExerciseArt',
+  // `settings.showExerciseArt` is retired (illustrations live on the exercise screen only).
   widgetPromoSnoozedUntil: 'widget.promoSnoozedUntil',
   docsPromoSnoozedUntil: 'docs.promoSnoozedUntil',
   sessionUserId: 'auth.userId',
@@ -112,13 +110,6 @@ export const settings = {
   snoozeDocsPromo(days = 30) {
     storage.set(SettingKeys.docsPromoSnoozedUntil, Date.now() + days * 86_400_000);
   },
-  /** Whether the movement illustrations render during a session. */
-  getShowExerciseArt(): boolean {
-    return storage.getBoolean(SettingKeys.showExerciseArt) ?? true;
-  },
-  setShowExerciseArt(value: boolean) {
-    storage.set(SettingKeys.showExerciseArt, value);
-  },
   /** Plate jump and rep jump the ± buttons apply; a lifter's does not change per set. */
   getWeightStep(): number {
     return storage.getNumber(SettingKeys.weightStep) ?? 5;
@@ -131,12 +122,6 @@ export const settings = {
   },
   setRepsStep(value: number) {
     storage.set(SettingKeys.repsStep, value);
-  },
-  getWorkoutLayout(): WorkoutLayout {
-    return (storage.getString(SettingKeys.workoutLayout) as WorkoutLayout) ?? 'list';
-  },
-  setWorkoutLayout(layout: WorkoutLayout) {
-    storage.set(SettingKeys.workoutLayout, layout);
   },
   getClockFormat(): ClockFormat {
     return (storage.getString(SettingKeys.clock) as ClockFormat) ?? '24';

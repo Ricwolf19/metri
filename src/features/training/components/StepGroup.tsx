@@ -7,9 +7,11 @@ import { useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
 type Props = {
-  /** What this pair changes, e.g. "Weight · kg". */
-  label: string;
+  /** What this pair changes, for screen readers only, e.g. "Weight (kg)". */
+  accessibilityLabel: string;
   step: number;
+  /** The sizes the long-press picker offers; whole numbers 1–10 by default. */
+  steps?: readonly number[];
   onStepChange: (step: number) => void;
   onBump: (delta: number) => void;
 };
@@ -22,32 +24,30 @@ const STEPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const BTN = 'h-9 flex-1 items-center justify-center rounded-field border border-ink-700 bg-ink-800';
 
 /**
- * A −/+ pair that says what it changes and how much by.
- *
- * Four identical chips reading -5 +5 -1 +1 gave no clue which pair was the
- * weight, so each pair is captioned and shows its own step between the
- * buttons. Holding either button unlocks that step: the row becomes a strip of
+ * A −/+ pair showing its own step between the buttons. It carries no visible
+ * caption: each pair sits directly under the field it drives, and the unit is
+ * already on that field, so a "WEIGHT · KG" line only repeated what the row
+ * said. Holding either button unlocks the step: the row becomes a strip of
  * sizes, and picking one locks it back in. The step is remembered, because a
  * lifter's plate jump does not change between sets.
  */
-export const StepGroup = ({ label, step, onStepChange, onBump }: Props) => {
+export const StepGroup = ({
+  accessibilityLabel: label,
+  step,
+  steps = STEPS,
+  onStepChange,
+  onBump,
+}: Props) => {
   const t = useT();
   const { brand, muted } = useTheme();
   const [picking, setPicking] = useState(false);
 
   return (
     <View className="flex-1">
-      <Text
-        numberOfLines={1}
-        className="mb-1 text-center font-mono-medium text-[9px] uppercase tracking-wider text-ink-500"
-      >
-        {label}
-      </Text>
-
       {picking ? (
         <View className="h-9 justify-center">
           <ScrollRow className="gap-1">
-            {STEPS.map((n) => (
+            {steps.map((n) => (
               <Pressable
                 key={n}
                 onPress={() => {
@@ -57,7 +57,7 @@ export const StepGroup = ({ label, step, onStepChange, onBump }: Props) => {
                 accessibilityRole="button"
                 accessibilityState={{ selected: n === step }}
                 className={[
-                  'h-8 w-8 shrink-0 items-center justify-center rounded-field border',
+                  'h-8 min-w-8 shrink-0 items-center justify-center rounded-field border px-1.5',
                   n === step ? 'border-brand/50 bg-brand/15' : 'border-ink-700 bg-ink-800',
                 ].join(' ')}
               >

@@ -70,6 +70,21 @@ const finished = (
     })
     .run();
 
+const skipped = (id: string, dayId: string, week: number) =>
+  db
+    .insert(workoutLogs)
+    .values({
+      id,
+      userId: 'u1',
+      userProgramId: UP,
+      workoutDayId: dayId,
+      weekNumber: week,
+      status: 'skipped',
+      completedAt: new Date(2026, 8, 20, 18),
+      plannedSnapshot: [],
+    })
+    .run();
+
 const position = () => {
   const [row] = db.select().from(userPrograms).where(eq(userPrograms.id, UP)).all();
   return { routineId: row.currentRoutineId, week: row.currentWeek, status: row.status };
@@ -351,5 +366,21 @@ describe('programSessionsQuery', () => {
 
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ id: 'l1', routineId: 'p1', setCount: 1, volumeKg: 500 });
+  });
+
+  it('deleting the skip that resolved a week rewinds the program, like deleting a session', () => {
+    seedProgram({ routineId: 'p1', week: 2 });
+    finished('l1', 'a1', 1);
+    skipped('s1', 'b1', 1);
+
+    expect(deleteWorkout('s1')).toBe(true);
+    expect(position()).toMatchObject({ routineId: 'p1', week: 1 });
+    expect(
+      db
+        .select()
+        .from(workoutLogs)
+        .all()
+        .map((l) => l.id),
+    ).toEqual(['l1']);
   });
 });

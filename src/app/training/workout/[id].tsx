@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { useKeepAwake } from 'expo-keep-awake';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Modal, Pressable, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
@@ -12,14 +12,10 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   DragHandleIcon,
-  DumbbellIcon,
-  EyeClosedIcon,
-  EyeIcon,
   FlameIcon,
-  ListIcon,
   PlusIcon,
+  ShareIcon,
   SwapIcon,
-  ViewGridIcon,
   XIcon,
 } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
@@ -29,11 +25,13 @@ import {
   BlockingOverlay,
   Card,
   ChipRow,
+  IconButton,
   ReorderRow,
   Screen,
   ScreenTitle,
   ScrollArea,
   SegmentedControl,
+  OptionSheet,
   Sheet,
   TextLink,
   TimedModal,
@@ -51,10 +49,12 @@ import type {
 import { useAuth } from '@/features/auth/auth-context';
 import { pushProfile } from '@/features/auth/profile-sync';
 import { lbToKg } from '@/features/bmr/calc';
-import { fromKg } from '@/features/training/progression';
 import { ExerciseDocButton } from '@/features/training/components/ExerciseDocButton';
+import { ActiveSetRow } from '@/features/training/components/ActiveSetRow';
 import { ExerciseFrames } from '@/features/training/components/ExerciseFrames';
-import { SetInput } from '@/features/training/components/SetInput';
+import { MachineLoadChooser } from '@/features/training/components/MachineLoadChooser';
+import { LastTraining } from '@/features/training/components/LastTraining';
+import { LoggedRow, PendingRow } from '@/features/training/components/SetRows';
 import { SessionNotes } from '@/features/training/components/SessionNotes';
 import { RestTimer } from '@/features/training/components/RestTimer';
 import { StepGroup } from '@/features/training/components/StepGroup';
@@ -81,19 +81,46 @@ import {
   type SetTarget,
 } from '@/features/training/labels';
 import { exerciseFactsQuery, getExercise } from '@/features/training/exercises.repo';
+import { exerciseDisplayName } from '@/features/training/labels';
+import { visualIdFor } from '@/features/training/exercise-visuals';
 import {
   exerciseSettingsQuery,
   upsertExerciseSetting,
 } from '@/features/training/exercise-settings.repo';
-import { defaultHands, describeLoad, hasLoadDetail, reconcileLoad } from '@/features/training/load';
-import { visualIdFor } from '@/features/training/exercise-visuals';
+import {
+  defaultHands,
+  deriveLoad,
+  hasLoadDetail,
+  kgToUnit,
+  machineLoadKind,
+  PLATE_MACHINE_SEED,
+  POST_MACHINE_SEED,
+  clampInput,
+  type MachineKind,
+  reconcileLoad,
+  rowInputMode,
+  type LoadDetail,
+} from '@/features/training/load';
+import { sideStep, sideTextFromTotal, totalFromSide } from '@/features/training/plate-math';
 import { getWorkoutDay } from '@/features/training/programs.repo';
+import { getRoutine } from '@/features/training/authoring.repo';
+import { fromKg, isRmTestWeek } from '@/features/training/progression';
 import { closeSession } from '@/features/training/close-session';
-import { bumpValue, nextSetPrefill, weightText } from '@/features/training/set-prefill';
+import { sessionShareModel } from '@/features/share/models';
+import { ShareSheet } from '@/features/share/ShareSheet';
+import {
+  bumpValue,
+  compareToPrevious,
+  nextSetPrefill,
+  previousSetFor,
+  weightText,
+} from '@/features/training/set-prefill';
+import { badgeLabel } from '@/features/training/programs/badge-copy';
 import { sessionBadges } from '@/features/training/session-badges';
 import {
   clearDraft,
   clearDraftLoads,
+  readSessionDrafts,
   useSessionDrafts,
   useSlotCounts,
   writeDraft,
@@ -102,29 +129,33 @@ import {
   type RowDraft,
 } from '@/features/training/workout-drafts';
 import {
-  deleteSet,
   getWorkout,
   workoutQuery,
-  lastLoggedSet,
-  lastWeekSets,
   logSet,
+  previousSessionSets,
   reorderSnapshot,
   sessionSummary,
   setLogsQuery,
+  setWarmupDone,
   suggestedWeight,
   swapSnapshotExercise,
+  type PreviousSession,
   type SessionSummary,
 } from '@/features/training/session.repo';
 import { prefillSourceKey, swapOptions } from '@/features/training/variants';
-import { warmupRamp } from '@/features/training/warmup';
 import { useI18n, useT, type TFunction } from '@/i18n';
-import { settings, type Units, type WorkoutLayout } from '@/lib/storage';
+import { formatNumber, parseDecimal, parseInteger, roundHalf, snapTo } from '@/lib/numbers';
+import { settings, type Units } from '@/lib/storage';
 import { playSound } from '@/lib/sounds';
 import { UNIT_SEGMENTS, useUnits } from '@/lib/useUnits';
 import { useTheme } from '@/theme/theme-context';
 
 // Lets the blocking overlay paint before the synchronous finish work.
 const OVERLAY_PAINT_MS = 50;
+
+/** The ± jumps on offer: plate-sized for the weight, small for the reps. */
+const WEIGHT_STEPS = [0.5, 1, 1.25, 2.5, 5, 10];
+const REPS_STEPS = [1, 2, 3, 4, 5];
 
 /** What the lifter reports after a set; `rir: null` = deliberately skipped. */
 type RequestEffort = () => Promise<Effort | null>;
@@ -174,195 +205,13 @@ const ElapsedClock = ({ startedAt }: { startedAt: Date }) => {
 /** The row the action bar drives: a pending warm-up first, else the next working set. */
 type RowKey = string;
 
-const OTHER_UNIT = (unit: Units): Units => (unit === 'kg' ? 'lb' : 'kg');
-
-/**
- * A kg value the lifter can tap to see in the other unit (backlog B2): shows
- * the value converted, one tap restores the app unit. Local to each row, so
- * the rest of the screen stays in the app unit.
- */
-const ConvertibleWeight = ({ kg, unit }: { kg: number; unit: Units }) => {
-  const t = useT();
-  const [override, setOverride] = useState<Units | null>(null);
-  const shown = override ?? unit;
-  const text = `${weightText(kg, shown)} ${shown}`;
-  return (
-    <Pressable
-      onPress={() => setOverride((prev) => (prev ? null : OTHER_UNIT(unit)))}
-      hitSlop={4}
-      accessibilityRole="button"
-      accessibilityLabel={text}
-      accessibilityHint={t('training.tapToConvert')}
-    >
-      <Text className="text-sm font-sans-medium text-ink-100">{text}</Text>
-    </Pressable>
-  );
-};
-
-/** A set that has not come up yet: the plan, dimmed, no inputs. Sets are done in order. */
-const PendingRow = ({ label, legend }: { label: string; legend: string | null }) => (
-  <View className="flex-row items-center rounded-field bg-ink-850/40 px-3 py-2.5">
-    <Text className="w-7 text-xs font-sans-semibold text-ink-600">{label}</Text>
-    <Text className="flex-1 text-xs text-ink-500">{legend}</Text>
-  </View>
-);
-
-const LoggedRow = ({
-  label,
-  logged,
-  unit,
-  warmup,
-  failureLabel,
-}: {
-  label: string;
-  logged: SetLog;
-  unit: Units;
-  warmup: boolean;
-  failureLabel: string;
-}) => {
-  const { brandContrast, muted } = useTheme();
-  return (
-    <View className="flex-row items-center rounded-field bg-ink-850 px-3 py-2">
-      <View
-        className={[
-          'mr-2.5 h-5 w-5 items-center justify-center rounded-full',
-          warmup ? 'bg-ink-600' : 'bg-brand',
-        ].join(' ')}
-      >
-        <CheckIcon color={brandContrast} size={13} />
-      </View>
-      <Text className="w-7 text-xs font-sans-semibold text-ink-400">{label}</Text>
-      <View className="flex-1 flex-row items-center">
-        {/* Two dumbbells read as "2 × 30 kg × 10": the count goes first so it
-            cannot be mistaken for the reps. */}
-        {logged.load?.kind === 'dumbbell' && logged.load.hands === 2 ? (
-          <Text className="text-sm font-sans-medium text-ink-400">2 × </Text>
-        ) : null}
-        <ConvertibleWeight kg={logged.weightKg} unit={unit} />
-        <Text className="text-sm font-sans-medium text-ink-100">
-          {' '}
-          × {logged.reps}
-          {logged.rir != null ? ` · RIR ${logged.rir}` : ''}
-          {logged.isFailure ? ` · ${failureLabel}` : ''}
-        </Text>
-      </View>
-      <Pressable hitSlop={8} onPress={() => deleteSet(logged.id)} accessibilityRole="button">
-        <XIcon color={muted} size={15} />
-      </Pressable>
-    </View>
-  );
-};
-
-/**
- * The set being filled: number and prescription share the legend line so the
- * inputs get the full width, and the brand ring marks it as live. The ± / RIR
- * controls live once at the bottom of the card and drive this row.
- */
-const ActiveRow = ({
-  label,
-  legend,
-  draft,
-  unit,
-  placeholder,
-  onChange,
-  onConfirm,
-  onRemove,
-  onOpenCalculator,
-  detailActive = false,
-  caption,
-}: {
-  label: string;
-  legend: string | null;
-  draft: RowDraft;
-  unit: Units;
-  placeholder: string;
-  onChange: (patch: Partial<RowDraft>) => void;
-  onConfirm: () => void;
-  onRemove?: () => void;
-  onOpenCalculator?: () => void;
-  /** A load detail is saved for this exercise: the sheet icon says so in `info`. */
-  detailActive?: boolean;
-  /** Per-hand / total, or how the load is built — the row stays a plain number. */
-  caption?: string | null;
-}) => {
-  const t = useT();
-  const { brandContrast, muted, info } = useTheme();
-
-  return (
-    <View className="rounded-field border border-brand/40 bg-ink-850 px-3 py-2">
-      <View className="mb-1.5 flex-row items-center">
-        <Text className="text-xs font-sans-bold text-brand">{label}</Text>
-        {legend ? (
-          <Text className="ml-2 flex-1 font-mono-medium text-[10px] uppercase tracking-wider text-brand">
-            {legend}
-          </Text>
-        ) : (
-          <View className="flex-1" />
-        )}
-        {onRemove ? (
-          <Pressable onPress={onRemove} hitSlop={8} accessibilityRole="button">
-            <XIcon color={muted} size={14} />
-          </Pressable>
-        ) : null}
-      </View>
-      <View className="flex-row items-center gap-1.5">
-        <View className="flex-1">
-          <SetInput
-            value={draft.weight}
-            onChangeText={(weight) => onChange({ weight })}
-            unitLabel={unit}
-            keyboardType="decimal-pad"
-            placeholder="0"
-            maxLength={6}
-            accessibilityLabel={`${t('training.weight')} (${unit})`}
-          />
-        </View>
-        <View className="flex-1">
-          <SetInput
-            value={draft.reps}
-            onChangeText={(reps) => onChange({ reps })}
-            unitLabel={t('training.repsShort')}
-            keyboardType="number-pad"
-            placeholder={placeholder}
-            maxLength={3}
-            accessibilityLabel={t('training.reps')}
-          />
-        </View>
-        {onOpenCalculator ? (
-          <Pressable
-            onPress={onOpenCalculator}
-            accessibilityRole="button"
-            accessibilityLabel={t('training.calculatorTitle')}
-            className={[
-              'h-12 w-10 items-center justify-center rounded-field border',
-              detailActive ? 'border-info/40 bg-info/10' : 'border-ink-700 bg-ink-800',
-            ].join(' ')}
-          >
-            <DumbbellIcon color={detailActive ? info : muted} size={18} />
-          </Pressable>
-        ) : null}
-        <Pressable
-          onPress={onConfirm}
-          accessibilityRole="button"
-          accessibilityLabel={t('training.addSet')}
-          className="h-12 w-12 items-center justify-center rounded-field bg-brand"
-        >
-          <CheckIcon color={brandContrast} size={22} />
-        </Pressable>
-      </View>
-      {caption ? <Text className="mt-1.5 text-xs text-ink-400">{caption}</Text> : null}
-    </View>
-  );
-};
-
 type CardProps = {
   workoutLogId: string;
   planned: PlannedSlot;
   sets: SetLog[];
   unit: Units;
-  lastWeek: SetLog[];
-  /** Newest working set of this exercise from any completed session (prefill). */
-  lastSet: SetLog | null;
+  /** The previous completed session of this exercise (prefill + "Last training"). */
+  previous: PreviousSession | null;
   /** Progression suggestion (kg) for the first set, when history supports one. */
   suggestedKg: number | null;
   /** How the exercise is loaded and whether each side is logged on its own. */
@@ -370,7 +219,6 @@ type CardProps = {
   /** The owner's defaults for the exercise on the card (its last load config). */
   loadSetting: ExerciseSetting | null;
   userId: string;
-  showArt: boolean;
   requestEffort: RequestEffort;
   onLogged: (info: {
     restSeconds: number;
@@ -379,9 +227,6 @@ type CardProps = {
     /** The row just written: the live query has not caught up yet. */
     logged: SetLog;
   }) => void;
-  /** Scroll target when the screen opens from the rest notification. */
-  focused: boolean;
-  onFocusLayout: (y: number) => void;
 };
 
 const ExerciseCard = ({
@@ -389,105 +234,154 @@ const ExerciseCard = ({
   planned,
   sets,
   unit,
-  lastWeek,
-  lastSet,
+  previous,
   suggestedKg: suggested,
   facts,
   loadSetting,
   userId,
-  showArt,
   requestEffort,
   onLogged,
-  focused,
-  onFocusLayout,
 }: CardProps) => {
   const t = useT();
+  const { locale } = useI18n();
   const router = useRouter();
-  const dialog = useDialog();
   const toast = useToast();
   const { brand, muted } = useTheme();
+  const [variantsOpen, setVariantsOpen] = useState(false);
   const [weightStep, setWeightStep] = useState(() => settings.getWeightStep());
   const [repsStep, setRepsStep] = useState(() => settings.getRepsStep());
-  // Drafts live in a module store keyed by workoutLogId: switching exercises in
-  // compact view (or leaving training mode) unmounts this card, and the typed
+  // Drafts live in a module store keyed by workoutLogId: paging to another
+  // exercise (or leaving training mode) unmounts this card, and the typed
   // values must survive that.
   const drafts = useSessionDrafts(workoutLogId);
-  const { warmup: warmupRows, extra: extraRows } = useSlotCounts(workoutLogId, planned.slotId);
+  const { extra: extraRows } = useSlotCounts(workoutLogId, planned.slotId);
   const [calcOpen, setCalcOpen] = useState(false);
 
   const rows = useMemo(() => expandRows(planned.setGroups, t), [planned.setGroups, t]);
   const working = sets.filter((s) => !s.isWarmup);
-  const warmups = sets.filter((s) => s.isWarmup);
   const doneCount = working.length;
   const planDone = doneCount >= rows.length;
   const totalRows = Math.max(rows.length, doneCount) + extraRows;
-  const visualId = visualIdFor({ id: planned.exerciseId, name: planned.name });
   // Snapshots from before the badges key existed carry `undefined` — normalize
   // instead of letting the row read `.length` off nothing.
   const badges = sessionBadges(planned.badges);
 
-  // Ramp toward the first working set, whatever that set is going to weigh.
-  const firstWorkingKg = working[0]?.weightKg ?? lastSet?.weightKg ?? suggested;
-  const ramp = warmupRamp(firstWorkingKg);
-  const warmupPrefill = (i: number): { weightKg: number | null; reps: number } =>
-    ramp[i] ?? ramp[ramp.length - 1] ?? { weightKg: null, reps: 5 };
-
-  const pendingWarmups = warmupRows > 0;
-  // Warm-ups are performed before the working sets, so they hold the focus.
-  const activeKey: RowKey | null = pendingWarmups
-    ? `w${warmups.length}`
-    : doneCount < totalRows
-      ? `${doneCount}`
-      : null;
-  const activeIsWarmup = pendingWarmups;
+  const previousSets = previous?.sets ?? [];
+  // What the weight field holds: per side on a plate-loaded exercise (bar, or a
+  // machine the lifter marked as plates), one dumbbell, else the total. The
+  // draft's `weight` is always the total; `side` is presentation on top of it.
+  const inputMode = rowInputMode(facts, loadSetting?.load);
+  const perSide = inputMode.mode === 'perSide' ? inputMode : null;
+  const baseInUnit = perSide ? kgToUnit(perSide.baseKg, unit) : 0;
+  const sideOf = (draft: RowDraft): string =>
+    draft.side ?? (perSide ? sideTextFromTotal(draft.weight, baseInUnit, perSide.sides) : '');
+  /** The detail the row's number describes, in the current input mode. */
+  const deriveFor = (draft: RowDraft): LoadDetail | null =>
+    deriveLoad({
+      mode: inputMode,
+      value: parseDecimal(perSide ? sideOf(draft) : draft.weight),
+      unit,
+      setting: loadSetting?.load,
+      current: draft.load,
+      unilateral: facts?.unilateral,
+    });
+  // A machine the lifter has not yet described: plates or a pin stack decides
+  // what the row asks for, so the card asks first.
+  const needsMachineKind =
+    facts?.equipment === 'machine' && machineLoadKind(loadSetting?.load) === null;
+  const activeKey: RowKey | null = doneCount < totalRows ? `${doneCount}` : null;
 
   /** Store keys carry the slotId so drafts from different exercises never mix. */
   const storeKey = (key: RowKey) => `${planned.slotId}:${key}`;
 
+  /** A seeded row's detail: the previous one when it still describes the number, else derived. */
+  const seededLoad = (draft: RowDraft, carried: LoadDetail | null): LoadDetail | null =>
+    // Per side is always re-derived against the CURRENT base (the bar may differ).
+    perSide ? deriveFor(draft) : (carried ?? deriveFor(draft));
   const seedDraft = (key: RowKey): RowDraft => {
-    if (key.startsWith('w')) {
-      const fill = warmupPrefill(Number(key.slice(1)));
-      return {
-        weight: fill.weightKg != null ? weightText(fill.weightKg, unit) : '',
-        reps: String(fill.reps),
-        effort: null,
-        load: null,
-      };
-    }
     const i = Number(key);
-    // The set just completed seeds the next one; the newest past set / the
-    // suggestion only apply before the first set of the exercise is logged.
+    // Set i of the previous session of this exercise seeds set i here; the set
+    // just completed and the suggestion only apply with no history.
     const fill = nextSetPrefill({
-      logged: working,
+      index: i,
       planReps: rows[i]?.reps,
-      lastSet,
+      previous: previousSets,
+      logged: working,
       suggestedKg: suggested,
     });
-    return {
+    const draft: RowDraft = {
       weight: fill.weightKg != null ? weightText(fill.weightKg, unit) : '',
       reps: String(fill.reps),
       effort: null,
-      load: fill.load,
+      load: null,
     };
+    return { ...draft, load: seededLoad(draft, fill.load) };
   };
   const draftFor = (key: RowKey): RowDraft => drafts.get(storeKey(key)) ?? seedDraft(key);
-  // Typing (or ±) over the weight invalidates how it was built: only the sheet
-  // writes `load`, and it always writes the matching text with it.
-  const patchDraft = (key: RowKey, patch: Partial<RowDraft>) =>
-    writeDraft(workoutLogId, storeKey(key), {
-      ...draftFor(key),
-      ...patch,
-      ...('weight' in patch && !('load' in patch) ? { load: null } : {}),
+  // The store, not the render snapshot: two writes in one handler (snap, then
+  // log) must each see the other.
+  const freshDraft = (key: RowKey): RowDraft =>
+    readSessionDrafts(workoutLogId).get(storeKey(key)) ?? seedDraft(key);
+  // Every change to the number re-derives how it is built (`deriveLoad`), so a
+  // ± tap keeps the plates; the sheet is the one caller that hands its own `load`.
+  const patchDraft = (key: RowKey, patch: Partial<RowDraft>) => {
+    const next = { ...freshDraft(key), ...patch };
+    // A typed total or per-hand number stops at the cap (per-side is capped in `setSide`).
+    if ('weight' in patch && !('side' in patch) && !perSide) {
+      const typed = parseDecimal(next.weight);
+      if (typed != null) {
+        const capped = clampInput(inputMode.mode, typed, unit);
+        if (capped !== typed) next.weight = formatNumber(capped, 3);
+      }
+    }
+    const renumbered = ('weight' in patch || 'side' in patch) && !('load' in patch);
+    writeDraft(workoutLogId, storeKey(key), renumbered ? { ...next, load: deriveFor(next) } : next);
+  };
+  /** Per-side typing: the total follows. */
+  const setSide = (key: RowKey, text: string) => {
+    const typed = parseDecimal(text);
+    const side = typed == null ? null : clampInput('perSide', typed, unit);
+    patchDraft(key, {
+      side: side == null || side === typed ? text : formatNumber(side, 3),
+      weight:
+        side == null ? '' : formatNumber(totalFromSide(side, baseInUnit, perSide?.sides ?? 2), 3),
     });
+  };
+  /**
+   * The typed number onto what exists: a side to the smallest plate, one
+   * dumbbell to the half; the total of a stack or a plain number is left as
+   * typed. Silent — this IS the rounding the lifter expects, not a correction.
+   */
+  const snapDraft = (key: RowKey) => {
+    const draft = freshDraft(key);
+    if (perSide) {
+      const side = parseDecimal(sideOf(draft));
+      if (side == null) return;
+      const snapped = snapTo(side, sideStep(unit));
+      if (snapped !== side) setSide(key, formatNumber(snapped, 3));
+      return;
+    }
+    if (inputMode.mode === 'perHand') {
+      const w = parseDecimal(draft.weight);
+      if (w == null) return;
+      const snapped = roundHalf(w);
+      if (snapped !== w) patchDraft(key, { weight: formatNumber(snapped, 3) });
+    }
+  };
 
-  const setWarmupRows = (n: number) =>
-    writeSlotCounts(workoutLogId, planned.slotId, { warmup: Math.max(0, n), extra: extraRows });
   const setExtraRows = (n: number) =>
-    writeSlotCounts(workoutLogId, planned.slotId, { warmup: warmupRows, extra: Math.max(0, n) });
+    writeSlotCounts(workoutLogId, planned.slotId, { extra: Math.max(0, n) });
 
   const bump = (field: 'weight' | 'reps', delta: number) => {
     if (!activeKey) return;
-    const current = Number(draftFor(activeKey)[field]) || 0;
+    const draft = freshDraft(activeKey);
+    // On a plate-loaded row the ± steps the SIDE: that is the number in hand,
+    // and the total plus its plates follow from it.
+    if (field === 'weight' && perSide) {
+      setSide(activeKey, bumpValue(parseDecimal(sideOf(draft)) ?? 0, delta));
+      return;
+    }
+    const current = parseDecimal(draft[field]) ?? 0;
     // Weight keeps every typed decimal (no silent plate rounding); reps stay ≥ 1.
     const next =
       field === 'weight' ? bumpValue(current, delta) : String(Math.max(1, current + delta));
@@ -495,23 +389,25 @@ const ExerciseCard = ({
   };
 
   const confirm = async (key: RowKey) => {
-    const draft = draftFor(key);
-    const isWarmup = key.startsWith('w');
-    const index = Number(isWarmup ? key.slice(1) : key);
-    const w = Number(draft.weight);
-    const r = Number(draft.reps);
-    if (draft.weight === '' || Number.isNaN(w) || w < 0) {
+    // The check is tapped without leaving the field, so the blur snap runs here too.
+    snapDraft(key);
+    const draft = freshDraft(key);
+    const index = Number(key);
+    const w = parseDecimal(draft.weight);
+    // Reps are whole: a "8.5" is a typo, not half a rep.
+    const r = parseInteger(draft.reps);
+    if (w == null) {
       toast.error(t('training.needWeight'));
       return;
     }
-    if (!(r > 0)) {
+    if (r == null || r <= 0) {
       toast.error(t('training.needReps'));
       return;
     }
     // A prescription that measures effort is not logged without it: the RIR
     // chip in the action bar picks it, the check only reminds.
     const effort = draft.effort;
-    if (!isWarmup && rows[index]?.wantsEffort && !effort) {
+    if (rows[index]?.wantsEffort && !effort) {
       toast.error(t('training.needRir'));
       return;
     }
@@ -527,15 +423,10 @@ const ExerciseCard = ({
         weightKg,
         unilateral: facts?.unilateral,
       }),
-      ...(isWarmup
-        ? { isWarmup: true }
-        : { rir: effort?.rir ?? null, isFailure: effort?.failure ?? false }),
+      rir: effort?.rir ?? null,
+      isFailure: effort?.failure ?? false,
     });
     clearDraft(workoutLogId, storeKey(key));
-    if (isWarmup) {
-      setWarmupRows(warmupRows - 1);
-      return;
-    }
     onLogged({
       restSeconds: planned.restSeconds ?? 120,
       slotId: planned.slotId,
@@ -551,80 +442,107 @@ const ExerciseCard = ({
       patchDraft(activeKey, { effort: picked.rir == null && !picked.failure ? null : picked });
   };
 
+  // The variant picker is the shared Select, listing the exercise on the card
+  // first and every alternative after it; picking one swaps the snapshot slot.
   const swapIds = swapOptions(planned);
-  const pickAlternative = () => {
-    if (!swapIds.length) return;
-    const options = swapIds
-      .map((altId) => getExercise(altId))
-      .filter((e): e is NonNullable<typeof e> => !!e);
-    dialog.show({
-      title: t('training.alternatives'),
-      actions: [
-        ...options.map((e) => ({
-          label: e.name,
-          onPress: () => {
-            swapSnapshotExercise(workoutLogId, planned.slotId, e.id, e.name);
-            clearDraftLoads(workoutLogId, planned.slotId);
-          },
-        })),
-        { label: t('common.cancel'), style: 'cancel' as const },
-      ],
-    });
+  const variantItems = [planned.exerciseId, ...swapIds].flatMap((id) => {
+    const e = getExercise(id);
+    return e ? [{ value: id, label: exerciseDisplayName(e, locale) }] : [];
+  });
+  const pickVariant = (id: string) => {
+    if (id === planned.exerciseId) return;
+    const e = getExercise(id);
+    if (!e) return;
+    swapSnapshotExercise(workoutLogId, planned.slotId, e.id, e.name);
+    clearDraftLoads(workoutLogId, planned.slotId);
   };
 
   const activeDraft = activeKey ? draftFor(activeKey) : null;
-  const activeRow = activeKey && !activeIsWarmup ? (rows[Number(activeKey)] ?? null) : null;
+  const activeRow = activeKey ? (rows[Number(activeKey)] ?? null) : null;
   const detailActive = hasLoadDetail(loadSetting);
-  /** What the number in the row means, when it is not simply the total. */
-  const rowCaption = (draft: RowDraft): string | null => {
-    const value = Number(draft.weight);
-    if (draft.weight === '' || !Number.isFinite(value)) return null;
+  /** The typed values against the same set last time; nothing for warm-ups or without history. */
+  const trendsFor = (key: RowKey, draft: RowDraft) => {
+    const none = { weight: null, reps: null };
+    const ref = previousSetFor(previousSets, Number(key));
+    if (!ref) return none;
+    const typed = parseDecimal(draft.weight);
+    const typedKg = typed == null ? null : unit === 'lb' ? lbToKg(typed) : typed;
+    return {
+      weight: compareToPrevious(typedKg, ref.weightKg, 0.02),
+      reps: compareToPrevious(parseInteger(draft.reps), ref.reps),
+    };
+  };
+  /** What the number in the row means when it is not simply the total, and how it is built. */
+  const rowCaption = (draft: RowDraft): { text: string | null; breakdown: LoadDetail | null } => {
+    const value = parseDecimal(draft.weight);
+    if (value == null) return { text: null, breakdown: null };
     const draftDumbbell = draft.load?.kind === 'dumbbell' ? draft.load : null;
     if (draftDumbbell || loadSetting?.load?.kind === 'dumbbell') {
       const hands = draftDumbbell?.hands ?? defaultHands(facts?.unilateral);
-      if (hands === 2)
-        return t('load.perHandCaption', {
-          perHand: draft.weight,
-          // Already in the display unit; only the float noise of ×2 is trimmed.
-          total: Math.round(value * 200) / 100,
-          unit,
-        });
-      return t('load.perSideCaption', { value: draft.weight, unit });
+      const text =
+        hands === 2
+          ? t('load.perHandCaption', {
+              perHand: draft.weight,
+              // Already in the display unit; only the float noise of ×2 is trimmed.
+              total: Math.round(value * 200) / 100,
+              unit,
+            })
+          : t('load.perSideCaption', { value: draft.weight, unit });
+      return { text, breakdown: null };
     }
-    if (facts?.unilateral) return t('load.perSideCaption', { value: draft.weight, unit });
-    if (draft.load) return describeLoad(draft.load, unit).parts;
-    return null;
+    const breakdown = draft.load ?? null;
+    // Per side typed → the total is the derived number worth reading back.
+    if (perSide) return { text: `${t('training.total')} ${draft.weight} ${unit}`, breakdown };
+    if (facts?.unilateral)
+      return { text: t('load.perSideCaption', { value: draft.weight, unit }), breakdown };
+    return { text: null, breakdown };
+  };
+  /** The per-side field for `ActiveSetRow`, on plate-loaded rows only. */
+  const sideInputFor = (key: RowKey, draft: RowDraft) =>
+    perSide
+      ? {
+          baseLabel: formatNumber(baseInUnit, 2),
+          sides: perSide.sides,
+          value: sideOf(draft),
+          onChange: (text: string) => setSide(key, text),
+        }
+      : undefined;
+  // Plates write their seed at once; a stack needs base + pins, so it opens the sheet.
+  const chooseMachineKind = (kind: MachineKind) => {
+    if (kind === 'stack') {
+      setCalcOpen(true);
+      return;
+    }
+    upsertExerciseSetting(userId, planned.exerciseId, {
+      load: kind === 'post' ? POST_MACHINE_SEED : PLATE_MACHINE_SEED,
+    });
   };
 
+  const visualId = visualIdFor({ id: planned.exerciseId, name: planned.name });
+
   return (
-    <Card
-      className="mb-3"
-      onLayout={focused ? (e) => onFocusLayout(e.nativeEvent.layout.y) : undefined}
-    >
-      {/* The movement first: what to do reads faster than its name. */}
-      {showArt && visualId ? (
+    <Card className="mb-3">
+      {/* The movement first, as a still: what to do reads faster than its name. */}
+      {visualId ? (
         <View className="mb-3">
           <ExerciseFrames visualId={visualId} accessibilityLabel={planned.name} autoplay={false} />
         </View>
       ) : null}
-
       <View className="flex-row items-start">
         <Pressable
           onPress={() =>
             router.push({ pathname: '/training/exercise/[id]', params: { id: planned.exerciseId } })
           }
-          onLongPress={pickAlternative}
           accessibilityRole="button"
           className="flex-1 pr-2"
         >
           <Text className="text-base font-sans-semibold text-ink-50">{planned.name}</Text>
         </Pressable>
-        {/* A visible swap icon beside the guide, not a "hold for alternatives"
-            hint line; the long-press on the name still works. */}
+        {/* The swap glyph opens the variant list (the shared option sheet). */}
         <View className="flex-row items-center gap-1">
           {swapIds.length ? (
             <Pressable
-              onPress={pickAlternative}
+              onPress={() => setVariantsOpen(true)}
               hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel={t('training.alternatives')}
@@ -636,6 +554,14 @@ const ExerciseCard = ({
           <ExerciseDocButton exerciseId={planned.exerciseId} size={17} />
         </View>
       </View>
+      <OptionSheet
+        visible={variantsOpen}
+        onClose={() => setVariantsOpen(false)}
+        label={t('training.alternatives')}
+        items={variantItems}
+        value={planned.exerciseId}
+        onChange={pickVariant}
+      />
 
       {/* Cues and facts share ONE line — a second strip pushed the sets down. */}
       {badges.length || facts?.unilateral ? (
@@ -644,7 +570,7 @@ const ExerciseCard = ({
             mono
             tone="brand"
             items={[
-              ...badges.map((b, i) => ({ value: `${b}-${i}`, label: b })),
+              ...badges.map((b, i) => ({ value: `${b}-${i}`, label: badgeLabel(b, locale) })),
               ...(facts?.unilateral
                 ? [
                     {
@@ -667,43 +593,13 @@ const ExerciseCard = ({
 
       <SessionNotes slotNote={planned.notes} exerciseId={planned.exerciseId} />
 
-      {lastWeek.length ? (
-        <View className="mt-2 flex-row items-center">
-          <Text className="text-xs text-ink-400">{t('training.lastWeek')}: </Text>
-          <ConvertibleWeight kg={lastWeek[0].weightKg} unit={unit} />
-          <Text className="text-xs text-ink-400"> × {lastWeek.map((s) => s.reps).join(',')}</Text>
-        </View>
-      ) : null}
+      {previous?.sets.length ? <LastTraining previous={previous} unit={unit} /> : null}
 
-      {/* Warm-ups sit above the working sets, the order they are performed in.
-       * They never advance `doneCount` and never start the prescribed rest. */}
-      {warmups.length || warmupRows ? (
-        <View className="mt-3 gap-1.5">
-          {warmups.map((set, i) => (
-            <LoggedRow
-              key={set.id}
-              label={t('training.warmupShort')}
-              logged={set}
-              unit={unit}
-              warmup
-              failureLabel={t('training.failure')}
-            />
-          ))}
-          {warmupRows > 0 && activeKey && activeIsWarmup && activeDraft ? (
-            <ActiveRow
-              label={t('training.warmupShort')}
-              legend={t('training.warmupLegend')}
-              draft={activeDraft}
-              unit={unit}
-              placeholder={String(warmupPrefill(warmups.length).reps)}
-              onChange={(patch) => patchDraft(activeKey, patch)}
-              onConfirm={() => void confirm(activeKey)}
-              onRemove={() => setWarmupRows(warmupRows - 1)}
-              onOpenCalculator={() => setCalcOpen(true)}
-              detailActive={detailActive}
-              caption={rowCaption(activeDraft)}
-            />
-          ) : null}
+      {/* Asked once per machine, before the first number: plates and a pin stack
+          are different rows (per side vs total) and different pictures. */}
+      {needsMachineKind ? (
+        <View className="mt-3 rounded-field border border-ink-700 bg-ink-850 px-3 py-2.5">
+          <MachineLoadChooser value={null} onChange={chooseMachineKind} />
         </View>
       ) : null}
 
@@ -725,22 +621,30 @@ const ExerciseCard = ({
             );
           }
           const legend = row ? targetLine(row, t) : null;
-          if (key !== activeKey || activeIsWarmup) {
+          if (key !== activeKey) {
             return <PendingRow key={key} label={String(i + 1)} legend={legend} />;
           }
+          const draft = draftFor(key);
+          const trend = trendsFor(key, draft);
+          const cap = rowCaption(draft);
           return (
-            <ActiveRow
+            <ActiveSetRow
               key={key}
               label={t('training.setN', { n: i + 1 })}
               legend={legend}
-              draft={draftFor(key)}
+              draft={draft}
               unit={unit}
               placeholder={row ? `${row.reps}${row.repsMax ? `-${row.repsMax}` : ''}` : '0'}
               onChange={(patch) => patchDraft(key, patch)}
               onConfirm={() => void confirm(key)}
               onOpenCalculator={() => setCalcOpen(true)}
               detailActive={detailActive}
-              caption={rowCaption(draftFor(key))}
+              caption={cap.text}
+              breakdown={cap.breakdown}
+              weightTrend={trend.weight}
+              repsTrend={trend.reps}
+              side={sideInputFor(key, draft)}
+              onBlurWeight={() => snapDraft(key)}
             />
           );
         })}
@@ -750,7 +654,8 @@ const ExerciseCard = ({
       {activeKey && activeDraft ? (
         <View className="mt-2.5 flex-row items-end gap-2 border-t border-ink-800 pt-2.5">
           <StepGroup
-            label={`${t('training.weight')} · ${unit}`}
+            accessibilityLabel={`${t('training.weight')} (${unit})`}
+            steps={WEIGHT_STEPS}
             step={weightStep}
             onStepChange={(n) => {
               settings.setWeightStep(n);
@@ -760,7 +665,8 @@ const ExerciseCard = ({
           />
           <View className="w-px self-stretch bg-ink-800" />
           <StepGroup
-            label={t('training.reps')}
+            accessibilityLabel={t('training.reps')}
+            steps={REPS_STEPS}
             step={repsStep}
             onStepChange={(n) => {
               settings.setRepsStep(n);
@@ -768,56 +674,44 @@ const ExerciseCard = ({
             }}
             onBump={(d) => bump('reps', d)}
           />
-          {activeIsWarmup ? null : (
-            <>
-              <View className="w-px self-stretch bg-ink-800" />
-              <Pressable
-                onPress={() => void pickEffort()}
-                accessibilityRole="button"
-                accessibilityLabel={t('training.effortTitle')}
-                className={[
-                  'h-9 flex-row items-center justify-center gap-1 rounded-field border px-3',
-                  activeDraft.effort
-                    ? activeDraft.effort.failure
-                      ? 'border-red-400/50 bg-red-500/15'
-                      : 'border-brand/40 bg-brand/10'
-                    : activeRow?.wantsEffort
-                      ? 'border-brand/25 bg-ink-800'
-                      : 'border-ink-700 bg-ink-800',
-                ].join(' ')}
-              >
-                {activeDraft.effort?.failure ? <FlameIcon color="#f87171" size={14} /> : null}
-                <Text
-                  className={[
-                    'text-xs font-sans-semibold',
-                    activeDraft.effort
-                      ? activeDraft.effort.failure
-                        ? 'text-red-400'
-                        : 'text-brand'
-                      : 'text-ink-200',
-                  ].join(' ')}
-                >
-                  {activeDraft.effort
-                    ? activeDraft.effort.failure
-                      ? t('training.failure')
-                      : `RIR ${activeDraft.effort.rir}`
-                    : 'RIR'}
-                </Text>
-              </Pressable>
-            </>
-          )}
+          <View className="w-px self-stretch bg-ink-800" />
+          <Pressable
+            onPress={() => void pickEffort()}
+            accessibilityRole="button"
+            accessibilityLabel={t('training.effortTitle')}
+            className={[
+              'h-9 flex-row items-center justify-center gap-1 rounded-field border px-3',
+              activeDraft.effort
+                ? activeDraft.effort.failure
+                  ? 'border-red-400/50 bg-red-500/15'
+                  : 'border-brand/40 bg-brand/10'
+                : activeRow?.wantsEffort
+                  ? 'border-brand/25 bg-ink-800'
+                  : 'border-ink-700 bg-ink-800',
+            ].join(' ')}
+          >
+            {activeDraft.effort?.failure ? <FlameIcon color="#f87171" size={14} /> : null}
+            <Text
+              className={[
+                'text-xs font-sans-semibold',
+                activeDraft.effort
+                  ? activeDraft.effort.failure
+                    ? 'text-red-400'
+                    : 'text-brand'
+                  : 'text-ink-200',
+              ].join(' ')}
+            >
+              {activeDraft.effort
+                ? activeDraft.effort.failure
+                  ? t('training.failure')
+                  : `RIR ${activeDraft.effort.rir}`
+                : 'RIR'}
+            </Text>
+          </Pressable>
         </View>
       ) : null}
 
       <View className="mt-2 flex-row items-center justify-center gap-4">
-        <Pressable
-          onPress={() => setWarmupRows(warmupRows + 1)}
-          accessibilityRole="button"
-          className="flex-row items-center gap-1 py-1.5"
-        >
-          <PlusIcon color={muted} size={14} />
-          <Text className="text-xs font-sans-semibold text-ink-400">{t('training.warmupSet')}</Text>
-        </Pressable>
         {/* Extra sets only unlock once the plan is done — sets have an order. */}
         {planDone ? (
           <Pressable
@@ -841,9 +735,12 @@ const ExerciseCard = ({
         initialLoad={activeDraft?.load ?? loadSetting?.load ?? null}
         equipment={facts?.equipment ?? null}
         unilateral={!!facts?.unilateral}
+        preferMode={needsMachineKind ? 'machine' : undefined}
         onApply={({ weightText, load, changed }) => {
           if (!activeKey) return;
-          patchDraft(activeKey, { weight: weightText, load });
+          // `side` is dropped on purpose: the sheet may have changed the base,
+          // and the row re-splits the total over the base it renders with.
+          patchDraft(activeKey, { weight: weightText, load, side: undefined });
           if (changed && load) upsertExerciseSetting(userId, planned.exerciseId, { load });
         }}
       />
@@ -858,7 +755,7 @@ const WorkoutSession = () => {
   const t = useT();
   const dialog = useDialog();
   const { user } = useAuth();
-  const { brand, brandContrast, muted, danger } = useTheme();
+  const { brandContrast, muted, danger } = useTheme();
   // The unmount can outlive the Activity (process killed, reload, OS teardown);
   // releasing the lock then rejects, and there is nothing left to keep awake.
   useKeepAwake(undefined, { suppressDeactivateWarnings: true });
@@ -877,9 +774,6 @@ const WorkoutSession = () => {
   }, [id]);
 
   const { units: unit, setUnits } = useUnits();
-  const [layout, setLayout] = useState<WorkoutLayout>(settings.getWorkoutLayout());
-  const [showArt, setShowArt] = useState(() => settings.getShowExerciseArt());
-  const [warmupOpen, setWarmupOpen] = useState(true);
   const [reordering, setReordering] = useState(false);
   const [orderDraft, setOrderDraft] = useState<PlannedSlot[]>([]);
   const [cardIndex, setCardIndex] = useState(() => {
@@ -889,7 +783,7 @@ const WorkoutSession = () => {
   });
   // The screen is singular per workout (`workoutScreenId`), so a later push —
   // the rest notification's `?slot=` — lands on this instance with new params
-  // instead of mounting a copy. Follow it: focus the card in compact view…
+  // instead of mounting a copy. Follow it to that exercise's page.
   const [seenSlot, setSeenSlot] = useState(focusSlot);
   if (focusSlot !== seenSlot) {
     setSeenSlot(focusSlot);
@@ -905,32 +799,23 @@ const WorkoutSession = () => {
   }, []);
   const activeRest = useActiveRest();
   const rest = activeRest?.workoutId === log?.id ? activeRest : null;
-  const scrollRef = useRef<ComponentRef<typeof KeyboardAwareScrollView>>(null);
-  const cardY = useRef(new Map<string, number>());
   const [summary, setSummary] = useState<SessionSummary | null>(null);
-  const [finishing, setFinishing] = useState(false);
+  // The share sheet holds the summary's ring while it is up.
+  const [sharing, setSharing] = useState(false);
+  const [busy, setBusy] = useState<'finishing' | 'discarding' | null>(null);
 
   const day = workoutDayId ? getWorkoutDay(workoutDayId) : null;
+  const routine = day ? getRoutine(day.routineId) : null;
   const { data: sets } = useLiveQuery(setLogsQuery(typeof id === 'string' ? id : ''), [id]);
 
-  // Prefill sources per snapshot slot, keyed by the exercise ON the slot and
+  // Prefill source per snapshot slot, keyed by the exercise ON the slot and
   // re-read when a slot swaps exercise, so a variant never inherits another
-  // variant's loads. "Last week" feeds the card's reference line; the newest
-  // logged set of the exercise seeds the first row.
+  // variant's loads: the previous session of that exercise feeds both the
+  // card's "Last training" line and set-by-set seeding.
   const prefillKey = prefillSourceKey(log?.plannedSnapshot ?? []);
-  const lastWeekBySlot = useMemo(() => {
-    if (!log?.plannedSnapshot || !workoutDayId) return new Map<string, SetLog[]>();
-    return new Map(
-      log.plannedSnapshot.map((p) => [
-        p.slotId,
-        lastWeekSets(p.exerciseId, workoutDayId, log.weekNumber - 1),
-      ]),
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [log?.id, prefillKey]);
-  const lastSetBySlot = useMemo(() => {
-    if (!log?.plannedSnapshot) return new Map<string, SetLog | null>();
-    return new Map(log.plannedSnapshot.map((p) => [p.slotId, lastLoggedSet(p.exerciseId)]));
+  const previousBySlot = useMemo(() => {
+    if (!log?.plannedSnapshot) return new Map<string, PreviousSession | null>();
+    return new Map(log.plannedSnapshot.map((p) => [p.slotId, previousSessionSets(p.exerciseId)]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [log?.id, prefillKey]);
   // What each card needs to know about its exercise beyond the snapshot, keyed
@@ -961,21 +846,6 @@ const WorkoutSession = () => {
   const doneSlot = (p: PlannedSlot): boolean =>
     sets.filter((x) => !x.isWarmup && x.exerciseId === p.exerciseId).length >=
     p.setGroups.reduce((x, g) => x + g.sets, 0);
-  const firstPendingId = (log?.plannedSnapshot ?? []).find((p) => !doneSlot(p))?.slotId ?? null;
-  // Finishing an exercise brings the next one to the top of the screen, so
-  // the session reads top-down instead of scrolling past what is done.
-  useEffect(() => {
-    if (layout === 'list') scrollRef.current?.scrollTo({ y: 0, animated: true });
-  }, [firstPendingId, layout]);
-
-  // …and scroll to it in list view (its card already laid out, so the mount-time
-  // `focused` onLayout will not fire again).
-  useEffect(() => {
-    if (!focusSlot) return;
-    const y = cardY.current.get(focusSlot);
-    if (y != null) scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
-  }, [focusSlot]);
-
   const workingSetsFor = (exerciseId: string) =>
     sets.filter((s) => !s.isWarmup && s.exerciseId === exerciseId);
   const doneFor = (exerciseId: string) => workingSetsFor(exerciseId).length;
@@ -998,9 +868,10 @@ const WorkoutSession = () => {
     if (justLogged?.exerciseId === slot.exerciseId && !logged.some((s) => s.id === justLogged.id))
       logged.push(justLogged);
     const fill = nextSetPrefill({
-      logged,
+      index: upcoming.setNumber - 1,
       planReps: row?.reps,
-      lastSet: lastSetBySlot.get(slot.slotId) ?? null,
+      previous: previousBySlot.get(slot.slotId)?.sets ?? [],
+      logged,
       suggestedKg: suggestedBySlot.get(slot.slotId) ?? null,
     });
     return {
@@ -1056,7 +927,6 @@ const WorkoutSession = () => {
   if (!user || !log || log.status !== 'in_progress') return <Redirect href="/training" />;
 
   const planned = log.plannedSnapshot ?? [];
-  const listOrder = [...planned.filter((p) => !doneSlot(p)), ...planned.filter(doneSlot)];
 
   const setsFor = (exerciseId: string) => sets.filter((s) => s.exerciseId === exerciseId);
 
@@ -1078,6 +948,19 @@ const WorkoutSession = () => {
       setEffortResolve(() => resolver);
     });
 
+  // Confirmed before anything happens: the two header buttons sit side by side,
+  // and ending a session by a mis-tap cannot be undone.
+  const finish = () =>
+    dialog.confirm({
+      title: t('training.finishConfirm'),
+      message: t('training.finishConfirmBody'),
+      confirmLabel: t('training.finish'),
+      onConfirm: () => {
+        playSound('sessionDone');
+        setSummary(sessionSummary(log.id, locale));
+      },
+    });
+
   // Copy is frozen here (an event, not render) so the one notification can be
   // redrawn headlessly without i18n. The session face is written first and the
   // rest layered on it, so the card never shows a stale next set mid-rest.
@@ -1095,6 +978,17 @@ const WorkoutSession = () => {
     const startedAt = Date.now();
     const upcoming = nextSetSummary(planned, slotId, doneCount, doneFor);
     const record = sessionRecord(log, nextSetCopy(planned, upcoming, logged));
+    // The exercise's plan is done: page to the next one with sets left, or —
+    // with nothing left anywhere — ask to finish, so the last check is the end.
+    const slot = planned.find((p) => p.slotId === slotId);
+    const plannedCount = slot ? slot.setGroups.reduce((n, g) => n + g.sets, 0) : 0;
+    if (slot && doneCount >= plannedCount) {
+      if (upcoming.kind === 'done') finish();
+      else if (upcoming.slotId !== slotId) {
+        const next = planned.findIndex((p) => p.slotId === upcoming.slotId);
+        if (next >= 0) setCardIndex(next);
+      }
+    }
     const restPayload = {
       workoutId: log.id,
       slotId,
@@ -1114,23 +1008,10 @@ const WorkoutSession = () => {
     );
   };
 
-  // Confirmed before anything happens: the two header buttons sit side by side,
-  // and ending a session by a mis-tap cannot be undone.
-  const finish = () =>
-    dialog.confirm({
-      title: t('training.finishConfirm'),
-      message: t('training.finishConfirmBody'),
-      confirmLabel: t('training.finish'),
-      onConfirm: () => {
-        playSound('sessionDone');
-        setSummary(sessionSummary(log.id, locale));
-      },
-    });
-
   // Finish work is synchronous; show the overlay first so the tap gets visible feedback.
   const closeSummary = () => {
-    if (finishing) return;
-    setFinishing(true);
+    if (busy) return;
+    setBusy('finishing');
     setTimeout(() => {
       closeSession('finish', log.id, log.userId);
       setSummary(null);
@@ -1147,29 +1028,18 @@ const WorkoutSession = () => {
       destructive: true,
       onConfirm: () => {
         playSound('discard');
-        closeSession('abandon', log.id, log.userId);
-        router.replace('/training');
+        // Same wait as finishing: the teardown is synchronous and the tab must mount settled.
+        setBusy('discarding');
+        setTimeout(() => {
+          closeSession('abandon', log.id, log.userId);
+          router.replace({ pathname: '/training', params: { settling: '1' } });
+        }, OVERLAY_PAINT_MS);
       },
     });
 
   const openReorder = () => {
     setOrderDraft(planned);
     setReordering(true);
-  };
-
-  // Remembered across sessions: whoever turns the art off means it.
-  const toggleArt = () => {
-    const next = !showArt;
-    settings.setShowExerciseArt(next);
-    setShowArt(next);
-  };
-
-  // Two modes only, so the control is a toggle rather than a picker: one tap
-  // swaps them, the same way the eye swaps the illustrations.
-  const toggleLayout = () => {
-    const next: WorkoutLayout = layout === 'list' ? 'cards' : 'list';
-    settings.setWorkoutLayout(next);
-    setLayout(next);
   };
 
   // The unit toggle lives in the pinned session strip (never in the top bar,
@@ -1180,60 +1050,53 @@ const WorkoutSession = () => {
     pushProfile(user);
   };
 
+  // One exercise per page: the chip strip is the navigation (it follows the
+  // current page), Prev/Next step through, and the page holds nothing but the
+  // exercise at hand. The scrolling list of every card is gone — paging won in
+  // the gym, and two layouts meant two sets of scroll logic to keep right.
   const idx = Math.min(cardIndex, Math.max(0, planned.length - 1));
   const current = planned[idx] ?? null;
-
-  // Ordered exercise strip (both layouts): tap focuses the exercise in compact
-  // view, or scrolls to its card in list view — the compact Select is gone.
-  const jumpToExercise = (index: number) => {
-    const target = planned[index];
-    if (!target) return;
-    if (layout === 'cards') {
-      setCardIndex(index);
-      return;
-    }
-    const y = cardY.current.get(target.slotId);
-    if (y != null) scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
+  const goTo = (index: number) => {
+    if (planned[index]) setCardIndex(index);
   };
 
+  // Paging arrows flank the chip strip: one line carries the whole navigation.
+  const NAV_BTN = 'h-8 w-8 shrink-0 items-center justify-center rounded-field bg-ink-800';
   const exerciseChips =
     planned.length > 1 ? (
-      <View className="mb-3">
-        <ChipRow
-          items={planned.map((p, i) => ({
-            value: String(i),
-            label: `${i + 1}. ${p.name}`,
-            done: doneSlot(p),
-          }))}
-          value={layout === 'cards' ? String(idx) : null}
-          onChange={(v) => jumpToExercise(Number(v))}
-        />
+      <View className="mb-3 flex-row items-center gap-2">
+        <Pressable
+          onPress={() => goTo(idx - 1)}
+          disabled={idx === 0}
+          accessibilityRole="button"
+          accessibilityLabel={t('training.prev')}
+          className={[NAV_BTN, idx === 0 ? 'opacity-40' : ''].join(' ')}
+        >
+          <ChevronLeftIcon color={muted} size={16} />
+        </Pressable>
+        <View className="min-w-0 flex-1">
+          <ChipRow
+            items={planned.map((p, i) => ({
+              value: String(i),
+              label: `${i + 1}. ${p.name}`,
+              done: doneSlot(p),
+            }))}
+            value={String(idx)}
+            onChange={(v) => goTo(Number(v))}
+            followSelection
+          />
+        </View>
+        <Pressable
+          onPress={() => goTo(idx + 1)}
+          disabled={idx >= planned.length - 1}
+          accessibilityRole="button"
+          accessibilityLabel={t('training.next')}
+          className={[NAV_BTN, idx >= planned.length - 1 ? 'opacity-40' : ''].join(' ')}
+        >
+          <ChevronRightIcon color={muted} size={16} />
+        </Pressable>
       </View>
     ) : null;
-
-  const renderCard = (p: PlannedSlot, focused: boolean) => (
-    <View key={p.slotId} onLayout={(e) => cardY.current.set(p.slotId, e.nativeEvent.layout.y)}>
-      <ExerciseCard
-        workoutLogId={log.id}
-        planned={p}
-        sets={setsFor(p.exerciseId)}
-        unit={unit}
-        lastWeek={lastWeekBySlot.get(p.slotId) ?? []}
-        lastSet={lastSetBySlot.get(p.slotId) ?? null}
-        suggestedKg={suggestedBySlot.get(p.slotId) ?? null}
-        facts={factsById.get(p.exerciseId) ?? null}
-        loadSetting={settingById.get(p.exerciseId) ?? null}
-        userId={user.id}
-        showArt={showArt}
-        requestEffort={requestEffort}
-        onLogged={onLogged}
-        focused={focused}
-        onFocusLayout={(y) =>
-          scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: false })
-        }
-      />
-    </View>
-  );
 
   return (
     <Screen
@@ -1243,29 +1106,27 @@ const WorkoutSession = () => {
           showBack
           showAvatar={false}
           title={day ? dayDisplayName(day, t) : t('training.workout')}
-          subtitle={t('training.weekN', { n: log.weekNumber })}
+          subtitle={[
+            t('training.weekN', { n: log.weekNumber }),
+            isRmTestWeek(routine, log.weekNumber) ? t('training.rmTest') : null,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
           right={
             // Finish sits in the corner, where a confirming check is looked for;
             // abandon steps inward. Both still confirm before acting.
             <View className="flex-row items-center gap-2">
-              <Pressable
-                hitSlop={8}
+              <IconButton
+                icon={<XIcon color={danger} size={18} />}
                 onPress={cancel}
-                accessibilityRole="button"
                 accessibilityLabel={t('training.cancelWorkout')}
-                className="h-9 w-9 items-center justify-center rounded-full bg-ink-800"
-              >
-                <XIcon color={danger} size={18} />
-              </Pressable>
-              <Pressable
-                hitSlop={8}
+              />
+              <IconButton
+                icon={<CheckIcon color={brandContrast} size={18} />}
                 onPress={finish}
-                accessibilityRole="button"
                 accessibilityLabel={t('training.finish')}
-                className="h-9 w-9 items-center justify-center rounded-full bg-brand"
-              >
-                <CheckIcon color={brandContrast} size={18} />
-              </Pressable>
+                tone="brand"
+              />
             </View>
           }
         />
@@ -1289,89 +1150,64 @@ const WorkoutSession = () => {
             </Text>
           </View>
         </View>
-        {/* The unit toggle is pinned here, never in the top bar. */}
-        <View className="mt-2.5 flex-row items-center justify-between gap-2">
-          <View className="w-28">
-            <SegmentedControl segments={UNIT_SEGMENTS} value={unit} onChange={changeUnit} />
+        {/* Unit toggle (small, pinned here, never in the top bar) · position · reorder. */}
+        <View className="mt-2.5 flex-row items-center gap-3">
+          <View className="w-20">
+            <SegmentedControl
+              segments={UNIT_SEGMENTS}
+              value={unit}
+              onChange={changeUnit}
+              size="sm"
+            />
           </View>
-          <View className="flex-row gap-2">
-            <Pressable
-              onPress={toggleArt}
-              accessibilityRole="button"
-              accessibilityLabel={showArt ? t('training.artHide') : t('training.artShow')}
-              accessibilityState={{ selected: showArt }}
-              className={[
-                'h-10 w-10 items-center justify-center rounded-field border',
-                showArt ? 'border-brand/40 bg-brand/10' : 'border-ink-700 bg-ink-800',
-              ].join(' ')}
-            >
-              {showArt ? (
-                <EyeIcon color={brand} size={18} />
-              ) : (
-                <EyeClosedIcon color={muted} size={18} />
-              )}
-            </Pressable>
-            <Pressable
-              onPress={openReorder}
-              accessibilityRole="button"
-              accessibilityLabel={t('training.reorder')}
-              className="h-10 w-10 items-center justify-center rounded-field border border-ink-700 bg-ink-800"
-            >
-              <DragHandleIcon color={muted} size={18} />
-            </Pressable>
-            <Pressable
-              onPress={toggleLayout}
-              accessibilityRole="button"
-              accessibilityLabel={
-                layout === 'list' ? t('training.layoutCompact') : t('training.layoutList')
-              }
-              accessibilityState={{ selected: layout === 'cards' }}
-              className={[
-                'h-10 w-10 items-center justify-center rounded-field border',
-                layout === 'cards' ? 'border-brand/40 bg-brand/10' : 'border-ink-700 bg-ink-800',
-              ].join(' ')}
-            >
-              {layout === 'cards' ? (
-                <ViewGridIcon color={brand} size={18} />
-              ) : (
-                <ListIcon color={muted} size={18} />
-              )}
-            </Pressable>
-          </View>
+          <Text
+            numberOfLines={1}
+            className="flex-1 text-center font-mono-medium text-xs uppercase tracking-wider text-ink-400"
+          >
+            {planned.length ? t('training.exerciseOf', { n: idx + 1, total: planned.length }) : ''}
+          </Text>
+          <IconButton
+            icon={<DragHandleIcon color={muted} size={18} />}
+            onPress={openReorder}
+            accessibilityLabel={t('training.reorder')}
+          />
         </View>
       </View>
 
       <KeyboardAwareScrollView
-        ref={scrollRef}
         className="flex-1"
-        contentContainerClassName="px-5 pb-2"
+        contentContainerClassName="grow px-5 pb-2"
         bottomOffset={24}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         {exerciseChips}
 
-        {/* Optional, and deliberately first: the warm-up is the part that gets
-         * skipped, and it belongs before the first working set. */}
-        {warmupOpen ? (
+        {/* Asked once, first: did the warm-up happen? A check records it on the
+         * session; no per-exercise warm-up sets to log any more. */}
+        {log.warmupDone == null ? (
           <Card className="mb-3 border-brand/25 bg-brand/5">
-            <View className="flex-row items-start">
-              <View className="flex-1 pr-2">
-                <Text className="text-sm font-sans-semibold text-ink-50">
-                  {t('warmup.sessionTitle')}
-                </Text>
-                <Text className="mt-0.5 font-mono-medium text-[10px] uppercase tracking-wider text-brand">
-                  {t('warmup.optional')}
-                </Text>
+            <Text className="text-sm font-sans-semibold text-ink-50">
+              {t('warmup.sessionTitle')}
+            </Text>
+            <Text className="mt-0.5 text-xs leading-4 text-ink-400">{t('warmup.ask')}</Text>
+            <View className="mt-3 flex-row gap-2">
+              <View className="flex-1">
+                <Button
+                  variant="brand"
+                  label={t('warmup.markDone')}
+                  leftIcon={<CheckIcon color={brandContrast} size={16} />}
+                  onPress={() => setWarmupDone(log.id, true)}
+                />
               </View>
-              <Pressable
-                onPress={() => setWarmupOpen(false)}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel={t('common.close')}
-              >
-                <XIcon color={muted} size={15} />
-              </Pressable>
+              <View className="flex-1">
+                <Button
+                  variant="secondary"
+                  label={t('warmup.markSkipped')}
+                  leftIcon={<XIcon color={muted} size={16} />}
+                  onPress={() => setWarmupDone(log.id, false)}
+                />
+              </View>
             </View>
             <View className="mt-2">
               <TextLink
@@ -1380,40 +1216,39 @@ const WorkoutSession = () => {
               />
             </View>
           </Card>
-        ) : null}
+        ) : (
+          <View className="mb-3 flex-row items-center justify-between px-1">
+            <Text className="text-xs text-ink-400">
+              {t(log.warmupDone ? 'warmup.done' : 'warmup.skipped')}
+            </Text>
+            <TextLink
+              size="sm"
+              label={t('warmup.change')}
+              onPress={() => setWarmupDone(log.id, null)}
+            />
+          </View>
+        )}
 
         {planned.length === 0 ? (
           <Text className="mt-10 text-center text-sm text-ink-400">{t('training.empty')}</Text>
-        ) : layout === 'cards' && current ? (
+        ) : current ? (
           <>
-            <Text className="mb-2 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
-              {t('training.exerciseOf', { n: idx + 1, total: planned.length })}
-            </Text>
-            {renderCard(current, false)}
-            <View className="mt-1 flex-row gap-3">
-              <View className="flex-1">
-                <Button
-                  variant="secondary"
-                  label={t('training.prev')}
-                  leftIcon={<ChevronLeftIcon color={muted} size={16} />}
-                  disabled={idx === 0}
-                  onPress={() => setCardIndex(idx - 1)}
-                />
-              </View>
-              <View className="flex-1">
-                <Button
-                  variant="secondary"
-                  label={t('training.next')}
-                  leftIcon={<ChevronRightIcon color={muted} size={16} />}
-                  disabled={idx >= planned.length - 1}
-                  onPress={() => setCardIndex(idx + 1)}
-                />
-              </View>
-            </View>
+            <ExerciseCard
+              key={current.slotId}
+              workoutLogId={log.id}
+              planned={current}
+              sets={setsFor(current.exerciseId)}
+              unit={unit}
+              previous={previousBySlot.get(current.slotId) ?? null}
+              suggestedKg={suggestedBySlot.get(current.slotId) ?? null}
+              facts={factsById.get(current.exerciseId) ?? null}
+              loadSetting={settingById.get(current.exerciseId) ?? null}
+              userId={user.id}
+              requestEffort={requestEffort}
+              onLogged={onLogged}
+            />
           </>
-        ) : (
-          listOrder.map((p) => renderCard(p, p.slotId === focusSlot))
-        )}
+        ) : null}
       </KeyboardAwareScrollView>
 
       {rest ? (
@@ -1525,7 +1360,21 @@ const WorkoutSession = () => {
 
       {/* Post-workout summary: closes itself, because the session is already
        * over and there is nothing left to decide. */}
-      <TimedModal visible={summary !== null} onDone={closeSummary}>
+      <TimedModal
+        visible={summary !== null}
+        onDone={closeSummary}
+        paused={sharing}
+        actions={
+          summary?.exercises.length ? (
+            <Button
+              variant="secondary"
+              label={t('share.session')}
+              leftIcon={<ShareIcon color={muted} size={16} />}
+              onPress={() => setSharing(true)}
+            />
+          ) : null
+        }
+      >
         <View className="items-center">
           <View className="h-14 w-14 items-center justify-center rounded-full bg-brand">
             <CheckIcon color={brandContrast} size={28} />
@@ -1565,7 +1414,25 @@ const WorkoutSession = () => {
           {t('training.summaryAuto')}
         </Text>
       </TimedModal>
-      <BlockingOverlay visible={finishing} label={t('training.finishing')} />
+      <ShareSheet
+        visible={sharing}
+        onClose={() => setSharing(false)}
+        model={
+          summary
+            ? sessionShareModel({
+                summary,
+                splitName: day ? dayDisplayName(day, t) : t('training.workout'),
+                programLine: t('training.weekN', { n: log.weekNumber }),
+                unit,
+                t,
+              })
+            : null
+        }
+      />
+      <BlockingOverlay
+        visible={busy !== null}
+        label={t(busy === 'discarding' ? 'training.abandoning' : 'training.finishing')}
+      />
     </Screen>
   );
 };

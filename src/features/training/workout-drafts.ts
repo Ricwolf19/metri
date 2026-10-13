@@ -8,16 +8,24 @@ export type Effort = { rir: number | null; failure: boolean };
 /** The in-progress inputs of one set row — strings, exactly what was typed,
  * plus how the weight was built when it came from the sheet (kg). */
 export type RowDraft = {
+  /** The TOTAL in the display unit — what `weight_kg` will store. */
   weight: string;
   reps: string;
   effort: Effort | null;
   load?: LoadDetail | null;
+  /**
+   * On a plate-loaded exercise the lifter types the weight per side and this
+   * is that text; `weight` is derived from it. Absent (never typed, or the
+   * base changed) it is recomputed from the total.
+   */
+  side?: string;
 };
 
 /** `${slotId}:${rowKey}` — rowKey is the exercise-card row (`0`, `1`, …, `w0`, …). */
 export type DraftKey = string;
 
-export type SlotCounts = { warmup: number; extra: number };
+/** Rows beyond the plan the lifter opened on a slot (extra sets). */
+export type SlotCounts = { extra: number };
 
 type SessionDrafts = {
   rows: ReadonlyMap<DraftKey, RowDraft>;
@@ -25,7 +33,7 @@ type SessionDrafts = {
 };
 
 const EMPTY: SessionDrafts = { rows: new Map(), counts: new Map() };
-const NO_COUNTS: SlotCounts = { warmup: 0, extra: 0 };
+const NO_COUNTS: SlotCounts = { extra: 0 };
 
 /**
  * Session drafts live outside React: switching exercises in compact view
@@ -65,15 +73,16 @@ export const clearDraft = (logId: string, key: DraftKey): void => {
 
 /**
  * A slot swapped to another exercise keeps its typed rows but not how they were
- * built: a bar + plates detail logged against a dumbbell variant would lie.
+ * built: a bar + plates detail logged against a dumbbell variant would lie, and
+ * a per-side text split over the old variant's base no longer adds up.
  */
 export const clearDraftLoads = (logId: string, slotId: string): void => {
   const session = read(logId);
   const rows = new Map(session.rows);
   let changed = false;
   for (const [key, draft] of rows) {
-    if (key.startsWith(`${slotId}:`) && draft.load) {
-      rows.set(key, { ...draft, load: null });
+    if (key.startsWith(`${slotId}:`) && (draft.load || draft.side !== undefined)) {
+      rows.set(key, { ...draft, load: null, side: undefined });
       changed = true;
     }
   }

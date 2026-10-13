@@ -7,20 +7,22 @@ vi.mock('@/db/client', async () => ({ db: await createTestDb() }));
 vi.mock('@/lib/crypto', () => ({ randomId: () => crypto.randomUUID() }));
 
 const { db } = await import('@/db/client');
-const { lastLoggedSet } = await import('./session.repo');
+const { previousSessionSets } = await import('./session.repo');
 
 const EXERCISE = 'bench';
 
-const log = (id: string, status: WorkoutStatus) =>
+const log = (id: string, status: WorkoutStatus, completedAt: number, workoutDayId = 'day-a') =>
   db
     .insert(workoutLogs)
     .values({
       id,
       userId: 'u1',
       userProgramId: 'up1',
-      workoutDayId: 'day-a',
+      workoutDayId,
       weekNumber: 1,
       status,
+      startedAt: new Date(completedAt - 3_600_000),
+      completedAt: status === 'completed' ? new Date(completedAt) : null,
     })
     .run();
 
@@ -30,7 +32,6 @@ const set = (input: {
   weightKg: number;
   reps: number;
   setNumber: number;
-  at: number;
   isWarmup?: boolean;
   exerciseId?: string;
 }) =>
@@ -44,11 +45,10 @@ const set = (input: {
       weightKg: input.weightKg,
       reps: input.reps,
       isWarmup: input.isWarmup ?? false,
-      createdAt: new Date(input.at),
     })
     .run();
 
-describe('lastLoggedSet', () => {
+describe('previousSessionSets', () => {
   beforeEach(() => {
     db.delete(setLogs).run();
     db.delete(workoutLogs).run();
@@ -61,61 +61,49 @@ describe('lastLoggedSet', () => {
   });
 
   it('returns null with no history', () => {
-    expect(lastLoggedSet(EXERCISE)).toBeNull();
+    expect(previousSessionSets(EXERCISE)).toBeNull();
   });
 
-  it('picks the newest working set across completed sessions, not the heaviest', () => {
-    log('old', 'completed');
-    log('new', 'completed');
-    set({ id: 's1', logId: 'old', weightKg: 100, reps: 5, setNumber: 1, at: 1_000 });
-    set({ id: 's2', logId: 'new', weightKg: 80, reps: 10, setNumber: 1, at: 2_000 });
-    set({ id: 's3', logId: 'new', weightKg: 75, reps: 12, setNumber: 2, at: 3_000 });
+  it('picks the newest completed session of the exercise, whatever split it was in', () => {
+    log('old', 'completed', 1_000, 'day-a');
+    log('new', 'completed', 2_000, 'day-b');
+    set({ id: 's1', logId: 'old', weightKg: 100, reps: 5, setNumber: 1 });
+    set({ id: 's2', logId: 'new', weightKg: 80, reps: 10, setNumber: 1 });
+    set({ id: 's3', logId: 'new', weightKg: 75, reps: 12, setNumber: 2 });
 
-    expect(lastLoggedSet(EXERCISE)).toMatchObject({ weightKg: 75, reps: 12 });
+    const previous = previousSessionSets(EXERCISE);
+    expect(previous?.logId).toBe('new');
+    expect(previous?.finishedAt.getTime()).toBe(2_000);
+    expect(previous?.sets.map((s) => [s.weightKg, s.reps])).toEqual([
+      [80, 10],
+      [75, 12],
+    ]);
   });
 
-  it('ignores the open session and warm-ups, however recent', () => {
-    log('done', 'completed');
-    log('open', 'in_progress');
-    set({ id: 's1', logId: 'done', weightKg: 80, reps: 10, setNumber: 1, at: 1_000 });
-    set({ id: 's2', logId: 'open', weightKg: 90, reps: 8, setNumber: 1, at: 2_000 });
-    set({
-      id: 's3',
-      logId: 'done',
-      weightKg: 40,
-      reps: 8,
-      setNumber: 2,
-      at: 3_000,
-      isWarmup: true,
-    });
+  it('ignores the open session, however recent, and leaves warm-ups out of the ordinals', () => {
+    log('done', 'completed', 1_000);
+    log('open', 'in_progress', 2_000);
+    set({ id: 'w', logId: 'done', weightKg: 40, reps: 8, setNumber: 1, isWarmup: true });
+    set({ id: 's1', logId: 'done', weightKg: 80, reps: 10, setNumber: 2 });
+    set({ id: 's2', logId: 'done', weightKg: 77.5, reps: 9, setNumber: 3 });
+    set({ id: 's3', logId: 'open', weightKg: 90, reps: 8, setNumber: 1 });
 
-    expect(lastLoggedSet(EXERCISE)).toMatchObject({ weightKg: 80, reps: 10 });
-  });
-
-  it('breaks a same-timestamp tie by set number', () => {
-    log('l', 'completed');
-    set({ id: 's1', logId: 'l', weightKg: 80, reps: 10, setNumber: 1, at: 1_000 });
-    set({ id: 's2', logId: 'l', weightKg: 77.5, reps: 11, setNumber: 2, at: 1_000 });
-
-    expect(lastLoggedSet(EXERCISE)).toMatchObject({ weightKg: 77.5, reps: 11 });
+    const previous = previousSessionSets(EXERCISE);
+    expect(previous?.logId).toBe('done');
+    // Set "1" of the previous session is the first WORKING set.
+    expect(previous?.sets.map((s) => s.weightKg)).toEqual([80, 77.5]);
   });
 
   it('stays on the exercise it was asked about', () => {
-    log('l', 'completed');
-    set({ id: 's1', logId: 'l', weightKg: 80, reps: 10, setNumber: 1, at: 1_000 });
+    log('l', 'completed', 1_000);
+    log('l2', 'completed', 2_000);
+    set({ id: 's1', logId: 'l', weightKg: 80, reps: 10, setNumber: 1 });
     db.insert(exercises)
       .values({ id: 'squat', name: 'Squat', category: 'legs', primaryMuscles: [] })
       .run();
-    set({
-      id: 's2',
-      logId: 'l',
-      weightKg: 140,
-      reps: 5,
-      setNumber: 1,
-      at: 2_000,
-      exerciseId: 'squat',
-    });
+    set({ id: 's2', logId: 'l2', weightKg: 140, reps: 5, setNumber: 1, exerciseId: 'squat' });
 
-    expect(lastLoggedSet(EXERCISE)).toMatchObject({ weightKg: 80, reps: 10 });
+    expect(previousSessionSets(EXERCISE)?.logId).toBe('l');
+    expect(previousSessionSets('squat')?.sets[0]).toMatchObject({ weightKg: 140, reps: 5 });
   });
 });
