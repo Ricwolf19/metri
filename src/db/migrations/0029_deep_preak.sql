@@ -1,0 +1,1 @@
+ALTER TABLE `routines` ADD `rm_test_week` integer;

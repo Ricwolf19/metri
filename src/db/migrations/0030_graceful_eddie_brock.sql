@@ -1,0 +1,1 @@
+ALTER TABLE `workout_logs` ADD `warmup_done` integer;

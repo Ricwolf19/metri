@@ -198,6 +198,8 @@ export const routines = sqliteTable(
     name: text('name').notNull(),
     orderIndex: integer('order_index').notNull().default(0),
     durationWeeks: integer('duration_weeks').notNull().default(4),
+    /** The routine-relative week to test maxes in (1..durationWeeks), or none. Synced column: add, never rename. */
+    rmTestWeek: integer('rm_test_week'),
     userProgramId: text('user_program_id'),
     createdAt: tsMs('created_at').notNull().default(NOW_MS),
     // Nullable so the migration is a plain ADD COLUMN; sync reads COALESCE(updatedAt, createdAt).
@@ -329,7 +331,13 @@ export const userPrograms = sqliteTable(
 export type UserProgram = typeof userPrograms.$inferSelect;
 export type NewUserProgram = typeof userPrograms.$inferInsert;
 
-export type WorkoutStatus = 'in_progress' | 'completed' | 'abandoned';
+/**
+ * `skipped` is a planned split the lifter resolved WITHOUT training it: no
+ * sets, excluded from every stat and history list by status, counted only by
+ * the week cursor (`isWeekComplete`) so the plan moves on. Deleting the row is
+ * the undo, like any session. Wire format: add values, never rename.
+ */
+export type WorkoutStatus = 'in_progress' | 'completed' | 'abandoned' | 'skipped';
 
 /** The prescription materialized when a session starts — the session renders
  * from this, immune to program edits, and history stays faithful. */
@@ -366,6 +374,8 @@ export const workoutLogs = sqliteTable(
     durationSeconds: integer('duration_seconds'),
     notes: text('notes'),
     rating: integer('rating'),
+    /** Whether the lifter warmed up before this session (null = not asked). Synced column: add, never rename. */
+    warmupDone: integer('warmup_done', { mode: 'boolean' }),
     plannedSnapshot: text('planned_snapshot', { mode: 'json' }).$type<PlannedSlot[]>(),
     createdAt: tsMs('created_at').notNull().default(NOW_MS),
     updatedAt: tsMs('updated_at'),
@@ -388,8 +398,9 @@ export type NewWorkoutLog = typeof workoutLogs.$inferInsert;
  * config that seeds the next session). Wire format: add fields, never rename.
  */
 export type LoadDetail =
-  /** `platesKg` is ONE side, largest first; `barKg` 0 is a plate-loaded machine. */
-  | { kind: 'barbell'; barKg: number; platesKg: number[] }
+  /** `platesKg` is ONE side, largest first; `barKg` 0 is a plate-loaded machine.
+   * `sides` 1 is a single post that takes every plate (the total is base + plates once); absent = 2. */
+  | { kind: 'barbell'; barKg: number; platesKg: number[]; sides?: 1 | 2 }
   /** A stack or pin machine: `baseKg + steps × incrementKg`. */
   | { kind: 'machine'; baseKg: number; incrementKg: number; steps: number }
   /** `hands` is frozen at log time from the exercise's unilateral flag, so the
@@ -426,9 +437,13 @@ export const setLogs = sqliteTable(
 export type SetLog = typeof setLogs.$inferSelect;
 export type NewSetLog = typeof setLogs.$inferInsert;
 
-/** Trained as planned · deliberate rest · missed a planned session. */
-export type TrainingDayStatus = 'trained' | 'rest' | 'skipped';
-/** Why a planned session was missed — powers the "why not" legend. */
+/**
+ * Trained as planned · deliberate rest · missed a planned session · some other
+ * activity (a run, a match, a session off-plan: neutral for the streak like
+ * rest, its own colour on the calendar). Wire format: add values, never rename.
+ */
+export type TrainingDayStatus = 'trained' | 'rest' | 'skipped' | 'active';
+/** Why a planned session was missed — powers the "why not" legend. Append only. */
 export const SKIP_REASONS = [
   'sick',
   'busy',
@@ -437,6 +452,8 @@ export const SKIP_REASONS = [
   'fatigue',
   'deload',
   'other',
+  /** Trained the split on another day instead. */
+  'moved',
 ] as const;
 export type SkipReason = (typeof SKIP_REASONS)[number];
 
