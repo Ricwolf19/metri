@@ -99,6 +99,7 @@
     "doctor": "bunx expo-doctor",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
+    "dev:seed": "bun scripts/dev-seed.ts",
     "prepare": "husky"
   },
   "private": true,
