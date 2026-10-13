@@ -9,11 +9,11 @@ import {
   type ImageSourcePropType,
 } from 'react-native';
 
-import { DumbbellIcon, ExpandIcon, PauseIcon, PlaySolidIcon } from '@/components/icons';
+import { ExpandIcon, PauseIcon, PlaySolidIcon } from '@/components/icons';
 import { useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
-import { visualIdFor, type VisualId } from '../exercise-visuals';
+import type { VisualId } from '../exercise-visuals';
 import type { WarmupVisualId } from '../warmup-visuals';
 
 type Frames = readonly [ImageSourcePropType, ImageSourcePropType, ImageSourcePropType];
@@ -444,32 +444,3 @@ export const ExerciseFrames = ({
 export const WarmupFrames = ({ visualId, label }: { visualId: WarmupVisualId; label: string }) => (
   <FramePlayer frames={WARMUP_FRAMES[visualId]} accessibilityLabel={label} height={150} />
 );
-
-/** Static first-pose thumbnail for list rows; generic dumbbell when unmatched. */
-export const ExerciseThumb = ({
-  exercise,
-  size = 44,
-}: {
-  exercise: { id: string; name: string };
-  size?: number;
-}) => {
-  const { muted } = useTheme();
-  const visualId = visualIdFor(exercise);
-
-  return (
-    <View
-      style={{ width: size, height: size }}
-      className="items-center justify-center overflow-hidden rounded-field bg-ink-950"
-    >
-      {visualId ? (
-        <Image
-          source={EXERCISE_FRAMES[visualId][0]}
-          style={{ width: size - 6, height: size - 6 }}
-          resizeMode="contain"
-        />
-      ) : (
-        <DumbbellIcon color={muted} size={Math.round(size * 0.45)} />
-      )}
-    </View>
-  );
-};

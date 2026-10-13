@@ -3,9 +3,10 @@ import type { Locale } from '@/i18n';
 import type { ProgramSeed, SlotSeed, WeekSeed } from './types';
 
 /**
- * "Metri Foundations" — 12-week beginner powerbuilding base. Three 4-week
- * phases, 3 sessions/week, every working set to technical failure (no RIR
- * anywhere). Rests: ~2 min default, up to 3 min on heavy compounds, ~1.5 min
+ * "Metri Foundations" — 12-week beginner powerbuilding base. Three phases of
+ * four weeks (the third as two 2-week routines so it keeps three fixed
+ * sessions a week while alternating its two sides), every working set to
+ * technical failure (no RIR anywhere). Rests: ~2 min default, up to 3 min on heavy compounds, ~1.5 min
  * on abs/calves/hyperextensions — encoded on both the slot default and every
  * week.
  */
@@ -65,19 +66,11 @@ const phase1Slots = (week1Sets: number): SlotSeed[] => {
     { exerciseId: 'back-extension', restSeconds: REST_LIGHT, weeks: ramp(12, REST_LIGHT) },
     { exerciseId: 'cable-crunch', restSeconds: REST_LIGHT, weeks: ramp(20, REST_LIGHT) },
     { exerciseId: 'standing-calf-raise', restSeconds: REST_LIGHT, weeks: ramp(12, REST_LIGHT) },
-    {
-      exerciseId: 'standing-leg-curl',
-      restSeconds: REST_DEFAULT,
-      weeks: ramp(12, REST_DEFAULT),
-      badges: ['O similar'],
-    },
+    // No "or similar" cue: the swap arrows on the card already say a variant
+    // may stand in, and the cue read as a note the lifter had to act on.
+    { exerciseId: 'standing-leg-curl', restSeconds: REST_DEFAULT, weeks: ramp(12, REST_DEFAULT) },
     { exerciseId: 'leg-press', restSeconds: REST_HEAVY, weeks: ramp(12, REST_HEAVY) },
-    {
-      exerciseId: 'machine-chest-press',
-      restSeconds: REST_HEAVY,
-      weeks: ramp(12, REST_HEAVY),
-      badges: ['O similar'],
-    },
+    { exerciseId: 'machine-chest-press', restSeconds: REST_HEAVY, weeks: ramp(12, REST_HEAVY) },
     {
       exerciseId: 'lat-pulldown',
       restSeconds: REST_DEFAULT,
@@ -97,6 +90,104 @@ const phase1Day = (slug: string, name: string, week1Sets: number): DaySeed => ({
   exercises: phase1Slots(week1Sets),
 });
 
+/** Which two of a 4-week prescription a 2-week routine runs. */
+type Half = 'first' | 'second';
+const half = (weeks: WeekSeed[], which: Half): WeekSeed[] =>
+  which === 'first' ? weeks.slice(0, 2) : weeks.slice(2, 4);
+
+const phase3SideA = (which: Half): SlotSeed[] => [
+  {
+    exerciseId: 'cable-crunch',
+    restSeconds: REST_LIGHT,
+    weeks: half(fixedRow([4, 3, 3, 2], 20, REST_LIGHT), which),
+  },
+  {
+    exerciseId: 'barbell-bench-press',
+    restSeconds: REST_HEAVY,
+    weeks: half(falsePyramid(REST_HEAVY), which),
+  },
+  {
+    exerciseId: 'incline-bench-press',
+    restSeconds: REST_HEAVY,
+    weeks: half(fixedRow([3, 3, 3, 2], 8, REST_HEAVY), which),
+  },
+  {
+    exerciseId: 'dumbbell-fly',
+    restSeconds: REST_DEFAULT,
+    weeks: half(fixedRow([3, 3, 3, 2], 8, REST_DEFAULT), which),
+  },
+  {
+    exerciseId: 'seated-barbell-press',
+    restSeconds: REST_HEAVY,
+    weeks: half(falsePyramid(REST_HEAVY), which),
+  },
+  {
+    exerciseId: 'seated-dumbbell-press',
+    restSeconds: REST_HEAVY,
+    weeks: half(falsePyramid(REST_HEAVY), which),
+  },
+  {
+    exerciseId: 'close-grip-bench-press',
+    restSeconds: REST_HEAVY,
+    weeks: half(falsePyramid(REST_HEAVY), which),
+  },
+];
+
+const phase3SideB = (which: Half): SlotSeed[] => [
+  {
+    exerciseId: 'cable-crunch',
+    restSeconds: REST_LIGHT,
+    weeks: half(fixedRow([4, 4, 4, 4], 20, REST_LIGHT), which),
+  },
+  {
+    exerciseId: 'lying-leg-curl',
+    restSeconds: REST_DEFAULT,
+    weeks: half(fixedRow([4, 4, 3, 2], 10, REST_DEFAULT), which),
+  },
+  {
+    exerciseId: 'leg-extension',
+    restSeconds: REST_DEFAULT,
+    weeks: half(fixedRow([4, 3, 3, 2], 10, REST_DEFAULT), which),
+  },
+  {
+    exerciseId: 'barbell-back-squat',
+    restSeconds: REST_HEAVY,
+    weeks: half(falsePyramid(REST_HEAVY), which),
+  },
+  {
+    exerciseId: 'romanian-deadlift',
+    restSeconds: REST_HEAVY,
+    weeks: half(falsePyramid(REST_HEAVY), which),
+  },
+  {
+    exerciseId: 'lat-pulldown',
+    restSeconds: REST_DEFAULT,
+    weeks: half(falsePyramid(REST_DEFAULT), which),
+    badges: ['Agarre estrecho'],
+  },
+  {
+    exerciseId: 'lat-pulldown',
+    restSeconds: REST_DEFAULT,
+    weeks: half(fixedRow([4, 3, 3, 2], 8, REST_DEFAULT), which),
+    badges: ['Agarre ancho'],
+  },
+  {
+    exerciseId: 'barbell-curl',
+    restSeconds: REST_DEFAULT,
+    weeks: half(fixedRow([4, 3, 3, 2], 8, REST_DEFAULT), which),
+  },
+];
+
+const phase3Day = (slug: string, name: string, side: 'a' | 'b', which: Half): DaySeed => ({
+  slug,
+  name,
+  focusMuscles:
+    side === 'a'
+      ? ['chest', 'shoulders', 'triceps', 'core']
+      : ['quads', 'hamstrings', 'back', 'biceps', 'core'],
+  exercises: side === 'a' ? phase3SideA(which) : phase3SideB(which),
+});
+
 export const METRI_FOUNDATIONS: ProgramSeed = {
   id: 'metri-foundations',
   name: 'Metri Foundations',
@@ -105,7 +196,7 @@ export const METRI_FOUNDATIONS: ProgramSeed = {
     'Every working set goes to technical failure — no RIR — with ~2-minute rests ' +
     '(up to 3 on the heavy compounds, ~1.5 on abs, calves and hyperextensions). ' +
     'Phase 1 is full body with fixed sets, phase 2 splits into sides A/B/C adding free weights, ' +
-    'and phase 3 alternates sides A and B (A-B-A, then B-A-B) mixing fixed sets with 8-6-4 false pyramids.',
+    'and phase 3 alternates sides A and B three days a week (A-B-A, then B-A-B) mixing fixed sets with 8-6-4 false pyramids.',
   durationWeeks: 12,
   routines: [
     {
@@ -268,102 +359,31 @@ export const METRI_FOUNDATIONS: ProgramSeed = {
         },
       ],
     },
+    // Phase 3 trains three fixed days a week like the other phases, alternating
+    // the two sides: A·B·A for two weeks, then B·A·B for two. Modelled as two
+    // 2-week routines (the routine model has one fixed set of days per week).
     {
-      slug: 'r3',
-      name: 'Phase 3 — Alternating A/B',
+      slug: 'r3a',
+      name: 'Phase 3 — Weeks 1–2 (A·B·A)',
       orderIndex: 3,
+      durationWeeks: 2,
       days: [
-        {
-          slug: 'a',
-          name: 'Side A (alternate A-B-A / B-A-B)',
-          focusMuscles: ['chest', 'shoulders', 'triceps', 'core'],
-          exercises: [
-            {
-              exerciseId: 'cable-crunch',
-              restSeconds: REST_LIGHT,
-              weeks: fixedRow([4, 3, 3, 2], 20, REST_LIGHT),
-            },
-            {
-              exerciseId: 'barbell-bench-press',
-              restSeconds: REST_HEAVY,
-              weeks: falsePyramid(REST_HEAVY),
-            },
-            {
-              exerciseId: 'incline-bench-press',
-              restSeconds: REST_HEAVY,
-              weeks: fixedRow([3, 3, 3, 2], 8, REST_HEAVY),
-            },
-            {
-              exerciseId: 'dumbbell-fly',
-              restSeconds: REST_DEFAULT,
-              weeks: fixedRow([3, 3, 3, 2], 8, REST_DEFAULT),
-            },
-            {
-              exerciseId: 'seated-barbell-press',
-              restSeconds: REST_HEAVY,
-              weeks: falsePyramid(REST_HEAVY),
-            },
-            {
-              exerciseId: 'seated-dumbbell-press',
-              restSeconds: REST_HEAVY,
-              weeks: falsePyramid(REST_HEAVY),
-            },
-            {
-              exerciseId: 'close-grip-bench-press',
-              restSeconds: REST_HEAVY,
-              weeks: falsePyramid(REST_HEAVY),
-            },
-          ],
-        },
-        {
-          slug: 'b',
-          name: 'Side B (alternate A-B-A / B-A-B)',
-          focusMuscles: ['quads', 'hamstrings', 'back', 'biceps', 'core'],
-          exercises: [
-            {
-              exerciseId: 'cable-crunch',
-              restSeconds: REST_LIGHT,
-              weeks: fixedRow([4, 4, 4, 4], 20, REST_LIGHT),
-            },
-            {
-              exerciseId: 'lying-leg-curl',
-              restSeconds: REST_DEFAULT,
-              weeks: fixedRow([4, 4, 3, 2], 10, REST_DEFAULT),
-            },
-            {
-              exerciseId: 'leg-extension',
-              restSeconds: REST_DEFAULT,
-              weeks: fixedRow([4, 3, 3, 2], 10, REST_DEFAULT),
-            },
-            {
-              exerciseId: 'barbell-back-squat',
-              restSeconds: REST_HEAVY,
-              weeks: falsePyramid(REST_HEAVY),
-            },
-            {
-              exerciseId: 'romanian-deadlift',
-              restSeconds: REST_HEAVY,
-              weeks: falsePyramid(REST_HEAVY),
-            },
-            {
-              exerciseId: 'lat-pulldown',
-              restSeconds: REST_DEFAULT,
-              weeks: falsePyramid(REST_DEFAULT),
-              badges: ['Agarre estrecho'],
-            },
-            {
-              exerciseId: 'lat-pulldown',
-              restSeconds: REST_DEFAULT,
-              weeks: fixedRow([4, 3, 3, 2], 8, REST_DEFAULT),
-              badges: ['Agarre ancho'],
-            },
-            {
-              exerciseId: 'barbell-curl',
-              restSeconds: REST_DEFAULT,
-              weeks: fixedRow([4, 3, 3, 2], 8, REST_DEFAULT),
-            },
-          ],
-        },
+        phase3Day('a', 'Side A', 'a', 'first'),
+        phase3Day('b', 'Side B', 'b', 'first'),
+        phase3Day('a2', 'Side A (2nd)', 'a', 'first'),
+      ],
+    },
+    {
+      slug: 'r3b',
+      name: 'Phase 3 — Weeks 3–4 (B·A·B)',
+      orderIndex: 4,
+      durationWeeks: 2,
+      // The program's last week: the one moment a beginner's rep max is worth testing.
+      rmTestWeek: 2,
+      days: [
+        phase3Day('b', 'Side B', 'b', 'second'),
+        phase3Day('a', 'Side A', 'a', 'second'),
+        phase3Day('b2', 'Side B (2nd)', 'b', 'second'),
       ],
     },
   ],
@@ -386,11 +406,12 @@ export const FOUNDATIONS_CONTENT: Record<
       'Todas las series efectivas van al fallo técnico —sin RIR—, con descansos de ~2 minutos ' +
       '(hasta 3 en los compuestos pesados; ~1,5 en abdomen, gemelos e hiperextensiones). ' +
       'La fase 1 es full body con series fijas, la fase 2 se divide en caras A/B/C incorporando peso libre ' +
-      'y la fase 3 alterna las caras A y B (A-B-A y luego B-A-B) combinando series fijas y falsos piramidales 8-6-4.',
+      'y la fase 3 alterna las caras A y B tres días por semana (A-B-A y luego B-A-B) combinando series fijas y falsos piramidales 8-6-4.',
     routines: {
       r1: 'Fase 1 — Full body',
       r2: 'Fase 2 — Caras A/B/C',
-      r3: 'Fase 3 — Caras alternas A/B',
+      r3a: 'Fase 3 — Semanas 1–2 (A·B·A)',
+      r3b: 'Fase 3 — Semanas 3–4 (B·A·B)',
     },
     days: {
       'r1.d1': 'Entreno A',
@@ -399,8 +420,12 @@ export const FOUNDATIONS_CONTENT: Record<
       'r2.a': 'Cara A',
       'r2.b': 'Cara B',
       'r2.c': 'Cara C',
-      'r3.a': 'Cara A (alternar A-B-A / B-A-B)',
-      'r3.b': 'Cara B (alternar A-B-A / B-A-B)',
+      'r3a.a': 'Cara A',
+      'r3a.b': 'Cara B',
+      'r3a.a2': 'Cara A (2.ª)',
+      'r3b.b': 'Cara B',
+      'r3b.a': 'Cara A',
+      'r3b.b2': 'Cara B (2.ª)',
     },
   },
   en: {
@@ -410,11 +435,12 @@ export const FOUNDATIONS_CONTENT: Record<
       'Every working set goes to technical failure — no RIR — with ~2-minute rests ' +
       '(up to 3 on the heavy compounds, ~1.5 on abs, calves and hyperextensions). ' +
       'Phase 1 is full body with fixed sets, phase 2 splits into sides A/B/C adding free weights, ' +
-      'and phase 3 alternates sides A and B (A-B-A, then B-A-B) mixing fixed sets with 8-6-4 false pyramids.',
+      'and phase 3 alternates sides A and B three days a week (A-B-A, then B-A-B) mixing fixed sets with 8-6-4 false pyramids.',
     routines: {
       r1: 'Phase 1 — Full Body',
       r2: 'Phase 2 — Sides A/B/C',
-      r3: 'Phase 3 — Alternating A/B',
+      r3a: 'Phase 3 — Weeks 1–2 (A·B·A)',
+      r3b: 'Phase 3 — Weeks 3–4 (B·A·B)',
     },
     days: {
       'r1.d1': 'Workout A',
@@ -423,8 +449,12 @@ export const FOUNDATIONS_CONTENT: Record<
       'r2.a': 'Side A',
       'r2.b': 'Side B',
       'r2.c': 'Side C',
-      'r3.a': 'Side A (alternate A-B-A / B-A-B)',
-      'r3.b': 'Side B (alternate A-B-A / B-A-B)',
+      'r3a.a': 'Side A',
+      'r3a.b': 'Side B',
+      'r3a.a2': 'Side A (2nd)',
+      'r3b.b': 'Side B',
+      'r3b.a': 'Side A',
+      'r3b.b2': 'Side B (2nd)',
     },
   },
 };

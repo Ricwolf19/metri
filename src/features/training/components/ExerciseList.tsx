@@ -5,7 +5,6 @@ import { Text, View } from 'react-native';
 import { Card, ChipRow, Input, PressableScale } from '@/components/ui';
 import type { Exercise } from '@/db/schema';
 import { ExerciseDocButton } from '@/features/training/components/ExerciseDocButton';
-import { ExerciseThumb } from '@/features/training/components/ExerciseFrames';
 import { exercisesQuery } from '@/features/training/exercises.repo';
 import { exerciseDisplayName } from '@/features/training/labels';
 import {
@@ -80,8 +79,7 @@ export const ExerciseList = ({ userId, onPick, above, trailing, rowIcon, showDoc
         {filtered.map((e) => (
           <PressableScale key={e.id} onPress={() => onPick(e)}>
             <Card className="flex-row items-center py-3">
-              <ExerciseThumb exercise={e} />
-              <View className="ml-3 flex-1">
+              <View className="flex-1">
                 <Text className="text-base font-sans-semibold text-ink-50">
                   {exerciseDisplayName(e, locale)}
                 </Text>

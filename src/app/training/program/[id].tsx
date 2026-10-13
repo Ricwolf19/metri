@@ -128,6 +128,9 @@ const ProgramDetail = () => {
                 </Text>
                 <Text className="text-xs text-ink-400">
                   {t('training.weeks', { count: routine.durationWeeks })}
+                  {routine.rmTestWeek
+                    ? ` · ${t('program.rmTestWeek', { n: routine.rmTestWeek })}`
+                    : ''}
                 </Text>
               </View>
               <View className="mt-3 gap-2">

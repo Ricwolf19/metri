@@ -50,9 +50,24 @@ import { warmupSeeds } from './warmup-content';
  * what flips it on existing installs.
  *
  * v10 adds equipment variants (one row per kit, grouped in `variants.ts`).
+ *
+ * v11 drops the "O similar" cue from Metri Foundations (the swap arrows carry
+ * that meaning) and renames the overhead dumbbell extension so it reads as
+ * the dumbbell French press it is. Enrolled copies keep their badges; a
+ * custom migration strips the retired cue from them (see `session-badges.ts`
+ * for the open-snapshot side).
+ *
+ * v12 reshapes Foundations phase 3 into three fixed sessions a week like the
+ * other phases: two 2-week routines (A·B·A, then B·A·B) replace the 2-split
+ * `r3`, whose TEMPLATE rows are retired here; routines may now declare their
+ * own `durationWeeks`. Enrolled copies of the old phase are user rows and stay.
+ *
+ * v13 marks the RM-test week on the presets (`routines.rm_test_week`): the
+ * routine upsert now refreshes that ONE column on template rows, so the flag
+ * reaches existing installs; names and descriptions still never move.
  */
 const SEED_KEY = 'training_seed_version';
-const SEED_VERSION = '10';
+const SEED_VERSION = '13';
 
 const alreadySeeded = (): boolean => {
   const [row] = db.select().from(appMeta).where(eq(appMeta.key, SEED_KEY)).all();
@@ -63,14 +78,11 @@ const alreadySeeded = (): boolean => {
  * Only TEMPLATE rows die (`user_program_id IS NULL`); a user's enrolled copies
  * are user-owned rows and survive untouched. */
 const RETIRED_PROGRAM_IDS = ['pb-2-0', 'ul-4', 'fb-3'];
+/** Template routines a preset no longer lists (v12: Foundations' 2-split phase 3). Never reuse an id. */
+const RETIRED_ROUTINE_IDS = ['metri-foundations-r3'];
 
-const cleanupRetiredTemplates = (): void => {
-  const routineIds = db
-    .select({ id: routines.id })
-    .from(routines)
-    .where(and(inArray(routines.programId, RETIRED_PROGRAM_IDS), isNull(routines.userProgramId)))
-    .all()
-    .map((r) => r.id);
+/** Delete the TEMPLATE tree under these routine ids (days, slots, week configs, the routines). */
+const retireTemplateRoutines = (routineIds: string[]): void => {
   if (routineIds.length) {
     const dayIds = db
       .select({ id: workoutDays.id })
@@ -96,11 +108,25 @@ const cleanupRetiredTemplates = (): void => {
       }
       db.delete(workoutDays).where(inArray(workoutDays.id, dayIds)).run();
     }
-    db.delete(routines).where(inArray(routines.id, routineIds)).run();
+    db.delete(routines)
+      .where(and(inArray(routines.id, routineIds), isNull(routines.userProgramId)))
+      .run();
   }
+};
+
+const cleanupRetiredTemplates = (): void => {
+  retireTemplateRoutines(
+    db
+      .select({ id: routines.id })
+      .from(routines)
+      .where(and(inArray(routines.programId, RETIRED_PROGRAM_IDS), isNull(routines.userProgramId)))
+      .all()
+      .map((r) => r.id),
+  );
   db.delete(programs)
     .where(and(inArray(programs.id, RETIRED_PROGRAM_IDS), isNull(programs.userProgramId)))
     .run();
+  retireTemplateRoutines(RETIRED_ROUTINE_IDS);
 };
 
 /**
@@ -261,9 +287,16 @@ const seedProgram = (p: ProgramSeed): void => {
         programId: p.id,
         name: routine.name,
         orderIndex: routine.orderIndex,
-        durationWeeks: 4,
+        durationWeeks: routine.durationWeeks ?? 4,
+        rmTestWeek: routine.rmTestWeek ?? null,
       })
-      .onConflictDoNothing()
+      .onConflictDoUpdate({
+        target: routines.id,
+        // Only the test-week flag follows the preset; names and durations stay
+        // as the install has them (an enrolled copy never carries a seed id).
+        set: { rmTestWeek: routine.rmTestWeek ?? null },
+        setWhere: isNull(routines.userProgramId),
+      })
       .run();
 
     routine.days.forEach((day, dayIndex) => {

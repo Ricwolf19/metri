@@ -356,7 +356,7 @@ export const EXERCISE_SEEDS: ExerciseSeed[] = [
   },
   {
     id: 'overhead-tricep-extension',
-    name: 'Overhead Tricep Extension',
+    name: 'Dumbbell French Press',
     category: 'arms',
     primaryMuscles: ['triceps'],
     secondaryMuscles: [],

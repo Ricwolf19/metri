@@ -79,9 +79,11 @@ export const EXERCISE_NAMES: Record<string, Record<Locale, string>> = {
     en: 'Incline Dumbbell Curl',
   },
   'tricep-pushdown': { es: 'Extensiones de tríceps en polea', en: 'Tricep Pushdown' },
+  // The dumbbell French press: named for what the gym calls it, so the variant
+  // family (french-press · cable · dumbbell) reads as one movement.
   'overhead-tricep-extension': {
-    es: 'Tríceps tras nuca con mancuerna',
-    en: 'Overhead Tricep Extension',
+    es: 'Press francés con mancuerna',
+    en: 'Dumbbell French Press',
   },
   'cable-overhead-extension': {
     es: 'Tríceps tras nuca en polea',

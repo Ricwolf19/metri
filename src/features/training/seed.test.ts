@@ -77,6 +77,40 @@ describe('seedTraining v4', () => {
     // PB1 rule: everything to failure, no RIR.
     expect(cfg.every((c) => c.toFailure && c.rirMin === null && c.rirMax === null)).toBe(true);
 
+    // Foundations phase 3: three fixed sessions a week as two 2-week routines.
+    const fRoutines = db
+      .select()
+      .from(routines)
+      .where(and(eq(routines.programId, 'metri-foundations'), isNull(routines.userProgramId)))
+      .all()
+      .sort((a, b) => a.orderIndex - b.orderIndex);
+    expect(fRoutines.map((r) => [r.id, r.durationWeeks])).toEqual([
+      ['metri-foundations-r1', 4],
+      ['metri-foundations-r2', 4],
+      ['metri-foundations-r3a', 2],
+      ['metri-foundations-r3b', 2],
+    ]);
+    for (const r of fRoutines.slice(2)) {
+      const days = db.select().from(workoutDays).where(eq(workoutDays.routineId, r.id)).all();
+      expect(days).toHaveLength(3);
+      for (const d of days) {
+        const slots = db
+          .select()
+          .from(workoutDayExercises)
+          .where(eq(workoutDayExercises.workoutDayId, d.id))
+          .all();
+        for (const sl of slots) {
+          const weeks = db
+            .select()
+            .from(weekConfigs)
+            .where(eq(weekConfigs.workoutDayExerciseId, sl.id))
+            .all();
+          // One prescription per week the routine runs, never the 4 of a full phase.
+          expect(weeks).toHaveLength(r.durationWeeks);
+        }
+      }
+    }
+
     // Progression: 3 phases × 4 caras; RIR ladder present in week 1.
     const pRoutines = db
       .select()
@@ -84,6 +118,9 @@ describe('seedTraining v4', () => {
       .where(eq(routines.programId, 'metri-progression'))
       .all();
     expect(pRoutines).toHaveLength(3);
+    // v13: every Progression block tests maxes in its last week; Foundations only at the very end.
+    expect(pRoutines.every((r) => r.rmTestWeek === 4)).toBe(true);
+    expect(fRoutines.map((r) => r.rmTestWeek)).toEqual([null, null, null, 2]);
     const pDays = db
       .select()
       .from(workoutDays)
@@ -245,8 +282,11 @@ describe('seedTraining v4', () => {
     expect(
       db.select().from(weekConfigs).where(eq(weekConfigs.workoutDayExerciseId, staleId)).all(),
     ).toHaveLength(0);
+    // v11: the "O similar" cue is gone from the template (the swap arrows say it).
     const curl = slots.find((sl) => sl.exerciseId === 'standing-leg-curl');
-    expect(curl?.badges).toEqual(['O similar']);
+    expect(curl?.badges ?? null).toBeNull();
+    const pulldown = slots.find((sl) => sl.exerciseId === 'lat-pulldown');
+    expect(pulldown?.badges).toEqual(['Agarre supino']);
   });
 
   it('v8 re-seed refreshes template week configs and never touches an enrolled copy', async () => {
@@ -322,5 +362,88 @@ describe('seedTraining v4', () => {
     expect(refreshed.sets).toBe(seeded.sets);
     expect(refreshed.restSeconds).toBe(seeded.restSeconds);
     expect(enrolled()).toEqual(before);
+  });
+
+  it('v12 retires the 2-split phase-3 TEMPLATE and leaves an enrolled copy of it alone', async () => {
+    // Arrange: a v11 install whose template still has the old r3 and a user enrolled in it.
+    await seedTraining();
+    db.insert(routines)
+      .values({
+        id: 'metri-foundations-r3',
+        programId: 'metri-foundations',
+        name: 'Phase 3 — Alternating A/B',
+        orderIndex: 3,
+        durationWeeks: 4,
+      })
+      .run();
+    db.insert(workoutDays)
+      .values({
+        id: 'metri-foundations-r3-a',
+        routineId: 'metri-foundations-r3',
+        name: 'Side A',
+        orderIndex: 1,
+      })
+      .run();
+    db.insert(workoutDayExercises)
+      .values({
+        id: 'metri-foundations-r3-a-1-cable-crunch',
+        workoutDayId: 'metri-foundations-r3-a',
+        exerciseId: 'cable-crunch',
+        orderIndex: 1,
+        defaultRestSeconds: 90,
+      })
+      .run();
+    db.insert(weekConfigs)
+      .values({
+        id: 'metri-foundations-r3-a-1-cable-crunch-w1',
+        workoutDayExerciseId: 'metri-foundations-r3-a-1-cable-crunch',
+        weekNumber: 1,
+        sets: 4,
+        reps: 20,
+        restSeconds: 90,
+        intensityType: 'rir',
+      })
+      .run();
+    db.insert(userPrograms)
+      .values({ id: 'up-old', userId: 'u-1', programId: 'metri-foundations', status: 'active' })
+      .run();
+    db.insert(routines)
+      .values({
+        id: 'copy-r3',
+        programId: 'metri-foundations',
+        name: 'Fase 3',
+        orderIndex: 3,
+        durationWeeks: 4,
+        userProgramId: 'up-old',
+      })
+      .run();
+    db.run(sql`UPDATE app_meta SET value = '11' WHERE key = 'training_seed_version'`);
+
+    await seedTraining();
+
+    const templateIds = db
+      .select({ id: routines.id })
+      .from(routines)
+      .where(and(eq(routines.programId, 'metri-foundations'), isNull(routines.userProgramId)))
+      .all()
+      .map((r) => r.id)
+      .sort();
+    expect(templateIds).toEqual([
+      'metri-foundations-r1',
+      'metri-foundations-r2',
+      'metri-foundations-r3a',
+      'metri-foundations-r3b',
+    ]);
+    expect(
+      db.select().from(workoutDays).where(eq(workoutDays.routineId, 'metri-foundations-r3')).all(),
+    ).toHaveLength(0);
+    expect(
+      db
+        .select()
+        .from(weekConfigs)
+        .where(eq(weekConfigs.id, 'metri-foundations-r3-a-1-cable-crunch-w1'))
+        .all(),
+    ).toHaveLength(0);
+    expect(db.select().from(routines).where(eq(routines.id, 'copy-r3')).all()).toHaveLength(1);
   });
 });

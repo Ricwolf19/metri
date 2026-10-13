@@ -14,6 +14,7 @@ import {
   ReorderRow,
   Screen,
   SectionLabel,
+  Select,
   Stepper,
   useDialog,
   useToast,
@@ -31,6 +32,7 @@ import {
 } from '@/features/training/authoring.repo';
 import { dayDisplayName, routineDisplayName } from '@/features/training/labels';
 import { muscleHeadKey } from '@/features/training/muscles';
+import { clampRmTestWeek } from '@/features/training/progression';
 import { useT } from '@/i18n';
 import { useReorderedList } from '@/lib/useReorderedList';
 import { useBusyThen } from '@/lib/useBusyThen';
@@ -57,18 +59,23 @@ const EditRoutine = () => {
   const [saved, setSaved] = useState({
     name: routine?.name ?? '',
     weeks: routine?.durationWeeks ?? 4,
+    rmTest: routine?.rmTestWeek ?? null,
   });
   const [name, setName] = useState(saved.name);
   const [weeks, setWeeks] = useState(saved.weeks);
-  const dirty = name.trim() !== saved.name || weeks !== saved.weeks;
+  const [rmTest, setRmTest] = useState<number | null>(saved.rmTest);
+  // A test week past a shortened phase is dropped, never pointed past the end.
+  const rmTestShown = clampRmTestWeek(rmTest, weeks);
+  const dirty = name.trim() !== saved.name || weeks !== saved.weeks || rmTestShown !== saved.rmTest;
 
   const save = () => {
     if (!routineId) return false;
     // Empty is a valid name; every renderer falls back to the "phase-N" slug.
     const clean = name.trim();
-    updateRoutine(routineId, { name: clean, durationWeeks: weeks });
+    updateRoutine(routineId, { name: clean, durationWeeks: weeks, rmTestWeek: rmTestShown });
     setName(clean);
-    setSaved({ name: clean, weeks });
+    setRmTest(rmTestShown);
+    setSaved({ name: clean, weeks, rmTest: rmTestShown });
     toast.success(t('editor.savedToast'));
     return true;
   };
@@ -125,6 +132,18 @@ const EditRoutine = () => {
           min={MIN_WEEKS}
           max={MAX_WEEKS}
           onChange={setWeeksTo}
+        />
+        <Select
+          label={t('editor.rmTestWeek')}
+          items={[
+            { value: 'none', label: t('editor.rmTestNone') },
+            ...Array.from({ length: weeks }, (_, i) => ({
+              value: String(i + 1),
+              label: t('training.weekN', { n: i + 1 }),
+            })),
+          ]}
+          value={rmTestShown == null ? 'none' : String(rmTestShown)}
+          onChange={(v) => setRmTest(v === 'none' ? null : Number(v))}
         />
       </Card>
       <SectionLabel label={t('editor.splits')} hint={t('editor.splitsSub')} />

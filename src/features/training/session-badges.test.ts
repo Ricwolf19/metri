@@ -12,6 +12,10 @@ describe('sessionBadges', () => {
     expect(sessionBadges(null)).toEqual([]);
   });
 
+  it('hides a retired cue a snapshot still carries', () => {
+    expect(sessionBadges(['O similar', 'Agarre supino'])).toEqual(['Agarre supino']);
+  });
+
   it('drops non-string entries instead of breaking the row', () => {
     expect(sessionBadges(['ok', 42, null, '', undefined])).toEqual(['ok']);
   });

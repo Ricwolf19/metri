@@ -12,6 +12,22 @@ describe('visualIdFor', () => {
     expect(visualIdFor({ id: 'french-press', name: 'French Press' })).toBeNull();
   });
 
+  // A catalog variant must never borrow a sibling's art by name: the standing
+  // leg curl showed the lying curl, the dumbbell bench showed the barbell one.
+  it.each([
+    ['standing-leg-curl', 'Standing Single-Leg Curl'],
+    ['dumbbell-bench-press', 'Dumbbell Bench Press'],
+    ['smith-machine-bench-press', 'Smith Machine Bench Press'],
+    ['machine-lateral-raise', 'Machine Lateral Raise'],
+    ['chest-supported-row', 'Chest-Supported Dumbbell Row'],
+    ['dumbbell-romanian-deadlift', 'Dumbbell Romanian Deadlift'],
+    ['seated-calf-raise', 'Seated Calf Raise'],
+    ['single-leg-calf-raise', 'Single-Leg Calf Raise'],
+    ['machine-preacher-curl', 'Machine Preacher Curl'],
+  ])("%s shows no art rather than a sibling's", (id, name) => {
+    expect(visualIdFor({ id, name })).toBeNull();
+  });
+
   // Custom exercises match by name against the EN+ES catalog names.
   it.each([
     ['exact ES name', 'Peso muerto convencional', 'deadlift'],

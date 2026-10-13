@@ -11,7 +11,7 @@ import { DeleteSessionButton } from '@/features/training/components/DeleteSessio
 import { localDateKey } from '@/features/training/dates';
 import { dayDisplayName, routineDisplayName } from '@/features/training/labels';
 import { presetProgramCopy } from '@/features/training/programs';
-import { fromKg } from '@/features/training/progression';
+import { fromKgHalf } from '@/features/training/progression';
 import { programSessionsQuery, type ProgramSession } from '@/features/training/session.repo';
 import { useEnrollment } from '@/features/training/useEnrollment';
 import { useI18n, useT } from '@/i18n';
@@ -92,7 +92,7 @@ const History = () => {
                         {s.completedAt ? `${date(s.completedAt)} · ` : ''}
                         {t('dayDetail.setsLine', {
                           count: s.setCount,
-                          volume: fromKg(s.volumeKg, unit),
+                          volume: fromKgHalf(s.volumeKg, unit),
                           unit,
                         })}
                       </Text>

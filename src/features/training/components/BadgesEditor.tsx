@@ -4,7 +4,9 @@ import { Pressable, Text, View } from 'react-native';
 import { XIcon } from '@/components/icons';
 import { Button, Input } from '@/components/ui';
 import { MAX_BADGES, MAX_BADGE_LEN } from '@/features/training/authoring.repo';
-import { useT } from '@/i18n';
+import { useI18n, useT } from '@/i18n';
+
+import { badgeLabel } from '../programs/badge-copy';
 
 /** Chip list + add field for short technique badges ("CON PAUSA"), capped at
  * MAX_BADGES; used by the slot editor and the per-exercise defaults. */
@@ -16,6 +18,7 @@ export const BadgesEditor = ({
   onChange: (badges: string[]) => void;
 }) => {
   const t = useT();
+  const { locale } = useI18n();
   const [input, setInput] = useState('');
 
   const add = () => {
@@ -34,7 +37,9 @@ export const BadgesEditor = ({
               key={`${b}-${i}`}
               className="flex-row items-center gap-1.5 rounded-full bg-ink-800 px-3 py-1.5"
             >
-              <Text className="font-mono-medium text-[11px] tracking-wide text-ink-200">{b}</Text>
+              <Text className="font-mono-medium text-[11px] tracking-wide text-ink-200">
+                {badgeLabel(b, locale)}
+              </Text>
               <Pressable onPress={() => onChange(value.filter((_, j) => j !== i))} hitSlop={6}>
                 <XIcon color="#71717a" size={13} />
               </Pressable>

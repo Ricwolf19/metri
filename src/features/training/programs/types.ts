@@ -23,7 +23,7 @@ export type WeekSeed = {
 
 export type SlotSeed = {
   exerciseId: string;
-  /** Exactly 4 entries, week 1 → 4. */
+  /** One entry per week of the routine (4 unless the routine says otherwise), week 1 → N. */
   weeks: WeekSeed[];
   /** Default rest shown on the slot (per-week rests still win in-session). */
   restSeconds: number;
@@ -46,6 +46,10 @@ type RoutineSeed = {
   slug: string;
   name: string;
   orderIndex: number;
+  /** Weeks this phase runs; 4 by default. Every slot's `weeks` must have this many entries. */
+  durationWeeks?: number;
+  /** The routine-relative week to test maxes in — the last week of the block, as a rule. */
+  rmTestWeek?: number;
   days: DaySeed[];
 };
 

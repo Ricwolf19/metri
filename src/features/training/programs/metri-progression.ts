@@ -64,6 +64,7 @@ export const METRI_PROGRESSION: ProgramSeed = {
       slug: 'p1',
       name: 'Phase 1',
       orderIndex: 1,
+      rmTestWeek: 4,
       days: [
         {
           slug: 'a',
@@ -347,6 +348,7 @@ export const METRI_PROGRESSION: ProgramSeed = {
       slug: 'p2',
       name: 'Phase 2',
       orderIndex: 2,
+      rmTestWeek: 4,
       days: [
         {
           slug: 'a',
@@ -633,6 +635,7 @@ export const METRI_PROGRESSION: ProgramSeed = {
       slug: 'p3',
       name: 'Phase 3',
       orderIndex: 3,
+      rmTestWeek: 4,
       days: [
         {
           slug: 'a',

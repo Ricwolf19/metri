@@ -70,3 +70,11 @@ This file covers the exercise illustrations only. The food diary's nutrient
 data (USDA FoodData Central, public domain) is attributed next to it, in
 [`src/features/nutrition/ATTRIBUTION.md`](../../src/features/nutrition/ATTRIBUTION.md)
 — kept separate so the CC BY-SA statement above is not read as covering it.
+
+## Where the frames render
+
+On the exercise detail screen only (`/training/exercise/[id]`), beside the
+visible credit line. The live session and the catalog list stopped rendering
+them: a catalog variant without its own frames must show none rather than a
+sibling's, and `exercise-visuals.ts` enforces that catalog ids never fall back
+to name matching (only custom exercises do).

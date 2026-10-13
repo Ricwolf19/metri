@@ -1,5 +1,6 @@
 import type { Routine } from '@/db/schema';
 import { kgToLb } from '@/features/bmr/calc';
+import { roundHalf } from '@/lib/numbers';
 import type { Units } from '@/lib/storage';
 
 /**
@@ -22,6 +23,16 @@ export const deriveProgramWeek = (
   }
   return weeksBefore + currentWeek;
 };
+
+/** Whether `week` (routine-relative) is the one the routine marks for testing maxes. */
+export const isRmTestWeek = (
+  routine: { rmTestWeek: number | null } | null | undefined,
+  week: number,
+): boolean => routine?.rmTestWeek != null && routine.rmTestWeek === week;
+
+/** A test week outside the routine's length is meaningless: drop it rather than point past the end. */
+export const clampRmTestWeek = (rmTestWeek: number | null, durationWeeks: number): number | null =>
+  rmTestWeek != null && rmTestWeek >= 1 && rmTestWeek <= durationWeeks ? rmTestWeek : null;
 
 /** Total weeks across every routine in a program. */
 export const totalProgramWeeks = (routines: Routine[]): number =>
@@ -47,6 +58,14 @@ export const weightForReps = (oneRmKg: number, reps: number): number => oneRmKg 
 export const roundToPlate = (weightKg: number, increment = 2.5): number =>
   Math.max(0, Math.round(weightKg / increment) * increment);
 
-/** Kg → display unit, rounded to 1 decimal (UI-facing, not stored). */
+/** Kg → display unit, rounded to 1 decimal (UI-facing, not stored). Body numbers. */
 export const fromKg = (kg: number, unit: Units): number =>
   Math.round((unit === 'lb' ? kgToLb(kg) : kg) * 10) / 10;
+
+/**
+ * Kg → display unit to the nearest half: TRAINING numbers only (sets, volume,
+ * top sets). A 62.26 reads 62.5 — plates come in halves and quarters, so finer
+ * decimals are noise there. Body weight keeps `fromKg`: 0.3 kg matters.
+ */
+export const fromKgHalf = (kg: number, unit: Units): number =>
+  roundHalf(unit === 'lb' ? kgToLb(kg) : kg);

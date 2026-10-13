@@ -247,12 +247,13 @@ export const addRoutine = (
 
 export const updateRoutine = (
   routineId: string,
-  patch: { name?: string; durationWeeks?: number },
+  patch: { name?: string; durationWeeks?: number; rmTestWeek?: number | null },
 ): void => {
   db.update(routines)
     .set({
       ...(patch.name !== undefined ? { name: patch.name } : {}),
       ...(patch.durationWeeks !== undefined ? { durationWeeks: patch.durationWeeks } : {}),
+      ...(patch.rmTestWeek !== undefined ? { rmTestWeek: patch.rmTestWeek } : {}),
       updatedAt: new Date(),
     })
     .where(eq(routines.id, routineId))
