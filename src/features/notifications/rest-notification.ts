@@ -1,4 +1,4 @@
-import { Linking, Platform } from 'react-native';
+import { AppState, Linking, Platform } from 'react-native';
 import notifee, {
   AlarmType,
   AndroidCategory,
@@ -62,6 +62,37 @@ const SESSION_ID = 'session';
 const BRAND = '#bef82b';
 
 const isAndroid = Platform.OS === 'android';
+
+/**
+ * Whether THIS process started the foreground service. `stopForegroundService`
+ * delivers a STOP intent through `startService`: with no instance alive, Android
+ * spins up a fresh service just to stop it, and from the background that
+ * service's `startForeground` is refused — a fatal
+ * `ForegroundServiceStartNotAllowedException` (Sentry, Pixel 8 / Android 17),
+ * reached because `reconcileSession` ended a non-existent session on every cold
+ * launch. So a stop is only sent for a service this process started, and only
+ * while the app is in the foreground; one that finds the app backgrounded waits
+ * for the next return. The notification itself is cancelled regardless.
+ */
+let serviceStarted = false;
+let stopPending = false;
+
+const stopService = async (): Promise<void> => {
+  if (!isAndroid || !serviceStarted) return;
+  if (AppState.currentState !== 'active') {
+    stopPending = true;
+    return;
+  }
+  serviceStarted = false;
+  stopPending = false;
+  await notifee.stopForegroundService().catch(() => {});
+};
+
+if (isAndroid) {
+  AppState.addEventListener('change', (state) => {
+    if (state === 'active' && stopPending) void stopService();
+  });
+}
 
 export const initRestNotifications = async (): Promise<void> => {
   if (!isAndroid) return;
@@ -144,7 +175,11 @@ const draw = async (): Promise<void> => {
   const session = sessionState.get();
   if (!session) return;
   const rest = liveRest(session.workoutId);
-  const content = notificationContent(session, rest, notificationMode(rest, Date.now()));
+  const mode = notificationMode(rest, Date.now());
+  // Swiped away once, the card stays away: every logged set and every foreground
+  // used to re-post it. The rest-over face is the one alert that still shows.
+  if (session.hidden && mode !== 'restOver') return;
+  const content = notificationContent(session, rest, mode);
   if (!content) return;
   await notifee
     .displayNotification(
@@ -200,6 +235,8 @@ export const registerRestForegroundService = (): void => {
     if (notification.id !== SESSION_ID) return;
     const workoutId = sessionState.get()?.workoutId;
     if (!workoutId) return;
+    // The one place we KNOW a service of ours is running (see `stopService`).
+    serviceStarted = true;
     await runSessionService(workoutId, serviceDeps);
   });
 };
@@ -255,8 +292,10 @@ export const endRest = async (): Promise<void> => {
  * not re-run the reconciler.
  */
 export const showSession = async (session: ActiveSession): Promise<void> => {
-  const fresh = sessionState.get()?.workoutId !== session.workoutId;
-  sessionState.set(session);
+  const current = sessionState.get();
+  const fresh = current?.workoutId !== session.workoutId;
+  // A redraw carries a fresh record; the dismissal it would overwrite is kept.
+  sessionState.set(fresh ? session : { ...session, hidden: current?.hidden });
   if (fresh) void holdCheckin(session.startedAt).catch(() => {});
   await draw();
 };
@@ -280,7 +319,7 @@ const isDayResolved = (startedAt: number): boolean => {
  * Workout finished or abandoned: drop the card, the records and the service,
  * and re-anchor the check-in to the real end. Callers finish/abandon the log
  * FIRST, so a finished day already reads as resolved here. The only place the
- * foreground service stops.
+ * foreground service stops — and only when this process started it.
  */
 export const endSession = async (): Promise<void> => {
   const ended = sessionState.get();
@@ -291,7 +330,7 @@ export const endSession = async (): Promise<void> => {
   }
   await notifee.cancelTriggerNotification(SESSION_ID).catch(() => {});
   await notifee.cancelNotification(SESSION_ID).catch(() => {});
-  if (isAndroid) await notifee.stopForegroundService().catch(() => {});
+  await stopService();
   if (!ended) return;
   await releaseCheckin({
     startedAt: ended.startedAt,
@@ -323,6 +362,11 @@ const openUrl = (event: Event) => {
 /** Shared by the foreground and the background (headless) subscriptions. */
 const handleRestEvent = async ({ type, detail }: Event): Promise<void> => {
   if (detail.notification?.id !== SESSION_ID) return;
+  if (type === EventType.DISMISSED) {
+    const session = sessionState.get();
+    if (session) sessionState.set({ ...session, hidden: true });
+    return;
+  }
   if (type === EventType.ACTION_PRESS) {
     const id = detail.pressAction?.id;
     if (id === ACTION.skip) await endRest();

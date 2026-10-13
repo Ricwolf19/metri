@@ -36,6 +36,12 @@ export type ActiveSession = {
   next?: NextSetCopy | null;
   /** "All planned sets done", shown in place of `next` once it is null. */
   doneLabel?: string;
+  /**
+   * The lifter swiped the card away: redraws of the training and rest faces
+   * stay away until the next session (rest-over still rings — it was asked
+   * for). Set from the DISMISSED event, never written by a redraw.
+   */
+  hidden?: boolean;
 };
 
 /** A session left open longer than this is abandoned in all but name: it no
