@@ -20,6 +20,8 @@ const PACKAGE = 'com.ricwolf19.metri';
 const LINK = 'metri://dev/seed';
 const INSTALL_WAIT_MS = 10 * 60_000;
 const POLL_MS = 3_000;
+/** Time for a just-launched dev build to load its bundle before the link arrives. */
+const WARM_UP_MS = 6_000;
 
 const run = (cmd: string, args: string[], quiet = false) => {
   const res = spawnSync(cmd, args, { stdio: quiet ? 'pipe' : 'inherit' });
@@ -46,6 +48,11 @@ if (process.argv.includes('--ios')) {
     console.log(`Waiting for ${PACKAGE} to be installed…`);
     await sleep(POLL_MS);
   }
+  // Warm the app first: cold-starting it BY the link makes expo-router set
+  // state on its navigator before it mounts (a dev-only warning), and a cold
+  // dev build also needs a moment to pull the bundle before it can route.
+  run('adb', ['shell', 'am', 'start', '-W', '-n', `${PACKAGE}/.MainActivity`], true);
+  await sleep(WARM_UP_MS);
   if (
     !run('adb', [
       'shell',
