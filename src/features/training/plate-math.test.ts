@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   addPlate,
   BARS,
+  DUMBBELL_PRESETS,
+  platesForSide,
+  sideStep,
   barInUnit,
   barLabel,
   equivalentIn,
@@ -143,5 +146,38 @@ describe('open → Apply round-trip', () => {
     expect(apply('22.75', kgBar)).toBe('22.75');
     expect(apply('225', lbBar)).toBe('225');
     expect(apply('45', lbBar)).toBe('45');
+  });
+});
+
+describe('platesForSide', () => {
+  it('splits one side onto the rack, largest first, repeating plates as needed', () => {
+    expect(platesForSide(42.5, 'kg')).toEqual([25, 15, 2.5]);
+    expect(platesForSide(40, 'kg')).toEqual([25, 15]);
+    expect(platesForSide(23.75, 'kg')).toEqual([20, 2.5, 1.25]);
+    expect(platesForSide(0, 'kg')).toEqual([]);
+  });
+
+  it('uses the lb rack in lb', () => {
+    expect(platesForSide(82.5, 'lb')).toEqual([45, 35, 2.5]);
+  });
+
+  it('is null when no plates add up to the number', () => {
+    expect(platesForSide(0.3, 'kg')).toBeNull();
+    expect(platesForSide(1, 'lb')).toBeNull();
+    expect(platesForSide(-5, 'kg')).toBeNull();
+  });
+});
+
+describe('sideStep / DUMBBELL_PRESETS', () => {
+  it('snaps a side to the finest real plate step per unit', () => {
+    expect(sideStep('kg')).toBe(0.25);
+    expect(sideStep('lb')).toBe(0.5);
+  });
+
+  it('offers the rack in 2.5 kg / 5 lb steps, looked up by the display unit', () => {
+    expect(DUMBBELL_PRESETS.kg.slice(0, 3)).toEqual([2.5, 5, 7.5]);
+    expect(DUMBBELL_PRESETS.lb.slice(0, 3)).toEqual([5, 10, 15]);
+    expect(DUMBBELL_PRESETS.kg.at(-1)).toBe(50);
+    expect(DUMBBELL_PRESETS.lb.at(-1)).toBe(100);
   });
 });

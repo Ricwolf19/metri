@@ -10,7 +10,8 @@ import { MachineLoadGrid } from './MachineLoadGrid';
 
 /**
  * The stack mode of the weight sheet: base weight + increment describe the
- * machine, the pins come up as a grid, an odd stack goes in "other".
+ * machine, the pins come up as a grid. No free "other" field — a number off
+ * the stack is typed in the row itself, and typing it here saved nothing.
  * Presentational — the sheet owns the state and the arithmetic.
  */
 export const MachineLoadForm = ({
@@ -22,8 +23,6 @@ export const MachineLoadForm = ({
   pins,
   step,
   onPick,
-  otherText,
-  onOtherText,
 }: {
   unit: Units;
   baseText: string;
@@ -32,11 +31,9 @@ export const MachineLoadForm = ({
   onIncText: (text: string) => void;
   /** The loads on offer, in the display unit. */
   pins: number[];
-  /** The selected pin, or null when "other" is in use. */
+  /** The selected pin. */
   step: number | null;
   onPick: (index: number) => void;
-  otherText: string;
-  onOtherText: (text: string) => void;
 }) => {
   const t = useT();
   return (
@@ -67,23 +64,12 @@ export const MachineLoadForm = ({
       </View>
       <LoadSectionLabel label={t('load.pickLoad')} />
       {/* The area is always there: the grid filling it must not shove the
-          "other" field and the buttons down once the increment is typed. */}
+          buttons down once the increment is typed. */}
       {pins.length ? (
         <MachineLoadGrid loads={pins} unit={unit} selected={step} onSelect={onPick} />
       ) : (
         <Text className="min-h-11 text-xs leading-4 text-ink-500">{t('load.pinsHint')}</Text>
       )}
-      <View className="mt-4">
-        <Input
-          label={t('load.otherLoad')}
-          rightSlot={<UnitSuffix label={unit} />}
-          value={otherText}
-          onChangeText={onOtherText}
-          keyboardType="decimal-pad"
-          placeholder="—"
-          maxLength={6}
-        />
-      </View>
     </>
   );
 };

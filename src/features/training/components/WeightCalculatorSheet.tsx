@@ -5,6 +5,7 @@ import { Button, ChipRow, Input, ScrollArea, Sheet } from '@/components/ui';
 import type { Equipment } from '@/db/schema';
 import { UnitSuffix } from '@/features/training/components/UnitSuffix';
 import { useT } from '@/i18n';
+import { parseDecimal, trimFloat } from '@/lib/numbers';
 import type { Units } from '@/lib/storage';
 
 import {
@@ -22,7 +23,9 @@ import {
   BARS,
   barInUnit,
   barLabel,
+  DUMBBELL_PRESETS,
   equivalentIn,
+  platesForSide,
   platesToSide,
   removePlate,
   sideTextFromTotal,
@@ -52,23 +55,21 @@ type Props = {
   initialLoad: LoadDetail | null;
   equipment: Equipment | null;
   unilateral: boolean;
+  /** The mode to open in when the equipment offers several (the machine chooser). */
+  preferMode?: LoadMode;
   onApply: (result: LoadApply) => void;
 };
 
-/** Float-noise guard for the display-unit arithmetic. */
-const trim = (n: number): number => Number(n.toFixed(3));
-
-const num = (text: string): number | null => {
-  const n = Number(text);
-  return text.trim() !== '' && Number.isFinite(n) ? n : null;
-};
+const trim = (n: number): number => trimFloat(n, 3);
+const num = parseDecimal;
 
 /**
  * The weight sheet, shaped by how the exercise is loaded: a bar takes plates
- * per side (and remembers which bar), a stack takes a base + increment and
- * offers the pins as badges, dumbbells take ONE dumbbell and count hands. The
- * sheet works in the DISPLAY unit end to end (see plate-math) and converts
- * once at Apply; an untouched open → Apply returns the row's text as-is.
+ * per side (and remembers which bar; a plate-loaded machine types its base
+ * instead), a stack takes a base + increment and offers the pins as badges,
+ * dumbbells take ONE dumbbell and count hands. The sheet works in the DISPLAY
+ * unit end to end (see plate-math) and converts once at Apply; an untouched
+ * open → Apply returns the row's text as-is.
  */
 export const WeightCalculatorSheet = ({
   visible,
@@ -78,19 +79,21 @@ export const WeightCalculatorSheet = ({
   initialLoad,
   equipment,
   unilateral,
+  preferMode,
   onApply,
 }: Props) => {
   const t = useT();
   const [mode, setMode] = useState<LoadMode>('none');
-  // Barbell
+  // Barbell (and plate-loaded machine)
   const [barId, setBarId] = useState(BARS[0].id);
   const [plates, setPlates] = useState<number[]>([]);
-  const [sideText, setSideText] = useState('');
-  // Machine
+  const [sledText, setSledText] = useState('');
+  /** A plate machine: two horns (plates ×2) or one post (plates once). */
+  const [sides, setSides] = useState<1 | 2>(2);
+  // Machine stack
   const [baseText, setBaseText] = useState('');
   const [incText, setIncText] = useState('');
   const [step, setStep] = useState<number | null>(null);
-  const [otherText, setOtherText] = useState('');
   // Dumbbell
   const [perHandText, setPerHandText] = useState('');
   const [hands, setHands] = useState<1 | 2>(2);
@@ -100,6 +103,8 @@ export const WeightCalculatorSheet = ({
   // a total the sheet cannot split (below the bar, not a number) must not come
   // back as the bar weight.
   const [touched, setTouched] = useState(false);
+  /** A machine marked as plates carries its sled weight where a bar would go. */
+  const plateMachine = equipment === 'machine';
   // The sheet stays mounted between opens, so reseed on every open rather than
   // once at mount — otherwise it reopened on the first row's numbers.
   const [wasVisible, setWasVisible] = useState(false);
@@ -109,33 +114,49 @@ export const WeightCalculatorSheet = ({
       setTouched(false);
       // Known equipment locks the mode; a saved detail of another kind (a
       // custom exercise whose equipment changed) yields to it.
-      const offered = loadModesFor(equipment);
+      const offered = loadModesFor(equipment, initialLoad);
       const saved = initialLoad?.kind;
-      setMode(saved && offered.includes(saved) ? saved : offered[0]);
+      setMode(
+        saved && offered.includes(saved)
+          ? saved
+          : preferMode && offered.includes(preferMode)
+            ? preferMode
+            : offered[0],
+      );
       const row = num(initialWeight);
-      // Barbell: the saved plates when the row still carries them, else split
-      // the row's total over the saved (or default) bar.
+      // Plates: the saved plates when the row still carries them, else the
+      // row's total split over the saved (or default) bar onto the rack.
       const bar =
         initialLoad?.kind === 'barbell'
           ? (BARS.find((b) => b.kg === initialLoad.barKg) ?? BARS[0])
           : BARS[0];
       setBarId(bar.id);
+      const sled = initialLoad?.kind === 'barbell' ? kgToUnit(initialLoad.barKg, unit) : 0;
+      setSledText(sled > 0 ? String(sled) : '');
+      const sidesNow = initialLoad?.kind === 'barbell' ? (initialLoad.sides ?? 2) : 2;
+      setSides(sidesNow);
+      const baseWeight = plateMachine ? sled : barInUnit(bar, unit);
       const savedPlates =
         initialLoad?.kind === 'barbell' ? initialLoad.platesKg.map((p) => snapPlate(p, unit)) : [];
-      const savedTotal = totalFromSide(platesToSide(savedPlates), barInUnit(bar, unit));
+      const savedTotal = totalFromSide(platesToSide(savedPlates), baseWeight, sidesNow);
       const platesMatch =
         savedPlates.length > 0 && row != null && Math.abs(savedTotal - row) < 0.02;
-      setPlates(platesMatch ? savedPlates : []);
-      setSideText(platesMatch ? '' : sideTextFromTotal(initialWeight, barInUnit(bar, unit)));
-      // Machine: the saved base/increment, the row's number on the nearest pin.
+      setPlates(
+        platesMatch
+          ? savedPlates
+          : (platesForSide(
+              num(sideTextFromTotal(initialWeight, baseWeight, sidesNow)) ?? 0,
+              unit,
+            ) ?? []),
+      );
+      // Stack: the saved base/increment, the row's number on the nearest pin.
       const base = initialLoad?.kind === 'machine' ? kgToUnit(initialLoad.baseKg, unit) : null;
       const inc = initialLoad?.kind === 'machine' ? kgToUnit(initialLoad.incrementKg, unit) : null;
       setBaseText(base != null ? String(base) : '');
-      setIncText(inc != null ? String(inc) : '');
+      setIncText(inc != null && inc > 0 ? String(inc) : '');
       const pin = base != null && inc != null && inc > 0 && row != null ? (row - base) / inc : null;
       const onPin = pin != null && pin >= 0 && Math.abs(pin - Math.round(pin)) < 0.001;
       setStep(onPin ? Math.round(pin) : null);
-      setOtherText(onPin || row == null ? '' : initialWeight);
       // Dumbbell: the row's number IS one dumbbell.
       setPerHandText(initialWeight);
       setHands(initialLoad?.kind === 'dumbbell' ? initialLoad.hands : defaultHands(unilateral));
@@ -151,14 +172,12 @@ export const WeightCalculatorSheet = ({
       set(v);
     };
 
-  /* ── Barbell ─────────────────────────────────────────────────────────── */
+  /* ── Plates ──────────────────────────────────────────────────────────── */
   const bar = BARS.find((b) => b.id === barId) ?? BARS[0];
-  const barWeight = barInUnit(bar, unit);
-  const plateSum = platesToSide(plates);
-  const typedSide = num(sideText);
-  // Typed text wins over tapped plates — the field is where deliberate entry lands.
-  const side = typedSide ?? plateSum;
-  const barbellTotal = totalFromSide(Math.max(0, side), barWeight);
+  const sledWeight = num(sledText) ?? 0;
+  const baseWeight = plateMachine ? sledWeight : barInUnit(bar, unit);
+  const side = platesToSide(plates);
+  const barbellTotal = totalFromSide(side, baseWeight, plateMachine ? sides : 2);
   const barItems = useMemo(
     () =>
       BARS.map((b) => ({
@@ -167,22 +186,14 @@ export const WeightCalculatorSheet = ({
       })),
     [t, unit],
   );
-  // Tapping plates edits the tapped list; the manual field gives it up.
-  const onAddPlate = edit((p: number) => {
-    setSideText('');
-    setPlates((prev) => addPlate(prev, p));
-  });
-  const onRemovePlate = edit((p: number) => {
-    setSideText('');
-    setPlates((prev) => removePlate(prev, p));
-  });
+  const onAddPlate = edit((p: number) => setPlates((prev) => addPlate(prev, p)));
+  const onRemovePlate = edit((p: number) => setPlates((prev) => removePlate(prev, p)));
 
-  /* ── Machine ─────────────────────────────────────────────────────────── */
+  /* ── Stack ───────────────────────────────────────────────────────────── */
   const base = num(baseText) ?? 0;
   const inc = num(incText) ?? 0;
   const pins = useMemo(() => machineLoads(base, inc), [base, inc]);
-  const other = num(otherText);
-  const machineTotal = other ?? (step != null ? (pins[step] ?? 0) : 0);
+  const machineTotal = step != null ? (pins[step] ?? 0) : 0;
 
   /* ── Dumbbell ────────────────────────────────────────────────────────── */
   const perHand = num(perHandText);
@@ -197,21 +208,25 @@ export const WeightCalculatorSheet = ({
           ? dumbbellTotal
           : (num(plainText) ?? 0);
 
-  const canApply = mode !== 'dumbbell' || perHand != null;
+  // Every mode but the plain number must leave with a complete picture: that
+  // picture is what the sheet saves, a half-described stack saves nothing.
+  const canApply =
+    mode === 'dumbbell' ? perHand != null : mode === 'machine' ? inc > 0 && step != null : true;
 
   const build = (): LoadApply => {
     if (!touched) return { weightText: initialWeight, load: initialLoad, changed: false };
     if (mode === 'barbell') {
-      // A typed per-side number names no plates, so the picture cannot be saved.
-      const load: LoadDetail | null =
-        typedSide == null
-          ? { kind: 'barbell', barKg: bar.kg, platesKg: plates.map((p) => unitToKg(p, unit)) }
-          : null;
+      const load: LoadDetail = {
+        kind: 'barbell',
+        barKg: plateMachine ? unitToKg(sledWeight, unit) : bar.kg,
+        platesKg: plates.map((p) => unitToKg(p, unit)),
+        ...(plateMachine && sides === 1 ? { sides: 1 as const } : {}),
+      };
       return { weightText: String(barbellTotal), load, changed: true };
     }
     if (mode === 'machine') {
       const load: LoadDetail | null =
-        other == null && step != null && inc > 0
+        step != null && inc > 0
           ? {
               kind: 'machine',
               baseKg: unitToKg(base, unit),
@@ -232,10 +247,10 @@ export const WeightCalculatorSheet = ({
     return { weightText: plainText, load: null, changed: true };
   };
 
-  const modes = loadModesFor(equipment);
+  const modes = loadModesFor(equipment, initialLoad);
   const modeLabel: Record<LoadMode, string> = {
-    barbell: t('load.kindBarbell'),
-    machine: t('load.kindMachine'),
+    barbell: plateMachine ? t('load.machinePlates') : t('load.kindBarbell'),
+    machine: plateMachine ? t('load.machineStack') : t('load.kindMachine'),
     dumbbell: t('load.kindDumbbell'),
     none: t('load.kindNone'),
   };
@@ -253,7 +268,10 @@ export const WeightCalculatorSheet = ({
 
         {modes.length > 1 ? (
           <>
-            <LoadSectionLabel label={t('load.kind')} first />
+            <LoadSectionLabel
+              label={plateMachine ? t('load.machineKindTitle') : t('load.kind')}
+              first
+            />
             <ChipRow items={modeItems} value={mode} onChange={edit(setMode)} />
           </>
         ) : null}
@@ -264,13 +282,12 @@ export const WeightCalculatorSheet = ({
             barItems={barItems}
             barId={barId}
             onBar={edit(setBarId)}
+            base={plateMachine ? { text: sledText, onText: edit(setSledText) } : undefined}
+            sides={plateMachine ? { value: sides, onChange: edit(setSides) } : undefined}
             hasBar={bar.kg > 0}
             plates={plates}
-            plateSum={plateSum}
             onAddPlate={onAddPlate}
             onRemovePlate={onRemovePlate}
-            sideText={sideText}
-            onSideText={edit(setSideText)}
           />
         ) : null}
 
@@ -285,13 +302,8 @@ export const WeightCalculatorSheet = ({
               setStep(null);
             })}
             pins={pins}
-            step={other == null ? step : null}
-            onPick={edit((i: number) => {
-              setOtherText('');
-              setStep(i);
-            })}
-            otherText={otherText}
-            onOtherText={edit(setOtherText)}
+            step={step}
+            onPick={edit(setStep)}
           />
         ) : null}
 
@@ -300,6 +312,7 @@ export const WeightCalculatorSheet = ({
             unit={unit}
             perHandText={perHandText}
             onPerHandText={edit(setPerHandText)}
+            presets={DUMBBELL_PRESETS[unit]}
             missing={perHand == null}
             hands={hands}
             onHands={edit(setHands)}

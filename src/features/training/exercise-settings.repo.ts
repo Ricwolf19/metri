@@ -21,11 +21,12 @@ export const getExerciseSetting = (userId: string, exerciseId: string): Exercise
     .where(and(eq(exerciseSettings.userId, userId), eq(exerciseSettings.exerciseId, exerciseId)))
     .all()[0] ?? null;
 
-type SettingPatch = {
+export type SettingPatch = {
   restSeconds?: number | null;
   badges?: string[] | null;
   alternativeExerciseIds?: string[] | null;
-  /** Written only by the session's weight sheet; it is not a slot field and never propagates. */
+  /** Written by the session's weight sheet and by the machine plates/stack
+   * chooser (`machineLoadKind`); it is not a slot field and never propagates. */
   load?: LoadDetail | null;
 };
 

@@ -1,8 +1,9 @@
 import type { Equipment, LoadDetail, SetLog } from '@/db/schema';
 import { kgToLb, lbToKg } from '@/features/bmr/calc';
+import { trimFloat as trim } from '@/lib/numbers';
 import type { Units } from '@/lib/storage';
 
-import { plateOptions } from './plate-math';
+import { plateOptions, platesForSide } from './plate-math';
 
 export type { LoadDetail };
 export type LoadKind = LoadDetail['kind'];
@@ -31,19 +32,59 @@ export const LOAD_KIND_FOR: Record<Equipment, LoadKind | null> = {
 
 const EVERY_MODE: LoadMode[] = ['barbell', 'machine', 'dumbbell', 'none'];
 
+/** The bar a barbell exercise is assumed to carry until the sheet says otherwise. */
+export const DEFAULT_BAR_KG = 20;
+
 /**
- * The modes the sheet may offer for an exercise. Known equipment LOCKS the
- * mode — a hack squat cannot be loaded with dumbbells, and a free number on a
- * stack machine only hides what was lifted; the choice exists for the
- * unspecified kinds and for custom exercises without equipment.
+ * A machine is loaded one of three ways and the catalog cannot know which (the
+ * same "leg press" is a sled with plates on two horns in one gym, a single
+ * post in the next, a pin stack in a third), so the lifter says once per
+ * exercise and the choice lives on `exercise_settings.load`: a `barbell`
+ * detail with the sled's base as the bar means plates (`sides` 1 = one post,
+ * every plate counts once), a `machine` detail means a stack. These seeds are
+ * what the chooser writes before any weight is known.
  */
-export const loadModesFor = (equipment: Equipment | null | undefined): LoadMode[] => {
-  if (!equipment || equipment === 'other') return EVERY_MODE;
-  return [LOAD_KIND_FOR[equipment] ?? 'none'];
+export type MachineKind = 'plates' | 'post' | 'stack';
+export const PLATE_MACHINE_SEED: LoadDetail = { kind: 'barbell', barKg: 0, platesKg: [] };
+export const POST_MACHINE_SEED: LoadDetail = { kind: 'barbell', barKg: 0, platesKg: [], sides: 1 };
+export const STACK_MACHINE_SEED: LoadDetail = {
+  kind: 'machine',
+  baseKg: 0,
+  incrementKg: 0,
+  steps: 0,
 };
 
-/** Float-noise guard, same rule as `set-prefill`: 3 decimals covers every real increment. */
-const trim = (n: number): number => Number(n.toFixed(3));
+/** How a machine exercise is loaded, read off its saved config; null until chosen. */
+export const machineLoadKind = (load: LoadDetail | null | undefined): MachineKind | null =>
+  load?.kind === 'barbell'
+    ? load.sides === 1
+      ? 'post'
+      : 'plates'
+    : load?.kind === 'machine'
+      ? 'stack'
+      : null;
+
+/**
+ * The modes the sheet may offer for an exercise. Known equipment LOCKS the
+ * mode — a bench press cannot be loaded with dumbbells, and a free number on a
+ * stack machine only hides what was lifted. A machine offers plates or stack
+ * until its kind is chosen (`load` is the exercise's saved config), then locks
+ * too; the full choice exists for the unspecified kinds and for custom
+ * exercises without equipment.
+ */
+export const loadModesFor = (
+  equipment: Equipment | null | undefined,
+  load?: LoadDetail | null,
+): LoadMode[] => {
+  if (!equipment || equipment === 'other') return EVERY_MODE;
+  if (equipment === 'machine') {
+    const kind = machineLoadKind(load);
+    if (kind === 'plates' || kind === 'post') return ['barbell'];
+    if (kind === 'stack') return ['machine'];
+    return ['barbell', 'machine'];
+  }
+  return [LOAD_KIND_FOR[equipment] ?? 'none'];
+};
 
 const sum = (xs: number[]): number => xs.reduce((a, b) => a + b, 0);
 
@@ -51,7 +92,7 @@ const sum = (xs: number[]): number => xs.reduce((a, b) => a + b, 0);
 export const loadTotalKg = (load: LoadDetail): number => {
   switch (load.kind) {
     case 'barbell':
-      return trim(load.barKg + 2 * sum(load.platesKg));
+      return trim(load.barKg + (load.sides ?? 2) * sum(load.platesKg));
     case 'machine':
       return trim(load.baseKg + load.steps * load.incrementKg);
     case 'dumbbell':
@@ -126,7 +167,7 @@ export const describeLoad = (load: LoadDetail, unit: Units): { total: number; pa
     case 'barbell': {
       const bar = load.barKg > 0 ? String(kgToUnit(load.barKg, unit)) : '';
       const side = load.platesKg.length
-        ? `2×(${stackPlates(load.platesKg.map((p) => snapPlate(p, unit)))
+        ? `${load.sides ?? 2}×(${stackPlates(load.platesKg.map((p) => snapPlate(p, unit)))
             .map(({ plate, count }) => (count > 1 ? `${plate}×${count}` : String(plate)))
             .join(', ')})`
         : '';
@@ -144,6 +185,113 @@ export const describeLoad = (load: LoadDetail, unit: Units): { total: number; pa
 
 /** Tolerance between a draft's total and the row's text, which rounds to 2 decimals. */
 const EPS_KG = 0.02;
+
+/** ONE side's plates (display unit) as a detail on `baseKg`; null when no rack adds up to it. */
+export const loadFromSide = (
+  side: number,
+  baseKg: number,
+  unit: Units,
+  sides: 1 | 2 = 2,
+): LoadDetail | null => {
+  const plates = platesForSide(side, unit);
+  if (!plates) return null;
+  return {
+    kind: 'barbell',
+    barKg: baseKg,
+    platesKg: plates.map((p) => unitToKg(p, unit)),
+    ...(sides === 1 ? { sides: 1 as const } : {}),
+  };
+};
+
+/** A stack total back onto its pin; null when it sits between pins or the stack is unconfigured. */
+export const machineLoadForTotal = (
+  totalKg: number,
+  setting: LoadDetail | null | undefined,
+): LoadDetail | null => {
+  if (setting?.kind !== 'machine' || !(setting.incrementKg > 0)) return null;
+  const steps = (totalKg - setting.baseKg) / setting.incrementKg;
+  if (steps < -0.01 || Math.abs(steps - Math.round(steps)) > 0.01) return null;
+  return { ...setting, steps: Math.max(0, Math.round(steps)) };
+};
+
+/**
+ * What the live row's number MEANS, decided by the equipment and the saved
+ * config. Plate-loaded (a bar, or a machine the lifter marked as plates) takes
+ * the weight PER SIDE beside a fixed base — the number a lifter actually
+ * handles — and the total is derived; dumbbells take one dumbbell; everything
+ * else takes the total. `weight_kg` stores the total in every mode.
+ */
+export type RowInputMode =
+  { mode: 'perSide'; baseKg: number; sides: 1 | 2 } | { mode: 'perHand' } | { mode: 'total' };
+
+/**
+ * The heaviest number a field accepts, per mode and unit: past these the
+ * plate picture stops meaning anything (a 400-plate side) and the value is a
+ * typo. Caps, not validation — the field just stops at the number.
+ */
+const MAX_INPUT: Record<RowInputMode['mode'], Record<Units, number>> = {
+  perSide: { kg: 250, lb: 550 },
+  perHand: { kg: 100, lb: 220 },
+  total: { kg: 500, lb: 1100 },
+};
+
+export const clampInput = (mode: RowInputMode['mode'], value: number, unit: Units): number =>
+  Math.min(value, MAX_INPUT[mode][unit]);
+
+export const rowInputMode = (
+  facts: { equipment: Equipment | null } | null | undefined,
+  setting: LoadDetail | null | undefined,
+): RowInputMode => {
+  const equipment = facts?.equipment ?? null;
+  if (equipment === 'barbell') {
+    return {
+      mode: 'perSide',
+      baseKg: setting?.kind === 'barbell' ? setting.barKg : DEFAULT_BAR_KG,
+      sides: 2,
+    };
+  }
+  if (equipment === 'machine' && setting?.kind === 'barbell') {
+    return { mode: 'perSide', baseKg: setting.barKg, sides: setting.sides ?? 2 };
+  }
+  if (equipment === 'dumbbell' || equipment === 'kettlebell') return { mode: 'perHand' };
+  return { mode: 'total' };
+};
+
+/**
+ * The detail a row carries for the number it holds — the one rule for typing
+ * AND for the ± buttons, so bumping a bar never drops its plates: per side is
+ * split greedily onto the rack, a dumbbell keeps its hands, a stack total lands
+ * on its pin. Null when the number names no picture (a side no rack adds up
+ * to, a total between pins, a plain number).
+ */
+export const deriveLoad = (input: {
+  mode: RowInputMode;
+  /** The row's number in the DISPLAY unit: per side, per hand, or the total. */
+  value: number | null;
+  unit: Units;
+  setting: LoadDetail | null | undefined;
+  /** The detail the row already carries (keeps a chosen hand count). */
+  current: LoadDetail | null | undefined;
+  unilateral: boolean | undefined;
+}): LoadDetail | null => {
+  const { mode, value, unit, setting, current, unilateral } = input;
+  if (value == null) return null;
+  switch (mode.mode) {
+    case 'perSide':
+      return loadFromSide(value, mode.baseKg, unit, mode.sides);
+    case 'perHand': {
+      const hands =
+        current?.kind === 'dumbbell'
+          ? current.hands
+          : setting?.kind === 'dumbbell'
+            ? setting.hands
+            : defaultHands(unilateral);
+      return { kind: 'dumbbell', perHandKg: unitToKg(value, unit), hands };
+    }
+    case 'total':
+      return machineLoadForTotal(unitToKg(value, unit), setting);
+  }
+};
 
 /**
  * The detail a set is logged with, reconciled with the number actually typed:

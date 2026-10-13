@@ -1,4 +1,5 @@
 import { kgToLb, lbToKg } from '@/features/bmr/calc';
+import { trimFloat as trim } from '@/lib/numbers';
 import type { Units } from '@/lib/storage';
 
 /**
@@ -27,17 +28,14 @@ const PLATES: Record<Units, number[]> = {
   lb: [45, 35, 25, 10, 5, 2.5],
 };
 
-/** Float-noise guard, same rule as `set-prefill`: 3 decimals covers every real
- * plate increment, and a halved 0.25 step (0.125) still fits exactly. */
-const trim = (n: number): number => Number(n.toFixed(3));
-
-/** Total barbell/machine load from ONE side's plates (the other side matches). */
-export const totalFromSide = (side: number, bar: number): number =>
-  Math.max(0, trim(bar + 2 * side));
+/** Total barbell/machine load from ONE side's plates (the other side matches;
+ * `sides` 1 is a single post, where the plates count once). */
+export const totalFromSide = (side: number, bar: number, sides: 1 | 2 = 2): number =>
+  Math.max(0, trim(bar + sides * side));
 
 /** What one side should hold for a target total (for the reverse direction). */
-export const sideFromTotal = (total: number, bar: number): number =>
-  Math.max(0, trim((total - bar) / 2));
+export const sideFromTotal = (total: number, bar: number, sides: 1 | 2 = 2): number =>
+  Math.max(0, trim((total - bar) / sides));
 
 export const platesToSide = (plates: number[]): number =>
   trim(plates.reduce((sum, p) => sum + p, 0));
@@ -68,11 +66,11 @@ export const barInUnit = (bar: Bar, unit: Units): number =>
  * sensible to split (no number, or less than the bar). Both numbers are in the
  * display unit, so `totalFromSide` on the result gives back `totalText` exactly.
  */
-export const sideTextFromTotal = (totalText: string, bar: number): string => {
+export const sideTextFromTotal = (totalText: string, bar: number, sides: 1 | 2 = 2): string => {
   const total = Number(totalText);
   if (totalText.trim() === '' || !Number.isFinite(total)) return '';
   if (total <= bar) return '';
-  return String(sideFromTotal(total, bar));
+  return String(sideFromTotal(total, bar, sides));
 };
 
 /** The other unit, for the instant equivalent line under the total: takes the
@@ -85,3 +83,36 @@ export const barLabel = (bar: Bar, unit: Units): string => String(barInUnit(bar,
 
 /** Plate denominations in the active unit, largest first. */
 export const plateOptions = (unit: Units): number[] => PLATES[unit];
+
+/**
+ * ONE side's weight split greedily onto the rack, largest first — what the
+ * typed per-side number looks like as plates. Null when no combination adds
+ * up (1 lb per side on a 2.5-lb rack): the total is still logged, only the
+ * picture is missing.
+ */
+export const platesForSide = (side: number, unit: Units): number[] | null => {
+  let left = trim(side);
+  if (left < 0) return null;
+  const out: number[] = [];
+  for (const p of plateOptions(unit)) {
+    while (left >= p - 0.0005) {
+      out.push(p);
+      left = trim(left - p);
+    }
+  }
+  return left > 0.001 ? null : out;
+};
+
+/** What the per-side field snaps to: the smallest plate on the rack (1.25 kg,
+ * 2.5 lb) halves nothing, so 0.25 kg / 0.5 lb is the finest real step. */
+export const sideStep = (unit: Units): number => (unit === 'kg' ? 0.25 : 0.5);
+
+/**
+ * Dumbbell racks run in 2.5 kg / 5 lb steps, so the free field gets presets for
+ * the common weights. Looked up by the display unit, never converted: a 5 lb
+ * step is 2.27 kg and names nothing on a kg rack.
+ */
+export const DUMBBELL_PRESETS: Record<Units, number[]> = {
+  kg: Array.from({ length: 20 }, (_, i) => (i + 1) * 2.5),
+  lb: Array.from({ length: 20 }, (_, i) => (i + 1) * 5),
+};
