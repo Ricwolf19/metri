@@ -1,3 +1,5 @@
+import { isNetworkFailure } from '@/lib/network-errors';
+
 /**
  * The cycle was refused for a reason retrying cannot fix: the session is gone
  * (expired cookie, signed out elsewhere, deleted account) or the plan no longer
@@ -20,6 +22,23 @@ export class SyncNoSessionError extends Error {
     this.name = 'SyncNoSessionError';
   }
 }
+
+export type SyncFailureKind = 'refused' | 'no_session' | 'offline' | 'error';
+
+/**
+ * What a failed cycle means for the caller: `refused` stops the loop,
+ * `no_session` and `offline` are expected outcomes that wait and retry, and
+ * only `error` is a surprise worth telemetry. A cold session store reported as
+ * an error once filled Sentry with "has no session cookie yet".
+ */
+export const classifySyncFailure = (e: unknown): SyncFailureKind =>
+  e instanceof SyncAuthError
+    ? 'refused'
+    : e instanceof SyncNoSessionError
+      ? 'no_session'
+      : isNetworkFailure(e)
+        ? 'offline'
+        : 'error';
 
 /** 401/403 are terminal; every other status is worth another cycle. */
 export const syncFailure = (stage: 'push' | 'pull', status: number): Error =>

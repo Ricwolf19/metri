@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { SyncAuthError, SyncNoSessionError, syncFailure } from './errors';
+import { SyncAuthError, SyncNoSessionError, classifySyncFailure, syncFailure } from './errors';
 
 describe('syncFailure', () => {
   it('marks a rejected session terminal so the cycle stops instead of looping', () => {
@@ -24,5 +24,17 @@ describe('SyncNoSessionError', () => {
     const noSession = new SyncNoSessionError();
     expect(noSession).not.toBeInstanceOf(SyncAuthError);
     expect(noSession.name).toBe('SyncNoSessionError');
+  });
+});
+
+describe('classifySyncFailure', () => {
+  it.each([
+    ['a refused session stops the loop', new SyncAuthError(401), 'refused'],
+    ['a cold session store is not a surprise', new SyncNoSessionError(), 'no_session'],
+    ['a dead network is expected', new Error('fetch failed: Unable to resolve host'), 'offline'],
+    ['a 500 still reports', syncFailure('pull', 500), 'error'],
+    ['anything unknown reports', 'boom', 'error'],
+  ] as const)('%s', (_label, failure, kind) => {
+    expect(classifySyncFailure(failure)).toBe(kind);
   });
 });

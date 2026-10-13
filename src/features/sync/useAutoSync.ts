@@ -3,11 +3,10 @@ import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 
 import { useAuth } from '@/features/auth/auth-context';
-import { isNetworkFailure } from '@/lib/network-errors';
 import { captureError } from '@/lib/telemetry';
 
 import { hasLocalChanges, syncNow } from './engine';
-import { SyncAuthError } from './errors';
+import { classifySyncFailure } from './errors';
 import { logSync } from './log';
 import { setSyncState } from './status';
 
@@ -65,12 +64,21 @@ export const useAutoSync = (): void => {
         nextAllowedAt.current = Date.now() + COOLDOWN_MS;
         setSyncState('synced');
       } catch (e) {
-        if (e instanceof SyncAuthError) {
+        const kind = classifySyncFailure(e);
+        if (kind === 'refused') {
           // The session is gone, or the plan no longer includes sync. Neither
           // heals by retrying, so stop the loop and hide the ring; `revalidate`
           // clears a dead session on the next foreground and signing in again
           // re-enables this effect.
           refused.current = true;
+          setSyncState('off');
+          return;
+        }
+        if (kind === 'no_session') {
+          // The cookie store had nothing to send yet (a cold start, the moment
+          // after sign-in): not a failure to count against the backoff and not
+          // a surprise to report — wait out the cooldown and try again.
+          nextAllowedAt.current = Date.now() + COOLDOWN_MS;
           setSyncState('off');
           return;
         }
@@ -82,7 +90,7 @@ export const useAutoSync = (): void => {
         // Read from the error itself, not the radio: `isConnected` is true on a
         // captive portal and on a DNS failure, and checking it after the fact
         // raced a reconnect into a false "the server rejected us".
-        const offline = isNetworkFailure(e);
+        const offline = kind === 'offline';
         if (!offline) {
           logSync('error', e instanceof Error ? e.message : String(e));
           captureError(e);
