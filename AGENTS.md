@@ -56,11 +56,18 @@ keys. Every production bug fix ships with the test that would have caught it.
 
 ## Architecture invariants
 
-- **`useLiveQuery` deps are load-bearing, not an optimisation.** Drizzle captures the query on
-  mount, so a missing deps array pins it to the mount-time arguments — a screen that mounts before
-  auth resolves stays bound to `userId: ''` and reads back nothing. An empty result that a writer
-  then acts on is data loss, not staleness (the adherence catch-up nearly overwrote a month of
-  history this way).
+- **`useLiveQuery` comes from `@/db/useLiveQuery`, and its deps are load-bearing, not an
+  optimisation.** The query is captured on mount and re-bound only when `deps` change, so a
+  wrong array pins it to the mount-time arguments — a screen that mounts before auth resolves
+  stays bound to `userId: ''` and reads back nothing. An empty result that a writer then acts on
+  is data loss, not staleness (the adherence catch-up nearly overwrote a month of history this
+  way; the day sheet showed "nothing recorded" over marked days). The wrapper makes `deps`
+  mandatory (Drizzle's hook defaults them to `[]`, and ESLint blocks that import), reads
+  synchronously (`all()`, no empty first frame) through `useSyncExternalStore`, and re-queries
+  ONCE per frame per hook (`db/live-runner.ts`) — SQLite notifies per row, so a 30-set write
+  used to re-run every query on the screen thirty times. Freezing inactive tabs
+  (`enableFreeze(true)` + `freezeOnBlur`) was tried and reverted: a cold launch painted nothing
+  after the splash. Root-cause it with Metro logs before trying again.
 - **Stored JSON goes through `parseJson`/`parseJsonArray` (`lib/safe-json.ts`).** MMKV values
   outlive app updates; a bare `JSON.parse` on a shape an older build wrote throws, and one throw
   inside the notification reconcile loop took every scheduled reminder with it.

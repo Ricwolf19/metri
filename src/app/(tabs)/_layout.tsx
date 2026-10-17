@@ -1,6 +1,6 @@
 import { Redirect, Tabs, useRouter } from 'expo-router';
 import { type BottomTabBarProps } from 'expo-router/tabs';
-import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { useLiveQuery } from '@/db/useLiveQuery';
 import { useEffect, useRef, type ComponentType } from 'react';
 import { Pressable, Text } from 'react-native';
 import Animated, {
@@ -157,7 +157,7 @@ const TabsLayout = () => {
 
   // Focus mode: an in-progress session owns the app. Fresh (today, <8h) →
   // jump straight into it on launch; stale → ask whether to save or discard.
-  const { data: actives } = useLiveQuery(activeWorkoutQuery(user?.id ?? ''));
+  const { data: actives } = useLiveQuery(activeWorkoutQuery(user?.id ?? ''), [user?.id]);
   const activeWorkout = actives[0] ?? null;
   const focusHandled = useRef(false);
   useEffect(() => {
@@ -208,6 +208,9 @@ const TabsLayout = () => {
             // layout jump. Queries are local SQLite, so mounting all five up
             // front is cheap and every tab opens already settled.
             lazy: false,
+            // NOT `freezeOnBlur` + `enableFreeze(true)`: tried on 2026-10-17, a
+            // cold launch then painted nothing after the splash (twice, on the
+            // emulator). Root-cause it with Metro logs before trying again.
           }}
         >
           <Tabs.Screen
