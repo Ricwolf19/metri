@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 
 import { TopBar } from '@/components/TopBar';
-import { BadgeRow, Card, FadeInUp, Screen, ScreenTitle } from '@/components/ui';
+import { BadgeRow, Card, Deferred, FadeInUp, Screen, ScreenTitle } from '@/components/ui';
 import { getDocById } from '@/features/docs';
 import { markdownRules } from '@/features/docs/MarkdownTable';
 import { markdownStyles } from '@/features/docs/markdownStyles';
@@ -18,6 +18,18 @@ const DocDetail = () => {
   const router = useRouter();
 
   const section = typeof id === 'string' ? getDocById(locale, id) : null;
+  const body = section?.body ?? '';
+  // One element the compiler memoizes on body and theme: the renderer parses
+  // the whole markdown on every render it receives.
+  const markdown = (
+    <Markdown
+      style={markdownStyles(scheme)}
+      rules={markdownRules}
+      onLinkPress={(href) => openContentLink(href, router)}
+    >
+      {body}
+    </Markdown>
+  );
   if (!section) return <Redirect href="/explore" />;
 
   return (
@@ -36,15 +48,10 @@ const DocDetail = () => {
             tone="brand"
           />
         </View>
-        <Card>
-          <Markdown
-            style={markdownStyles(scheme)}
-            rules={markdownRules}
-            onLinkPress={(href) => openContentLink(href, router)}
-          >
-            {section.body}
-          </Markdown>
-        </Card>
+        {/* Title and tags paint with the push; the body (tables included) mounts after it. */}
+        <Deferred fallback={<Card className="min-h-64" />}>
+          <Card>{markdown}</Card>
+        </Deferred>
       </FadeInUp>
     </Screen>
   );

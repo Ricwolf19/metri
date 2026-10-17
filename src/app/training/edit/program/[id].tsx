@@ -98,7 +98,7 @@ const EditProgram = () => {
       return;
     }
     toast.info(t('editor.deletedToast'));
-    guard.leave(() => router.replace('/training'));
+    guard.leave(() => router.dismissTo('/training'));
   };
 
   const header = (

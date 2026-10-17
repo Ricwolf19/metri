@@ -15,7 +15,12 @@ import { useTheme } from '@/theme/theme-context';
 
 import { BrandMark } from './BrandMark';
 
-type Props = { visible: boolean; label?: string };
+type Props = {
+  visible: boolean;
+  label?: string;
+  /** The Modal is on screen: callers run their synchronous work from here (`useBlockingTask`). */
+  onShow?: () => void;
+};
 
 const RING = 104;
 const STROKE = 3;
@@ -30,9 +35,12 @@ const STROKE = 3;
  * not the scrim: a translucent wait showed the screens behind it mid-render
  * (half-built lists, a tab mounting), which read as a glitch. The mark pulses
  * inside a ring whose arc orbits it — the resting state is already centred and
- * visible; the motion only decorates.
+ * visible; the motion only decorates. The work it covers must start from
+ * `onShow`, never in the same tick as the state change: a fixed delay landed
+ * the heavy commit while the Modal was still presenting, and the spinner froze
+ * on its first frame.
  */
-export const BlockingOverlay = ({ visible, label }: Props) => {
+export const BlockingOverlay = ({ visible, label, onShow }: Props) => {
   const { brand } = useTheme();
   const pulse = useSharedValue(0);
   const spin = useSharedValue(0);
@@ -69,7 +77,7 @@ export const BlockingOverlay = ({ visible, label }: Props) => {
   const circumference = 2 * Math.PI * r;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onShow={onShow}>
       <View
         className="flex-1 items-center justify-center bg-ink-900 px-10"
         accessibilityLiveRegion="polite"

@@ -4,7 +4,7 @@ import { Text, View } from 'react-native';
 
 import { BookIcon, DumbbellIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
-import { FadeInUp, GridTile, Input, Screen, type Tile } from '@/components/ui';
+import { Deferred, FadeInUp, GridTile, Input, Screen, type Tile } from '@/components/ui';
 import { CALC_CONTENT } from '@/features/calculators/content';
 import { CALC_META, calcShortTitle } from '@/features/calculators/registry';
 import type { CalcId } from '@/features/calculators/types';
@@ -110,8 +110,8 @@ const Explore = () => {
               ),
             ];
             if (!tiles.length) return null;
-            return (
-              <FadeInUp key={topic.key} delay={i * 50}>
+            const block = (
+              <FadeInUp delay={i * 50}>
                 <SectionHeader text={t(topic.key)} />
                 <View className="flex-row flex-wrap justify-between gap-y-3">
                   {tiles.map((tile) => (
@@ -119,6 +119,14 @@ const Explore = () => {
                   ))}
                 </View>
               </FadeInUp>
+            );
+            // Sixty-odd tiles: the topics below the fold mount after the transition.
+            return i < 2 ? (
+              <View key={topic.key}>{block}</View>
+            ) : (
+              <Deferred key={topic.key} order={i - 2}>
+                {block}
+              </Deferred>
             );
           })}
         </>

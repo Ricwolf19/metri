@@ -12,17 +12,33 @@ export const getDocs = (locale: Locale): DocSection[] => (locale === 'es' ? es :
 export const getDocById = (locale: Locale, id: string): DocSection | null =>
   getDocs(locale).find((d) => d.id === id) ?? null;
 
+type Folded = { d: DocSection; title: string; tags: string; body: string };
+
+// Folding ~100 KB of bodies on every keystroke was the typing jank in Explore:
+// each docs array (one per locale, module constants) is folded once.
+const FOLDED = new WeakMap<readonly DocSection[], Folded[]>();
+
+const foldedDocs = (docs: readonly DocSection[]): Folded[] => {
+  const hit = FOLDED.get(docs);
+  if (hit) return hit;
+  const folded = docs.map((d) => ({
+    d,
+    title: norm(d.title),
+    tags: norm(d.tags.join(' ')),
+    body: norm(d.body),
+  }));
+  FOLDED.set(docs, folded);
+  return folded;
+};
+
 /** Rank by where the query hits: title > tags > body. Accent-insensitive. */
-export const searchDocs = (docs: DocSection[], query: string): DocSection[] => {
+export const searchDocs = (docs: readonly DocSection[], query: string): DocSection[] => {
   const q = norm(query.trim());
   if (!q) return [];
   const terms = q.split(/\s+/);
 
-  return docs
-    .map((d) => {
-      const title = norm(d.title);
-      const tags = norm(d.tags.join(' '));
-      const body = norm(d.body);
+  return foldedDocs(docs)
+    .map(({ d, title, tags, body }) => {
       let score = 0;
       for (const term of terms) {
         if (title.includes(term)) score += 5;

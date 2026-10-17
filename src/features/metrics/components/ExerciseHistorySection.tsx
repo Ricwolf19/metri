@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import { useCallback } from 'react';
 import { Text } from 'react-native';
 
 import { ChevronRightIcon } from '@/components/icons';
@@ -6,6 +7,7 @@ import { Card, EmptyState, PressableScale, SectionLabel } from '@/components/ui'
 import { useAuth } from '@/features/auth/auth-context';
 import { loggedExercises } from '@/features/training/stats.repo';
 import { useT } from '@/i18n';
+import { useFocusRead } from '@/lib/useFocusRead';
 import { useTheme } from '@/theme/theme-context';
 
 import type { MetricsSectionProps } from '../sections';
@@ -18,7 +20,11 @@ export const ExerciseHistorySection = ({ headerRight }: MetricsSectionProps) => 
   const t = useT();
   const { user } = useAuth();
   const { muted } = useTheme();
-  const rows = user ? loggedExercises(user.id).slice(0, MAX_ROWS) : [];
+  const userId = user?.id ?? '';
+  // A synchronous read, once per return to the tab rather than on every render.
+  const rows = useFocusRead(
+    useCallback(() => (userId ? loggedExercises(userId).slice(0, MAX_ROWS) : []), [userId]),
+  );
 
   return (
     <>

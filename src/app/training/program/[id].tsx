@@ -60,7 +60,7 @@ const ProgramDetail = () => {
 
   const onPrimary = () => {
     if (enrolledHere) {
-      router.replace('/training');
+      router.dismissTo('/training');
       return;
     }
     router.push({
@@ -83,7 +83,7 @@ const ProgramDetail = () => {
       return;
     }
     toast.info(t('editor.deletedToast'));
-    router.replace('/training');
+    router.dismissTo('/training');
   };
 
   return (

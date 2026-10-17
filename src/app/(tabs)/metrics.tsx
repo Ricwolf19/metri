@@ -3,8 +3,9 @@ import { Pressable, Text, View } from 'react-native';
 
 import { GearIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
-import { FadeInUp, Screen } from '@/components/ui';
+import { Deferred, FadeInUp, Screen } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
+import { MetricsDataProvider } from '@/features/metrics/MetricsData';
 import { visibleSections } from '@/features/metrics/sections';
 import { useMetricsLayout } from '@/features/metrics/useMetricsLayout';
 import { useSpotlight } from '@/features/spotlight/SpotlightProvider';
@@ -49,15 +50,28 @@ const Metrics = () => {
       header={<TopBar menu showFaq showBeta />}
       onPullHold={spotlight?.open}
     >
-      {sections.map(({ id, Component }, i) => (
-        <FadeInUp key={id} delay={Math.min(i * 50, 150)}>
-          <View className={i > 0 ? 'mt-7' : ''}>
-            {/* The control rides the first section's title line rather than
-                taking a row of its own under the header pill. */}
-            <Component headerRight={i === 0 ? customize : undefined} />
-          </View>
-        </FadeInUp>
-      ))}
+      <MetricsDataProvider>
+        {sections.map(({ id, Component }, i) => {
+          const block = (
+            <FadeInUp delay={Math.min(i * 50, 150)}>
+              <View className={i > 0 ? 'mt-7' : ''}>
+                {/* The control rides the first section's title line rather than
+                    taking a row of its own under the header pill. */}
+                <Component headerRight={i === 0 ? customize : undefined} />
+              </View>
+            </FadeInUp>
+          );
+          // The first two sections paint with the tab; the rest (charts, the
+          // body map, the markdown-heavy lists) mount once the transition is over.
+          return i < 2 ? (
+            <View key={id}>{block}</View>
+          ) : (
+            <Deferred key={id} order={i - 2}>
+              {block}
+            </Deferred>
+          );
+        })}
+      </MetricsDataProvider>
     </Screen>
   );
 };

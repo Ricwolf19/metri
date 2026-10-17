@@ -6,7 +6,7 @@ import { THEME_VARS, type ThemeScheme } from '@/theme/tokens';
  * Every block the library ships a default for (fence, code_inline, link…) must be
  * overridden: its defaults are light-theme hex that leak through `mergeStyle`.
  */
-export const markdownStyles = (scheme: ThemeScheme) => {
+const buildStyles = (scheme: ThemeScheme) => {
   const rgb = (token: string) => `rgb(${THEME_VARS[scheme][token]})`;
   const text = rgb('--ink-200');
   const heading = rgb('--ink-50');
@@ -68,4 +68,15 @@ export const markdownStyles = (scheme: ThemeScheme) => {
     hr: { backgroundColor: border, height: 1, marginVertical: 12 },
     link: { color: accent, textDecorationLine: 'underline' as const },
   };
+};
+
+const CACHE = new Map<ThemeScheme, ReturnType<typeof buildStyles>>();
+
+/** One style object per scheme: a fresh object on every render defeats the renderer's memo. */
+export const markdownStyles = (scheme: ThemeScheme): ReturnType<typeof buildStyles> => {
+  const hit = CACHE.get(scheme);
+  if (hit) return hit;
+  const built = buildStyles(scheme);
+  CACHE.set(scheme, built);
+  return built;
 };

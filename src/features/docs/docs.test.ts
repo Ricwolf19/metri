@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { en } from './content/en';
 import { es } from './content/es';
+import { searchDocs } from './index';
 
 describe('knowledge base parity', () => {
   it('keeps the same id sequence in both languages', () => {
@@ -29,5 +30,18 @@ describe('knowledge base parity', () => {
         }
       }
     }
+  });
+});
+
+describe('searchDocs', () => {
+  it('ranks a title hit above a body hit and is accent-insensitive', () => {
+    const [first] = searchDocs(es, 'maximo');
+    expect(first.id).toBe('when-to-test-rm');
+  });
+
+  it('returns the same ranking from the folded cache as from a fresh array', () => {
+    const fresh = searchDocs([...en], 'protein').map((d) => d.id);
+    expect(searchDocs(en, 'protein').map((d) => d.id)).toEqual(fresh);
+    expect(searchDocs(en, 'protein').map((d) => d.id)).toEqual(fresh);
   });
 });

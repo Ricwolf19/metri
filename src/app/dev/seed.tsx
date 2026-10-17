@@ -52,7 +52,7 @@ const DevSeed = () => {
       } catch (e) {
         toast.error(e instanceof Error ? e.message : String(e));
       }
-      router.replace('/');
+      router.dismissTo('/');
     }, 80);
   }, [isReady, user, startLocal, finishOnboarding, locale, router, toast]);
 

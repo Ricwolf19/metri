@@ -10,3 +10,9 @@ export const formatYmd = (d: Date): string => {
 
 /** Local `yyyy-mm` for a date. */
 export const formatYearMonth = (d: Date): string => formatYmd(d).slice(0, 7);
+
+/** Local midnight of a 'YYYY-MM-DD' key, in epoch ms. */
+export const dayStartMs = (ymd: string): number => {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return new Date(y, m - 1, d).getTime();
+};

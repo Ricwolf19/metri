@@ -40,6 +40,7 @@ import {
 } from '@/features/training/schedule';
 import { useI18n, useT, type TFunction } from '@/i18n';
 import { captureError } from '@/lib/telemetry';
+import { useBlockingTask } from '@/lib/useBlockingTask';
 import { useClockFormat } from '@/lib/useClockFormat';
 
 /** Common gym slots, in minutes from midnight. */
@@ -96,7 +97,7 @@ const StartProgram = () => {
   const [partial, setDraftEntry] = useState<Record<string, DraftEntry>>({});
   const [touched, setTouched] = useState<Set<string>>(() => new Set());
   const [openTime, setOpenTime] = useState<string | null>(null);
-  const [starting, setStarting] = useState(false);
+  const blocking = useBlockingTask<'starting'>();
 
   const { data: enrollments } = useLiveQuery(activeEnrollmentQuery(user?.id ?? ''));
   const enrollment = enrollments[0] ?? null;
@@ -169,28 +170,27 @@ const StartProgram = () => {
     setOpenTime(dayId);
   };
 
-  // One transaction: switching must never leave the user with no program.
-  const doStart = () => {
-    setStarting(true);
-    try {
-      db.transaction(() => {
-        if (enrollment) abandonEnrollment(enrollment.id);
-        enrollInProgram(user.id, programId, entries, locale);
-      });
-      void syncTrainingReminder(user.id, { enable: true });
-      toast.success(t('training.enrolledToast'));
-      router.replace('/training');
-    } catch (e) {
-      if (e instanceof StartValidationError) {
-        setProblems(e.problems);
-        return;
+  // One transaction: switching must never leave the user with no program. The
+  // overlay runs it once it is on screen — in the same tick, it never showed.
+  const doStart = () =>
+    blocking.start('starting', () => {
+      try {
+        db.transaction(() => {
+          if (enrollment) abandonEnrollment(enrollment.id);
+          enrollInProgram(user.id, programId, entries, locale);
+        });
+        void syncTrainingReminder(user.id, { enable: true });
+        toast.success(t('training.enrolledToast'));
+        router.dismissTo('/training');
+      } catch (e) {
+        if (e instanceof StartValidationError) {
+          setProblems(e.problems);
+          return;
+        }
+        captureError(e);
+        toast.error(t('start.failed'));
       }
-      captureError(e);
-      toast.error(t('start.failed'));
-    } finally {
-      setStarting(false);
-    }
-  };
+    });
   const confirm = () => {
     if (enrollment && (switching === '1' || enrollment.programId !== programId)) {
       dialog.confirm({
@@ -301,7 +301,11 @@ const StartProgram = () => {
           </View>
         </View>
       ))}
-      <BlockingOverlay visible={starting} label={t('start.starting')} />
+      <BlockingOverlay
+        visible={blocking.busy !== null}
+        onShow={blocking.onShow}
+        label={t('start.starting')}
+      />
     </Screen>
   );
 };

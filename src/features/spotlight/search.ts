@@ -44,7 +44,7 @@ export const spotlightSearch = (
     { key: 'exercises', hits: rank(sources.exercises, q).slice(0, perGroup) },
     {
       key: 'guides',
-      hits: searchDocs([...sources.docs], q)
+      hits: searchDocs(sources.docs, q)
         .slice(0, perGroup)
         .map((d) => ({
           id: d.id,

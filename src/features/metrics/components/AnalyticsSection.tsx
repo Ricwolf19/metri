@@ -1,5 +1,4 @@
-import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import {
@@ -32,7 +31,6 @@ import {
 } from '@/features/training/muscle-load';
 import type { MuscleHead } from '@/features/training/muscles';
 import {
-  bucketVolume,
   effortSets,
   effortSummary,
   exerciseNames,
@@ -40,17 +38,19 @@ import {
   monthlyWorkouts,
   muscleIndex,
   recentWorkouts,
-  weeklyVolumeQuery,
   workoutCounts,
 } from '@/features/training/stats.repo';
 import { fromKgHalf } from '@/features/training/progression';
 import { useT } from '@/i18n';
 import { useDateFormat } from '@/lib/useDateFormat';
 import { useUnits } from '@/lib/useUnits';
-import { useNow } from '@/lib/useNow';
+import { dayStartMs } from '@/lib/date';
+import { useFocusRead } from '@/lib/useFocusRead';
+import { useTodayKey } from '@/lib/useTodayKey';
 import { useTheme } from '@/theme/theme-context';
 
 import { fmtVol } from '../format';
+import { useWeeklyVolume } from '../MetricsData';
 import type { MetricsSectionProps } from '../sections';
 
 type Window = '7' | '30' | '90';
@@ -73,7 +73,7 @@ export const AnalyticsSection = ({ headerRight }: MetricsSectionProps) => {
   // Volume rows are kg from SQL; everything shown converts and rounds to the half.
   const { units: unit } = useUnits();
   const { date: formatDate } = useDateFormat();
-  const now = useNow();
+  const today = useTodayKey();
 
   const [view, setView] = useState<MapView>('balance');
   const [side, setSide] = useState<'front' | 'back'>('front');
@@ -82,11 +82,33 @@ export const AnalyticsSection = ({ headerRight }: MetricsSectionProps) => {
 
   const userId = user?.id ?? '';
   const windowDays = Number(days);
-  const since = useMemo(() => new Date(now - windowDays * DAY_MS), [now, windowDays]);
+  // Day-anchored, so a window is the same object all day.
+  const since = useMemo(
+    () => new Date(dayStartMs(today) - windowDays * DAY_MS),
+    [today, windowDays],
+  );
 
   const index: MuscleIndex = useMemo(() => muscleIndex(), []);
   const names = useMemo(() => exerciseNames(), []);
-  const sets = useMemo(() => (userId ? loadedSets(userId, since) : []), [userId, since]);
+  // Every synchronous read in one go, refreshed after each return to the tab
+  // (`useFocusRead`), never during the transition that brings it in.
+  const reads = useFocusRead(
+    useCallback(
+      () =>
+        userId
+          ? {
+              sets: loadedSets(userId, since),
+              counts: workoutCounts(userId),
+              months: monthlyWorkouts(userId, 6),
+              recent: recentWorkouts(userId, 5),
+              effort: effortSets(userId, since),
+              adherence: effortSummary(userId, since),
+            }
+          : { sets: [], counts: null, months: [], recent: [], effort: [], adherence: null },
+      [userId, since],
+    ),
+  );
+  const { sets, counts, months, recent, effort, adherence } = reads;
 
   const weeks = windowDays / 7;
   const balance = useMemo(() => muscleBalance(sets, index, weeks), [sets, index, weeks]);
@@ -144,14 +166,7 @@ export const AnalyticsSection = ({ headerRight }: MetricsSectionProps) => {
     () => Object.values(fractionalSets(sets, index)).reduce((a, b) => a + b, 0),
     [sets, index],
   );
-  const counts = useMemo(() => (userId ? workoutCounts(userId) : null), [userId]);
-  const months = useMemo(() => (userId ? monthlyWorkouts(userId, 6) : []), [userId]);
-  const recent = useMemo(() => (userId ? recentWorkouts(userId, 5) : []), [userId]);
-  const effort = useMemo(() => (userId ? effortSets(userId, since) : []), [userId, since]);
-  const adherence = useMemo(() => (userId ? effortSummary(userId, since) : null), [userId, since]);
-
-  const { data: volumeRows } = useLiveQuery(weeklyVolumeQuery(userId, 6));
-  const volume = useMemo(() => bucketVolume(volumeRows, 6), [volumeRows]);
+  const volume = useWeeklyVolume();
 
   if (!user) return null;
 
