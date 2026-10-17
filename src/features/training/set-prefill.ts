@@ -39,19 +39,23 @@ export const previousSetFor = <T extends PriorSet>(
 ): T | null => previous[index] ?? previous[previous.length - 1] ?? null;
 
 /**
- * What working-set row `index` starts with. The SAME set of the previous
- * session of this exercise wins — weight AND reps, what the lifter did on set
- * 3 last time, not the heaviest set and not the set just finished: a lifter
- * whose weight drops across sets saw every row open at the top-set load.
- * Beyond the previous session's count its last set repeats. With no history
- * the set just completed seeds the next one (same load for the back-off),
- * then the progression suggestion, then a plain 8-rep row.
+ * What working-set row `index` starts with. Set 1 opens on set 1 of the
+ * previous session of this exercise — weight, reps and plates. Every later
+ * set opens on the set JUST LOGGED here: the current session is the source of
+ * truth once it has a number (the lifter who added a rep or 2.5 kg keeps it),
+ * and the previous session only serves as the reference for the arrows. The
+ * reps follow the logged set too, unless the plan steps the reps on this row
+ * (a false pyramid 8-6-4), when the plan's number wins. With nothing logged
+ * yet past set 1 (every set deleted) history serves as for set 1, then the
+ * progression suggestion, then a plain 8-rep row.
  */
 export const nextSetPrefill = (input: {
   /** 0-based ordinal of the working set being seeded. */
   index: number;
   /** Planned reps for this row, when the prescription defines them. */
   planReps: number | undefined;
+  /** Planned reps of the row before this one; a difference is a pyramid step. */
+  prevPlanReps: number | undefined;
   /** Working sets of the previous completed session of this exercise, in order. */
   previous: readonly PriorSet[];
   /** Working (non-warm-up) sets logged this session, in order. */
@@ -59,12 +63,20 @@ export const nextSetPrefill = (input: {
   /** Progression suggestion (kg), when history supports one. */
   suggestedKg: number | null;
 }): { weightKg: number | null; reps: number; load: LoadDetail | null } => {
-  const { index, planReps, previous, logged, suggestedKg } = input;
+  const { index, planReps, prevPlanReps, previous, logged, suggestedKg } = input;
+  const justDone = logged[logged.length - 1];
+  if (index > 0 && justDone) {
+    const pyramidStep = planReps != null && planReps !== prevPlanReps;
+    return {
+      weightKg: justDone.weightKg,
+      reps: pyramidStep ? planReps : justDone.reps,
+      load: justDone.load ?? null,
+    };
+  }
   const ref = previousSetFor(previous, index);
   // The previous detail rides along (same plates as last time); `reconcileLoad`
   // still checks it adds up to whatever the row ends up holding.
   if (ref) return { weightKg: ref.weightKg, reps: ref.reps, load: ref.load ?? null };
-  const justDone = logged[logged.length - 1];
   if (justDone)
     return {
       weightKg: justDone.weightKg,

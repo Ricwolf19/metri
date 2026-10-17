@@ -50,76 +50,88 @@ describe('nextSetPrefill', () => {
     },
     { weightKg: 75, reps: 8 },
   ];
+  const plates = { kind: 'barbell' as const, barKg: 20, platesKg: [25, 25] };
 
-  it('seeds set N from set N of the previous session, weight AND reps', () => {
+  it('seeds set 1 from set 1 of the previous session, weight AND reps', () => {
+    const fill = nextSetPrefill({
+      index: 0,
+      planReps: 12,
+      prevPlanReps: undefined,
+      previous,
+      logged: [],
+      suggestedKg: 90,
+    });
+    expect(fill).toEqual({ weightKg: 80, reps: 10, load: null });
+  });
+
+  it('seeds every later set from the set just logged here, extra rep and plates included', () => {
     const fill = nextSetPrefill({
       index: 1,
       planReps: 12,
+      prevPlanReps: 12,
       previous,
-      logged: [previous[0]],
+      logged: [{ weightKg: 82.5, reps: 13, load: plates }],
       suggestedKg: 90,
     });
-    expect(fill).toEqual({ weightKg: 77.5, reps: 9, load: previous[1].load });
+    expect(fill).toEqual({ weightKg: 82.5, reps: 13, load: plates });
   });
 
-  it('does not carry the heavier set just logged into a set that was lighter last time', () => {
-    const fill = nextSetPrefill({
-      index: 2,
-      planReps: undefined,
-      previous,
-      logged: [
-        { weightKg: 85, reps: 10 },
-        { weightKg: 85, reps: 10 },
-      ],
-      suggestedKg: null,
-    });
-    expect(fill.weightKg).toBe(75);
-    expect(fill.reps).toBe(8);
-  });
-
-  it("repeats the previous session's last set once this one runs longer", () => {
-    const fill = nextSetPrefill({
-      index: 5,
-      planReps: 12,
-      previous,
-      logged: [],
-      suggestedKg: null,
-    });
-    expect(fill).toMatchObject({ weightKg: 75, reps: 8 });
-  });
-
-  it('with no history, the set just completed seeds the next one and the plan sets the reps', () => {
+  it('takes the plan reps on a pyramid step (8-6-4) but keeps the weight just logged', () => {
     const fill = nextSetPrefill({
       index: 1,
       planReps: 6,
-      previous: [],
+      prevPlanReps: 8,
+      previous,
       logged: [{ weightKg: 100, reps: 8, load: null }],
-      suggestedKg: 90,
+      suggestedKg: null,
     });
     expect(fill).toEqual({ weightKg: 100, reps: 6, load: null });
   });
 
+  it("falls back to the previous session's same set, then its last, with nothing logged", () => {
+    expect(
+      nextSetPrefill({
+        index: 1,
+        planReps: 12,
+        prevPlanReps: 12,
+        previous,
+        logged: [],
+        suggestedKg: null,
+      }),
+    ).toEqual({ weightKg: 77.5, reps: 9, load: previous[1].load });
+    expect(
+      nextSetPrefill({
+        index: 5,
+        planReps: 12,
+        prevPlanReps: 12,
+        previous,
+        logged: [],
+        suggestedKg: null,
+      }),
+    ).toMatchObject({ weightKg: 75, reps: 8 });
+  });
+
   it('falls back to the suggestion, then to a plain 8-rep row', () => {
     expect(
-      nextSetPrefill({ index: 0, planReps: 5, previous: [], logged: [], suggestedKg: 90 }),
-    ).toEqual({
-      weightKg: 90,
-      reps: 5,
-      load: null,
-    });
+      nextSetPrefill({
+        index: 0,
+        planReps: 5,
+        prevPlanReps: undefined,
+        previous: [],
+        logged: [],
+        suggestedKg: 90,
+      }),
+    ).toEqual({ weightKg: 90, reps: 5, load: null });
     expect(
       nextSetPrefill({
         index: 0,
         planReps: undefined,
+        prevPlanReps: undefined,
         previous: [],
         logged: [],
         suggestedKg: null,
       }),
-    ).toEqual({
-      weightKg: null,
-      reps: 8,
-      load: null,
-    });
+    ).toEqual({ weightKg: null, reps: 8, load: null });
   });
 });
 
