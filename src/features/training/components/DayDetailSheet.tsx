@@ -3,7 +3,15 @@ import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { DumbbellIcon, FlameIcon } from '@/components/icons';
-import { BadgeRow, Button, ScrollArea, Sheet, ShareCard, useToast } from '@/components/ui';
+import {
+  BadgeRow,
+  Button,
+  ScrollArea,
+  Sheet,
+  ShareCard,
+  TextLink,
+  useToast,
+} from '@/components/ui';
 import type { SkipReason, TrainingDayStatus } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
 import { useI18n, useT, type TFunction, type TranslationKey } from '@/i18n';
@@ -64,7 +72,12 @@ export const DayDetailSheet = ({
   const unit = settings.getUnits();
   const setLabel = (x: LoggedSet) => fmtSet(x, unit, t);
   const { ref, share, busy } = useShareCard(t('dayDetail.share'));
-  const { data: adherenceRows } = useLiveQuery(dayQuery(user?.id ?? '', date ?? ''));
+  // Deps are load-bearing: the sheet mounts closed (date null) and is reopened
+  // for many dates; without them the query stayed on '' and a mark never showed.
+  const { data: adherenceRows } = useLiveQuery(dayQuery(user?.id ?? '', date ?? ''), [
+    user?.id,
+    date,
+  ]);
   const adherence = adherenceRows[0] ?? null;
 
   const detail = useMemo(() => (user && date ? getDayDetail(user.id, date) : null), [user, date]);
@@ -88,12 +101,16 @@ export const DayDetailSheet = ({
 
   // Manual marking works for any past-or-today date, enrollment or not.
   const markable = !!user && !!date && date <= today;
-  // A skip that resolved a planned split carries a `skipped` log: it is the
-  // undo handle, deleted below, and it must go before the day is re-marked.
+  // A legacy skip that resolved a planned split carries a `skipped` log: it is
+  // the undo handle, deleted below, and it must go before the day is re-marked.
   const skippedLogId =
     adherence?.status === 'skipped' && adherence.workoutLogId ? adherence.workoutLogId : null;
-  const skippedSplit =
-    skippedLogId && adherence?.workoutDayId ? getWorkoutDay(adherence.workoutDayId) : null;
+  // The split the mark stood for: a missed one is carried over, not lost.
+  const markedSplit =
+    adherence?.status === 'skipped' && adherence.workoutDayId
+      ? getWorkoutDay(adherence.workoutDayId)
+      : null;
+  const skippedSplit = skippedLogId ? markedSplit : null;
   const mark = (status: TrainingDayStatus, skipReason?: SkipReason) => {
     if (!user || !date) return;
     if (status === 'skipped' && !skipReason) {
@@ -125,19 +142,30 @@ export const DayDetailSheet = ({
       <ScrollArea inSheet>
         <Text className="text-lg font-sans-bold text-ink-50">{title}</Text>
 
+        {/* The mark as a summary — what the day was and why — with "Change" as
+         * the only way back to the choices. Re-offering "Mark this day" under
+         * an answered day read as if nothing had been saved. */}
         {adherence ? (
           <View className="mt-2 flex-row items-center gap-2.5">
             <View
               style={{ backgroundColor: adherenceDot(theme, adherence.status) }}
               className="h-2.5 w-2.5 rounded-full"
             />
-            <Text className="text-sm text-ink-200">
+            <Text className="min-w-0 flex-1 text-sm text-ink-200">
               {t(`adherence.logged.${adherence.status}` as TranslationKey)}
               {adherence.skipReason
                 ? ` · ${t(`reason.${adherence.skipReason}` as TranslationKey)}`
                 : ''}
             </Text>
+            {markable && !marking ? (
+              <TextLink label={t('dayDetail.changeMark')} onPress={() => setMarking(true)} />
+            ) : null}
           </View>
+        ) : null}
+        {markedSplit && !skippedLogId ? (
+          <Text className="mt-1.5 text-xs text-ink-400">
+            {t('dayDetail.carriedOver', { split: dayDisplayName(markedSplit, t) })}
+          </Text>
         ) : null}
 
         <View className="mt-2">
@@ -269,7 +297,8 @@ export const DayDetailSheet = ({
             </View>
           ) : null}
 
-          {/* Manual adherence mark — useful with no enrollment or to fix a day. */}
+          {/* Manual adherence mark — useful with no enrollment or to fix a day. An
+           * answered day shows its summary above and opens the choices from "Change". */}
           {markable ? (
             marking ? (
               askingReason ? (
@@ -290,7 +319,7 @@ export const DayDetailSheet = ({
                   ))}
                 </View>
               )
-            ) : (
+            ) : adherence ? null : (
               <Pressable
                 onPress={() => setMarking(true)}
                 accessibilityRole="button"

@@ -49,9 +49,10 @@ export const WeekStrip = () => {
   const [selected, setSelected] = useState<string | null>(null);
 
   const days = trailingDays();
-  const { data } = useLiveQuery(
-    rangeDaysQuery(user?.id ?? '', days[0].key, days[days.length - 1].key),
-  );
+  const from = days[0].key;
+  const to = days[days.length - 1].key;
+  // Deps: the user id can resolve after mount; pinned to '' the strip stayed empty.
+  const { data } = useLiveQuery(rangeDaysQuery(user?.id ?? '', from, to), [user?.id, from, to]);
 
   if (!user) return null;
 

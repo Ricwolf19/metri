@@ -142,6 +142,19 @@ export const splitsForWeekday = (days: readonly ScheduledDay[], weekday: number)
 export const weekdayOfDate = (date: Date): number => date.getDay() + 1;
 
 /**
+ * The split to train next: the first in split order without a session this
+ * week. Splits unlock in order whatever the weekday says — a split whose day
+ * passed untrained is simply still next, carried over to the next session —
+ * so the plan is always finished, never left with a hole. Null once every
+ * split is resolved (the cursor then moves on).
+ */
+export const nextPendingSplit = <T extends ScheduledDay>(
+  days: readonly T[],
+  resolved: ReadonlySet<string>,
+): T | null =>
+  [...days].sort((a, b) => a.orderIndex - b.orderIndex).find((d) => !resolved.has(d.id)) ?? null;
+
+/**
  * The one split planned on a calendar day ('YYYY-MM-DD'), or null when none is
  * or several are (two splits on one weekday: the caller must pick explicitly).
  */

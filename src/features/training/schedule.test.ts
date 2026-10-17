@@ -4,6 +4,7 @@ import {
   deriveTrainingWeekdays,
   formatClockTime,
   isScheduleComplete,
+  nextPendingSplit,
   nextScheduledSplit,
   plannedSplitForDate,
   prefillSchedule,
@@ -212,5 +213,25 @@ describe('plannedSplitForDate', () => {
   it('is null when nothing is planned that weekday, or when two splits share it', () => {
     expect(plannedSplitForDate(days, '2026-09-16')).toBeNull();
     expect(plannedSplitForDate(days, '2026-09-14')).toBeNull();
+  });
+});
+
+describe('nextPendingSplit', () => {
+  // Declared out of order and on weekdays that do not match the order: only
+  // `orderIndex` and the resolved set may decide.
+  const week = [
+    { ...scheduled('pull', 5, 600), orderIndex: 1 },
+    { ...scheduled('legs', 2, 600), orderIndex: 2 },
+    { ...scheduled('push', 7, 600), orderIndex: 0 },
+  ];
+
+  it('is the first split in order with no session this week, whatever the weekday', () => {
+    expect(nextPendingSplit(week, new Set())?.id).toBe('push');
+    expect(nextPendingSplit(week, new Set(['push']))?.id).toBe('pull');
+  });
+
+  it('skips every resolved split, and is null once the week is complete', () => {
+    expect(nextPendingSplit(week, new Set(['push', 'pull']))?.id).toBe('legs');
+    expect(nextPendingSplit(week, new Set(['push', 'pull', 'legs']))).toBeNull();
   });
 });

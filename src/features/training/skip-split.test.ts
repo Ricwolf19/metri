@@ -17,7 +17,7 @@ vi.mock('@/lib/crypto', () => ({ randomId: () => crypto.randomUUID() }));
 vi.mock('./reminders', () => ({ syncTrainingReminder: vi.fn(async () => {}) }));
 
 const { db } = await import('@/db/client');
-const { skipPlannedDay, skipSplitFromPlan, unskipDay } = await import('./skip-split');
+const { skipPlannedDay, unskipDay } = await import('./skip-split');
 const { markTrainingDay } = await import('./adherence.repo');
 
 const U = 'u1';
@@ -93,6 +93,23 @@ const completed = (dayId: string, weekNumber: number) =>
     })
     .run();
 
+const legacySkip = (dayId: string, weekNumber: number) => {
+  const id = crypto.randomUUID();
+  db.insert(workoutLogs)
+    .values({
+      id,
+      userId: U,
+      userProgramId: UP,
+      workoutDayId: dayId,
+      weekNumber,
+      status: 'skipped',
+      completedAt: new Date(),
+      plannedSnapshot: [],
+    })
+    .run();
+  return id;
+};
+
 describe('skipPlannedDay', () => {
   beforeEach(() => {
     for (const t of [
@@ -108,74 +125,56 @@ describe('skipPlannedDay', () => {
     db.insert(users).values({ id: U, email: null, authKind: 'local' }).run();
   });
 
-  it('maps the day onto its planned split, writes the skipped log and the linked mark', () => {
+  it('marks the day missed with its planned split and writes NO log: the split stays pending', () => {
     seed();
     skipPlannedDay(U, MON, 'sick');
-    expect(logs()).toHaveLength(1);
-    expect(logs()[0]).toMatchObject({ status: 'skipped', workoutDayId: 'push', weekNumber: 1 });
+    expect(logs()).toHaveLength(0);
     expect(day(MON)).toMatchObject({
       status: 'skipped',
       skipReason: 'sick',
-      workoutLogId: logs()[0].id,
+      workoutLogId: null,
       workoutDayId: 'push',
     });
     expect(week()).toBe(1);
   });
 
-  it('resolves the week once every split is done or skipped, and says so', () => {
-    seed();
-    completed('push', 1);
-    expect(skipPlannedDay(U, THU, 'busy')).toEqual({ advanced: true });
-    expect(week()).toBe(2);
-  });
-
-  it('writes an adherence-only mark for a day that maps to no split or to one already resolved', () => {
-    seed();
-    skipPlannedDay(U, WED, 'travel');
-    expect(logs()).toHaveLength(0);
-    expect(day(WED)).toMatchObject({ status: 'skipped', workoutLogId: null });
-
-    completed('push', 1);
-    skipPlannedDay(U, MON, 'fatigue');
-    expect(logs().filter((l) => l.status === 'skipped')).toHaveLength(0);
-    expect(day(MON)).toMatchObject({ status: 'skipped', skipReason: 'fatigue' });
-  });
-
-  it('re-marking a skipped day with another reason keeps the undo handle', () => {
-    seed();
-    skipPlannedDay(U, MON, 'sick');
-    const logId = logs()[0].id;
-    skipPlannedDay(U, MON, 'busy');
-    expect(logs()).toHaveLength(1);
-    expect(day(MON)).toMatchObject({ skipReason: 'busy', workoutLogId: logId });
-  });
-
-  it('never overwrites a day already marked trained', () => {
-    seed();
-    markTrainingDay(U, { date: MON, status: 'trained' });
-    skipSplitFromPlan(
-      U,
-      db.select().from(userPrograms).all()[0],
-      {
-        id: 'push',
-        routineId: 'p1',
-        name: 'Push',
-        orderIndex: 0,
-        weekday: 2,
-        startMinute: 600,
-      },
-      'moved',
-      WED,
-    );
-    expect(day(MON).status).toBe('trained');
-    expect(logs()[0]).toMatchObject({ status: 'skipped', workoutDayId: 'push' });
-  });
-
-  it('unskipDay deletes the log, releases the day and rewinds the week', () => {
+  it('never moves the cursor, even when every other split of the week is done', () => {
     seed();
     completed('push', 1);
     skipPlannedDay(U, THU, 'busy');
-    expect(week()).toBe(2);
+    expect(week()).toBe(1);
+    expect(logs().filter((l) => l.status === 'skipped')).toHaveLength(0);
+  });
+
+  it('marks a day that maps to no split without a split link', () => {
+    seed();
+    skipPlannedDay(U, WED, 'travel');
+    expect(day(WED)).toMatchObject({ status: 'skipped', workoutLogId: null, workoutDayId: null });
+  });
+
+  it('re-marking a legacy skipped day with another reason keeps its log link', () => {
+    seed();
+    const logId = legacySkip('push', 1);
+    markTrainingDay(U, {
+      date: MON,
+      status: 'skipped',
+      skipReason: 'sick',
+      workoutLogId: logId,
+      workoutDayId: 'push',
+    });
+    skipPlannedDay(U, MON, 'busy');
+    expect(day(MON)).toMatchObject({
+      skipReason: 'busy',
+      workoutLogId: logId,
+      workoutDayId: 'push',
+    });
+  });
+
+  it('unskipDay deletes a legacy skipped log, releases the day and rewinds the week', () => {
+    seed(2);
+    completed('push', 1);
+    const logId = legacySkip('pull', 1);
+    markTrainingDay(U, { date: THU, status: 'skipped', workoutLogId: logId, workoutDayId: 'pull' });
 
     expect(unskipDay(U, THU)).toBe(true);
     expect(logs().filter((l) => l.status === 'skipped')).toHaveLength(0);

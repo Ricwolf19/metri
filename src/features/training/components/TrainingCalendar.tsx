@@ -71,7 +71,8 @@ export const TrainingCalendar = () => {
   const [ym, setYm] = useState(currentYm);
   const [selected, setSelected] = useState<string | null>(null);
 
-  const { data } = useLiveQuery(monthDaysQuery(user?.id ?? '', ym));
+  // Deps: paging to another month must re-bind the query, not keep the mount month.
+  const { data } = useLiveQuery(monthDaysQuery(user?.id ?? '', ym), [user?.id, ym]);
 
   if (!user) return null;
 

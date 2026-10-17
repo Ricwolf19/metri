@@ -1,7 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
 
-import { PlaySolidIcon } from '@/components/icons';
-import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
+import { ChevronRightIcon, PlaySolidIcon } from '@/components/icons';
 import { useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
@@ -11,45 +10,56 @@ type Props = {
   name: string;
   /** Schedule label ("Mon · 18:00"), null when the split has no schedule. */
   label: string | null;
-  /** `today` = the large brand Play; `other` = the compact chip. */
-  emphasis: 'today' | 'other';
-  disabled: boolean;
-  /** Resolved this program week: `done` greys it, `skipped` marks it in the missed colour. Both stay tappable (a warning upstream). */
+  /** A second line under the label: "Carried over from Monday". */
+  note?: string | null;
+  /** `next` = the large brand Play, the one split that can start; `other` = a compact read-only row. */
+  emphasis: 'next' | 'other';
+  disabled?: boolean;
+  /** Resolved this program week: `done` greys it, `skipped` (legacy) marks it in the missed colour. */
   resolved?: 'done' | 'skipped' | null;
-  onPlay: () => void;
-  /** Offered while unresolved: "not this week" — the plan moves on without a session. */
-  onSkip?: () => void;
+  /** Present on the split up next only. */
+  onPlay?: () => void;
+  /** Opens the read-only preview of the split's exercises. */
+  onOpen: () => void;
 };
 
-/** One split of the active program with its Play control. */
+/**
+ * One split of the active program. Splits unlock in order: the one up next
+ * carries the Play, every other one is a row that opens its exercises to read
+ * — a chevron, never a Play, so a session can only start where the plan is.
+ */
 export const SplitRow = ({
   name,
   label,
+  note = null,
   emphasis,
-  disabled,
+  disabled = false,
   resolved = null,
   onPlay,
-  onSkip,
+  onOpen,
 }: Props) => {
   const t = useT();
   const { brand, brandContrast, muted } = useTheme();
   const done = resolved !== null;
-  const today = emphasis === 'today' && !done;
+  const next = emphasis === 'next' && !done;
 
   return (
-    <View
+    <Pressable
+      onPress={onOpen}
+      accessibilityRole="button"
+      accessibilityLabel={name}
       className={
-        today
+        next
           ? 'flex-row items-center rounded-field border border-brand/30 bg-brand/10 py-3 pl-4 pr-3'
           : done
             ? 'flex-row items-center rounded-field border border-ink-700 bg-ink-850/50 py-2.5 pl-4 pr-2.5'
             : 'flex-row items-center rounded-field border border-ink-600 bg-ink-850 py-2.5 pl-4 pr-2.5'
       }
     >
-      <View className="flex-1">
+      <View className="min-w-0 flex-1">
         <Text
           className={
-            today
+            next
               ? 'text-lg font-sans-bold text-ink-50'
               : done
                 ? 'text-base font-sans-semibold text-ink-500'
@@ -67,40 +77,24 @@ export const SplitRow = ({
         ) : label ? (
           <Text className="mt-0.5 text-xs text-ink-400">{label}</Text>
         ) : null}
+        {note && !done ? <Text className="mt-0.5 text-xs text-info">{note}</Text> : null}
       </View>
-      {onSkip && !done ? (
+      {next && onPlay ? (
         <Pressable
-          onPress={onSkip}
+          onPress={onPlay}
           disabled={disabled}
-          hitSlop={6}
           accessibilityRole="button"
-          accessibilityLabel={t('training.skipSplit')}
-          className={['mr-2 px-2 py-1', disabled ? 'opacity-40' : ''].join(' ')}
+          accessibilityLabel={t('training.playSplit', { name })}
+          className={[
+            'h-14 w-14 items-center justify-center rounded-full bg-brand',
+            disabled ? 'opacity-40' : '',
+          ].join(' ')}
         >
-          <Text
-            maxFontSizeMultiplier={CONTROL_FONT_SCALE}
-            className="text-xs font-sans-semibold text-ink-400 underline"
-          >
-            {t('training.skipAction')}
-          </Text>
+          <PlaySolidIcon color={brandContrast} size={24} />
         </Pressable>
-      ) : null}
-      <Pressable
-        onPress={onPlay}
-        disabled={disabled}
-        accessibilityRole="button"
-        accessibilityLabel={t('training.playSplit', { name })}
-        className={[
-          'items-center justify-center rounded-full',
-          today ? 'h-14 w-14 bg-brand' : done ? 'h-10 w-10 bg-ink-800' : 'h-10 w-10 bg-brand/15',
-          disabled ? 'opacity-40' : '',
-        ].join(' ')}
-      >
-        <PlaySolidIcon
-          color={today ? brandContrast : done ? muted : brand}
-          size={today ? 24 : 16}
-        />
-      </Pressable>
-    </View>
+      ) : (
+        <ChevronRightIcon color={done ? muted : brand} size={18} />
+      )}
+    </Pressable>
   );
 };

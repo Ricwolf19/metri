@@ -3,7 +3,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Text, View } from 'react-native';
 
-import type { SkipReason, WorkoutStatus } from '@/db/schema';
+import type { WorkoutStatus } from '@/db/schema';
 
 import {
   ChevronRightIcon,
@@ -22,9 +22,7 @@ import {
   IconButton,
   PressableScale,
   Screen,
-  Sheet,
   Skeleton,
-  useDialog,
   useToast,
   SectionLabel,
 } from '@/components/ui';
@@ -35,7 +33,7 @@ import { ShareSheet } from '@/features/share/ShareSheet';
 import { slotsQuery } from '@/features/training/authoring.repo';
 import { ProgramCard } from '@/features/training/components/ProgramCard';
 import { presetProgramCopy } from '@/features/training/programs';
-import { SkipReasonChips } from '@/features/training/components/SkipReasonChips';
+import { SplitPreviewSheet } from '@/features/training/components/SplitPreviewSheet';
 import { SplitRow } from '@/features/training/components/SplitRow';
 import { abandonEnrollment, setEnrollmentPosition } from '@/features/training/enroll';
 import {
@@ -46,11 +44,9 @@ import {
 } from '@/features/training/labels';
 import { ownProgramsQuery, recommendedProgramsQuery } from '@/features/training/programs.repo';
 import { syncTrainingReminder } from '@/features/training/reminders';
-import { skipSplitFromPlan } from '@/features/training/skip-split';
 import {
   formatClockTime,
-  nextScheduledSplit,
-  splitsForWeekday,
+  nextPendingSplit,
   weekdayOfDate,
   type ScheduledDay,
 } from '@/features/training/schedule';
@@ -61,21 +57,23 @@ import {
 } from '@/features/training/session.repo';
 import { useEnrollment } from '@/features/training/useEnrollment';
 import { useI18n, useT } from '@/i18n';
+import { useBlockingTask } from '@/lib/useBlockingTask';
 import { useClockFormat } from '@/lib/useClockFormat';
 import { useSpotlight } from '@/features/spotlight/SpotlightProvider';
 import { useTheme } from '@/theme/theme-context';
 
-// Lets the overlay paint before the synchronous write.
-const OVERLAY_PAINT_MS = 50;
-
-/** Train tab: active program (today's splits + Play) first, then own programs, curated presets, create. */
+/**
+ * Train tab: the active program first — the split up next with its Play, the
+ * rest of the week to read — then own programs, curated presets, create.
+ * Splits unlock IN ORDER: a split whose weekday passed is still the one up
+ * next (carried over), so the plan is finished rather than left with a hole.
+ */
 const Training = () => {
   const router = useRouter();
   const t = useT();
   const spotlight = useSpotlight();
   const { locale } = useI18n();
   const toast = useToast();
-  const dialog = useDialog();
   const { user } = useAuth();
   const { brand, muted } = useTheme();
   const clock = useClockFormat();
@@ -100,12 +98,12 @@ const Training = () => {
 
   if (!settled && loaded) setSettled(true);
 
-  // Snapshot on focus: an overnight tab shows the right day without a clock read in render.
-  const [busy, setBusy] = useState<'starting' | 'abandoning' | null>(null);
-  // The split being skipped: a reason is asked in a sheet, then the plan moves on.
-  const [skipping, setSkipping] = useState<ScheduledDay | null>(null);
+  const blocking = useBlockingTask<'starting' | 'abandoning'>();
+  // A split opened to read (the ones not up yet, and the ones already done).
+  const [preview, setPreview] = useState<ScheduledDay | null>(null);
   // The plan as a card: built when asked for, from the current phase's splits.
   const [planShare, setPlanShare] = useState<ShareModel | null>(null);
+  // Snapshot on focus: an overnight tab shows the right day without a clock read in render.
   const [now, setNow] = useState(() => new Date());
   useFocusEffect(useCallback(() => setNow(new Date()), []));
   const today = weekdayOfDate(now);
@@ -113,10 +111,9 @@ const Training = () => {
   if (!user) return null;
 
   const days = structure?.days ?? [];
-  const todaySplits = splitsForWeekday(days, today);
-  const todayIds = new Set(todaySplits.map((d) => d.id));
-  const otherSplits = days.filter((d) => !todayIds.has(d.id));
-  const next = nextScheduledSplit(days, now);
+  const ordered = [...days].sort((a, b) => a.orderIndex - b.orderIndex);
+  const resolvedIds = new Set(completedRows.map((r) => r.dayId));
+  const pending = nextPendingSplit(days, resolvedIds);
   const activeProgramId = structure?.program?.id ?? null;
   const ownVisible = own.filter((p) => p.id !== activeProgramId);
   const recommendedVisible = recommended.filter((p) => p.id !== activeProgramId);
@@ -126,8 +123,6 @@ const Training = () => {
       ? `${t(WEEKDAY_KEY[day.weekday])} · ${formatClockTime(day.startMinute, clock)}`
       : null;
 
-  // Both flows write a tree of rows synchronously; the overlay paints first so
-  // the tap never looks ignored.
   const resolvedStatus = new Map<string, WorkoutStatus>(
     completedRows.map((r) => [r.dayId, r.status]),
   );
@@ -135,34 +130,25 @@ const Training = () => {
     const status = resolvedStatus.get(dayId);
     return status === 'completed' ? 'done' : status === 'skipped' ? 'skipped' : null;
   };
+  // The split up next was planned for another weekday: say so, it is carried over.
+  const carriedNote = (day: ScheduledDay) =>
+    day.weekday != null && day.weekday !== today
+      ? t('training.carriedOver', { day: t(WEEKDAY_KEY[day.weekday]) })
+      : null;
 
+  // Both flows write a tree of rows synchronously; the overlay paints first so
+  // the tap never looks ignored.
   const begin = (dayId: string) => {
     const routine = structure?.currentRoutine;
     if (!enrollment || !routine) return;
-    setBusy('starting');
-    // Read through the captured row, not the live one: by the time the timer
-    // fires the query may have produced a different object.
-    setTimeout(() => {
+    // Read through the captured row, not the live one: by the time the overlay
+    // is up the query may have produced a different object.
+    blocking.start('starting', () => {
       if (enrollment.currentRoutineId !== routine.id) {
         setEnrollmentPosition(enrollment.id, routine.id, enrollment.currentWeek);
       }
       const workout = startWorkout(user.id, enrollment.id, dayId, enrollment.currentWeek, locale);
-      setBusy(null);
       router.push({ pathname: '/training/workout/[id]', params: { id: workout.id } });
-    }, OVERLAY_PAINT_MS);
-  };
-
-  // A split the plan already counts as resolved can still be trained, but not
-  // by accident: a skipped one asks a different question than a finished one.
-  const startDay = (dayId: string) => {
-    const resolved = resolvedAs(dayId);
-    if (!resolved) return begin(dayId);
-    const skipped = resolved === 'skipped';
-    dialog.confirm({
-      title: t(skipped ? 'training.redoSkippedTitle' : 'training.redoTitle'),
-      message: t(skipped ? 'training.redoSkippedBody' : 'training.redoBody'),
-      confirmLabel: t('training.redoConfirm'),
-      onConfirm: () => begin(dayId),
     });
   };
 
@@ -189,22 +175,13 @@ const Training = () => {
     );
   };
 
-  const skip = (reason: SkipReason | null) => {
-    if (!enrollment || !skipping) return;
-    skipSplitFromPlan(user.id, enrollment, skipping, reason);
-    setSkipping(null);
-    toast.info(t('training.skippedToast'));
-  };
-
   const abandon = () => {
     if (!enrollment) return;
-    setBusy('abandoning');
-    setTimeout(() => {
+    blocking.start('abandoning', () => {
       abandonEnrollment(enrollment.id);
       void syncTrainingReminder(user.id);
-      setBusy(null);
       toast.info(t('training.abandonedToast'));
-    }, OVERLAY_PAINT_MS);
+    });
   };
 
   const playDisabled = !!activeWorkout;
@@ -279,52 +256,42 @@ const Training = () => {
               </PressableScale>
             ) : null}
 
-            {todaySplits.length ? (
+            {pending ? (
               <>
                 <Text className="mb-2 mt-5 font-mono-medium text-xs uppercase tracking-wider text-brand">
-                  {t('training.today')}
+                  {t(pending.weekday === today ? 'training.today' : 'training.upNext')}
                 </Text>
-                <View className="gap-2">
-                  {todaySplits.map((day) => (
-                    <SplitRow
-                      key={day.id}
-                      name={dayDisplayName(day, t)}
-                      label={scheduleLabel(day)}
-                      emphasis="today"
-                      resolved={resolvedAs(day.id)}
-                      disabled={playDisabled}
-                      onPlay={() => startDay(day.id)}
-                      onSkip={() => setSkipping(day)}
-                    />
-                  ))}
-                </View>
+                <SplitRow
+                  name={dayDisplayName(pending, t)}
+                  label={scheduleLabel(pending)}
+                  note={carriedNote(pending)}
+                  emphasis="next"
+                  disabled={playDisabled}
+                  onPlay={() => begin(pending.id)}
+                  onOpen={() => setPreview(pending)}
+                />
               </>
-            ) : (
-              <Text className="mt-4 text-sm text-ink-400">
-                {next
-                  ? t('training.restDay', { next: scheduleLabel(next.day) ?? '' })
-                  : t('training.noSchedule')}
-              </Text>
-            )}
+            ) : null}
 
-            {otherSplits.length ? (
+            {ordered.length > 1 ? (
               <>
-                <Text className="mb-2 mt-5 font-mono-medium text-xs uppercase tracking-wider text-ink-300">
-                  {todaySplits.length ? t('training.otherSplits') : t('editor.splits')}
+                <Text className="mb-0.5 mt-5 font-mono-medium text-xs uppercase tracking-wider text-ink-300">
+                  {t('training.thisWeek')}
                 </Text>
+                <Text className="mb-2 text-xs text-ink-500">{t('training.inOrderHint')}</Text>
                 <View className="gap-2">
-                  {otherSplits.map((day) => (
-                    <SplitRow
-                      key={day.id}
-                      name={dayDisplayName(day, t)}
-                      label={scheduleLabel(day)}
-                      emphasis="other"
-                      resolved={resolvedAs(day.id)}
-                      disabled={playDisabled}
-                      onPlay={() => startDay(day.id)}
-                      onSkip={() => setSkipping(day)}
-                    />
-                  ))}
+                  {ordered
+                    .filter((day) => day.id !== pending?.id)
+                    .map((day) => (
+                      <SplitRow
+                        key={day.id}
+                        name={dayDisplayName(day, t)}
+                        label={scheduleLabel(day)}
+                        emphasis="other"
+                        resolved={resolvedAs(day.id)}
+                        onOpen={() => setPreview(day)}
+                      />
+                    ))}
                 </View>
               </>
             ) : null}
@@ -417,26 +384,31 @@ const Training = () => {
           <ChevronRightIcon color={muted} />
         </Card>
       </PressableScale>
-      {/* "Not this week": the reason is the whole form, the plan moves on at once. */}
-      <Sheet visible={skipping !== null} onClose={() => setSkipping(null)}>
-        {/* Sheet content keeps the screen's 20-px gutter (`ScrollArea inSheet` does the same). */}
-        <View className="px-5 pb-6">
-          <Text className="text-lg font-sans-bold text-ink-50">{t('training.skipSplit')}</Text>
-          <Text className="mt-1 text-sm leading-5 text-ink-400">{t('training.skipSplitHint')}</Text>
-          <SkipReasonChips onPick={skip} />
-        </View>
-      </Sheet>
+      <SplitPreviewSheet
+        split={
+          preview && enrollment
+            ? {
+                day: preview,
+                weekNumber: enrollment.currentWeek,
+                title: dayDisplayName(preview, t),
+                subtitle: scheduleLabel(preview),
+              }
+            : null
+        }
+        onClose={() => setPreview(null)}
+      />
       <ShareSheet
         visible={planShare !== null}
         onClose={() => setPlanShare(null)}
         model={planShare}
       />
       <BlockingOverlay
-        visible={busy !== null || !settled}
+        visible={blocking.busy !== null || !settled}
+        onShow={blocking.onShow}
         label={
-          busy === 'abandoning'
+          blocking.busy === 'abandoning'
             ? t('training.abandoning')
-            : busy === 'starting'
+            : blocking.busy === 'starting'
               ? t('training.startingWorkout')
               : t('training.finishing')
         }
