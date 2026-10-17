@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.15.0](https://github.com/Ricwolf19/metri/compare/metri-v1.14.0...metri-v1.15.0) (2026-10-17)
+
+
+### Features
+
+* **content:** french press families and pdf fixes, seed v14 ([e94eecb](https://github.com/Ricwolf19/metri/commit/e94eecb0aac4307d911246758ec6a1abef220c86))
+* **session:** wrapping header, hold to reorder, resume page ([275055c](https://github.com/Ricwolf19/metri/commit/275055cb7347d3d73ac138bf977cb5da1be121ab))
+* **training:** prefill from the current session, keep plates ([c70aeed](https://github.com/Ricwolf19/metri/commit/c70aeed23d789f1f257652f2f991c6ae2a6caf96))
+* **training:** splits unlock in order, missed days carry over ([5d6e09c](https://github.com/Ricwolf19/metri/commit/5d6e09c83e032aa1a38b795e0677625d440ee5f3))
+* **training:** swap scopes, skipped sets and in-place set edits ([b93dc02](https://github.com/Ricwolf19/metri/commit/b93dc029d801ed3d1fdc79027b8c645099107fd1))
+
+
+### Performance Improvements
+
+* **db:** one live query hook, sync first read, one requery per frame ([5ddd333](https://github.com/Ricwolf19/metri/commit/5ddd333973968a0c1cdb23590d1031b56add0987))
+* run blocking work on overlay show, defer heavy blocks ([d51d5fa](https://github.com/Ricwolf19/metri/commit/d51d5fa18824ac650a8d06533d36dbefa4009bd6))
+
 ## [1.14.0](https://github.com/Ricwolf19/metri/compare/metri-v1.13.0...metri-v1.14.0) (2026-10-13)
 
 
