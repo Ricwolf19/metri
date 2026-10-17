@@ -28,7 +28,7 @@ themselves are unmodified. Source slug per file:
 | lying-leg-curl            | lying-leg-curl                     |
 | barbell-curl              | ez-bar-curl                        |
 | hammer-curl               | hammer-curl                        |
-| skullcrusher              | skull-crusher                      |
+| barbell-skullcrusher      | skull-crusher                      |
 | back-extension            | back-extension                     |
 | crunch                    | crunch                             |
 | standing-calf-raise       | standing-calf-raise                |

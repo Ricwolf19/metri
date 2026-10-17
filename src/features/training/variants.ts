@@ -46,7 +46,10 @@ const FAMILIES: readonly (readonly string[])[] = [
     'spider-curl',
     'incline-dumbbell-curl',
   ],
+  // Overhead ("tras nuca") and lying ("press francés") are different movements,
+  // not different kit: two families, each with its own implements.
   ['overhead-tricep-extension', 'cable-overhead-extension', 'french-press'],
+  ['skullcrusher', 'barbell-skullcrusher'],
   ['cable-kickback', 'dumbbell-kickback'],
 ];
 

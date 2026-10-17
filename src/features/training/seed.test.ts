@@ -277,6 +277,9 @@ describe('seedTraining v4', () => {
     expect(ids).toContain('cable-crunch');
     expect(ids).toContain('standing-leg-curl');
     expect(ids).toContain('seated-barbell-press');
+    // v14: PB1's "press francés" is the lying two-dumbbell press.
+    expect(ids).toContain('skullcrusher');
+    expect(ids).not.toContain('french-press');
     expect(ids).not.toContain('crunch');
     expect(ids).not.toContain('overhead-press');
     expect(

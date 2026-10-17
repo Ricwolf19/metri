@@ -46,7 +46,11 @@ export const EXERCISE_NAMES: Record<string, Record<Locale, string>> = {
   'standing-leg-curl': { es: 'Curl femoral de pie a una pierna', en: 'Standing Single-Leg Curl' },
   'barbell-curl': { es: 'Curl de bíceps con barra', en: 'Barbell Bicep Curl' },
   'hammer-curl': { es: 'Curl martillo', en: 'Hammer Curl' },
-  skullcrusher: { es: 'Rompecráneos con mancuernas', en: 'Dumbbell Skullcrusher' },
+  skullcrusher: { es: 'Press francés tumbado con mancuernas', en: 'Lying Dumbbell French Press' },
+  'barbell-skullcrusher': {
+    es: 'Press francés tumbado con barra',
+    en: 'Lying Barbell French Press',
+  },
   'back-extension': { es: 'Extensiones lumbares', en: 'Back Extension' },
   crunch: { es: 'Abdominales', en: 'Crunch' },
   'cable-crunch': { es: 'Crunch en polea', en: 'Cable Crunch' },
@@ -80,14 +84,14 @@ export const EXERCISE_NAMES: Record<string, Record<Locale, string>> = {
   },
   'tricep-pushdown': { es: 'Extensiones de tríceps en polea', en: 'Tricep Pushdown' },
   'overhead-tricep-extension': {
-    es: 'Press francés con mancuerna',
-    en: 'Dumbbell French Press',
+    es: 'Press francés sentado con mancuerna',
+    en: 'Seated Dumbbell French Press',
   },
   'cable-overhead-extension': {
     es: 'Tríceps tras nuca en polea',
     en: 'Cable Overhead Extension',
   },
-  'french-press': { es: 'Press francés', en: 'French Press' },
+  'french-press': { es: 'Press francés sentado con barra', en: 'Seated Barbell French Press' },
   'cable-kickback': { es: 'Kickback en polea', en: 'Cable Kickback' },
   // Equipment variants (seed v10)
   'dumbbell-bench-press': { es: 'Press banca con mancuernas', en: 'Dumbbell Bench Press' },
@@ -796,7 +800,7 @@ const CONTENT: Record<string, Record<Locale, ExerciseContent>> = {
   skullcrusher: {
     es: {
       summary:
-        'Press francés con mancuernas para tríceps: flexión y extensión de codo llevando las mancuernas **a los lados de la cabeza**. Cue principal: las **escápulas son tus pies** en este ejercicio — júntalas y saca pecho para estar estable y tirar con más fuerza.',
+        'Press francés **tumbado** con una mancuerna en cada mano: flexión y extensión de codo llevando las mancuernas **a los lados de la cabeza**. Cue principal: las **escápulas son tus pies** en este ejercicio — júntalas y saca pecho para estar estable y tirar con más fuerza.',
       setup: [
         'Igual que en los preses, las **escápulas (homoplatos) son tus pies** en este ejercicio: te dan estabilidad para tirar con más fuerza.',
         '**Junta las escápulas y saca un poco de pecho**: estarás más estable y podrás tirar con mucha más fuerza.',
@@ -813,7 +817,7 @@ const CONTENT: Record<string, Record<Locale, ExerciseContent>> = {
     },
     en: {
       summary:
-        'Dumbbell French press for the triceps: elbow flexion and extension bringing the dumbbells **to the sides of the head**. Main cue: the **shoulder blades are your feet** in this exercise — bring them together and push your chest out to be stable and pull with more force.',
+        '**Lying** French press with a dumbbell in each hand: elbow flexion and extension bringing the dumbbells **to the sides of the head**. Main cue: the **shoulder blades are your feet** in this exercise — bring them together and push your chest out to be stable and pull with more force.',
       setup: [
         'Just like in the presses, the **shoulder blades (scapulae) are your feet** in this exercise: they give you stability to pull with more force.',
         "**Bring the shoulder blades together and push the chest out a bit**: you'll be more stable and able to pull with much more force.",
@@ -826,6 +830,48 @@ const CONTENT: Record<string, Record<Locale, ExerciseContent>> = {
       mistakes: [],
       notes: [
         "**If your elbow hurts a little** when doing this exercise, you can **open your elbows out a bit more** and do it that way, since it avoids the pain quite a bit. If it doesn't hurt, do it the normal way.",
+      ],
+    },
+  },
+  'barbell-skullcrusher': {
+    es: {
+      summary:
+        'Press francés **tumbado** con barra EZ o recta: flexión y extensión de codo bajando la barra **hacia la frente o justo por detrás de la cabeza**. Cue principal: **codos fijos y apuntando al techo** — solo se mueve el antebrazo.',
+      setup: [
+        'Tumbado en el banco, pies firmes, **escápulas juntas y pecho fuera** para estar estable.',
+        'Agarre cerrado, algo más estrecho que los hombros; la **barra EZ** suele ser más cómoda para la muñeca.',
+        'Brazos extendidos sobre el pecho, ligeramente inclinados hacia la cabeza para mantener tensión en el tríceps.',
+      ],
+      execution: [
+        'Baja **controlando** flexionando solo el codo hasta que la barra quede a la altura de la frente o justo detrás de la cabeza.',
+        'Extiende hasta **casi bloquear**, apretando el tríceps; los codos no se abren ni se desplazan.',
+      ],
+      mistakes: [
+        '**Abrir los codos** hacia fuera: entra el hombro y el tríceps pierde tensión.',
+        '**Mover los brazos** como en un press: si la barra sube y baja en vertical sobre el pecho, es un press cerrado, no una extensión.',
+      ],
+      notes: [
+        '**Si te molesta el codo**, baja la barra algo más por detrás de la cabeza en vez de a la frente: el recorrido es más amable y el tríceps trabaja igual.',
+      ],
+    },
+    en: {
+      summary:
+        '**Lying** French press with an EZ or straight bar: elbow flexion and extension lowering the bar **to the forehead or just behind the head**. Main cue: **elbows fixed and pointing at the ceiling** — only the forearm moves.',
+      setup: [
+        'Lying on the bench, feet planted, **shoulder blades together and chest out** for stability.',
+        'Close grip, a bit narrower than the shoulders; the **EZ bar** is usually kinder to the wrist.',
+        'Arms extended over the chest, tilted slightly toward the head to keep tension on the triceps.',
+      ],
+      execution: [
+        'Lower **under control** bending only the elbow until the bar reaches the forehead or just behind the head.',
+        'Extend to **almost locked out**, squeezing the triceps; the elbows neither flare nor travel.',
+      ],
+      mistakes: [
+        '**Flaring the elbows** out: the shoulder joins in and the triceps loses tension.',
+        '**Moving the arms** like a press: if the bar travels straight up and down over the chest it is a close-grip press, not an extension.',
+      ],
+      notes: [
+        '**If your elbow complains**, lower the bar a little further behind the head instead of to the forehead: the path is kinder and the triceps works just the same.',
       ],
     },
   },
@@ -1889,7 +1935,7 @@ const CONTENT: Record<string, Record<Locale, ExerciseContent>> = {
         '**Dropping into the bottom**: the stretched position is the most demanding; control it.',
       ],
       notes: [
-        'It is the **standing or seated** version of the overhead extension; the skullcrusher (lying) is a separate exercise in the catalog.',
+        'It is the **standing or seated** version of the overhead extension; the lying barbell French press is a separate exercise in the catalog.',
       ],
     },
   },

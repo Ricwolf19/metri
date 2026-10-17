@@ -167,11 +167,19 @@ export const EXERCISE_SEEDS: ExerciseSeed[] = [
   },
   {
     id: 'skullcrusher',
-    name: 'Dumbbell Skullcrusher',
+    name: 'Lying Dumbbell French Press',
     category: 'arms',
     primaryMuscles: ['triceps'],
     secondaryMuscles: [],
     equipment: 'dumbbell',
+  },
+  {
+    id: 'barbell-skullcrusher',
+    name: 'Lying Barbell French Press',
+    category: 'arms',
+    primaryMuscles: ['triceps'],
+    secondaryMuscles: [],
+    equipment: 'barbell',
   },
   {
     id: 'back-extension',
@@ -356,7 +364,7 @@ export const EXERCISE_SEEDS: ExerciseSeed[] = [
   },
   {
     id: 'overhead-tricep-extension',
-    name: 'Dumbbell French Press',
+    name: 'Seated Dumbbell French Press',
     category: 'arms',
     primaryMuscles: ['triceps'],
     secondaryMuscles: [],
@@ -372,7 +380,7 @@ export const EXERCISE_SEEDS: ExerciseSeed[] = [
   },
   {
     id: 'french-press',
-    name: 'French Press',
+    name: 'Seated Barbell French Press',
     category: 'arms',
     primaryMuscles: ['triceps'],
     secondaryMuscles: [],

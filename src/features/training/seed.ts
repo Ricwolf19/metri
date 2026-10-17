@@ -65,9 +65,15 @@ import { warmupSeeds } from './warmup-content';
  * v13 marks the RM-test week on the presets (`routines.rm_test_week`): the
  * routine upsert now refreshes that ONE column on template rows, so the flag
  * reaches existing installs; names and descriptions still never move.
+ *
+ * v14 corrects the presets against the source PDFs: the French press family
+ * splits into lying (`skullcrusher`, new `barbell-skullcrusher`) and overhead
+ * (`overhead-tricep-extension`, `cable-overhead-extension`, `french-press`),
+ * Foundations phase 1 trains the lying dumbbell press, Progression's incline
+ * is the dumbbell exercise (no badge) and its paused seated press the barbell.
  */
 const SEED_KEY = 'training_seed_version';
-const SEED_VERSION = '13';
+const SEED_VERSION = '14';
 
 const alreadySeeded = (): boolean => {
   const [row] = db.select().from(appMeta).where(eq(appMeta.key, SEED_KEY)).all();

@@ -47,6 +47,9 @@ describe('swapOptions', () => {
     expect(
       swapOptions({ exerciseId: 'lying-leg-curl', alternativeExerciseIds: ['leg-extension'] }),
     ).toEqual(['leg-extension', 'standing-leg-curl']);
+    // Lying and overhead French presses are different movements: separate families.
+    expect(equipmentVariants('skullcrusher')).toEqual(['barbell-skullcrusher']);
+    expect(equipmentVariants('french-press')).not.toContain('skullcrusher');
   });
 
   it('offers the planned exercise back after a swap and hides the current one', () => {

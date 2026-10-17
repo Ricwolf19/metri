@@ -77,7 +77,8 @@ const phase1Slots = (week1Sets: number): SlotSeed[] => {
     },
     { exerciseId: 'barbell-curl', restSeconds: REST_DEFAULT, weeks: ramp(12, REST_DEFAULT) },
     { exerciseId: 'seated-barbell-press', restSeconds: REST_HEAVY, weeks: ramp(12, REST_HEAVY) },
-    { exerciseId: 'french-press', restSeconds: REST_DEFAULT, weeks: ramp(12, REST_DEFAULT) },
+    // PB1 "press francés": the course's technique video is the lying two-dumbbell press.
+    { exerciseId: 'skullcrusher', restSeconds: REST_DEFAULT, weeks: ramp(12, REST_DEFAULT) },
   ];
 };
 

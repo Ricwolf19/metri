@@ -95,10 +95,10 @@ const EXERCISE_FRAMES = {
     require('@/assets/exercises/hammer-curl-2.png'),
     require('@/assets/exercises/hammer-curl-3.png'),
   ],
-  skullcrusher: [
-    require('@/assets/exercises/skullcrusher-1.png'),
-    require('@/assets/exercises/skullcrusher-2.png'),
-    require('@/assets/exercises/skullcrusher-3.png'),
+  'barbell-skullcrusher': [
+    require('@/assets/exercises/barbell-skullcrusher-1.png'),
+    require('@/assets/exercises/barbell-skullcrusher-2.png'),
+    require('@/assets/exercises/barbell-skullcrusher-3.png'),
   ],
   'back-extension': [
     require('@/assets/exercises/back-extension-1.png'),

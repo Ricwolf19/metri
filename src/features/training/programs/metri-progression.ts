@@ -83,8 +83,7 @@ export const METRI_PROGRESSION: ProgramSeed = {
               ],
             },
             {
-              exerciseId: 'incline-bench-press',
-              badges: ['Mancuernas'],
+              exerciseId: 'incline-dumbbell-press',
               restSeconds: REST_MAIN,
               weeks: [
                 fail(4, 8, REST_MAIN),
@@ -229,7 +228,7 @@ export const METRI_PROGRESSION: ProgramSeed = {
               ],
             },
             {
-              exerciseId: 'seated-dumbbell-press',
+              exerciseId: 'seated-barbell-press',
               badges: ['Pausa'],
               restSeconds: REST_MAIN,
               weeks: [
@@ -367,8 +366,7 @@ export const METRI_PROGRESSION: ProgramSeed = {
               ],
             },
             {
-              exerciseId: 'incline-bench-press',
-              badges: ['Mancuernas'],
+              exerciseId: 'incline-dumbbell-press',
               restSeconds: REST_MAIN,
               weeks: [
                 fail(4, 8, REST_MAIN),
@@ -514,7 +512,7 @@ export const METRI_PROGRESSION: ProgramSeed = {
               ],
             },
             {
-              exerciseId: 'seated-dumbbell-press',
+              exerciseId: 'seated-barbell-press',
               badges: ['Pausa'],
               restSeconds: REST_MAIN,
               weeks: [
@@ -653,8 +651,7 @@ export const METRI_PROGRESSION: ProgramSeed = {
               ],
             },
             {
-              exerciseId: 'incline-bench-press',
-              badges: ['Mancuernas'],
+              exerciseId: 'incline-dumbbell-press',
               restSeconds: REST_MAIN,
               weeks: [
                 fail(4, 8, REST_MAIN),
@@ -694,7 +691,7 @@ export const METRI_PROGRESSION: ProgramSeed = {
               ],
             },
             {
-              exerciseId: 'french-press',
+              exerciseId: 'barbell-skullcrusher',
               restSeconds: REST_ACCESSORY,
               weeks: [
                 fail(4, 15, REST_ACCESSORY),
@@ -800,7 +797,7 @@ export const METRI_PROGRESSION: ProgramSeed = {
               ],
             },
             {
-              exerciseId: 'seated-dumbbell-press',
+              exerciseId: 'seated-barbell-press',
               badges: ['Pausa'],
               restSeconds: REST_MAIN,
               weeks: [
@@ -855,9 +852,8 @@ export const METRI_PROGRESSION: ProgramSeed = {
                 rir(3, 8, 3, 4, REST_MAIN),
                 rir(3, 8, 2, 3, REST_MAIN),
                 rir(3, 8, 1, 2, REST_MAIN),
-                // Canonical week-4 ladder for the week-3 scheme (3x8 RIR 1-2):
-                // 1x8 RIR 0 + 2x8 RIR 3-4.
-                ladder(groupRir(1, 8, 0, 0), groupRir(2, 8, 3, 4), REST_MAIN),
+                // PB2 phase 3, side D: 1x8 RIR 0 + 2x6 RIR 3-4 (the back-offs drop reps).
+                ladder(groupRir(1, 8, 0, 0), groupRir(2, 6, 3, 4), REST_MAIN),
               ],
             },
             {

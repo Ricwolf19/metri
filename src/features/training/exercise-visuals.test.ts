@@ -10,6 +10,9 @@ describe('visualIdFor', () => {
   it('returns null for catalog ids that ship without frames', () => {
     expect(visualIdFor({ id: 'pullover', name: 'Pullover' })).toBeNull();
     expect(visualIdFor({ id: 'french-press', name: 'French Press' })).toBeNull();
+    // The source's skull crusher draws a bar: it belongs to the barbell variant only.
+    expect(visualIdFor({ id: 'skullcrusher', name: 'Lying Dumbbell French Press' })).toBeNull();
+    expect(visualIdFor({ id: 'barbell-skullcrusher', name: 'x' })).toBe('barbell-skullcrusher');
   });
 
   // A catalog variant must never borrow a sibling's art by name: the standing

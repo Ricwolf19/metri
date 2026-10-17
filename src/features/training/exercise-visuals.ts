@@ -6,8 +6,9 @@ import { EXERCISE_SEEDS } from './exercises.seed';
 /**
  * Catalog exercises with bundled illustration frames
  * (`assets/exercises/<id>-{1..3}.png` — provenance in ATTRIBUTION.md there).
- * `pullover` and `french-press` ship without frames: the source library has
- * no matching movement, and a wrong-movement visual teaches worse than none.
+ * `pullover`, `french-press` and the two-dumbbell `skullcrusher` ship without
+ * frames: the source library has no matching movement (its skull crusher is
+ * the barbell one), and a wrong-movement visual teaches worse than none.
  * The same rule covers every catalog VARIANT without its own art: a standing
  * leg curl borrowed the lying curl's frames by name and taught the wrong
  * movement in the gym, so a catalog id either has its own frames or none.
@@ -28,7 +29,7 @@ const VISUAL_IDS = [
   'lying-leg-curl',
   'barbell-curl',
   'hammer-curl',
-  'skullcrusher',
+  'barbell-skullcrusher',
   'back-extension',
   'crunch',
   'cable-crunch',
