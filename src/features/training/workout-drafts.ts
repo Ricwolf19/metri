@@ -30,6 +30,8 @@ export type SlotCounts = { extra: number };
 type SessionDrafts = {
   rows: ReadonlyMap<DraftKey, RowDraft>;
   counts: ReadonlyMap<string, SlotCounts>;
+  /** The exercise page the lifter was on; the screen reopens there. */
+  focusSlotId?: string;
 };
 
 const EMPTY: SessionDrafts = { rows: new Map(), counts: new Map() };
@@ -94,6 +96,19 @@ export const writeSlotCounts = (logId: string, slotId: string, counts: SlotCount
   next.set(slotId, counts);
   setSession(logId, { ...read(logId), counts: next });
 };
+
+/**
+ * Remember which exercise page is open: leaving training mode unmounts the
+ * screen, and coming back must land on the same exercise, not on the first.
+ * A read-only write (same slot) emits nothing.
+ */
+export const writeFocusSlot = (logId: string, slotId: string): void => {
+  const session = read(logId);
+  if (session.focusSlotId === slotId) return;
+  setSession(logId, { ...session, focusSlotId: slotId });
+};
+
+export const readFocusSlot = (logId: string): string | null => read(logId).focusSlotId ?? null;
 
 /** The session is over — drafts must not leak into a re-run of the same day. */
 export const clearSessionDrafts = (logId: string): void => {

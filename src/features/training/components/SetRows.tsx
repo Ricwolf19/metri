@@ -1,12 +1,38 @@
 import { Pressable, Text, View } from 'react-native';
 
-import { CheckIcon, XIcon } from '@/components/icons';
+import { CheckIcon, SkipIcon, XIcon } from '@/components/icons';
 import type { SetLog } from '@/db/schema';
 import type { Units } from '@/lib/storage';
 import { useTheme } from '@/theme/theme-context';
 
+import { MISSED } from '../adherence-colors';
 import { deleteSet } from '../session.repo';
 import { ConvertibleWeight } from './ConvertibleWeight';
+
+/** A planned set the lifter skipped: it counts as missed; the X restores it. */
+export const SkippedRow = ({
+  label,
+  text,
+  onRestore,
+}: {
+  label: string;
+  text: string;
+  onRestore: () => void;
+}) => {
+  const { muted } = useTheme();
+  return (
+    <View className="flex-row items-center rounded-field border border-red-500/30 bg-red-500/10 px-3 py-2">
+      <View className="mr-2.5 h-5 w-5 items-center justify-center rounded-full bg-red-500/30">
+        <SkipIcon color={MISSED} size={12} />
+      </View>
+      <Text className="w-7 text-xs font-sans-semibold text-red-400">{label}</Text>
+      <Text className="flex-1 text-xs text-red-400">{text}</Text>
+      <Pressable hitSlop={8} onPress={onRestore} accessibilityRole="button">
+        <XIcon color={muted} size={15} />
+      </Pressable>
+    </View>
+  );
+};
 
 /** A set that has not come up yet: the plan, dimmed, no inputs. Sets are done in order. */
 export const PendingRow = ({ label, legend }: { label: string; legend: string | null }) => (
@@ -16,22 +42,33 @@ export const PendingRow = ({ label, legend }: { label: string; legend: string | 
   </View>
 );
 
+/** A set already logged. Tapping the row reopens it in place for a correction; the X deletes it. */
 export const LoggedRow = ({
   label,
   logged,
   unit,
   warmup,
   failureLabel,
+  editHint,
+  onEdit,
 }: {
   label: string;
   logged: SetLog;
   unit: Units;
   warmup: boolean;
   failureLabel: string;
+  editHint?: string;
+  onEdit?: () => void;
 }) => {
   const { brandContrast, muted } = useTheme();
   return (
-    <View className="flex-row items-center rounded-field bg-ink-850 px-3 py-2">
+    <Pressable
+      onPress={onEdit}
+      disabled={!onEdit}
+      accessibilityRole={onEdit ? 'button' : undefined}
+      accessibilityHint={editHint}
+      className="flex-row items-center rounded-field bg-ink-850 px-3 py-2 active:bg-ink-800"
+    >
       <View
         className={[
           'mr-2.5 h-5 w-5 items-center justify-center rounded-full',
@@ -58,6 +95,6 @@ export const LoggedRow = ({
       <Pressable hitSlop={8} onPress={() => deleteSet(logged.id)} accessibilityRole="button">
         <XIcon color={muted} size={15} />
       </Pressable>
-    </View>
+    </Pressable>
   );
 };

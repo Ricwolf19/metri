@@ -27,6 +27,11 @@ type Props = {
    * the current item is never parked off the edge.
    */
   focusX?: number;
+  /**
+   * Draw the edge chevrons (default). A strip that already sits between its own
+   * paging arrows passes false, so the same hint is not drawn twice.
+   */
+  cues?: boolean;
 };
 
 /**
@@ -63,7 +68,14 @@ const Cue = ({ side }: { side: 'left' | 'right' }) => {
  * than a wrapping strip: wrapped badges grow downwards and push the content the
  * screen is about below the fold.
  */
-export const ScrollRow = ({ children, className, contentStyle, centerX, focusX }: Props) => {
+export const ScrollRow = ({
+  children,
+  className,
+  contentStyle,
+  centerX,
+  focusX,
+  cues = true,
+}: Props) => {
   const ref = useRef<ScrollView>(null);
   const [frame, setFrame] = useState(0);
   const [content, setContent] = useState(0);
@@ -122,8 +134,8 @@ export const ScrollRow = ({ children, className, contentStyle, centerX, focusX }
           {children}
         </View>
       </ScrollView>
-      {canLeft ? <Cue side="left" /> : null}
-      {canRight ? <Cue side="right" /> : null}
+      {cues && canLeft ? <Cue side="left" /> : null}
+      {cues && canRight ? <Cue side="right" /> : null}
     </View>
   );
 };

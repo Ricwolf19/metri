@@ -2,19 +2,17 @@ import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { useKeepAwake } from 'expo-keep-awake';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Modal, Pressable, Text, View } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { AppState, Pressable, Text, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import ReorderableList, { reorderItems } from 'react-native-reorderable-list';
 
 import {
   CheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  DragHandleIcon,
   FlameIcon,
   PlusIcon,
   ShareIcon,
+  SkipIcon,
   SwapIcon,
   XIcon,
 } from '@/components/icons';
@@ -26,9 +24,7 @@ import {
   Card,
   ChipRow,
   IconButton,
-  ReorderRow,
   Screen,
-  ScreenTitle,
   ScrollArea,
   SegmentedControl,
   OptionSheet,
@@ -44,6 +40,7 @@ import type {
   PlannedSlot,
   SetGroup,
   SetLog,
+  SwapReason,
   WorkoutLog,
 } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
@@ -54,7 +51,8 @@ import { ActiveSetRow } from '@/features/training/components/ActiveSetRow';
 import { ExerciseFrames } from '@/features/training/components/ExerciseFrames';
 import { MachineLoadChooser } from '@/features/training/components/MachineLoadChooser';
 import { LastTraining } from '@/features/training/components/LastTraining';
-import { LoggedRow, PendingRow } from '@/features/training/components/SetRows';
+import { LoggedRow, PendingRow, SkippedRow } from '@/features/training/components/SetRows';
+import { SwapScopeSheet } from '@/features/training/components/SwapScopeSheet';
 import { SessionNotes } from '@/features/training/components/SessionNotes';
 import { RestTimer } from '@/features/training/components/RestTimer';
 import { StepGroup } from '@/features/training/components/StepGroup';
@@ -68,7 +66,7 @@ import {
 } from '@/features/notifications/rest-notification';
 import { ensureNotificationPermission } from '@/features/notifications/service';
 import { restState, useActiveRest } from '@/features/training/rest-state';
-import { nextSetSummary, type NextSet } from '@/features/training/rest-summary';
+import { nextSetSummary, remainingSets, type NextSet } from '@/features/training/rest-summary';
 import {
   sessionState,
   type ActiveSession,
@@ -88,6 +86,7 @@ import {
   upsertExerciseSetting,
 } from '@/features/training/exercise-settings.repo';
 import {
+  carriedLoadFor,
   defaultHands,
   deriveLoad,
   hasLoadDetail,
@@ -120,10 +119,12 @@ import { sessionBadges } from '@/features/training/session-badges';
 import {
   clearDraft,
   clearDraftLoads,
+  readFocusSlot,
   readSessionDrafts,
   useSessionDrafts,
   useSlotCounts,
   writeDraft,
+  writeFocusSlot,
   writeSlotCounts,
   type Effort,
   type RowDraft,
@@ -131,14 +132,19 @@ import {
 import {
   getWorkout,
   workoutQuery,
+  applySwap,
   logSet,
+  markRemainingSkipped,
+  type SwapScope,
+  skipSnapshotExercise,
+  skipSnapshotSet,
+  updateSet,
   previousSessionSets,
   reorderSnapshot,
   sessionSummary,
   setLogsQuery,
   setWarmupDone,
   suggestedWeight,
-  swapSnapshotExercise,
   type PreviousSession,
   type SessionSummary,
 } from '@/features/training/session.repo';
@@ -147,11 +153,13 @@ import { useI18n, useT, type TFunction } from '@/i18n';
 import { formatNumber, parseDecimal, parseInteger, roundHalf, snapTo } from '@/lib/numbers';
 import { settings, type Units } from '@/lib/storage';
 import { playSound } from '@/lib/sounds';
+import { useBlockingTask } from '@/lib/useBlockingTask';
 import { UNIT_SEGMENTS, useUnits } from '@/lib/useUnits';
 import { useTheme } from '@/theme/theme-context';
 
 // Lets the blocking overlay paint before the synchronous finish work.
-const OVERLAY_PAINT_MS = 50;
+/** How long the "change it on the exercise page" hint stays after a load kind is chosen. */
+const LOAD_HINT_MS = 12_000;
 
 /** The ± jumps on offer: plate-sized for the weight, small for the reps. */
 const WEIGHT_STEPS = [0.5, 1, 1.25, 2.5, 5, 10];
@@ -202,6 +210,24 @@ const ElapsedClock = ({ startedAt }: { startedAt: Date }) => {
     : `${Math.floor(s / 60)}:${pad2(s % 60)}`;
   return <Text className="font-mono-medium text-xs tabular-nums text-ink-300">{label}</Text>;
 };
+/**
+ * Planned ordinals with the logged sets poured into the non-skipped ones in
+ * order: a skipped row keeps its number, the sets after it shift nothing.
+ */
+const rowModel = (
+  total: number,
+  skipped: ReadonlySet<number>,
+  working: readonly SetLog[],
+): { i: number; logged: SetLog | null }[] => {
+  let w = 0;
+  return Array.from({ length: total }, (_, i) => {
+    if (skipped.has(i)) return { i, logged: null };
+    const logged = working[w] ?? null;
+    if (logged) w += 1;
+    return { i, logged };
+  });
+};
+
 /** The row the action bar drives: a pending warm-up first, else the next working set. */
 type RowKey = string;
 
@@ -220,6 +246,8 @@ type CardProps = {
   loadSetting: ExerciseSetting | null;
   userId: string;
   requestEffort: RequestEffort;
+  /** A set or the whole exercise was just marked missed: page on like a logged set would. */
+  onSkipped: (patched: PlannedSlot) => void;
   onLogged: (info: {
     restSeconds: number;
     slotId: string;
@@ -240,14 +268,18 @@ const ExerciseCard = ({
   loadSetting,
   userId,
   requestEffort,
+  onSkipped,
   onLogged,
 }: CardProps) => {
   const t = useT();
   const { locale } = useI18n();
   const router = useRouter();
   const toast = useToast();
+  const dialog = useDialog();
   const { brand, muted } = useTheme();
   const [variantsOpen, setVariantsOpen] = useState(false);
+  // A variant picked but not yet scoped: the scope sheet asks why and for how long.
+  const [pendingVariant, setPendingVariant] = useState<string | null>(null);
   const [weightStep, setWeightStep] = useState(() => settings.getWeightStep());
   const [repsStep, setRepsStep] = useState(() => settings.getRepsStep());
   // Drafts live in a module store keyed by workoutLogId: paging to another
@@ -256,12 +288,25 @@ const ExerciseCard = ({
   const drafts = useSessionDrafts(workoutLogId);
   const { extra: extraRows } = useSlotCounts(workoutLogId, planned.slotId);
   const [calcOpen, setCalcOpen] = useState(false);
+  // A logged set reopened for a correction; its draft lives under `edit:<id>`.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  // Shown once a machine's load kind is chosen: where to change it later.
+  const [loadHint, setLoadHint] = useState(false);
+  useEffect(() => {
+    if (!loadHint) return;
+    const id = setTimeout(() => setLoadHint(false), LOAD_HINT_MS);
+    return () => clearTimeout(id);
+  }, [loadHint]);
 
   const rows = useMemo(() => expandRows(planned.setGroups, t), [planned.setGroups, t]);
   const working = sets.filter((s) => !s.isWarmup);
   const doneCount = working.length;
-  const planDone = doneCount >= rows.length;
-  const totalRows = Math.max(rows.length, doneCount) + extraRows;
+  // Skipped rows are settled like logged ones: they hold their ordinal and
+  // the live row sits after the last settled one.
+  const skippedSet = new Set(planned.skippedSets ?? []);
+  const resolvedCount = doneCount + skippedSet.size;
+  const planDone = resolvedCount >= rows.length;
+  const totalRows = Math.max(rows.length, resolvedCount) + extraRows;
   // Snapshots from before the badges key existed carry `undefined` — normalize
   // instead of letting the row read `.length` off nothing.
   const badges = sessionBadges(planned.badges);
@@ -289,22 +334,33 @@ const ExerciseCard = ({
   // what the row asks for, so the card asks first.
   const needsMachineKind =
     facts?.equipment === 'machine' && machineLoadKind(loadSetting?.load) === null;
-  const activeKey: RowKey | null = doneCount < totalRows ? `${doneCount}` : null;
+  const activeKey: RowKey | null = resolvedCount < totalRows ? `${resolvedCount}` : null;
+  const editing = editingId ? (working.find((s) => s.id === editingId) ?? null) : null;
+  const editKey: RowKey | null = editing ? `edit:${editing.id}` : null;
+  // Which planned row a logged set sits on: skipped ordinals shift the rest down.
+  const model = rowModel(totalRows, skippedSet, working);
+  const editIndex = editing ? model.findIndex((r) => r.logged?.id === editing.id) : -1;
+  /** The row the control bar and the sheet drive: the correction in progress, else the live row. */
+  const focusKey = editKey ?? activeKey;
 
   /** Store keys carry the slotId so drafts from different exercises never mix. */
   const storeKey = (key: RowKey) => `${planned.slotId}:${key}`;
 
-  /** A seeded row's detail: the previous one when it still describes the number, else derived. */
-  const seededLoad = (draft: RowDraft, carried: LoadDetail | null): LoadDetail | null =>
-    // Per side is always re-derived against the CURRENT base (the bar may differ).
-    perSide ? deriveFor(draft) : (carried ?? deriveFor(draft));
+  /** A seeded row's detail: the inherited one while it still describes the number, else derived. */
+  const seededLoad = (draft: RowDraft, carried: LoadDetail | null): LoadDetail | null => {
+    if (!perSide) return carried ?? deriveFor(draft);
+    const typed = parseDecimal(draft.weight);
+    const kg = typed == null ? null : unit === 'lb' ? lbToKg(typed) : typed;
+    return carriedLoadFor(carried, perSide.baseKg, kg) ?? deriveFor(draft);
+  };
   const seedDraft = (key: RowKey): RowDraft => {
     const i = Number(key);
-    // Set i of the previous session of this exercise seeds set i here; the set
-    // just completed and the suggestion only apply with no history.
+    // Set 1 opens on last session's set 1; every later set on the set just
+    // logged here (see `nextSetPrefill`).
     const fill = nextSetPrefill({
       index: i,
       planReps: rows[i]?.reps,
+      prevPlanReps: i > 0 ? rows[i - 1]?.reps : undefined,
       previous: previousSets,
       logged: working,
       suggestedKg: suggested,
@@ -317,11 +373,23 @@ const ExerciseCard = ({
     };
     return { ...draft, load: seededLoad(draft, fill.load) };
   };
-  const draftFor = (key: RowKey): RowDraft => drafts.get(storeKey(key)) ?? seedDraft(key);
+  /** A correction starts from what was logged — never from history. */
+  const editSeed = (logged: SetLog): RowDraft => ({
+    weight: weightText(logged.weightKg, unit),
+    reps: String(logged.reps),
+    effort:
+      logged.rir != null || logged.isFailure
+        ? { rir: logged.rir, failure: logged.isFailure }
+        : null,
+    load: logged.load ?? null,
+  });
+  const seedFor = (key: RowKey): RowDraft =>
+    key === editKey && editing ? editSeed(editing) : seedDraft(key);
+  const draftFor = (key: RowKey): RowDraft => drafts.get(storeKey(key)) ?? seedFor(key);
   // The store, not the render snapshot: two writes in one handler (snap, then
   // log) must each see the other.
   const freshDraft = (key: RowKey): RowDraft =>
-    readSessionDrafts(workoutLogId).get(storeKey(key)) ?? seedDraft(key);
+    readSessionDrafts(workoutLogId).get(storeKey(key)) ?? seedFor(key);
   // Every change to the number re-derives how it is built (`deriveLoad`), so a
   // ± tap keeps the plates; the sheet is the one caller that hands its own `load`.
   const patchDraft = (key: RowKey, patch: Partial<RowDraft>) => {
@@ -373,48 +441,46 @@ const ExerciseCard = ({
     writeSlotCounts(workoutLogId, planned.slotId, { extra: Math.max(0, n) });
 
   const bump = (field: 'weight' | 'reps', delta: number) => {
-    if (!activeKey) return;
-    const draft = freshDraft(activeKey);
+    if (!focusKey) return;
+    const draft = freshDraft(focusKey);
     // On a plate-loaded row the ± steps the SIDE: that is the number in hand,
     // and the total plus its plates follow from it.
     if (field === 'weight' && perSide) {
-      setSide(activeKey, bumpValue(parseDecimal(sideOf(draft)) ?? 0, delta));
+      setSide(focusKey, bumpValue(parseDecimal(sideOf(draft)) ?? 0, delta));
       return;
     }
     const current = parseDecimal(draft[field]) ?? 0;
     // Weight keeps every typed decimal (no silent plate rounding); reps stay ≥ 1.
     const next =
       field === 'weight' ? bumpValue(current, delta) : String(Math.max(1, current + delta));
-    patchDraft(activeKey, { [field]: next } as Partial<RowDraft>);
+    patchDraft(focusKey, { [field]: next } as Partial<RowDraft>);
   };
 
-  const confirm = async (key: RowKey) => {
+  /** The typed row as numbers, or null after the toast that names what is missing. */
+  const readDraft = (key: RowKey, wantsEffort: boolean) => {
     // The check is tapped without leaving the field, so the blur snap runs here too.
     snapDraft(key);
     const draft = freshDraft(key);
-    const index = Number(key);
     const w = parseDecimal(draft.weight);
     // Reps are whole: a "8.5" is a typo, not half a rep.
     const r = parseInteger(draft.reps);
     if (w == null) {
       toast.error(t('training.needWeight'));
-      return;
+      return null;
     }
     if (r == null || r <= 0) {
       toast.error(t('training.needReps'));
-      return;
+      return null;
     }
     // A prescription that measures effort is not logged without it: the RIR
     // chip in the action bar picks it, the check only reminds.
     const effort = draft.effort;
-    if (rows[index]?.wantsEffort && !effort) {
+    if (wantsEffort && !effort) {
       toast.error(t('training.needRir'));
-      return;
+      return null;
     }
     const weightKg = unit === 'lb' ? lbToKg(w) : w;
-    const logged = logSet({
-      workoutLogId,
-      exerciseId: planned.exerciseId,
+    return {
       weightKg,
       reps: r,
       load: reconcileLoad({
@@ -425,7 +491,14 @@ const ExerciseCard = ({
       }),
       rir: effort?.rir ?? null,
       isFailure: effort?.failure ?? false,
-    });
+    };
+  };
+
+  const confirm = async (key: RowKey) => {
+    const index = Number(key);
+    const read = readDraft(key, !!rows[index]?.wantsEffort);
+    if (!read) return;
+    const logged = logSet({ workoutLogId, exerciseId: planned.exerciseId, ...read });
     clearDraft(workoutLogId, storeKey(key));
     onLogged({
       restSeconds: planned.restSeconds ?? 120,
@@ -435,11 +508,29 @@ const ExerciseCard = ({
     });
   };
 
+  /** Rewrite the set being corrected; no rest and no advance — nothing new happened. */
+  const confirmEdit = () => {
+    if (!editing || !editKey) return;
+    const read = readDraft(editKey, !!rows[editIndex]?.wantsEffort);
+    if (!read) return;
+    updateSet(editing.id, read);
+    clearDraft(workoutLogId, storeKey(editKey));
+    setEditingId(null);
+  };
+  const cancelEdit = () => {
+    if (editKey) clearDraft(workoutLogId, storeKey(editKey));
+    setEditingId(null);
+  };
+  const startEdit = (id: string) => {
+    if (editKey) clearDraft(workoutLogId, storeKey(editKey));
+    setEditingId(id);
+  };
+
   const pickEffort = async () => {
-    if (!activeKey) return;
+    if (!focusKey) return;
     const picked = await requestEffort();
     if (picked)
-      patchDraft(activeKey, { effort: picked.rir == null && !picked.failure ? null : picked });
+      patchDraft(focusKey, { effort: picked.rir == null && !picked.failure ? null : picked });
   };
 
   // The variant picker is the shared Select, listing the exercise on the card
@@ -450,20 +541,67 @@ const ExerciseCard = ({
     return e ? [{ value: id, label: exerciseDisplayName(e, locale) }] : [];
   });
   const pickVariant = (id: string) => {
-    if (id === planned.exerciseId) return;
-    const e = getExercise(id);
+    if (id === planned.exerciseId || !getExercise(id)) return;
+    setPendingVariant(id);
+  };
+  const confirmSwap = ({ reason, scope }: { reason: SwapReason; scope: SwapScope }) => {
+    const e = pendingVariant ? getExercise(pendingVariant) : null;
+    setPendingVariant(null);
     if (!e) return;
-    swapSnapshotExercise(workoutLogId, planned.slotId, e.id, e.name);
+    applySwap({
+      logId: workoutLogId,
+      slotId: planned.slotId,
+      exerciseId: e.id,
+      exerciseName: exerciseDisplayName(e, locale),
+      reason,
+      scope,
+    });
     clearDraftLoads(workoutLogId, planned.slotId);
   };
+  // Skips are confirmed with a hold: they write "missed" into the session.
+  const skipSet = () => {
+    if (!activeKey) return;
+    const index = Number(activeKey);
+    dialog.confirm({
+      title: t('training.skipSetTitle', { n: index + 1 }),
+      message: t('training.skipSetBody'),
+      confirmLabel: t('training.skipSet'),
+      destructive: true,
+      onConfirm: () => {
+        skipSnapshotSet(workoutLogId, planned.slotId, index, true);
+        clearDraft(workoutLogId, storeKey(activeKey));
+        onSkipped({
+          ...planned,
+          skippedSets: [...(planned.skippedSets ?? []), index].sort((a, b) => a - b),
+        });
+      },
+    });
+  };
+  const restoreSet = (index: number) => skipSnapshotSet(workoutLogId, planned.slotId, index, false);
+  const skipExercise = () =>
+    dialog.confirm({
+      title: t('training.skipExerciseTitle'),
+      message: t('training.skipExerciseBody'),
+      confirmLabel: t('training.skipExercise'),
+      destructive: true,
+      onConfirm: () => {
+        skipSnapshotExercise(workoutLogId, planned.slotId, true);
+        onSkipped({ ...planned, skipped: { at: Date.now() } });
+      },
+    });
+  const restoreExercise = () => skipSnapshotExercise(workoutLogId, planned.slotId, false);
 
-  const activeDraft = activeKey ? draftFor(activeKey) : null;
-  const activeRow = activeKey ? (rows[Number(activeKey)] ?? null) : null;
+  const focusDraft = focusKey ? draftFor(focusKey) : null;
+  const focusRow = editing
+    ? (rows[editIndex] ?? null)
+    : activeKey
+      ? (rows[Number(activeKey)] ?? null)
+      : null;
   const detailActive = hasLoadDetail(loadSetting);
   /** The typed values against the same set last time; nothing for warm-ups or without history. */
-  const trendsFor = (key: RowKey, draft: RowDraft) => {
+  const trendsFor = (index: number, draft: RowDraft) => {
     const none = { weight: null, reps: null };
-    const ref = previousSetFor(previousSets, Number(key));
+    const ref = previousSetFor(previousSets, index);
     if (!ref) return none;
     const typed = parseDecimal(draft.weight);
     const typedKg = typed == null ? null : unit === 'lb' ? lbToKg(typed) : typed;
@@ -516,6 +654,7 @@ const ExerciseCard = ({
     upsertExerciseSetting(userId, planned.exerciseId, {
       load: kind === 'post' ? POST_MACHINE_SEED : PLATE_MACHINE_SEED,
     });
+    setLoadHint(true);
   };
 
   const visualId = visualIdFor({ id: planned.exerciseId, name: planned.name });
@@ -551,6 +690,17 @@ const ExerciseCard = ({
               <SwapIcon color={muted} size={17} />
             </Pressable>
           ) : null}
+          {!planned.skipped ? (
+            <Pressable
+              onPress={skipExercise}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t('training.skipExercise')}
+              className="h-8 w-8 items-center justify-center"
+            >
+              <SkipIcon color={muted} size={17} />
+            </Pressable>
+          ) : null}
           <ExerciseDocButton exerciseId={planned.exerciseId} size={17} />
         </View>
       </View>
@@ -561,6 +711,14 @@ const ExerciseCard = ({
         items={variantItems}
         value={planned.exerciseId}
         onChange={pickVariant}
+      />
+      <SwapScopeSheet
+        visible={pendingVariant !== null}
+        exerciseName={
+          pendingVariant ? (variantItems.find((v) => v.value === pendingVariant)?.label ?? '') : ''
+        }
+        onClose={() => setPendingVariant(null)}
+        onConfirm={confirmSwap}
       />
 
       {/* Cues and facts share ONE line — a second strip pushed the sets down. */}
@@ -601,13 +759,71 @@ const ExerciseCard = ({
         <View className="mt-3 rounded-field border border-ink-700 bg-ink-850 px-3 py-2.5">
           <MachineLoadChooser value={null} onChange={chooseMachineKind} />
         </View>
+      ) : loadHint ? (
+        <View className="mt-3 flex-row flex-wrap items-center gap-x-1.5">
+          <Text className="text-xs text-ink-400">{t('training.loadTypeSaved')}</Text>
+          <TextLink
+            label={t('training.loadTypeChange')}
+            onPress={() =>
+              router.push({
+                pathname: '/training/exercise/[id]',
+                params: { id: planned.exerciseId },
+              })
+            }
+          />
+        </View>
       ) : null}
 
-      <View className="mt-3 gap-1.5">
-        {Array.from({ length: totalRows }, (_, i) => {
+      {planned.skipped ? (
+        <View className="mt-3 flex-row items-center justify-between gap-3 rounded-field border border-red-500/30 bg-red-500/10 px-3 py-2.5">
+          <Text className="flex-1 text-sm font-sans-semibold text-red-400">
+            {t('training.skippedExercise')}
+          </Text>
+          <TextLink label={t('training.restore')} onPress={restoreExercise} />
+        </View>
+      ) : null}
+
+      <View className={planned.skipped ? 'hidden' : 'mt-3 gap-1.5'}>
+        {model.map(({ i, logged }) => {
           const key = `${i}`;
-          const logged = working[i] ?? null;
           const row = rows[i] ?? null;
+          const legend = row ? targetLine(row, t) : null;
+          if (skippedSet.has(i)) {
+            return (
+              <SkippedRow
+                key={key}
+                label={String(i + 1)}
+                text={t('training.skippedSet')}
+                onRestore={() => restoreSet(i)}
+              />
+            );
+          }
+          if (logged && editKey && logged.id === editingId) {
+            const draft = draftFor(editKey);
+            const trend = trendsFor(i, draft);
+            const cap = rowCaption(draft);
+            return (
+              <ActiveSetRow
+                key={editKey}
+                label={t('training.setEditing', { n: i + 1 })}
+                legend={legend}
+                draft={draft}
+                unit={unit}
+                placeholder={row ? `${row.reps}${row.repsMax ? `-${row.repsMax}` : ''}` : '0'}
+                onChange={(patch) => patchDraft(editKey, patch)}
+                onConfirm={confirmEdit}
+                onRemove={cancelEdit}
+                onOpenCalculator={() => setCalcOpen(true)}
+                detailActive={detailActive}
+                caption={cap.text}
+                breakdown={cap.breakdown}
+                weightTrend={trend.weight}
+                repsTrend={trend.reps}
+                side={sideInputFor(editKey, draft)}
+                onBlurWeight={() => snapDraft(editKey)}
+              />
+            );
+          }
           if (logged) {
             return (
               <LoggedRow
@@ -617,15 +833,16 @@ const ExerciseCard = ({
                 unit={unit}
                 warmup={false}
                 failureLabel={t('training.failure')}
+                editHint={t('training.editSetHint')}
+                onEdit={() => startEdit(logged.id)}
               />
             );
           }
-          const legend = row ? targetLine(row, t) : null;
           if (key !== activeKey) {
             return <PendingRow key={key} label={String(i + 1)} legend={legend} />;
           }
           const draft = draftFor(key);
-          const trend = trendsFor(key, draft);
+          const trend = trendsFor(i, draft);
           const cap = rowCaption(draft);
           return (
             <ActiveSetRow
@@ -637,6 +854,7 @@ const ExerciseCard = ({
               placeholder={row ? `${row.reps}${row.repsMax ? `-${row.repsMax}` : ''}` : '0'}
               onChange={(patch) => patchDraft(key, patch)}
               onConfirm={() => void confirm(key)}
+              onSkip={row ? skipSet : undefined}
               onOpenCalculator={() => setCalcOpen(true)}
               detailActive={detailActive}
               caption={cap.text}
@@ -651,7 +869,7 @@ const ExerciseCard = ({
       </View>
 
       {/* One control bar per card, always in the same place, driving the live row. */}
-      {activeKey && activeDraft ? (
+      {focusKey && focusDraft && !planned.skipped ? (
         <View className="mt-2.5 flex-row items-end gap-2 border-t border-ink-800 pt-2.5">
           <StepGroup
             accessibilityLabel={`${t('training.weight')} (${unit})`}
@@ -681,30 +899,30 @@ const ExerciseCard = ({
             accessibilityLabel={t('training.effortTitle')}
             className={[
               'h-9 flex-row items-center justify-center gap-1 rounded-field border px-3',
-              activeDraft.effort
-                ? activeDraft.effort.failure
+              focusDraft.effort
+                ? focusDraft.effort.failure
                   ? 'border-red-400/50 bg-red-500/15'
                   : 'border-brand/40 bg-brand/10'
-                : activeRow?.wantsEffort
+                : focusRow?.wantsEffort
                   ? 'border-brand/25 bg-ink-800'
                   : 'border-ink-700 bg-ink-800',
             ].join(' ')}
           >
-            {activeDraft.effort?.failure ? <FlameIcon color="#f87171" size={14} /> : null}
+            {focusDraft.effort?.failure ? <FlameIcon color="#f87171" size={14} /> : null}
             <Text
               className={[
                 'text-xs font-sans-semibold',
-                activeDraft.effort
-                  ? activeDraft.effort.failure
+                focusDraft.effort
+                  ? focusDraft.effort.failure
                     ? 'text-red-400'
                     : 'text-brand'
                   : 'text-ink-200',
               ].join(' ')}
             >
-              {activeDraft.effort
-                ? activeDraft.effort.failure
+              {focusDraft.effort
+                ? focusDraft.effort.failure
                   ? t('training.failure')
-                  : `RIR ${activeDraft.effort.rir}`
+                  : `RIR ${focusDraft.effort.rir}`
                 : 'RIR'}
             </Text>
           </Pressable>
@@ -731,17 +949,20 @@ const ExerciseCard = ({
         visible={calcOpen}
         onClose={() => setCalcOpen(false)}
         unit={unit}
-        initialWeight={activeDraft?.weight ?? ''}
-        initialLoad={activeDraft?.load ?? loadSetting?.load ?? null}
+        initialWeight={focusDraft?.weight ?? ''}
+        initialLoad={focusDraft?.load ?? loadSetting?.load ?? null}
         equipment={facts?.equipment ?? null}
         unilateral={!!facts?.unilateral}
         preferMode={needsMachineKind ? 'machine' : undefined}
         onApply={({ weightText, load, changed }) => {
-          if (!activeKey) return;
+          if (!focusKey) return;
           // `side` is dropped on purpose: the sheet may have changed the base,
           // and the row re-splits the total over the base it renders with.
-          patchDraft(activeKey, { weight: weightText, load, side: undefined });
-          if (changed && load) upsertExerciseSetting(userId, planned.exerciseId, { load });
+          patchDraft(focusKey, { weight: weightText, load, side: undefined });
+          if (changed && load) {
+            upsertExerciseSetting(userId, planned.exerciseId, { load });
+            if (needsMachineKind) setLoadHint(true);
+          }
         }}
       />
     </Card>
@@ -755,7 +976,7 @@ const WorkoutSession = () => {
   const t = useT();
   const dialog = useDialog();
   const { user } = useAuth();
-  const { brandContrast, muted, danger } = useTheme();
+  const { brand, brandContrast, muted, danger } = useTheme();
   // The unmount can outlive the Activity (process killed, reload, OS teardown);
   // releasing the lock then rejects, and there is nothing left to keep awake.
   useKeepAwake(undefined, { suppressDeactivateWarnings: true });
@@ -774,11 +995,15 @@ const WorkoutSession = () => {
   }, [id]);
 
   const { units: unit, setUnits } = useUnits();
-  const [reordering, setReordering] = useState(false);
-  const [orderDraft, setOrderDraft] = useState<PlannedSlot[]>([]);
+  // The chip a hold picked up: the paging arrows move it instead of paging,
+  // until a tap on the strip puts it down.
+  const [lifted, setLifted] = useState<string | null>(null);
   const [cardIndex, setCardIndex] = useState(() => {
     const snapshot = typeof id === 'string' ? (getWorkout(id)?.plannedSnapshot ?? []) : [];
-    const i = focusSlot ? snapshot.findIndex((p) => p.slotId === focusSlot) : -1;
+    // A notification's `?slot=` wins; otherwise the page the lifter left open
+    // (leaving training mode unmounts this screen; coming back must not reset).
+    const wanted = focusSlot ?? (typeof id === 'string' ? readFocusSlot(id) : null);
+    const i = wanted ? snapshot.findIndex((p) => p.slotId === wanted) : -1;
     return Math.max(0, i);
   });
   // The screen is singular per workout (`workoutScreenId`), so a later push —
@@ -797,12 +1022,18 @@ const WorkoutSession = () => {
   useEffect(() => {
     return () => effortResolveRef.current?.(null);
   }, []);
+  // The page in view, remembered for the next mount of this screen (the user
+  // left training mode and came back). Above the early returns: hooks order.
+  const focusedSlotId = log?.plannedSnapshot?.[cardIndex]?.slotId ?? null;
+  useEffect(() => {
+    if (logId && focusedSlotId) writeFocusSlot(logId, focusedSlotId);
+  }, [logId, focusedSlotId]);
   const activeRest = useActiveRest();
   const rest = activeRest?.workoutId === log?.id ? activeRest : null;
   const [summary, setSummary] = useState<SessionSummary | null>(null);
   // The share sheet holds the summary's ring while it is up.
   const [sharing, setSharing] = useState(false);
-  const [busy, setBusy] = useState<'finishing' | 'discarding' | null>(null);
+  const blocking = useBlockingTask<'finishing' | 'discarding'>();
 
   const day = workoutDayId ? getWorkoutDay(workoutDayId) : null;
   const routine = day ? getRoutine(day.routineId) : null;
@@ -843,9 +1074,12 @@ const WorkoutSession = () => {
   }, [log?.id, prefillKey]);
 
   // An exercise is done when its planned working sets are all logged.
+  const plannedSetsOf = (p: PlannedSlot) => p.setGroups.reduce((x, g) => x + g.sets, 0);
   const doneSlot = (p: PlannedSlot): boolean =>
-    sets.filter((x) => !x.isWarmup && x.exerciseId === p.exerciseId).length >=
-    p.setGroups.reduce((x, g) => x + g.sets, 0);
+    !p.skipped &&
+    sets.filter((x) => !x.isWarmup && x.exerciseId === p.exerciseId).length +
+      (p.skippedSets?.length ?? 0) >=
+      plannedSetsOf(p);
   const workingSetsFor = (exerciseId: string) =>
     sets.filter((s) => !s.isWarmup && s.exerciseId === exerciseId);
   const doneFor = (exerciseId: string) => workingSetsFor(exerciseId).length;
@@ -863,13 +1097,15 @@ const WorkoutSession = () => {
     if (upcoming.kind === 'done') return null;
     const slot = planned.find((p) => p.slotId === upcoming.slotId);
     if (!slot) return null;
-    const row = expandRows(slot.setGroups, t)[upcoming.setNumber - 1];
+    const rows = expandRows(slot.setGroups, t);
+    const row = rows[upcoming.setNumber - 1];
     const logged = workingSetsFor(slot.exerciseId);
     if (justLogged?.exerciseId === slot.exerciseId && !logged.some((s) => s.id === justLogged.id))
       logged.push(justLogged);
     const fill = nextSetPrefill({
       index: upcoming.setNumber - 1,
       planReps: row?.reps,
+      prevPlanReps: upcoming.setNumber > 1 ? rows[upcoming.setNumber - 2]?.reps : undefined,
       previous: previousBySlot.get(slot.slotId)?.sets ?? [],
       logged,
       suggestedKg: suggestedBySlot.get(slot.slotId) ?? null,
@@ -935,7 +1171,12 @@ const WorkoutSession = () => {
     0,
   );
   const doneSets = sets.filter((s) => !s.isWarmup).length;
-  const progress = totalPlannedSets ? Math.min(1, doneSets / totalPlannedSets) : 0;
+  // Skipped sets fill the bar too: the session is "settled", not "trained".
+  const settledSets = planned.reduce(
+    (sum, p) => sum + (p.skipped ? plannedSetsOf(p) : (p.skippedSets?.length ?? 0)),
+    doneSets,
+  );
+  const progress = totalPlannedSets ? Math.min(1, settledSets / totalPlannedSets) : 0;
 
   const requestEffort: RequestEffort = () =>
     new Promise((resolve) => {
@@ -950,7 +1191,25 @@ const WorkoutSession = () => {
 
   // Confirmed before anything happens: the two header buttons sit side by side,
   // and ending a session by a mis-tap cannot be undone.
-  const finish = () =>
+  const finish = (plannedNow: PlannedSlot[]) => {
+    const open = remainingSets(plannedNow, doneFor);
+    // Planned sets still open are MISSED, not forgotten: the hold writes them
+    // into the session as skipped before it closes.
+    if (open > 0) {
+      dialog.confirm({
+        title: t('training.unfilledTitle', { n: open }),
+        message: t('training.unfilledBody'),
+        confirmLabel: t('training.markMissed'),
+        cancelLabel: t('training.keepTraining'),
+        destructive: true,
+        onConfirm: () => {
+          markRemainingSkipped(log.id);
+          playSound('sessionDone');
+          setSummary(sessionSummary(log.id, locale));
+        },
+      });
+      return;
+    }
     dialog.confirm({
       title: t('training.finishConfirm'),
       message: t('training.finishConfirmBody'),
@@ -960,6 +1219,29 @@ const WorkoutSession = () => {
         setSummary(sessionSummary(log.id, locale));
       },
     });
+  };
+
+  /**
+   * After a set is settled (logged or skipped): page to the next exercise with
+   * sets left, or — with nothing left anywhere — ask to finish, so the last
+   * check is the end. Reads the snapshot it is handed: the live query lags a
+   * skip by a tick.
+   */
+  const advanceAfter = (plannedNow: PlannedSlot[], slotId: string, doneInSlot: number) => {
+    const upcoming = nextSetSummary(plannedNow, slotId, doneInSlot, doneFor);
+    if (upcoming.kind === 'done') finish(plannedNow);
+    else if (upcoming.slotId !== slotId) {
+      const next = plannedNow.findIndex((p) => p.slotId === upcoming.slotId);
+      if (next >= 0) setCardIndex(next);
+    }
+    return upcoming;
+  };
+
+  const onSkipped = (patched: PlannedSlot) => {
+    const plannedNow = planned.map((p) => (p.slotId === patched.slotId ? patched : p));
+    const upcoming = advanceAfter(plannedNow, patched.slotId, doneFor(patched.exerciseId));
+    void showSession(sessionRecord(log, nextSetCopy(plannedNow, upcoming)));
+  };
 
   // Copy is frozen here (an event, not render) so the one notification can be
   // redrawn headlessly without i18n. The session face is written first and the
@@ -976,19 +1258,8 @@ const WorkoutSession = () => {
     logged: SetLog;
   }) => {
     const startedAt = Date.now();
-    const upcoming = nextSetSummary(planned, slotId, doneCount, doneFor);
+    const upcoming = advanceAfter(planned, slotId, doneCount);
     const record = sessionRecord(log, nextSetCopy(planned, upcoming, logged));
-    // The exercise's plan is done: page to the next one with sets left, or —
-    // with nothing left anywhere — ask to finish, so the last check is the end.
-    const slot = planned.find((p) => p.slotId === slotId);
-    const plannedCount = slot ? slot.setGroups.reduce((n, g) => n + g.sets, 0) : 0;
-    if (slot && doneCount >= plannedCount) {
-      if (upcoming.kind === 'done') finish();
-      else if (upcoming.slotId !== slotId) {
-        const next = planned.findIndex((p) => p.slotId === upcoming.slotId);
-        if (next >= 0) setCardIndex(next);
-      }
-    }
     const restPayload = {
       workoutId: log.id,
       slotId,
@@ -1008,18 +1279,22 @@ const WorkoutSession = () => {
     );
   };
 
-  // Finish work is synchronous; show the overlay first so the tap gets visible feedback.
-  const closeSummary = () => {
-    if (busy) return;
-    setBusy('finishing');
-    setTimeout(() => {
-      closeSession('finish', log.id, log.userId);
-      setSummary(null);
-      // `settling` keeps the wait on screen while the tab mounts and runs its
-      // queries; without it the hand-off flashes a half-built Train tab.
-      router.replace({ pathname: '/training', params: { settling: '1' } });
-    }, OVERLAY_PAINT_MS);
-  };
+  // Finish work is synchronous: it runs once the overlay is on screen, and the
+  // overlay stays (`keep`) until this screen is popped. `dismissTo` returns to
+  // the Train tab that is already mounted — a `replace` stacked a second copy
+  // of every tab on each finish.
+  const closeSummary = () =>
+    blocking.start(
+      'finishing',
+      () => {
+        closeSession('finish', log.id, log.userId);
+        setSummary(null);
+        // `settling` keeps the wait on screen while the tab re-runs its
+        // queries; without it the hand-off flashes a half-built Train tab.
+        router.dismissTo({ pathname: '/training', params: { settling: '1' } });
+      },
+      { keep: true },
+    );
 
   const cancel = () =>
     dialog.confirm({
@@ -1028,19 +1303,17 @@ const WorkoutSession = () => {
       destructive: true,
       onConfirm: () => {
         playSound('discard');
-        // Same wait as finishing: the teardown is synchronous and the tab must mount settled.
-        setBusy('discarding');
-        setTimeout(() => {
-          closeSession('abandon', log.id, log.userId);
-          router.replace({ pathname: '/training', params: { settling: '1' } });
-        }, OVERLAY_PAINT_MS);
+        // Same as finishing: the teardown is synchronous and the tab must settle.
+        blocking.start(
+          'discarding',
+          () => {
+            closeSession('abandon', log.id, log.userId);
+            router.dismissTo({ pathname: '/training', params: { settling: '1' } });
+          },
+          { keep: true },
+        );
       },
     });
-
-  const openReorder = () => {
-    setOrderDraft(planned);
-    setReordering(true);
-  };
 
   // The unit toggle lives in the pinned session strip (never in the top bar,
   // never scrolling away), and the choice is a per-user preference: Settings
@@ -1058,6 +1331,35 @@ const WorkoutSession = () => {
   const goTo = (index: number) => {
     if (planned[index]) setCardIndex(index);
   };
+  // Reorder without a modal: hold a chip to lift it, the arrows move it one
+  // place (persisted into the snapshot at once), a tap on the strip puts it down.
+  const liftedIndex = lifted ? planned.findIndex((p) => p.slotId === lifted) : -1;
+  const moveLifted = (delta: number) => {
+    const to = liftedIndex + delta;
+    if (liftedIndex < 0 || !planned[to]) return;
+    const next = [...planned];
+    const [slot] = next.splice(liftedIndex, 1);
+    next.splice(to, 0, slot);
+    reorderSnapshot(
+      log.id,
+      next.map((p) => p.slotId),
+    );
+    setCardIndex(to);
+  };
+  const lift = (index: number) => {
+    const slot = planned[index];
+    if (!slot) return;
+    setLifted(slot.slotId);
+    setCardIndex(index);
+  };
+  const onChip = (index: number) => {
+    if (lifted) setLifted(null);
+    goTo(index);
+  };
+  const stepLeft = () => (lifted ? moveLifted(-1) : goTo(idx - 1));
+  const stepRight = () => (lifted ? moveLifted(1) : goTo(idx + 1));
+  const atStart = lifted ? liftedIndex <= 0 : idx === 0;
+  const atEnd = lifted ? liftedIndex >= planned.length - 1 : idx >= planned.length - 1;
 
   // Paging arrows flank the chip strip: one line carries the whole navigation.
   const NAV_BTN = 'h-8 w-8 shrink-0 items-center justify-center rounded-field bg-ink-800';
@@ -1065,11 +1367,11 @@ const WorkoutSession = () => {
     planned.length > 1 ? (
       <View className="mb-3 flex-row items-center gap-2">
         <Pressable
-          onPress={() => goTo(idx - 1)}
-          disabled={idx === 0}
+          onPress={stepLeft}
+          disabled={atStart}
           accessibilityRole="button"
           accessibilityLabel={t('training.prev')}
-          className={[NAV_BTN, idx === 0 ? 'opacity-40' : ''].join(' ')}
+          className={[NAV_BTN, atStart ? 'opacity-40' : ''].join(' ')}
         >
           <ChevronLeftIcon color={muted} size={16} />
         </Pressable>
@@ -1079,18 +1381,23 @@ const WorkoutSession = () => {
               value: String(i),
               label: `${i + 1}. ${p.name}`,
               done: doneSlot(p),
+              missed: !!p.skipped,
             }))}
             value={String(idx)}
-            onChange={(v) => goTo(Number(v))}
+            onChange={(v) => onChip(Number(v))}
+            onLongPress={(v) => lift(Number(v))}
+            longPressHint={t('training.reorder')}
+            lifted={liftedIndex >= 0 ? String(liftedIndex) : null}
             followSelection
+            cues={false}
           />
         </View>
         <Pressable
-          onPress={() => goTo(idx + 1)}
-          disabled={idx >= planned.length - 1}
+          onPress={stepRight}
+          disabled={atEnd}
           accessibilityRole="button"
           accessibilityLabel={t('training.next')}
-          className={[NAV_BTN, idx >= planned.length - 1 ? 'opacity-40' : ''].join(' ')}
+          className={[NAV_BTN, atEnd ? 'opacity-40' : ''].join(' ')}
         >
           <ChevronRightIcon color={muted} size={16} />
         </Pressable>
@@ -1122,7 +1429,7 @@ const WorkoutSession = () => {
               />
               <IconButton
                 icon={<CheckIcon color={brandContrast} size={18} />}
-                onPress={finish}
+                onPress={() => finish(planned)}
                 accessibilityLabel={t('training.finish')}
                 tone="brand"
               />
@@ -1149,7 +1456,8 @@ const WorkoutSession = () => {
             </Text>
           </View>
         </View>
-        {/* Unit toggle (small, pinned here, never in the top bar) · position · reorder. */}
+        {/* Unit toggle (small, pinned here, never in the top bar) · position, or
+         * how to put a lifted exercise down while one is being moved. */}
         <View className="mt-2.5 flex-row items-center gap-3">
           <View className="w-20">
             <SegmentedControl
@@ -1160,16 +1468,18 @@ const WorkoutSession = () => {
             />
           </View>
           <Text
-            numberOfLines={1}
-            className="flex-1 text-center font-mono-medium text-xs uppercase tracking-wider text-ink-400"
+            numberOfLines={2}
+            className={[
+              'min-w-0 flex-1 text-right font-mono-medium text-xs uppercase tracking-wider',
+              lifted ? 'text-brand' : 'text-ink-400',
+            ].join(' ')}
           >
-            {planned.length ? t('training.exerciseOf', { n: idx + 1, total: planned.length }) : ''}
+            {lifted
+              ? t('training.reorderHint')
+              : planned.length
+                ? t('training.exerciseOf', { n: idx + 1, total: planned.length })
+                : ''}
           </Text>
-          <IconButton
-            icon={<DragHandleIcon color={muted} size={18} />}
-            onPress={openReorder}
-            accessibilityLabel={t('training.reorder')}
-          />
         </View>
       </View>
 
@@ -1244,6 +1554,7 @@ const WorkoutSession = () => {
               loadSetting={settingById.get(current.exerciseId) ?? null}
               userId={user.id}
               requestEffort={requestEffort}
+              onSkipped={onSkipped}
               onLogged={onLogged}
             />
           </>
@@ -1312,51 +1623,6 @@ const WorkoutSession = () => {
         </ScrollArea>
       </Sheet>
 
-      {/* Mid-session reorder: full-row drag, persisted into the snapshot. */}
-      <Modal visible={reordering} animationType="fade" onRequestClose={() => setReordering(false)}>
-        {/* A Modal is its own native view tree: without a gesture root inside
-         * it, the drag handles never receive touches. */}
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <Screen
-            edges={['top', 'bottom']}
-            contentClassName="px-5"
-            footer={
-              <Button
-                variant="brand"
-                label={t('common.done')}
-                onPress={() => setReordering(false)}
-              />
-            }
-          >
-            <ScreenTitle title={t('training.reorder')} subtitle={t('training.reorderHint')} />
-            <ReorderableList
-              data={orderDraft}
-              keyExtractor={(p) => p.slotId}
-              renderItem={({ item }) => (
-                <ReorderRow
-                  dragOnly
-                  title={item.name}
-                  subtitle={t('training.setsOf', {
-                    done: setsFor(item.exerciseId).filter((x) => !x.isWarmup).length,
-                    total: item.setGroups.reduce((x, g) => x + g.sets, 0),
-                  })}
-                  dragLabel={t('training.reorderHint')}
-                />
-              )}
-              onReorder={({ from, to }) => {
-                const next = reorderItems(orderDraft, from, to);
-                setOrderDraft(next);
-                reorderSnapshot(
-                  log.id,
-                  next.map((p) => p.slotId),
-                );
-              }}
-              showsVerticalScrollIndicator={false}
-            />
-          </Screen>
-        </GestureHandlerRootView>
-      </Modal>
-
       {/* Post-workout summary: closes itself, because the session is already
        * over and there is nothing left to decide. */}
       <TimedModal
@@ -1366,9 +1632,9 @@ const WorkoutSession = () => {
         actions={
           summary?.exercises.length ? (
             <Button
-              variant="secondary"
+              variant="brandSoft"
               label={t('share.session')}
-              leftIcon={<ShareIcon color={muted} size={16} />}
+              leftIcon={<ShareIcon color={brand} size={16} />}
               onPress={() => setSharing(true)}
             />
           ) : null
@@ -1394,6 +1660,14 @@ const WorkoutSession = () => {
               <Text className="text-sm text-ink-400">{t('training.summarySets')}</Text>
               <Text className="text-sm font-sans-semibold text-ink-100">{summary.setCount}</Text>
             </View>
+            {summary.missedSets > 0 ? (
+              <View className="flex-row justify-between">
+                <Text className="text-sm text-ink-400">{t('training.missedSets')}</Text>
+                <Text className="text-sm font-sans-semibold text-red-400">
+                  {summary.missedSets}
+                </Text>
+              </View>
+            ) : null}
             <View className="flex-row justify-between">
               <Text className="text-sm text-ink-400">{t('training.summaryDuration')}</Text>
               <Text className="text-sm font-sans-semibold text-ink-100">
@@ -1429,8 +1703,9 @@ const WorkoutSession = () => {
         }
       />
       <BlockingOverlay
-        visible={busy !== null}
-        label={t(busy === 'discarding' ? 'training.abandoning' : 'training.finishing')}
+        visible={blocking.busy !== null}
+        onShow={blocking.onShow}
+        label={t(blocking.busy === 'discarding' ? 'training.abandoning' : 'training.finishing')}
       />
     </Screen>
   );

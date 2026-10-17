@@ -21,6 +21,7 @@ import {
   NavArrowDown,
   NavArrowUp,
   DataTransferBoth,
+  FastArrowRight,
   Search,
   ShareAndroid,
   FireFlame,
@@ -97,6 +98,7 @@ export const ArrowUpIcon = sized(NavArrowUp, 'ArrowUpIcon');
 export const ArrowDownIcon = sized(NavArrowDown, 'ArrowDownIcon');
 export const SearchIcon = sized(Search, 'SearchIcon');
 export const SwapIcon = sized(DataTransferBoth, 'SwapIcon');
+export const SkipIcon = sized(FastArrowRight, 'SkipIcon');
 export const ShareIcon = sized(ShareAndroid, 'ShareIcon');
 export const FlameIcon = sized(FireFlame, 'FlameIcon');
 export const LogOutIcon = sized(LogOut, 'LogOutIcon');
