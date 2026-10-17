@@ -24,6 +24,7 @@ describe('sessionShareModel', () => {
         volumeKg: 5400,
         setCount: 18,
         durationSeconds: 3660,
+        missedSets: 0,
         prs: ['Bench'],
         exercises: [
           exercise('barbell-bench-press', 'Bench Press', 100, 6, true),
@@ -48,7 +49,14 @@ describe('sessionShareModel', () => {
   it('caps the rows at eight and says how many more there were', () => {
     const many = Array.from({ length: 11 }, (_, i) => exercise(`e${i}`, `Exercise ${i}`, 50, 10));
     const model = sessionShareModel({
-      summary: { volumeKg: 0, setCount: 0, durationSeconds: 0, prs: [], exercises: many },
+      summary: {
+        volumeKg: 0,
+        setCount: 0,
+        durationSeconds: 0,
+        missedSets: 0,
+        prs: [],
+        exercises: many,
+      },
       splitName: 'Full body',
       programLine: null,
       unit: 'lb',

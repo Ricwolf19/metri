@@ -1,0 +1,1 @@
+ALTER TABLE `workout_day_exercises` ADD `swap` text;

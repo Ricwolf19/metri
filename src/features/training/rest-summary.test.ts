@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { PlannedSlot } from '@/db/schema';
 
-import { nextSetSummary } from './rest-summary';
+import { nextSetSummary, remainingSets, resolvedSets } from './rest-summary';
 
 const slot = (
   id: string,
@@ -86,5 +86,28 @@ describe('nextSetSummary', () => {
   it('reports the extra set position when logging beyond the plan', () => {
     const next = nextSetSummary(planned, 'c', 5, () => 3);
     expect(next).toEqual({ kind: 'done' });
+  });
+});
+
+describe('skipped sets and exercises', () => {
+  const skippedSet = { ...planned[1], skippedSets: [1] } as PlannedSlot;
+  const skippedExercise = { ...planned[1], skipped: { at: 1 } } as PlannedSlot;
+
+  it('a skipped set settles its row: paging and the set number move past it', () => {
+    expect(resolvedSets(skippedSet, 1)).toBe(2);
+    const next = nextSetSummary([planned[0], skippedSet, planned[2]], 'b', 1, () => 0);
+    expect(next).toMatchObject({ kind: 'same', slotId: 'b', setNumber: 3, setTotal: 3 });
+  });
+
+  it('a skipped exercise is settled whole and never comes up as next', () => {
+    expect(resolvedSets(skippedExercise, 0)).toBe(3);
+    const next = nextSetSummary([planned[0], skippedExercise, planned[2]], 'a', 3, () => 0);
+    expect(next).toMatchObject({ kind: 'next', slotId: 'c' });
+  });
+
+  it('remainingSets counts what is neither logged nor skipped', () => {
+    const done: Record<string, number> = { 'ex-a': 3, 'ex-b': 1, 'ex-c': 0 };
+    expect(remainingSets(planned, (id) => done[id] ?? 0)).toBe(4);
+    expect(remainingSets([planned[0], skippedSet, skippedExercise], (id) => done[id] ?? 0)).toBe(1);
   });
 });

@@ -14,7 +14,27 @@ export type NextSet =
     }
   | { kind: 'done' };
 
-const plannedSets = (slot: PlannedSlot) => slot.setGroups.reduce((n, g) => n + g.sets, 0);
+export const plannedSets = (slot: PlannedSlot) => slot.setGroups.reduce((n, g) => n + g.sets, 0);
+
+/**
+ * How many of a slot's planned rows are settled: logged sets plus skipped
+ * ones, or every row once the whole exercise is skipped. Paging, the progress
+ * bar and the finish guard all read this, so a skip moves the session on
+ * exactly like a logged set does.
+ */
+export const resolvedSets = (slot: PlannedSlot, done: number): number =>
+  slot.skipped ? plannedSets(slot) : done + (slot.skippedSets?.length ?? 0);
+
+/** Planned rows still neither logged nor skipped, across the session. */
+export const remainingSets = (
+  planned: readonly PlannedSlot[],
+  doneFor: (exerciseId: string) => number,
+): number =>
+  planned.reduce(
+    (sum, slot) =>
+      sum + Math.max(0, plannedSets(slot) - resolvedSets(slot, doneFor(slot.exerciseId))),
+    0,
+  );
 
 const repsForSet = (slot: PlannedSlot, setIndex: number): string => {
   let i = setIndex;
@@ -31,6 +51,7 @@ const repsForSet = (slot: PlannedSlot, setIndex: number): string => {
  * the next exercise (in snapshot order, wrapping) with sets left, else done.
  * `doneInCurrent` includes the set just logged; `doneFor` reads the others and
  * must count WORKING sets only — a warm-up counted here skips a planned set.
+ * Skipped sets and skipped exercises count as settled (`resolvedSets`).
  */
 export const nextSetSummary = (
   planned: PlannedSlot[],
@@ -42,31 +63,32 @@ export const nextSetSummary = (
   const current = planned[index];
   if (current) {
     const total = plannedSets(current);
-    if (doneInCurrent < total) {
+    const settled = resolvedSets(current, doneInCurrent);
+    if (settled < total) {
       return {
         kind: 'same',
         slotId: current.slotId,
         exerciseId: current.exerciseId,
         exerciseName: current.name,
-        setNumber: doneInCurrent + 1,
+        setNumber: settled + 1,
         setTotal: total,
-        reps: repsForSet(current, doneInCurrent),
+        reps: repsForSet(current, settled),
       };
     }
   }
   const order = [...planned.slice(index + 1), ...planned.slice(0, Math.max(index, 0))];
   for (const slot of order) {
     const total = plannedSets(slot);
-    const done = doneFor(slot.exerciseId);
-    if (done < total) {
+    const settled = resolvedSets(slot, doneFor(slot.exerciseId));
+    if (settled < total) {
       return {
         kind: 'next',
         slotId: slot.slotId,
         exerciseId: slot.exerciseId,
         exerciseName: slot.name,
-        setNumber: done + 1,
+        setNumber: settled + 1,
         setTotal: total,
-        reps: repsForSet(slot, done),
+        reps: repsForSet(slot, settled),
       };
     }
   }

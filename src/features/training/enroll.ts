@@ -174,6 +174,8 @@ export const enrollInProgram = (
         notes: s.notes,
         badges: s.badges,
         alternativeExerciseIds: s.alternativeExerciseIds,
+        // A temporary swap belongs to the enrollment it was made in.
+        swap: null,
         userProgramId,
       })
       .run();

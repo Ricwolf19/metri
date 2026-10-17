@@ -249,11 +249,21 @@ export const workoutDayExercises = sqliteTable(
     badges: text('badges', { mode: 'json' }).$type<string[]>(),
     // Interchangeable exercises ("deadlift or sumo") the session can swap to.
     alternativeExerciseIds: text('alternative_exercise_ids', { mode: 'json' }).$type<string[]>(),
+    // A swap that outlives one session but not the cycle: the next
+    // `sessionsLeft` sessions open on `exerciseId`, then the slot's own
+    // exercise returns. A cycle-long swap rewrites `exerciseId` instead.
+    swap: text('swap', { mode: 'json' }).$type<SlotSwap>(),
     userProgramId: text('user_program_id'),
     updatedAt: tsMs('updated_at').notNull().default(NOW_MS),
   },
   (t) => [index('idx_workout_day_exercises_day').on(t.workoutDayId)],
 );
+
+/** Why a lifter swapped an exercise mid-session; wire format, append only. */
+export const SWAP_REASONS = ['busy', 'discomfort', 'preference'] as const;
+export type SwapReason = (typeof SWAP_REASONS)[number];
+
+export type SlotSwap = { exerciseId: string; sessionsLeft: number; reason: SwapReason };
 
 export type WorkoutDayExercise = typeof workoutDayExercises.$inferSelect;
 export type NewWorkoutDayExercise = typeof workoutDayExercises.$inferInsert;
@@ -353,6 +363,12 @@ export type PlannedSlot = {
   notes?: string | null;
   /** The planned exercise, kept once a slot is swapped to a variant so it can swap back. */
   originalExerciseId?: string;
+  /** Why it was swapped, when the lifter said. */
+  swapReason?: SwapReason;
+  /** The whole exercise was skipped this session: its sets count as missed. */
+  skipped?: { at: number };
+  /** Planned-row ordinals (0-based) the lifter skipped; they count as missed. */
+  skippedSets?: number[];
 };
 
 /**

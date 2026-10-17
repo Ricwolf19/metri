@@ -7,7 +7,6 @@ import { exerciseDisplayName } from './labels';
 import {
   exercises,
   setLogs,
-  userPrograms,
   weekConfigs,
   workoutDayExercises,
   workoutDays,
@@ -17,7 +16,8 @@ import {
   type PlannedSlot,
   type SetGroup,
   type SetLog,
-  type SkipReason,
+  type SlotSwap,
+  type SwapReason,
   type WeekConfig,
   type WorkoutDayExercise,
   type WorkoutLog,
@@ -26,9 +26,10 @@ import { randomId } from '@/lib/crypto';
 
 import { recordDeletion } from '@/features/sync/tombstones';
 
-import { dayQuery, localDateKey, markTrainingDay, releaseTrainingDay } from './adherence.repo';
+import { localDateKey, markTrainingDay, releaseTrainingDay } from './adherence.repo';
 import { advanceUserProgram, rewindUserProgram } from './enroll';
 import { setVolumeKg } from './load';
+import { plannedSets } from './rest-summary';
 import { estimate1Rm, roundToPlate, weightForReps } from './progression';
 
 /* ── Active session ──────────────────────────────────────────────────────── */
@@ -91,17 +92,26 @@ export const startWorkout = (
   locale: Locale = 'en',
 ): WorkoutLog => {
   const plannedSnapshot: PlannedSlot[] = getSessionSlots(workoutDayId, weekNumber).map(
-    ({ slot, exercise, config }) => ({
-      slotId: slot.id,
-      exerciseId: exercise.id,
-      // Frozen at session start in the user's locale (snapshots never re-resolve).
-      name: exerciseDisplayName(exercise, locale),
-      setGroups: expandPrescription(config),
-      restSeconds: resolveRest(slot, config),
-      badges: slot.badges ?? [],
-      alternativeExerciseIds: slot.alternativeExerciseIds ?? [],
-      notes: slot.notes ?? null,
-    }),
+    ({ slot, exercise, config }) => {
+      // A temporary swap opens this session on the variant and uses one of its
+      // sessions up; the slot's own exercise stays as the original to swap back.
+      const swap = slot.swap && slot.swap.sessionsLeft > 0 ? consumeSlotSwap(slot) : null;
+      const shown = swap ? (getExerciseRow(swap.exerciseId) ?? exercise) : exercise;
+      return {
+        slotId: slot.id,
+        exerciseId: shown.id,
+        // Frozen at session start in the user's locale (snapshots never re-resolve).
+        name: exerciseDisplayName(shown, locale),
+        setGroups: expandPrescription(config),
+        restSeconds: resolveRest(slot, config),
+        badges: slot.badges ?? [],
+        alternativeExerciseIds: slot.alternativeExerciseIds ?? [],
+        notes: slot.notes ?? null,
+        ...(swap && shown.id !== exercise.id
+          ? { originalExerciseId: exercise.id, swapReason: swap.reason }
+          : {}),
+      };
+    },
   );
 
   const [row] = db
@@ -174,70 +184,25 @@ export const completedDaysQuery = (userProgramId: string, weekNumber: number) =>
       ),
     );
 
-/** Routine + week + status as one comparable string, to tell whether a write moved the cursor. */
-const enrollmentPosition = (userProgramId: string): string => {
-  const [row] = db
-    .select({
-      routineId: userPrograms.currentRoutineId,
-      week: userPrograms.currentWeek,
-      status: userPrograms.status,
-    })
-    .from(userPrograms)
-    .where(eq(userPrograms.id, userProgramId))
-    .all();
-  return row ? `${row.routineId}:${row.week}:${row.status}` : '';
-};
-
 /**
- * Resolve a planned split WITHOUT training it: a `skipped` log — no sets, so
- * every stat ignores it by status — that `isWeekComplete` counts, and the plan
- * moves on. The adherence mark goes on `date` only when that day has no
- * `trained` row (the upsert would overwrite a real session finished the same
- * day); the streak still reads a skipped day as missed. Deleting the log is
- * the undo. Returns whether the program advanced, so the caller can re-sync
- * reminders for a schedule that may have changed.
+ * What a split holds this week, for the read-only preview on the Train tab
+ * (splits unlock in order; the ones not up yet can be read, not started).
  */
-export const skipWorkout = (input: {
-  userId: string;
-  userProgramId: string;
-  workoutDayId: string;
-  weekNumber: number;
-  skipReason: SkipReason | null;
-  /** The calendar day the skip stands for; null writes no adherence mark. */
-  date: string | null;
-}): { log: WorkoutLog; advanced: boolean } => {
-  const { userId, userProgramId, workoutDayId, weekNumber, skipReason, date } = input;
-  const [log] = db
-    .insert(workoutLogs)
-    .values({
-      id: randomId(),
-      userId,
-      userProgramId,
-      workoutDayId,
-      weekNumber,
-      status: 'skipped',
-      completedAt: new Date(),
-      durationSeconds: 0,
-      plannedSnapshot: [],
-    })
-    .returning()
-    .all();
-  if (date) {
-    const [existing] = dayQuery(userId, date).all();
-    if (existing?.status !== 'trained') {
-      markTrainingDay(userId, {
-        date,
-        status: 'skipped',
-        skipReason,
-        workoutLogId: log.id,
-        workoutDayId,
-      });
-    }
-  }
-  const before = enrollmentPosition(userProgramId);
-  advanceUserProgram(userProgramId);
-  return { log, advanced: enrollmentPosition(userProgramId) !== before };
-};
+export const splitPreview = (
+  workoutDayId: string,
+  weekNumber: number,
+  locale: Locale,
+): { exerciseId: string; name: string; sets: number; reps: string }[] =>
+  getSessionSlots(workoutDayId, weekNumber).map(({ exercise, config }) => {
+    const groups = expandPrescription(config);
+    const first = groups[0];
+    return {
+      exerciseId: exercise.id,
+      name: exerciseDisplayName(exercise, locale),
+      sets: groups.reduce((n, g) => n + g.sets, 0),
+      reps: first ? `${first.reps}${first.repsMax ? `–${first.repsMax}` : ''}` : '',
+    };
+  });
 
 const deleteSetsOf = (workoutLogId: string): void => {
   const setIds = db
@@ -389,9 +354,39 @@ export const logSet = (input: LogSetInput): SetLog => {
   return row;
 };
 
+export type SetPatch = Pick<SetLog, 'weightKg' | 'reps' | 'load' | 'rir' | 'isFailure'>;
+
+/** Rewrite a logged set in place — a correction, not a new set: no renumbering, no rest. */
+export const updateSet = (id: string, patch: SetPatch): void => {
+  db.update(setLogs)
+    .set({ ...patch, updatedAt: new Date() })
+    .where(eq(setLogs.id, id))
+    .run();
+};
+
+/** Deleting a middle set closes the gap: `set_number` stays 1..n per (log, exercise). */
 export const deleteSet = (id: string): void => {
+  const [row] = db.select().from(setLogs).where(eq(setLogs.id, id)).all();
   db.delete(setLogs).where(eq(setLogs.id, id)).run();
   recordDeletion('set_logs', id);
+  if (row) renumberSets(row.workoutLogId, row.exerciseId);
+};
+
+const renumberSets = (workoutLogId: string, exerciseId: string): void => {
+  const rows = db
+    .select({ id: setLogs.id, setNumber: setLogs.setNumber })
+    .from(setLogs)
+    .where(and(eq(setLogs.workoutLogId, workoutLogId), eq(setLogs.exerciseId, exerciseId)))
+    .orderBy(asc(setLogs.createdAt), asc(setLogs.setNumber))
+    .all();
+  const now = new Date();
+  rows.forEach((r, i) => {
+    if (r.setNumber === i + 1) return;
+    db.update(setLogs)
+      .set({ setNumber: i + 1, updatedAt: now })
+      .where(eq(setLogs.id, r.id))
+      .run();
+  });
 };
 
 export type PreviousSession = { logId: string; finishedAt: Date; sets: SetLog[] };
@@ -439,25 +434,145 @@ export const previousSessionSets = (exerciseId: string): PreviousSession | null 
   return { logId: prior.id, finishedAt: prior.completedAt ?? prior.startedAt, sets };
 };
 
+const getExerciseRow = (id: string): Exercise | null =>
+  db.select().from(exercises).where(eq(exercises.id, id)).all()[0] ?? null;
+
+/** Spend one session of a temporary swap; the column clears on the last one. */
+const consumeSlotSwap = (slot: WorkoutDayExercise): SlotSwap | null => {
+  const swap = slot.swap;
+  if (!swap) return null;
+  const left = swap.sessionsLeft - 1;
+  db.update(workoutDayExercises)
+    .set({ swap: left > 0 ? { ...swap, sessionsLeft: left } : null, updatedAt: new Date() })
+    .where(eq(workoutDayExercises.id, slot.id))
+    .run();
+  return swap;
+};
+
+/** Rewrite one slot of a session's snapshot; no-op when the log or slot is unknown. */
+const patchSnapshotSlot = (
+  logId: string,
+  slotId: string,
+  patch: (slot: PlannedSlot) => PlannedSlot,
+): void => {
+  const log = getWorkout(logId);
+  if (!log?.plannedSnapshot?.some((p) => p.slotId === slotId)) return;
+  db.update(workoutLogs)
+    .set({
+      plannedSnapshot: log.plannedSnapshot.map((p) => (p.slotId === slotId ? patch(p) : p)),
+      updatedAt: new Date(),
+    })
+    .where(eq(workoutLogs.id, logId))
+    .run();
+};
+
 /** Swap a snapshot slot to an alternative exercise for THIS session only. */
 export const swapSnapshotExercise = (
   logId: string,
   slotId: string,
   exerciseId: string,
   exerciseName: string,
-): void => {
+  reason?: SwapReason,
+): void =>
+  patchSnapshotSlot(logId, slotId, (p) => ({
+    ...p,
+    originalExerciseId: p.originalExerciseId ?? p.exerciseId,
+    exerciseId,
+    name: exerciseName,
+    ...(reason ? { swapReason: reason } : {}),
+  }));
+
+export type SwapScope =
+  { kind: 'session' } | { kind: 'sessions'; count: number } | { kind: 'cycle' };
+
+/**
+ * A swap with a scope. The session's snapshot always changes; beyond it, the
+ * enrolled slot either counts down the next sessions (`swap` column) or is
+ * rewritten for the rest of the cycle, keeping the planned exercise among its
+ * alternatives so it can be swapped back. Template slots are never touched.
+ */
+export const applySwap = (input: {
+  logId: string;
+  slotId: string;
+  exerciseId: string;
+  exerciseName: string;
+  reason: SwapReason;
+  scope: SwapScope;
+}): void => {
+  const { logId, slotId, exerciseId, exerciseName, reason, scope } = input;
+  swapSnapshotExercise(logId, slotId, exerciseId, exerciseName, reason);
+  const slot = db
+    .select()
+    .from(workoutDayExercises)
+    .where(eq(workoutDayExercises.id, slotId))
+    .all()[0];
+  if (!slot?.userProgramId) return;
+  if (scope.kind === 'sessions' && scope.count > 1) {
+    db.update(workoutDayExercises)
+      .set({ swap: { exerciseId, sessionsLeft: scope.count - 1, reason }, updatedAt: new Date() })
+      .where(eq(workoutDayExercises.id, slotId))
+      .run();
+  } else if (scope.kind === 'cycle' && slot.exerciseId !== exerciseId) {
+    const alternatives = [...(slot.alternativeExerciseIds ?? []), slot.exerciseId].filter(
+      (id, i, all) => id !== exerciseId && all.indexOf(id) === i,
+    );
+    db.update(workoutDayExercises)
+      .set({ exerciseId, alternativeExerciseIds: alternatives, swap: null, updatedAt: new Date() })
+      .where(eq(workoutDayExercises.id, slotId))
+      .run();
+  }
+};
+
+/** Skip (or restore) a whole exercise this session: its planned sets count as missed. */
+export const skipSnapshotExercise = (logId: string, slotId: string, skipped: boolean): void =>
+  patchSnapshotSlot(logId, slotId, ({ skipped: _was, ...p }) =>
+    skipped ? { ...p, skipped: { at: Date.now() } } : p,
+  );
+
+/** Skip (or restore) one planned row of an exercise this session. */
+export const skipSnapshotSet = (
+  logId: string,
+  slotId: string,
+  index: number,
+  skipped: boolean,
+): void =>
+  patchSnapshotSlot(logId, slotId, (p) => {
+    const rest = (p.skippedSets ?? []).filter((i) => i !== index);
+    const next = skipped ? [...rest, index].sort((a, b) => a - b) : rest;
+    const { skippedSets: _old, ...base } = p;
+    return next.length ? { ...base, skippedSets: next } : base;
+  });
+
+/**
+ * Finishing with planned rows still open: every one of them is marked skipped,
+ * so the session closes as "these sets were missed", not as if the plan had
+ * been shorter.
+ */
+export const markRemainingSkipped = (logId: string): void => {
   const log = getWorkout(logId);
   if (!log?.plannedSnapshot) return;
-  const next = log.plannedSnapshot.map((p) =>
-    p.slotId === slotId
-      ? {
-          ...p,
-          originalExerciseId: p.originalExerciseId ?? p.exerciseId,
-          exerciseId,
-          name: exerciseName,
-        }
-      : p,
-  );
+  const working = db
+    .select({ exerciseId: setLogs.exerciseId })
+    .from(setLogs)
+    .where(and(eq(setLogs.workoutLogId, logId), eq(setLogs.isWarmup, false)))
+    .all();
+  const doneFor = (exerciseId: string) => working.filter((s) => s.exerciseId === exerciseId).length;
+  const next = log.plannedSnapshot.map((p) => {
+    if (p.skipped) return p;
+    const total = plannedSets(p);
+    const done = doneFor(p.exerciseId);
+    const already = new Set(p.skippedSets ?? []);
+    // Logged sets fill the open ordinals in order; whatever is left is missed.
+    const open: number[] = [];
+    let filled = 0;
+    for (let i = 0; i < total; i++) {
+      if (already.has(i)) continue;
+      if (filled < done) filled += 1;
+      else open.push(i);
+    }
+    if (!open.length) return p;
+    return { ...p, skippedSets: [...already, ...open].sort((a, b) => a - b) };
+  });
   db.update(workoutLogs)
     .set({ plannedSnapshot: next, updatedAt: new Date() })
     .where(eq(workoutLogs.id, logId))
@@ -560,6 +675,8 @@ export type SessionSummary = {
   prs: string[];
   /** Every exercise with its top set, in logging order — the share card's rows. */
   exercises: SummaryExercise[];
+  /** Planned sets skipped or left unfilled: missed volume, shown when above zero. */
+  missedSets: number;
 };
 
 /** Post-workout summary: volume, working sets, duration, and simple PRs (a
@@ -623,12 +740,17 @@ export const sessionSummary = (logId: string, locale: Locale = 'en'): SessionSum
       isPr: !best || top.weightKg > best.weightKg,
     });
   }
+  const missedSets = (log?.plannedSnapshot ?? []).reduce(
+    (sum, p) => sum + (p.skipped ? plannedSets(p) : (p.skippedSets?.length ?? 0)),
+    0,
+  );
   return {
     volumeKg,
     setCount: rows.length,
     durationSeconds,
     prs: summaryExercises.filter((e) => e.isPr).map((e) => e.name),
     exercises: summaryExercises,
+    missedSets,
   };
 };
 
