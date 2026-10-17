@@ -1,4 +1,4 @@
-import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { useLiveQuery } from '@/db/useLiveQuery';
 import { useMemo } from 'react';
 
 import type { Program, Routine, UserProgram, WorkoutDay } from '@/db/schema';

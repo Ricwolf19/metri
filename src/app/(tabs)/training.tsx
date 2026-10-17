@@ -1,4 +1,4 @@
-import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { useLiveQuery } from '@/db/useLiveQuery';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Text, View } from 'react-native';
@@ -87,7 +87,7 @@ const Training = () => {
 
   const { enrollment, structure, loaded } = useEnrollment(userId);
   const { data: actives } = useLiveQuery(activeWorkoutQuery(userId), [userId]);
-  const { data: recommended } = useLiveQuery(recommendedProgramsQuery());
+  const { data: recommended } = useLiveQuery(recommendedProgramsQuery(), []);
   const { data: own } = useLiveQuery(ownProgramsQuery(userId), [userId]);
   const activeWorkout = actives[0] ?? null;
   // Live, so a session deleted from the history un-greys its split on return.

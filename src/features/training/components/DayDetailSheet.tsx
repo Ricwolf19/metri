@@ -1,4 +1,4 @@
-import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { useLiveQuery } from '@/db/useLiveQuery';
 import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 

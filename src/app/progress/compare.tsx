@@ -1,4 +1,4 @@
-import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { useLiveQuery } from '@/db/useLiveQuery';
 import { Image } from 'expo-image';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -55,7 +55,7 @@ const Panel = ({
 const Compare = () => {
   const { user } = useAuth();
   const t = useT();
-  const { data } = useLiveQuery(photosQuery(user?.id ?? ''));
+  const { data } = useLiveQuery(photosQuery(user?.id ?? ''), [user?.id]);
 
   const [beforeId, setBeforeId] = useState<string | null>(null);
   const [afterId, setAfterId] = useState<string | null>(null);

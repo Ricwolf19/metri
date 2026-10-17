@@ -1,4 +1,4 @@
-import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { useLiveQuery } from '@/db/useLiveQuery';
 import { Redirect, useFocusEffect, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
@@ -99,7 +99,7 @@ const StartProgram = () => {
   const [openTime, setOpenTime] = useState<string | null>(null);
   const blocking = useBlockingTask<'starting'>();
 
-  const { data: enrollments } = useLiveQuery(activeEnrollmentQuery(user?.id ?? ''));
+  const { data: enrollments } = useLiveQuery(activeEnrollmentQuery(user?.id ?? ''), [user?.id]);
   const enrollment = enrollments[0] ?? null;
 
   // Re-validate on every focus: the user comes back here after a "Fix" round trip.

@@ -1,4 +1,4 @@
-import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { useLiveQuery } from '@/db/useLiveQuery';
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 
 import { useAuth } from '@/features/auth/auth-context';

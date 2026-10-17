@@ -16,6 +16,21 @@ module.exports = defineConfig([
         'error',
         { namedComponents: 'arrow-function', unnamedComponents: 'arrow-function' },
       ],
+      // Live queries go through `@/db/useLiveQuery`: mandatory deps, a
+      // synchronous first read and one re-query per frame. Drizzle's own hook
+      // defaults `deps` to [] and re-queries once per changed row.
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'drizzle-orm/expo-sqlite',
+              importNames: ['useLiveQuery'],
+              message: 'Import useLiveQuery from @/db/useLiveQuery (deps are mandatory there).',
+            },
+          ],
+        },
+      ],
     },
   },
 ]);

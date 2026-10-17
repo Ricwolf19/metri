@@ -1,4 +1,4 @@
-import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { useLiveQuery } from '@/db/useLiveQuery';
 import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
@@ -37,7 +37,7 @@ const ProgramDetail = () => {
   const programId = typeof id === 'string' ? id : '';
   const clock = useClockFormat();
 
-  const { data: enrollments } = useLiveQuery(activeEnrollmentQuery(user?.id ?? ''));
+  const { data: enrollments } = useLiveQuery(activeEnrollmentQuery(user?.id ?? ''), [user?.id]);
   const enrollment = enrollments[0] ?? null;
   const enrolledHere = enrollment?.programId === programId;
 

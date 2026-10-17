@@ -1,4 +1,4 @@
-import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { useLiveQuery } from '@/db/useLiveQuery';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
@@ -47,7 +47,7 @@ const EditProgram = () => {
   const programId = typeof id === 'string' ? id : '';
 
   const [program] = useState(() => (programId ? getProgram(programId) : null));
-  const { data: phases } = useLiveQuery(routinesQuery(programId, null));
+  const { data: phases } = useLiveQuery(routinesQuery(programId, null), [programId]);
   const [items, setItems] = useReorderedList(phases);
 
   const [saved, setSaved] = useState({

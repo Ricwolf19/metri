@@ -1,4 +1,4 @@
-import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { useLiveQuery } from '@/db/useLiveQuery';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
@@ -65,7 +65,7 @@ const EditDay = () => {
   const [day] = useState(() => (dayId ? getDay(dayId) : null));
   const routine = day ? getRoutine(day.routineId) : null;
   const live = !!day?.userProgramId;
-  const { data: slots } = useLiveQuery(slotsQuery(dayId));
+  const { data: slots } = useLiveQuery(slotsQuery(dayId), [dayId]);
   const [items, setItems] = useReorderedList(slots);
 
   const initial: Draft = {

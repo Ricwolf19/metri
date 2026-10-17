@@ -1,4 +1,4 @@
-import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { useLiveQuery } from '@/db/useLiveQuery';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -31,7 +31,7 @@ const Progress = () => {
   const toast = useToast();
   const dialog = useDialog();
   const t = useT();
-  const { data } = useLiveQuery(photosQuery(user?.id ?? ''));
+  const { data } = useLiveQuery(photosQuery(user?.id ?? ''), [user?.id]);
 
   const [period, setPeriod] = useState<Period>('month');
   const groups = useMemo(() => groupByPeriod(data, period), [data, period]);

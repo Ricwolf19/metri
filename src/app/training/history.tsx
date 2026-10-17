@@ -1,4 +1,4 @@
-import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { useLiveQuery } from '@/db/useLiveQuery';
 import { Redirect } from 'expo-router';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
