@@ -142,7 +142,13 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   one). Toasts only for save/delete/start/abandon.
 - **`<BlockingOverlay>` is a SOLID surface** (`bg-ink-900`, the mark pulsing inside an orbiting
   arc, always centred): a translucent wait showed the screens behind it mid-render. Use it for
-  every synchronous transition — start, finish, discard, a language switch, a bulk write.
+  every synchronous transition — start, finish, discard, a language switch, a bulk write — and
+  run the work from `useBlockingTask` (`lib/useBlockingTask.ts`): it starts in the overlay's
+  `onShow`, one frame later, never in the same tick as the state change and never after a fixed
+  delay (the Modal's own fade outlasted 50 ms and the heavy commit froze the spinner; the
+  program-start overlay never showed at all). **Leave a nested screen for a tab with
+  `router.dismissTo`, never `replace`**: a replace at the root stack pushed a SECOND `(tabs)`
+  tree (all five tabs, `lazy: false`) on every finish.
 - **Preset cues ("Pausa 1s", "Agarre supino") resolve at render** through
   `programs/badge-copy.ts` (`badgeLabel`, either language's spelling finds the pair); the stored
   string stays whatever the seed or the lifter wrote.
@@ -301,13 +307,23 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   The Home catch-up asks about unresolved planned days up to 30 back (trained / rest / missed, plus
   a bulk "all missed"), and about TODAY only once its scheduled session plus the check-in delay has
   passed — otherwise the check-in notification would ask a question the app offers nowhere to answer.
-  **A skipped planned split is a `workout_logs` row with `status: 'skipped'`** (no sets, excluded
-  from every stat and history list by status; `skip-split.ts` is the one writer): it RESOLVES the
-  week for `isWeekComplete`, so the plan moves on, while the streak still reads the day as missed.
-  Deleting that row is the undo (rewinds like a session). `active` ("other activity") is a fourth
-  day status, neutral for the streak like rest; `moved` is a skip reason. Both are wire format.
-- **Session history is append-only; deletion is the one undo.** A repeated split is a new
-  `workout_logs` row, never a rewrite. `deleteWorkout` (reached from `/training/history` and the
+  **Marking a day missed is an adherence mark only** (`skipPlannedDay`, the one writer, from the
+  day sheet and the catch-up banner): the planned split is NOT resolved. **Splits unlock in
+  order** — the Train tab offers one Play, the first split by `orderIndex` without a session this
+  week (`nextPendingSplit`), whatever the weekday says; a split whose day passed is "carried
+  over" to the next session, and every other split of the week opens read-only
+  (`SplitPreviewSheet`). The plan is finished, never left with a hole, and only a completed
+  session moves the cursor. `status: 'skipped'` on `workout_logs` is legacy wire format: older
+  builds wrote it to resolve a week, `completedDaysQuery`/`isWeekComplete` still count those
+  rows and deleting one is still their undo (`unskipDay`), but nothing writes it any more.
+  `training_days.workout_day_id` on a missed day names the split it stood for. `active` ("other
+  activity") is a fourth day status, neutral for the streak like rest; `moved` is a skip reason.
+  Both are wire format. The day sheet shows an answered day as a summary (status, reason, the
+  carried-over split, the linked session) with a "Change" link — it never re-offers "Mark this day".
+- **Session history is append-only; deletion is the one undo** — except a logged SET, which the
+  lifter can reopen in place from its row (`updateSet`: same ordinal, no rest, no advance; the
+  draft lives under `edit:<id>`), and `deleteSet` renumbers the rest so `set_number` stays 1..n
+  per (log, exercise). A repeated split is a new `workout_logs` row, never a rewrite. `deleteWorkout` (reached from `/training/history` and the
   day sheet, both through `<DeleteSessionButton>`) hard-deletes the log + sets with tombstones, hands
   the `training_days` mark to another session finished that day or clears it, and calls
   `rewindUserProgram` — the inverse of `advanceUserProgram`. Rewind only moves BACK, and never
@@ -347,16 +363,41 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   "other load" or typed per-side field in the sheet: the row is where a number is typed, the
   sheet is where a picture is built. Prefill is keyed by the exercise on the card, and a variant
   swap clears the slot's draft details and per-side text (`clearDraftLoads`).
-- **Prefill reads the SAME ordinal set of the previous session of that exercise**
+- **Prefill: set 1 from the previous session, every later set from the set just logged.**
+  Set 1 opens on set 1 of the previous completed session of that exercise
   (`previousSessionSets`, any split, any week; warm-ups filtered BEFORE indexing because
-  `set_number` counts them) — weight and reps — and the card shows that session as "Last
-  training". The set just logged only seeds the next one when there is no history. The arrows
-  beside the inputs compare the typed value with that same set: `info` up, the adherence
-  `MISSED` red down — a comparison indicator, the one place those two tones mean neither a
-  state nor a miss.
-- **The session has ONE view**: one exercise per page, the `ChipRow` strip (`followSelection`)
-  as the navigation, Prev/Next on the row above the card. `settings.workoutLayout` is retired —
-  never reuse the id. The ± groups carry no visible caption (the field above them says the unit).
+  `set_number` counts them) and the card shows that session as "Last training". Set 2 onwards
+  opens on the set just logged HERE — weight, reps and plates — because the current session is
+  the source of truth once it has a number; the plan's reps win only on a pyramid step
+  (`nextSetPrefill`, `prevPlanReps`). A seeded per-side row keeps inherited plates while they
+  still add up on the same base (`carriedLoadFor`), so 4×25 stays 4×25 on the next set. The
+  arrows beside the inputs still compare the typed value with the SAME ordinal set of the
+  previous session: `info` up, the adherence `MISSED` red down — a comparison indicator, the
+  one place those two tones mean neither a state nor a miss.
+- **The session has ONE view**: one exercise per page, the `ChipRow` strip (`followSelection`,
+  `cues={false}` because the paging arrows flank it) as the navigation, Prev/Next on the row
+  above the card. **Reorder is a hold on a chip**: the lifted chip (dashed outline, grip) moves
+  one place per arrow tap — `reorderSnapshot` at once — and a tap on the strip puts it down; the
+  modal with the drag list is gone. The screen reopens on the page the lifter left
+  (`writeFocusSlot`/`readFocusSlot` in the drafts store; a notification's `?slot=` wins).
+  `settings.workoutLayout` is retired — never reuse the id. The ± groups carry no visible
+  caption (the field above them says the unit). The active row is three lines: ONE uppercase
+  mono header ("SET 1 | TARGET: 12 REPS @ FAILURE") that wraps and never clips, two full-width
+  number fields with the trend glyph above the unit inside the unit box (a faint dash when there
+  is nothing to compare, so the box never shows a hole), then the action line — base tag and
+  total + plate breakdown on the left, Skip set in the middle, calculator and check on the right.
+  A base prefix and an arrow beside the number clipped "132.5" on a phone, and a truncated
+  header hid the target.
+- **Swaps have a scope and skips write "missed".** Picking a variant opens `SwapScopeSheet`:
+  the reason (`SWAP_REASONS`, wire format) preselects a scope — this session (snapshot only),
+  the next N sessions (`workout_day_exercises.swap`, a synced countdown column consumed by
+  `startWorkout`) or the rest of the cycle (`applySwap` rewrites the ENROLLED slot and keeps
+  the planned exercise among its alternatives; templates never). A skipped set
+  (`PlannedSlot.skippedSets`, 0-based ordinals) or exercise (`PlannedSlot.skipped`) is a
+  snapshot field, confirmed with a hold, and counts as SETTLED (`resolvedSets`) for paging,
+  the progress bar and the finish guard — never as trained: `sessionSummary.missedSets` says
+  how much was missed. Finishing with planned rows still open asks once and
+  `markRemainingSkipped` writes them before the log closes.
 - **`exercises.unilateral`** (seed v9 for the catalog, a toggle on custom exercises) only tags
   and captions — one `set_logs` row per set, the weight per side; left/right rows are a later
   step, not a column to add casually.
@@ -389,7 +430,14 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   ordered by the user's saved layout (`useMetricsLayout`, MMKV, edited on `/metrics-customize`).
   Adding a section = one entry there; ids are persisted, so never rename or reuse one, and a
   section shipped after a layout was saved joins the end rather than disappearing. Energy
-  expenditure lives at the top of Home, not here.
+  expenditure lives at the top of Home, not here. **Synchronous reads a tab refreshes on return
+  go through `useFocusRead`** (`lib/useFocusRead.ts`: once at mount, again after each focus
+  transition has FINISHED) — reading them in the focus event, or on every render, re-ran the
+  muscle model and three queries while the tab animation was still drawing. Reads several
+  sections share (weekly volume) live once in `MetricsDataProvider`. Sections below the fold,
+  the Explore topics past the second and a doc's markdown body mount through `<Deferred>`
+  (after interactions, staggered), so a push paints its header first. `searchDocs` folds each
+  locale's docs once (`WeakMap` on the array), so pass the module array, never a copy.
 - **Analytics.** Two muscle vocabularies coexist on purpose (`features/training/muscles.ts`):
   `MUSCLES` (coarse) is what a user tags a day with and is STORED in
   `workout_days.focus_muscles` — changing it drops user data; `MUSCLE_HEADS` (fine, ~19) is what an
@@ -461,7 +509,10 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
 - **Seed ids are a contract.** Catalog exercise ids and preset template ids (`metri-foundations`,
   `metri-progression`) are referenced by user history and enrolled copies. `seedTraining` is
   versioned in `app_meta` (v9 flips `unilateral` through the upsert; v11 drops the "O similar" cue —
-  `RETIRED_BADGES` in `session-badges.ts` hides it on open snapshots); removing a built-in
+  `RETIRED_BADGES` in `session-badges.ts` hides it on open snapshots; v14 corrects the presets
+  against the source PDFs — the French press is lying (`skullcrusher`, `barbell-skullcrusher`)
+  or overhead (`overhead-tricep-extension`, `cable-overhead-extension`, `french-press`), two
+  families, never one); removing a built-in
   exercise goes through the demote-or-delete
   migration in `seed.ts` (never a bare delete), and retired template ids (pb-2-0, ul-4, fb-3)
   are never reused. Bilingual catalog/preset copy lives in content modules
