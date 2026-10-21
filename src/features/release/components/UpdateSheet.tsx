@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { Linking, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 
 import { Button, ScrollArea, SectionLabel, Sheet, TextLink } from '@/components/ui';
@@ -8,6 +8,7 @@ import { markdownStyles } from '@/features/docs/markdownStyles';
 import { openContentLink } from '@/features/docs/openContentLink';
 import { useT } from '@/i18n';
 import { useDateFormat } from '@/lib/useDateFormat';
+import { openExternal } from '@/lib/open-external';
 
 import { startUpdate } from '../start-update';
 import type { AppUpdate } from '../useAppUpdate';
@@ -73,7 +74,7 @@ export const UpdateSheet = ({ update, visible, onClose }: Props) => {
         <TextLink
           label={t('release.releasePage')}
           className="mb-2 mt-4"
-          onPress={() => void Linking.openURL(release.releaseUrl).catch(() => {})}
+          onPress={() => openExternal(release.releaseUrl)}
         />
       </ScrollArea>
     </Sheet>

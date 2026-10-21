@@ -1,4 +1,4 @@
-import { Linking, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { DownloadIcon, FlaskIcon, GithubIcon, MailIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
@@ -7,6 +7,7 @@ import { betaLinks, downloadPageUrl } from '@/features/beta/links';
 import { useRouter } from 'expo-router';
 import { useI18n } from '@/i18n';
 import { APP_VERSION } from '@/lib/env';
+import { openExternal } from '@/lib/open-external';
 import { useTheme } from '@/theme/theme-context';
 
 const Bullet = ({ text }: { text: string }) => (
@@ -36,7 +37,6 @@ const Beta = () => {
   const { brand } = useTheme();
 
   // The system browser, not an in-app one: the APK link is a file download.
-  const open = (url: string) => void Linking.openURL(url).catch(() => {});
 
   return (
     <Screen
@@ -72,7 +72,7 @@ const Beta = () => {
           label={t('release.getLatest')}
           center
           className="mt-1.5"
-          onPress={() => open(downloadPageUrl(locale))}
+          onPress={() => openExternal(downloadPageUrl(locale))}
         />
         <Text className="mt-2 text-center text-sm leading-6 text-ink-300">
           {t('beta.introBody')}
@@ -103,13 +103,13 @@ const Beta = () => {
           label={t('beta.apkCta')}
           variant="secondary"
           leftIcon={<DownloadIcon color={brand} size={18} />}
-          onPress={() => open(downloadPageUrl(locale))}
+          onPress={() => openExternal(downloadPageUrl(locale))}
         />
         <Button
           label={t('beta.releasesCta')}
           variant="secondary"
           leftIcon={<GithubIcon color={brand} size={18} />}
-          onPress={() => open(betaLinks.releases)}
+          onPress={() => openExternal(betaLinks.releases)}
         />
       </View>
 

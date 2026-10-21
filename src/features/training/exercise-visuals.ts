@@ -59,6 +59,9 @@ const VISUAL_IDS = [
 export type VisualId = (typeof VISUAL_IDS)[number];
 
 const VISUALS: ReadonlySet<string> = new Set(VISUAL_IDS);
+/** The licence of the exercise art (`assets/exercises/ATTRIBUTION.md`); the credit line links here. */
+export const CC_BY_SA_URL = 'https://creativecommons.org/licenses/by-sa/4.0/';
+
 /** Catalog ids never fall back to name matching — only custom exercises do. */
 const CATALOG_IDS: ReadonlySet<string> = new Set(EXERCISE_SEEDS.map((e) => e.id));
 

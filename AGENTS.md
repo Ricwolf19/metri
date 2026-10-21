@@ -530,6 +530,9 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   account toggle mirrored by `pushProfile` (`releaseEmails`, server default on). Local users never
   fetch — they get the installed version and the language-aware web download link only.
   `features/release/ota.ts` is the only caller of expo-updates.
+- **External URLs go through `openExternal`** (`lib/open-external.ts`): a web page, a `mailto:`,
+  the APK download. It swallows the OS refusal (no browser, an unhandled scheme) on purpose —
+  environmental, never a `captureError`. Notification deep links are the other path (below).
 - **Notification taps** open `data.url` only when `appLinkFrom` accepts it (`metri://` scheme
   only) — a payload naming a web page must never open outside the app.
 - **New synced tables ship web-first.** The server rejects a whole push containing an unknown

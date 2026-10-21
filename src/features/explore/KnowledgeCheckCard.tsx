@@ -1,9 +1,10 @@
-import { Linking, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { BookIcon, ExternalLinkIcon } from '@/components/icons';
 import { Card, PressableScale } from '@/components/ui';
 import { quizUrl } from '@/features/beta/links';
 import { useI18n, useT } from '@/i18n';
+import { openExternal } from '@/lib/open-external';
 import { useTheme } from '@/theme/theme-context';
 
 /**
@@ -16,10 +17,7 @@ export const KnowledgeCheckCard = () => {
   const { locale } = useI18n();
   const { brand, brandContrast } = useTheme();
   return (
-    <PressableScale
-      onPress={() => void Linking.openURL(quizUrl(locale)).catch(() => {})}
-      className="mt-5"
-    >
+    <PressableScale onPress={() => openExternal(quizUrl(locale))} className="mt-5">
       <Card className="flex-row items-center">
         <View className="mr-4 h-11 w-11 items-center justify-center rounded-field bg-brand">
           <BookIcon color={brandContrast} size={20} />

@@ -1,8 +1,7 @@
 import type { useRouter } from 'expo-router';
-import { Linking } from 'react-native';
-
 import type { CalcId } from '@/features/calculators/types';
 import { WEB_URL } from '@/lib/env';
+import { openExternal } from '@/lib/open-external';
 
 type Router = ReturnType<typeof useRouter>;
 
@@ -61,22 +60,16 @@ const TOOL_SLUG_TO_CALC: Record<string, CalcId> = {
   'macros-calculator': 'macros',
 };
 
-const openExternally = (url: string): void => {
-  // No browser installed, or a scheme the OS refuses: environmental, and the
-  // user already sees nothing happen. Not a defect to report.
-  void Linking.openURL(url).catch(() => {});
-};
-
 /** Handle a markdown link tap. Returns false so the renderer's default
  * `Linking.openURL` never runs. */
 export const openContentLink = (href: string, router: Router): false => {
   if (/^https?:\/\//.test(href)) {
-    openExternally(href);
+    openExternal(href);
     return false;
   }
   if (!href.startsWith('/')) {
     // mailto:, tel:, anchors — hand to the OS as-is, guarded.
-    openExternally(href);
+    openExternal(href);
     return false;
   }
 
@@ -103,6 +96,6 @@ export const openContentLink = (href: string, router: Router): false => {
   }
 
   // Unknown web path — open the real page on the site.
-  openExternally(`${WEB_URL}${href}`);
+  openExternal(`${WEB_URL}${href}`);
   return false;
 };

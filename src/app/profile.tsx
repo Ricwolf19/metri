@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { CameraIcon, ChevronRightIcon, LogOutIcon, StarIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
@@ -32,6 +32,7 @@ import { UpdateCard } from '@/features/release/components/UpdateCard';
 import { useAppUpdate } from '@/features/release/useAppUpdate';
 import { LOCALES, useI18n, type Locale } from '@/i18n';
 import { APP_VERSION, WEB_URL } from '@/lib/env';
+import { openExternal } from '@/lib/open-external';
 import { settings, type ClockFormat, type Units } from '@/lib/storage';
 import { DATE_FORMATS, formatDate, type DateFormat } from '@/lib/date-format';
 import { useDateFormat } from '@/lib/useDateFormat';
@@ -249,7 +250,7 @@ const Profile = () => {
               label="metri.info"
               size="base"
               className="mt-3"
-              onPress={() => Linking.openURL(WEB_URL)}
+              onPress={() => openExternal(WEB_URL)}
             />
           </Card>
         </>
@@ -265,7 +266,7 @@ const Profile = () => {
           <Button
             label={t('faq.feedbackCta')}
             variant="secondary"
-            onPress={() => Linking.openURL(betaLinks.feedback)}
+            onPress={() => openExternal(betaLinks.feedback)}
           />
         </View>
       </Card>
@@ -279,7 +280,7 @@ const Profile = () => {
           label={t('release.getLatest')}
           size="base"
           className="mt-2"
-          onPress={() => void Linking.openURL(downloadPageUrl(locale)).catch(() => {})}
+          onPress={() => openExternal(downloadPageUrl(locale))}
         />
         {isLocalOnly ? null : (
           <View className="mt-4 flex-row items-center gap-4 border-t border-ink-600 pt-4">

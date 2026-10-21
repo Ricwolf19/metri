@@ -1,6 +1,6 @@
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
-import { Linking, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { CheckIcon, StarIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
@@ -11,6 +11,7 @@ import { buildImportPrompt } from '@/features/plan/import-prompt';
 import { DataCard } from '@/features/plan/DataCard';
 import { useI18n, useT, type TranslationKey } from '@/i18n';
 import { WEB_URL } from '@/lib/env';
+import { openExternal } from '@/lib/open-external';
 import { useTheme } from '@/theme/theme-context';
 
 const CONTACT_EMAIL = 'rhtc19@gmail.com';
@@ -134,12 +135,12 @@ const Plan = () => {
               <Button
                 label={t('premium.contactCta')}
                 variant="secondary"
-                onPress={() => Linking.openURL(`mailto:${CONTACT_EMAIL}?subject=Metri%20Premium`)}
+                onPress={() => openExternal(`mailto:${CONTACT_EMAIL}?subject=Metri%20Premium`)}
               />
               <Button
                 label={t('premium.webCta')}
                 variant="ghost"
-                onPress={() => Linking.openURL(WEB_URL)}
+                onPress={() => openExternal(WEB_URL)}
               />
             </View>
           </Card>

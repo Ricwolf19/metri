@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { Linking, View } from 'react-native';
+import { View } from 'react-native';
 
 import { TextLink } from '@/components/ui';
+import { CC_BY_SA_URL } from '@/features/training/exercise-visuals';
 import { useT } from '@/i18n';
+import { openExternal } from '@/lib/open-external';
 
 import { warmupVisualFor } from '../warmup-visuals';
 import { WarmupFrames } from './ExerciseFrames';
@@ -31,7 +33,7 @@ export const WarmupStepDemo = ({ name }: { name: string }) => {
             center
             className="mt-1.5"
             label={t('exercise.illustrationCredit')}
-            onPress={() => Linking.openURL('https://creativecommons.org/licenses/by-sa/4.0/')}
+            onPress={() => openExternal(CC_BY_SA_URL)}
           />
         </View>
       ) : null}

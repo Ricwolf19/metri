@@ -1,7 +1,7 @@
 import { useLiveQuery } from '@/db/useLiveQuery';
 import { useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Linking, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { ShareIcon, StarIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
@@ -31,7 +31,8 @@ import {
   upsertExerciseSetting,
   type SettingPatch,
 } from '@/features/training/exercise-settings.repo';
-import { visualIdFor } from '@/features/training/exercise-visuals';
+import { CC_BY_SA_URL, visualIdFor } from '@/features/training/exercise-visuals';
+import { openExternal } from '@/lib/open-external';
 import { exerciseDisplayName } from '@/features/training/labels';
 import {
   machineLoadKind,
@@ -182,7 +183,7 @@ const ExerciseHistory = () => {
               <TextLink
                 center
                 label={t('exercise.illustrationCredit')}
-                onPress={() => Linking.openURL('https://creativecommons.org/licenses/by-sa/4.0/')}
+                onPress={() => openExternal(CC_BY_SA_URL)}
               />
             </View>
           </View>

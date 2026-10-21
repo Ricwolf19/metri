@@ -1,4 +1,4 @@
-import { Linking, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { ExternalLinkIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
@@ -6,6 +6,8 @@ import { Button, Card, Screen, ScreenTitle, SectionLabel, TextLink } from '@/com
 import { betaLinks, downloadPageUrl } from '@/features/beta/links';
 import { useRouter } from 'expo-router';
 import { type TranslationKey, useI18n, useT } from '@/i18n';
+import { WEB_URL } from '@/lib/env';
+import { openExternal } from '@/lib/open-external';
 import { useTheme } from '@/theme/theme-context';
 
 const QA = ({ q, a }: { q: string; a: string }) => (
@@ -33,7 +35,6 @@ const Faq = () => {
   const { locale } = useI18n();
   const router = useRouter();
   const { brand } = useTheme();
-  const open = (url: string) => Linking.openURL(url);
 
   return (
     <Screen
@@ -90,7 +91,7 @@ const Faq = () => {
           <Button
             label={t('faq.feedbackCta')}
             variant="secondary"
-            onPress={() => open(betaLinks.feedback)}
+            onPress={() => openExternal(betaLinks.feedback)}
           />
         </View>
       </Card>
@@ -102,19 +103,19 @@ const Faq = () => {
           label={t('faq.linkWeb')}
           variant="secondary"
           leftIcon={<ExternalLinkIcon color={brand} size={18} />}
-          onPress={() => open('https://metri.info')}
+          onPress={() => openExternal(WEB_URL)}
         />
         <Button
           label={t('beta.releasesCta')}
           variant="secondary"
           leftIcon={<ExternalLinkIcon color={brand} size={18} />}
-          onPress={() => open(betaLinks.releases)}
+          onPress={() => openExternal(betaLinks.releases)}
         />
         <Button
           label={t('beta.webCta')}
           variant="secondary"
           leftIcon={<ExternalLinkIcon color={brand} size={18} />}
-          onPress={() => open(downloadPageUrl(locale))}
+          onPress={() => openExternal(downloadPageUrl(locale))}
         />
       </View>
     </Screen>

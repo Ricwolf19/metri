@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import {
   BrandLogo,
@@ -17,6 +17,7 @@ import { quizUrl } from '@/features/beta/links';
 import { ACTIVITY_LEVELS, lbToKg } from '@/features/bmr/calc';
 import { LOCALES, useI18n } from '@/i18n';
 import { settings, type Units } from '@/lib/storage';
+import { openExternal } from '@/lib/open-external';
 
 /** Preferences → about you → the optional knowledge check. */
 const STEPS = 3;
@@ -178,7 +179,7 @@ const Onboarding = () => {
               label={t('onb.quizStart')}
               onPress={() => {
                 // The check lives on the website; the app is done setting up either way.
-                void Linking.openURL(quizUrl(locale)).catch(() => {});
+                openExternal(quizUrl(locale));
                 router.replace('/(tabs)');
               }}
             />
