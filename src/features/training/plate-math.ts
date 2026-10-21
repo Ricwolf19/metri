@@ -20,6 +20,25 @@ export const BARS: Bar[] = [
   { id: 'bar-0', kg: 0 },
 ];
 
+/**
+ * A lb gym's bars ARE 45 / 35 / 25 lb, not a 20 kg bar read as 44.09 lb: with
+ * the kg bar every per-side total carried a .09 that the half-rounding of the
+ * seed then lost, so the next set reopened on 44.955 a side and re-split the
+ * plates. Stored in kg like every load; the sheet labels them in lb.
+ */
+export const LB_BARS: Bar[] = [
+  { id: 'bar-45lb', kg: lbToKg(45) },
+  { id: 'bar-35lb', kg: lbToKg(35) },
+  { id: 'bar-25lb', kg: lbToKg(25) },
+  { id: 'bar-0', kg: 0 },
+];
+
+export const barsFor = (unit: Units): Bar[] => (unit === 'lb' ? LB_BARS : BARS);
+
+/** The bar of `unit`'s table a stored detail names, matched to the gram. */
+export const barFor = (barKg: number, unit: Units): Bar | null =>
+  barsFor(unit).find((b) => Math.abs(b.kg - barKg) < 0.001) ?? null;
+
 /** The plate denominations offered per unit; each can be added several times.
  * lb gyms load lb plates, so converting the kg list (55.12…) offered nothing
  * that exists on the rack. */
@@ -71,6 +90,12 @@ export const sideTextFromTotal = (totalText: string, bar: number, sides: 1 | 2 =
   if (totalText.trim() === '' || !Number.isFinite(total)) return '';
   if (total <= bar) return '';
   return String(sideFromTotal(total, bar, sides));
+};
+
+/** `sideTextFromTotal` for a FIELD: the cent is the most a side ever reads. */
+export const sideFieldFromTotal = (totalText: string, bar: number, sides: 1 | 2 = 2): string => {
+  const side = sideTextFromTotal(totalText, bar, sides);
+  return side ? String(Math.round(Number(side) * 100) / 100) : '';
 };
 
 /** The other unit, for the instant equivalent line under the total: takes the

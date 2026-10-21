@@ -98,9 +98,10 @@ import {
   type MachineKind,
   reconcileLoad,
   rowInputMode,
+  seedFromPlates,
   type LoadDetail,
 } from '@/features/training/load';
-import { sideStep, sideTextFromTotal, totalFromSide } from '@/features/training/plate-math';
+import { sideStep, sideFieldFromTotal, totalFromSide } from '@/features/training/plate-math';
 import { getWorkoutDay } from '@/features/training/programs.repo';
 import { getRoutine } from '@/features/training/authoring.repo';
 import { fromKg, isRmTestWeek } from '@/features/training/progression';
@@ -315,11 +316,11 @@ const ExerciseCard = ({
   // What the weight field holds: per side on a plate-loaded exercise (bar, or a
   // machine the lifter marked as plates), one dumbbell, else the total. The
   // draft's `weight` is always the total; `side` is presentation on top of it.
-  const inputMode = rowInputMode(facts, loadSetting?.load);
+  const inputMode = rowInputMode(facts, loadSetting?.load, unit);
   const perSide = inputMode.mode === 'perSide' ? inputMode : null;
   const baseInUnit = perSide ? kgToUnit(perSide.baseKg, unit) : 0;
   const sideOf = (draft: RowDraft): string =>
-    draft.side ?? (perSide ? sideTextFromTotal(draft.weight, baseInUnit, perSide.sides) : '');
+    draft.side ?? (perSide ? sideFieldFromTotal(draft.weight, baseInUnit, perSide.sides) : '');
   /** The detail the row's number describes, in the current input mode. */
   const deriveFor = (draft: RowDraft): LoadDetail | null =>
     deriveLoad({
@@ -365,6 +366,10 @@ const ExerciseCard = ({
       logged: working,
       suggestedKg: suggested,
     });
+    // Plates first: the side and the total follow them, so a seed never reopens
+    // on a rounded total that no longer matches the detail (`seedFromPlates`).
+    const plates = perSide ? seedFromPlates(fill.load, perSide.baseKg, perSide.sides, unit) : null;
+    if (plates) return { ...plates, reps: String(fill.reps), effort: null };
     const draft: RowDraft = {
       weight: fill.weightKg != null ? weightText(fill.weightKg, unit) : '',
       reps: String(fill.reps),
@@ -399,7 +404,7 @@ const ExerciseCard = ({
       const typed = parseDecimal(next.weight);
       if (typed != null) {
         const capped = clampInput(inputMode.mode, typed, unit);
-        if (capped !== typed) next.weight = formatNumber(capped, 3);
+        if (capped !== typed) next.weight = formatNumber(capped);
       }
     }
     const renumbered = ('weight' in patch || 'side' in patch) && !('load' in patch);
@@ -410,9 +415,9 @@ const ExerciseCard = ({
     const typed = parseDecimal(text);
     const side = typed == null ? null : clampInput('perSide', typed, unit);
     patchDraft(key, {
-      side: side == null || side === typed ? text : formatNumber(side, 3),
+      side: side == null || side === typed ? text : formatNumber(side),
       weight:
-        side == null ? '' : formatNumber(totalFromSide(side, baseInUnit, perSide?.sides ?? 2), 3),
+        side == null ? '' : formatNumber(totalFromSide(side, baseInUnit, perSide?.sides ?? 2)),
     });
   };
   /**
@@ -426,14 +431,14 @@ const ExerciseCard = ({
       const side = parseDecimal(sideOf(draft));
       if (side == null) return;
       const snapped = snapTo(side, sideStep(unit));
-      if (snapped !== side) setSide(key, formatNumber(snapped, 3));
+      if (snapped !== side) setSide(key, formatNumber(snapped));
       return;
     }
     if (inputMode.mode === 'perHand') {
       const w = parseDecimal(draft.weight);
       if (w == null) return;
       const snapped = roundHalf(w);
-      if (snapped !== w) patchDraft(key, { weight: formatNumber(snapped, 3) });
+      if (snapped !== w) patchDraft(key, { weight: formatNumber(snapped) });
     }
   };
 

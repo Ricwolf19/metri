@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   addPlate,
   BARS,
+  barFor,
+  barsFor,
+  sideFieldFromTotal,
   DUMBBELL_PRESETS,
   platesForSide,
   sideStep,
@@ -125,9 +128,9 @@ describe('open → Apply round-trip', () => {
   ];
 
   for (const { unit, step, max } of cases) {
-    for (const kg of [20, 15, 0]) {
-      it(`${unit} totals in ${step} steps on a ${kg} kg bar`, () => {
-        const b = barInUnit(bar(kg), unit);
+    for (const b0 of barsFor(unit)) {
+      it(`${unit} totals in ${step} steps on the ${b0.id}`, () => {
+        const b = barInUnit(b0, unit);
         for (let i = 1; i * step <= max; i++) {
           const total = i * step;
           if (total <= b) continue;
@@ -137,6 +140,19 @@ describe('open → Apply round-trip', () => {
       });
     }
   }
+
+  it('offers 45 / 35 / 25 lb bars to a lb gym and finds a stored one to the gram', () => {
+    expect(barsFor('lb').map((b) => barInUnit(b, 'lb'))).toEqual([45, 35, 25, 0]);
+    expect(barFor(barsFor('lb')[0].kg, 'lb')?.id).toBe('bar-45lb');
+    expect(barFor(20, 'lb')).toBeNull();
+    expect(barFor(20, 'kg')?.id).toBe('bar-20');
+  });
+
+  it('writes a field side to the cent', () => {
+    expect(sideFieldFromTotal('22.75', 20)).toBe('1.38');
+    expect(sideFieldFromTotal('135', 45)).toBe('45');
+    expect(sideFieldFromTotal('', 45)).toBe('');
+  });
 
   it('reproduces the field reports exactly', () => {
     const kgBar = barInUnit(bar(20), 'kg');

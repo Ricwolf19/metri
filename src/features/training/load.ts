@@ -1,9 +1,9 @@
 import type { Equipment, LoadDetail, SetLog } from '@/db/schema';
 import { kgToLb, lbToKg } from '@/features/bmr/calc';
-import { trimFloat as trim } from '@/lib/numbers';
+import { formatNumber, trimFloat as trim } from '@/lib/numbers';
 import type { Units } from '@/lib/storage';
 
-import { plateOptions, platesForSide } from './plate-math';
+import { LB_BARS, plateOptions, platesForSide, platesToSide, totalFromSide } from './plate-math';
 
 export type { LoadDetail };
 export type LoadKind = LoadDetail['kind'];
@@ -34,6 +34,10 @@ const EVERY_MODE: LoadMode[] = ['barbell', 'machine', 'dumbbell', 'none'];
 
 /** The bar a barbell exercise is assumed to carry until the sheet says otherwise. */
 export const DEFAULT_BAR_KG = 20;
+
+/** The same assumption in a lb gym: a 45 lb bar (`LB_BARS`), never 20 kg read as 44.09 lb. */
+export const defaultBarKg = (unit: Units): number =>
+  unit === 'lb' ? LB_BARS[0].kg : DEFAULT_BAR_KG;
 
 /**
  * A machine is loaded one of three ways and the catalog cannot know which (the
@@ -98,6 +102,37 @@ export const loadTotalKg = (load: LoadDetail): number => {
     case 'dumbbell':
       return trim(load.perHandKg * load.hands);
   }
+};
+
+export type PlateSeed = { side: string; weight: string; load: LoadDetail };
+
+/**
+ * A per-side row seeded from a logged detail: the SAME plates on this row's
+ * base, written as the side and the total in the display unit. Seeding from
+ * the stored TOTAL went wrong twice — the half-rounding of the seed (134.09 lb
+ * → 134) left a side of 44.955 and dropped the plates, and a one-post 21.25 kg
+ * read 21.5 — so the plates are the source and the numbers follow them. A
+ * detail on another base keeps its plates too: the lifter put 45s on the bar,
+ * whichever bar the row now assumes.
+ */
+export const seedFromPlates = (
+  load: LoadDetail | null | undefined,
+  baseKg: number,
+  sides: 1 | 2,
+  unit: Units,
+): PlateSeed | null => {
+  if (load?.kind !== 'barbell') return null;
+  const side = platesToSide(load.platesKg.map((p) => snapPlate(p, unit)));
+  return {
+    side: formatNumber(side),
+    weight: formatNumber(totalFromSide(side, kgToUnit(baseKg, unit), sides)),
+    load: {
+      kind: 'barbell',
+      barKg: baseKg,
+      platesKg: load.platesKg,
+      ...(sides === 1 ? { sides: 1 as const } : {}),
+    },
+  };
 };
 
 /**
@@ -260,12 +295,13 @@ export const clampInput = (mode: RowInputMode['mode'], value: number, unit: Unit
 export const rowInputMode = (
   facts: { equipment: Equipment | null } | null | undefined,
   setting: LoadDetail | null | undefined,
+  unit: Units,
 ): RowInputMode => {
   const equipment = facts?.equipment ?? null;
   if (equipment === 'barbell') {
     return {
       mode: 'perSide',
-      baseKg: setting?.kind === 'barbell' ? setting.barKg : DEFAULT_BAR_KG,
+      baseKg: setting?.kind === 'barbell' ? setting.barKg : defaultBarKg(unit),
       sides: 2,
     };
   }

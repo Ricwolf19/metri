@@ -5,6 +5,8 @@ import type { Equipment } from '@/db/schema';
 import {
   DEFAULT_BAR_KG,
   carriedLoadFor,
+  defaultBarKg,
+  seedFromPlates,
   LOAD_KIND_FOR,
   PLATE_MACHINE_SEED,
   POST_MACHINE_SEED,
@@ -224,12 +226,12 @@ describe('machineLoadForTotal', () => {
 
 describe('rowInputMode', () => {
   it('takes the per-side number on a bar (its saved bar, else the default)', () => {
-    expect(rowInputMode({ equipment: 'barbell' }, null)).toEqual({
+    expect(rowInputMode({ equipment: 'barbell' }, null, 'kg')).toEqual({
       mode: 'perSide',
       baseKg: DEFAULT_BAR_KG,
       sides: 2,
     });
-    expect(rowInputMode({ equipment: 'barbell' }, { ...barbell, barKg: 15 })).toEqual({
+    expect(rowInputMode({ equipment: 'barbell' }, { ...barbell, barKg: 15 }, 'kg')).toEqual({
       mode: 'perSide',
       baseKg: 15,
       sides: 2,
@@ -238,21 +240,21 @@ describe('rowInputMode', () => {
 
   it('takes the per-side number on a plate-loaded machine and the total on a stack', () => {
     expect(
-      rowInputMode({ equipment: 'machine' }, { kind: 'barbell', barKg: 30, platesKg: [] }),
+      rowInputMode({ equipment: 'machine' }, { kind: 'barbell', barKg: 30, platesKg: [] }, 'kg'),
     ).toEqual({
       mode: 'perSide',
       baseKg: 30,
       sides: 2,
     });
-    expect(rowInputMode({ equipment: 'machine' }, machine)).toEqual({ mode: 'total' });
-    expect(rowInputMode({ equipment: 'machine' }, null)).toEqual({ mode: 'total' });
+    expect(rowInputMode({ equipment: 'machine' }, machine, 'kg')).toEqual({ mode: 'total' });
+    expect(rowInputMode({ equipment: 'machine' }, null, 'kg')).toEqual({ mode: 'total' });
   });
 
   it('takes one dumbbell for dumbbells and kettlebells, the total otherwise', () => {
-    expect(rowInputMode({ equipment: 'dumbbell' }, null)).toEqual({ mode: 'perHand' });
-    expect(rowInputMode({ equipment: 'kettlebell' }, null)).toEqual({ mode: 'perHand' });
-    expect(rowInputMode({ equipment: 'cable' }, null)).toEqual({ mode: 'total' });
-    expect(rowInputMode(null, null)).toEqual({ mode: 'total' });
+    expect(rowInputMode({ equipment: 'dumbbell' }, null, 'kg')).toEqual({ mode: 'perHand' });
+    expect(rowInputMode({ equipment: 'kettlebell' }, null, 'kg')).toEqual({ mode: 'perHand' });
+    expect(rowInputMode({ equipment: 'cable' }, null, 'kg')).toEqual({ mode: 'total' });
+    expect(rowInputMode(null, null, 'kg')).toEqual({ mode: 'total' });
   });
 });
 
@@ -376,7 +378,7 @@ describe('loadFromSide / deriveLoad', () => {
 
   it('reads a single-post machine as its own kind and caps a typed number', () => {
     expect(machineLoadKind(POST_MACHINE_SEED)).toBe('post');
-    expect(rowInputMode({ equipment: 'machine' }, POST_MACHINE_SEED)).toEqual({
+    expect(rowInputMode({ equipment: 'machine' }, POST_MACHINE_SEED, 'kg')).toEqual({
       mode: 'perSide',
       baseKg: 0,
       sides: 1,
@@ -393,6 +395,52 @@ describe('loadFromSide / deriveLoad', () => {
     ).toEqual({ kind: 'barbell', barKg: 0, platesKg: [25, 10], sides: 1 });
     expect(clampInput('perSide', 9999, 'kg')).toBe(250);
     expect(clampInput('total', 400, 'lb')).toBe(400);
+  });
+});
+
+describe('defaultBarKg', () => {
+  it('is a 20 kg bar in kg and a 45 lb bar in lb', () => {
+    expect(defaultBarKg('kg')).toBe(20);
+    expect(kgToUnit(defaultBarKg('lb'), 'lb')).toBe(45);
+    expect(rowInputMode({ equipment: 'barbell' }, null, 'lb')).toEqual({
+      mode: 'perSide',
+      baseKg: defaultBarKg('lb'),
+      sides: 2,
+    });
+  });
+});
+
+describe('seedFromPlates', () => {
+  const lb = (n: number) => n / 2.2046226218;
+
+  it('writes the logged plates as the side and the total on the row base (lb)', () => {
+    const logged = { kind: 'barbell' as const, barKg: 20, platesKg: [lb(45)] };
+    expect(seedFromPlates(logged, defaultBarKg('lb'), 2, 'lb')).toEqual({
+      side: '45',
+      weight: '135',
+      load: { kind: 'barbell', barKg: defaultBarKg('lb'), platesKg: [lb(45)] },
+    });
+  });
+
+  it('keeps a quarter on one post and marks the single side', () => {
+    const logged = { kind: 'barbell' as const, barKg: 0, platesKg: [1.25], sides: 1 as const };
+    expect(seedFromPlates(logged, 0, 1, 'kg')).toEqual({
+      side: '1.25',
+      weight: '1.25',
+      load: { kind: 'barbell', barKg: 0, platesKg: [1.25], sides: 1 },
+    });
+  });
+
+  it('seeds an empty bar and refuses any other detail', () => {
+    expect(seedFromPlates({ kind: 'barbell', barKg: 20, platesKg: [] }, 20, 2, 'kg')).toEqual({
+      side: '0',
+      weight: '20',
+      load: { kind: 'barbell', barKg: 20, platesKg: [] },
+    });
+    expect(
+      seedFromPlates({ kind: 'machine', baseKg: 5, incrementKg: 5, steps: 4 }, 0, 2, 'kg'),
+    ).toBeNull();
+    expect(seedFromPlates(null, 20, 2, 'kg')).toBeNull();
   });
 });
 

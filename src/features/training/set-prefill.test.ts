@@ -36,7 +36,12 @@ describe('weightText', () => {
   it('converts to lb at the nearest half: the number that goes on the bar', () => {
     // 60 kg = 132.28 lb → 132.5.
     expect(weightText(60, 'lb')).toBe('132.5');
-    expect(weightText(22.75, 'kg')).toBe('23');
+  });
+
+  it('keeps a kg quarter: a side snaps to 0.25 and one post carries a 1.25 plate', () => {
+    expect(weightText(22.75, 'kg')).toBe('22.75');
+    expect(weightText(21.25, 'kg')).toBe('21.25');
+    expect(weightText(22.8, 'kg')).toBe('22.75');
   });
 });
 

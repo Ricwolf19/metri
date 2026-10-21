@@ -1,29 +1,30 @@
 import type { LoadDetail } from '@/db/schema';
 import { kgToLb } from '@/features/bmr/calc';
-import { formatNumber, roundHalf } from '@/lib/numbers';
+import { formatNumber, roundHalf, snapTo } from '@/lib/numbers';
 import type { Units } from '@/lib/storage';
 
 /**
  * The numbers that seed the live set row. These helpers exist so the set-logging
  * path never silently rounds or substitutes what the lifter typed: drafts are
- * strings, bumps keep every decimal the keyboard allows, and only the SEED
- * converts units.
+ * strings, a bump keeps the typed value exact to the cent (two decimals, the
+ * most any load reads), and only the SEED converts units.
  */
 
-/** Exact `current + delta`, clamped at 0, never rounded to a plate increment. */
+/** `current + delta` to two decimals, clamped at 0, never rounded to a plate increment. */
 export const bumpValue = (current: number, delta: number): string => {
-  if (!Number.isFinite(current)) return formatNumber(Math.max(0, delta), 3);
-  return formatNumber(Math.max(0, current + delta), 3);
+  if (!Number.isFinite(current)) return formatNumber(Math.max(0, delta));
+  return formatNumber(Math.max(0, current + delta));
 };
 
 /**
- * A stored load in the active unit at the nearest half — for the seed AND for
- * every logged value the screen shows. Loads are entered in halves and
- * quarters, so a converted 132.28 lb reads 132.5: the number the lifter can
- * actually put on the bar, not the arithmetic behind it.
+ * A stored load in the active unit at its smallest step — for the seed AND for
+ * every logged value the screen shows: the nearest half in lb (a converted
+ * 132.28 lb reads 132.5, the number that goes on the bar, not the arithmetic
+ * behind it) and the nearest quarter in kg, because a side snaps to 0.25 kg
+ * and a one-post machine with a 1.25 plate totals 21.25, not 21.5.
  */
 export const weightText = (kg: number, unit: Units): string =>
-  formatNumber(roundHalf(unit === 'lb' ? kgToLb(kg) : kg), 2);
+  formatNumber(unit === 'lb' ? roundHalf(kgToLb(kg)) : snapTo(kg, 0.25), 2);
 
 export type PriorSet = { weightKg: number; reps: number; load?: LoadDetail | null };
 

@@ -20,8 +20,9 @@ import {
 } from '../load';
 import {
   addPlate,
-  BARS,
+  barFor,
   barInUnit,
+  barsFor,
   barLabel,
   DUMBBELL_PRESETS,
   equivalentIn,
@@ -85,7 +86,7 @@ export const WeightCalculatorSheet = ({
   const t = useT();
   const [mode, setMode] = useState<LoadMode>('none');
   // Barbell (and plate-loaded machine)
-  const [barId, setBarId] = useState(BARS[0].id);
+  const [barId, setBarId] = useState(barsFor(unit)[0].id);
   const [plates, setPlates] = useState<number[]>([]);
   const [sledText, setSledText] = useState('');
   /** A plate machine: two horns (plates ×2) or one post (plates once). */
@@ -127,9 +128,8 @@ export const WeightCalculatorSheet = ({
       // Plates: the saved plates when the row still carries them, else the
       // row's total split over the saved (or default) bar onto the rack.
       const bar =
-        initialLoad?.kind === 'barbell'
-          ? (BARS.find((b) => b.kg === initialLoad.barKg) ?? BARS[0])
-          : BARS[0];
+        (initialLoad?.kind === 'barbell' ? barFor(initialLoad.barKg, unit) : null) ??
+        barsFor(unit)[0];
       setBarId(bar.id);
       const sled = initialLoad?.kind === 'barbell' ? kgToUnit(initialLoad.barKg, unit) : 0;
       setSledText(sled > 0 ? String(sled) : '');
@@ -173,14 +173,14 @@ export const WeightCalculatorSheet = ({
     };
 
   /* ── Plates ──────────────────────────────────────────────────────────── */
-  const bar = BARS.find((b) => b.id === barId) ?? BARS[0];
+  const bar = barsFor(unit).find((b) => b.id === barId) ?? barsFor(unit)[0];
   const sledWeight = num(sledText) ?? 0;
   const baseWeight = plateMachine ? sledWeight : barInUnit(bar, unit);
   const side = platesToSide(plates);
   const barbellTotal = totalFromSide(side, baseWeight, plateMachine ? sides : 2);
   const barItems = useMemo(
     () =>
-      BARS.map((b) => ({
+      barsFor(unit).map((b) => ({
         value: b.id,
         label: b.kg === 0 ? t('training.barNone') : `${barLabel(b, unit)} ${unit}`,
       })),
