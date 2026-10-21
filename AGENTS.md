@@ -8,7 +8,9 @@ OPTIONAL: `users.authKind` separates device-only rows ('local') from Better Auth
 ('remote'); `src/app/index.tsx` gates on any user row existing. A later sign-in ADOPTS the local
 row in place (same id — `adoptLocalUser`); never create a second row for the same person.
 Local users must never hit the network (`revalidate`/`pushProfile` early-return). Export/import
-(`src/features/plan/`) is **unconditional** — local users included. Sync is the only paid
+(`src/features/plan/`) is **unconditional** — local users included — and moves ONE .json FILE
+(`expo-sharing` out, the document picker in, both behind `<BlockingOverlay>`; never pasted text,
+and never `Share.share` with a `message`, which put the whole export on Android's sheet as text). Sync is the only paid
 capability; nothing may ever gate a user out of their own data. Import is additive: every id is
 regenerated (FKs rewritten, including inside JSON payloads), ownership is forced to the importer,
 `updatedAt` is stamped so sync pushes the rows, and a repeated import duplicates rather than
@@ -65,9 +67,12 @@ keys. Every production bug fix ships with the test that would have caught it.
   mandatory (Drizzle's hook defaults them to `[]`, and ESLint blocks that import), reads
   synchronously (`all()`, no empty first frame) through `useSyncExternalStore`, and re-queries
   ONCE per frame per hook (`db/live-runner.ts`) — SQLite notifies per row, so a 30-set write
-  used to re-run every query on the screen thirty times. Freezing inactive tabs
-  (`enableFreeze(true)` + `freezeOnBlur`) was tried and reverted: a cold launch painted nothing
-  after the splash. Root-cause it with Metro logs before trying again.
+  used to re-run every query on the screen thirty times. Inactive tabs are frozen
+  (`freezeOnBlur: true` on the Tabs, NO global `enableFreeze`): the "cold launch painted
+  nothing after the splash" of the first attempt was `FadeInUp` driving opacity from 0 in an
+  effect — every section on Home and Train sits in it, and an animation that does not apply
+  leaves the view invisible (seen again on 2026-10-20 after the dev seed's `dismissTo`). The
+  fade is a native `entering` animation now, so a view's resting state is visible.
 - **Stored JSON goes through `parseJson`/`parseJsonArray` (`lib/safe-json.ts`).** MMKV values
   outlive app updates; a bare `JSON.parse` on a shape an older build wrote throws, and one throw
   inside the notification reconcile loop took every scheduled reminder with it.
@@ -119,7 +124,9 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   `const Screen = () => {}; export default Screen;`.
 - Imports via `@/` (src) and `@/assets/*`. SVGs import as components; `.sql` imports are wired in
   metro/babel config — don't remove that config.
-- **NativeWind tokens, never raw hex** in components: `ink-*`/`accent` adapt per theme; `ink-950`
+- **NativeWind tokens, never raw hex** in components: `ink-*`/`accent` come from ONE (dark)
+  table in `theme/tokens.ts` — the light scale and the system/light/dark picker were removed on
+  2026-10-20 (`settings.theme` is a retired key), so `useTheme()` carries no scheme; `ink-950`
   stays constant; accent text = `text-accent`, accent fills = `bg-lime-400`; icon `color=` props use
   `useTheme()` values. `info` (sky) is the one informational tone — a per-side tag, "a load
   detail is saved", the swap-variant glyph (alternatives exist), the "more than last time" arrow
@@ -146,7 +153,10 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
 - **Editors** buffer a draft + `dirty`, persist structure (add/delete/reorder) immediately, and
   guard leaving with `useUnsavedGuard` (Save & leave / Discard / Cancel). Every irreversible action
   is a `<HoldButton>` (press-and-hold) — inline and inside dialogs (`style: 'destructive'` renders
-  one). Toasts only for save/delete/start/abandon.
+  one). Its firing is the component's OWN timer (armed on press-in, disarmed on press-out), never
+  `Pressable.onLongPress`: Pressability drops its long-press timer when the finger drifts more
+  than ten points while the press stays active, so a thumb that moved watched the fill reach
+  100 % and nothing fire. Toasts only for save/delete/start/abandon.
 - **`<BlockingOverlay>` is a SOLID surface** (`bg-ink-900`, the mark pulsing inside an orbiting
   arc, always centred): a translucent wait showed the screens behind it mid-render. Use it for
   every synchronous transition — start, finish, discard, a language switch, a bulk write — and
@@ -158,7 +168,10 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   tree (all five tabs, `lazy: false`) on every finish.
 - **Preset cues ("Pausa 1s", "Agarre supino") resolve at render** through
   `programs/badge-copy.ts` (`badgeLabel`, either language's spelling finds the pair); the stored
-  string stays whatever the seed or the lifter wrote.
+  string stays whatever the seed or the lifter wrote. A pause carries a `detail` ("Hold the
+  bottom 1 s before pushing", `badgeDetail`) and the session card draws it in `info`, spelled
+  out — a two-word pill was forgotten by set three. The PB2 PDFs were re-read on 2026-10-20: the
+  seven pause badges in the Progression preset are exactly what the source prescribes.
 - **Dev-only demo data**: `bun run dev:seed` (`scripts/dev-seed.ts`, `--ios` for the simulator)
   opens the deep link `metri://dev/seed`; the `src/app/dev/seed.tsx` screen (mounts under
   `__DEV__` only, redirects otherwise) wipes the user's training, body and diary rows, creates a
@@ -376,30 +389,44 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   `set_number` counts them) and the card shows that session as "Last training". Set 2 onwards
   opens on the set just logged HERE — weight, reps and plates — because the current session is
   the source of truth once it has a number; the plan's reps win only on a pyramid step
-  (`nextSetPrefill`, `prevPlanReps`). A seeded per-side row keeps inherited plates while they
-  still add up on the same base (`carriedLoadFor`), so 4×25 stays 4×25 on the next set. The
+  (`nextSetPrefill`, `prevPlanReps`). A seeded per-side row is written FROM the inherited plates
+  (`seedFromPlates`: side = the plates, total = base + sides × side, on the row's base) — seeding
+  from the stored total went wrong twice, because the seed rounds to the unit's step and a 44.09
+  lb base (the 20 kg bar read in lb) or a one-post 21.25 kg no longer matched the detail, so the
+  side showed 44.955 and the plates were re-split. For the same reason a lb gym's default bar is
+  45 lb (`defaultBarKg(unit)`, `LB_BARS`), kg values display at the quarter (`weightText`) and
+  every field writes two decimals. `carriedLoadFor` remains the rule for a non-seeded carry. The
   arrows beside the inputs still compare the typed value with the SAME ordinal set of the
   previous session: `info` up, the adherence `MISSED` red down — a comparison indicator, the
   one place those two tones mean neither a state nor a miss.
 - **The session has ONE view**: one exercise per page, the `ChipRow` strip (`followSelection`,
   `cues={false}` because the paging arrows flank it) as the navigation, Prev/Next on the row
   above the card. **Reorder is a hold on a chip**: the lifted chip (dashed outline, grip) moves
-  one place per arrow tap — `reorderSnapshot` at once — and a tap on the strip puts it down; the
-  modal with the drag list is gone. The screen reopens on the page the lifter left
+  one place per arrow tap — `reorderSnapshot` at once — and a tap on the strip puts it down,
+  which asks once whether the order is today's or the split's from now on (`reorderSlots` on
+  the enrolled day); the modal with the drag list is gone. The screen reopens on the page the lifter left
   (`writeFocusSlot`/`readFocusSlot` in the drafts store; a notification's `?slot=` wins).
   `settings.workoutLayout` is retired — never reuse the id. The ± groups carry no visible
   caption (the field above them says the unit). The active row is three lines: ONE uppercase
-  mono header ("SET 1 | TARGET: 12 REPS @ FAILURE") that wraps and never clips, two full-width
+  mono header ("SET 1 | 12 REPS @ FAILURE") that wraps and never clips, two full-width
   number fields with the trend glyph above the unit inside the unit box (a faint dash when there
-  is nothing to compare, so the box never shows a hole), then the action line — base tag and
-  total + plate breakdown on the left, Skip set in the middle, calculator and check on the right.
+  is nothing to compare, so the box never shows a hole), then the action line — ONE sideways-
+  scrolling line of fixed height on the left (base tag, total, plate breakdown: the data never
+  grows the row, so the check stays under the thumb from set to set), Skip set in the middle,
+  calculator and check on the right. On a machine the tag IS the way to re-choose plates per
+  side / one post / stack (`OptionSheet`, same seeds as the first-time chooser). The cue strip
+  above the sets is one scrolling line too — the per-side hint rides as a chip, never a line
+  under it.
   A base prefix and an arrow beside the number clipped "132.5" on a phone, and a truncated
   header hid the target.
 - **Swaps have a scope and skips write "missed".** Picking a variant opens `SwapScopeSheet`:
   the reason (`SWAP_REASONS`, wire format) preselects a scope — this session (snapshot only),
   the next N sessions (`workout_day_exercises.swap`, a synced countdown column consumed by
   `startWorkout`) or the rest of the cycle (`applySwap` rewrites the ENROLLED slot and keeps
-  the planned exercise among its alternatives; templates never). A skipped set
+  the planned exercise among its alternatives; templates never). "Enrolled" is proven through
+  the LOG (the slot sits on the day the session started from), not through
+  `workout_day_exercises.user_program_id`: copies enrolled before migration 0008 carry NULL
+  there and the swap silently went nowhere; the column is backfilled on the way. A skipped set
   (`PlannedSlot.skippedSets`, 0-based ordinals) or exercise (`PlannedSlot.skipped`) is a
   snapshot field, confirmed with a hold, and counts as SETTLED (`resolvedSets`) for paging,
   the progress bar and the finish guard — never as trained: `sessionSummary.missedSets` says
@@ -491,9 +518,9 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   (`food-docs.ts`, one per `FoodCategory`) and their rows link to `/food/<id>`, which
   `openContentLink` routes into the app; adding a category needs an i18n key, a title/lead entry
   there, and nothing else.
-- **Knowledge check** (`features/quiz/`, `/quiz`, last onboarding step): one question per
-  (area, level), bilingual copy beside the data; area ids are persisted in MMKV — never rename.
-  It recommends, it never locks a guide.
+- **The knowledge check lives on metri.info** (`/quiz`, `/es/test`): the Explore card and the
+  last onboarding step open it in the browser (`quizUrl`, `features/beta/links.ts`); the in-app
+  quiz was removed on 2026-10-20 and `quiz.scores` is a retired MMKV key.
 - **Release check** (`features/release/`, accounts only): once a day `useAppUpdate` fetches
   metri.info `/api/latest-version`, validates it (`parseLatestRelease`) and caches it in MMKV; a
   failure is silent. "Newer" is not "download an APK": `updateKind` sends a same-`runtimeVersion`
