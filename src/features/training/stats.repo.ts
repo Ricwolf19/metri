@@ -4,6 +4,7 @@ import { db } from '@/db/client';
 import { exercises, setLogs, workoutLogs, type LoadDetail, type SetLog } from '@/db/schema';
 
 import { localDateKey } from './adherence.repo';
+import { mondayOf } from './dates';
 import { setVolumeKg } from './load';
 import { sessionAdherence, type EffortAdherence, type EffortSet } from './effort-stats';
 import type { LoadedSet, MuscleIndex } from './muscle-load';
@@ -13,16 +14,11 @@ export type WeekVolume = { weekStart: string; label: string; volume: number };
 /** "MM/DD" chart label for a week-start date key. */
 const weekLabel = (weekStart: string): string => weekStart.slice(5).replace('-', '/');
 
-const weekStartKey = (d: Date): string => {
-  const monday = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
-  return localDateKey(monday);
-};
+const weekStartKey = (d: Date): string => localDateKey(mondayOf(d));
 
 const firstMondayFor = (weeks: number): Date => {
-  const today = new Date();
-  const d = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  d.setDate(d.getDate() - ((d.getDay() + 6) % 7) - (weeks - 1) * 7);
+  const d = mondayOf(new Date());
+  d.setDate(d.getDate() - (weeks - 1) * 7);
   return d;
 };
 

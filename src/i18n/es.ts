@@ -508,6 +508,9 @@ export const es: Record<TranslationKey, string> = {
   'exHistory.prCount': 'Récords',
   'exHistory.sessionsCount': 'Sesiones',
   'exHistory.records': 'Récords',
+  'exHistory.byWeek': 'Por semana',
+  'exHistory.dropNote':
+    'Un número más bajo no siempre es un retroceso: más recorrido, una pausa, un tempo más lento o una descarga bajan el peso a propósito.',
   'exHistory.sessions': 'Sesiones',
   'exHistory.empty': 'Aún no hay series efectivas registradas para este ejercicio.',
   'toast.swipeHint': 'Desliza para descartar',

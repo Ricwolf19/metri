@@ -15,5 +15,12 @@ export const dayBounds = (key: string): [Date, Date] => {
   return [start, new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1)];
 };
 
+/** Local midnight of the Monday that starts `d`'s week (the week a lifter plans in). */
+export const mondayOf = (d: Date): Date => {
+  const monday = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  return monday;
+};
+
 /** Expo weekday for a local-midnight cursor. */
 export const weekdayOf = (d: Date): number => d.getDay() + 1;

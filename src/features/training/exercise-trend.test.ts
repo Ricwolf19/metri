@@ -6,6 +6,7 @@ import {
   buildExerciseSeries,
   mostImproved,
   prEvents,
+  weeklyTops,
   type ExerciseSessionPoint,
 } from './exercise-trend';
 import type { ExerciseSession } from './stats.repo';
@@ -140,5 +141,25 @@ describe('activeExercises', () => {
       ['squat', 1],
       ['bench', 3],
     ]);
+  });
+});
+
+describe('weeklyTops', () => {
+  it('keeps the heaviest set per trained week, Monday-first, oldest first, capped', () => {
+    // NOW is Monday 2026-10-12: 1 and 3 days ago sit in the previous week, 8 the one before.
+    const points = buildExerciseSeries([
+      session('a', 8, [[80, 5]]),
+      session('b', 3, [[82.5, 5]]),
+      session('c', 1, [[85, 3]]),
+      session('d', 0, [[84, 5]]),
+    ]);
+    const weeks = weeklyTops(points, { weeks: 6 });
+    expect(weeks.map((w) => [w.topKg, w.sessions])).toEqual([
+      [80, 1],
+      [85, 2],
+      [84, 1],
+    ]);
+    expect(new Date(weeks[1].weekStart).getDay()).toBe(1);
+    expect(weeklyTops(points, { weeks: 2 }).map((w) => w.topKg)).toEqual([85, 84]);
   });
 });

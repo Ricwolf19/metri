@@ -1,17 +1,22 @@
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 
-import { Card, SegmentedControl, Stat, TrendChart } from '@/components/ui';
+import { Card, ScrollRow, SegmentedControl, Stat, TrendChart } from '@/components/ui';
 import { useT } from '@/i18n';
 import type { Units } from '@/lib/storage';
 import { useDateFormat } from '@/lib/useDateFormat';
 
-import { bestSetOf, prEvents, type ExerciseSessionPoint } from '../exercise-trend';
+import { bestSetOf, prEvents, weeklyTops, type ExerciseSessionPoint } from '../exercise-trend';
 import { fromKgHalf } from '../progression';
+import { compareToPrevious } from '../set-prefill';
+import { TrendArrow } from './TrendArrow';
 
 type Metric = 'top' | 'e1rm' | 'volume';
 const METRICS: Metric[] = ['top', 'e1rm', 'volume'];
 const MAX_RECORDS = 5;
+const WEEKS = 8;
+/** A week counts as up or down against the one before only past this. */
+const WEEK_EPS_KG = 0.02;
 
 /**
  * One exercise over time: a measure per session (top set, estimated 1RM, or
@@ -48,6 +53,9 @@ export const ExerciseTrendCard = ({
     return p.isPr && v != null ? [{ x: i, y: shown(v) }] : [];
   });
 
+  // Week by week, the glyph against the week before: the read the lifter asks
+  // for on the floor ("did it go up this week?"), which a line by session hides.
+  const weeks = weeklyTops(points, { weeks: WEEKS });
   const bestSet = bestSetOf(points);
   const bestE1rm = Math.max(0, ...points.map((p) => p.e1rmKg ?? 0));
   const records = prEvents(points).slice(-MAX_RECORDS).reverse();
@@ -84,6 +92,32 @@ export const ExerciseTrendCard = ({
         unit={` ${unit}`}
         yFormat={(v) => String(v)}
       />
+      {weeks.length > 1 ? (
+        <View className="mt-4 border-t border-ink-800 pt-3">
+          <Text className="font-mono-medium text-xs uppercase tracking-wider text-ink-400">
+            {t('exHistory.byWeek')}
+          </Text>
+          <View className="mt-1.5">
+            <ScrollRow className="gap-1.5">
+              {weeks.map((w, i) => (
+                <View
+                  key={w.weekStart}
+                  className="shrink-0 flex-row items-center gap-1.5 rounded-field bg-ink-850 px-2 py-1"
+                >
+                  <Text className="text-xs text-ink-400">{dayMonth(new Date(w.weekStart))}</Text>
+                  <Text className="font-mono text-sm text-ink-100">{shown(w.topKg)}</Text>
+                  <TrendArrow
+                    trend={
+                      i > 0 ? compareToPrevious(w.topKg, weeks[i - 1].topKg, WEEK_EPS_KG) : null
+                    }
+                  />
+                </View>
+              ))}
+            </ScrollRow>
+          </View>
+          <Text className="mt-2 text-xs leading-4 text-ink-500">{t('exHistory.dropNote')}</Text>
+        </View>
+      ) : null}
       <View className="mt-4 flex-row border-t border-ink-800 pt-3">
         <Stat
           label={t('exHistory.bestSet')}

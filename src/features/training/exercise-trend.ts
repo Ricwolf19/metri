@@ -1,3 +1,4 @@
+import { mondayOf } from './dates';
 import { setVolumeKg } from './load';
 import { estimate1Rm } from './progression';
 import type { ExerciseSession } from './stats.repo';
@@ -121,4 +122,33 @@ export const activeExercises = (
     })
     .filter((x) => x.sessions > 0)
     .sort((a, b) => b.lastAt - a.lastAt);
+};
+
+export type WeekTop = {
+  /** Local Monday 00:00 of the week, epoch ms. */
+  weekStart: number;
+  topKg: number;
+  sessions: number;
+};
+
+/**
+ * The heaviest set of each trained week, oldest first, at most `weeks` of
+ * them: the week-to-week read the chart by session hides when a lift is
+ * trained twice one week and once the next. Weeks with nothing logged are
+ * left out rather than drawn as zero.
+ */
+export const weeklyTops = (
+  points: readonly ExerciseSessionPoint[],
+  opts: { weeks: number },
+): WeekTop[] => {
+  const byWeek = new Map<number, WeekTop>();
+  for (const p of points) {
+    const weekStart = mondayOf(new Date(p.at)).getTime();
+    const week = byWeek.get(weekStart);
+    if (week) {
+      week.topKg = Math.max(week.topKg, p.topKg);
+      week.sessions += 1;
+    } else byWeek.set(weekStart, { weekStart, topKg: p.topKg, sessions: 1 });
+  }
+  return [...byWeek.values()].sort((a, b) => a.weekStart - b.weekStart).slice(-opts.weeks);
 };

@@ -499,6 +499,9 @@ export const en = {
   'exHistory.prCount': 'Records',
   'exHistory.sessionsCount': 'Sessions',
   'exHistory.records': 'Records',
+  'exHistory.byWeek': 'By week',
+  'exHistory.dropNote':
+    'A lower number is not always a step back: a longer range of motion, a pause, a slower tempo or a deload lower the weight on purpose.',
   'exHistory.sessions': 'Sessions',
   'exHistory.empty': 'No working sets logged for this exercise yet.',
   'toast.swipeHint': 'Swipe to dismiss',
