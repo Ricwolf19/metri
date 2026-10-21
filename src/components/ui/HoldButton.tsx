@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -17,7 +17,6 @@ import Animated, {
 
 import { useT } from '@/i18n';
 import { THEME_VARS } from '@/theme/tokens';
-import { useTheme } from '@/theme/theme-context';
 
 import { CONTROL_FONT_SCALE } from './typography';
 
@@ -51,8 +50,13 @@ const FILL: Record<Variant, string> = { danger: 'bg-red-500/30', secondary: 'bg-
 const LABEL: Record<Variant, string> = { danger: 'text-red-400', secondary: 'text-ink-50' };
 const HEIGHT: Record<Size, number> = { sm: 36, md: 44 };
 
-// Fill is visual only; firing is Pressable's long-press detector, so tap bursts can't complete it.
-// Shared-value writes stay in a module-scope factory (AGENTS.md#architecture-invariants).
+// The fill is visual; firing is the component's own timer, armed on press-in
+// and disarmed on press-out, so a tap burst can never complete it. It is NOT
+// Pressable's long-press detector: Pressability drops its long-press timer the
+// moment the finger drifts more than ten points while the press stays active,
+// so a thumb that moved during the hold watched the fill reach 100 % and
+// nothing fire ("the hold button freezes"). Shared-value writes stay in a
+// module-scope factory (AGENTS.md#architecture-invariants).
 const makeController = (progress: SharedValue<number>, durationMs: number) => ({
   start: () => {
     progress.value = 0;
@@ -63,6 +67,9 @@ const makeController = (progress: SharedValue<number>, durationMs: number) => ({
     progress.value = withTiming(0, { duration: 140 });
   },
 });
+
+/** How far the finger may wander before the press is cancelled: a thumb holding still drifts. */
+const PRESS_RETENTION = { top: 48, bottom: 48, left: 48, right: 48 };
 
 /**
  * Press-and-hold confirmation for irreversible actions: the fill grows for
@@ -82,15 +89,16 @@ export const HoldButton = ({
   accessibilityLabel,
 }: Props) => {
   const t = useT();
-  const { scheme } = useTheme();
   const progress = useSharedValue(0);
   const [busy, setBusy] = useState(false);
   const [ctl] = useState(() => makeController(progress, durationMs));
+  // Armed in the press handlers only (never read in render): the hold's own clock.
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const chip = !label && !!icon;
   const height = chip ? 40 : HEIGHT[size];
-  // Danger keeps the destructive red through the loader; secondary follows the theme.
-  const spinner = variant === 'danger' ? '#ef4444' : `rgb(${THEME_VARS[scheme]['--ink-50']})`;
+  // Danger keeps the destructive red through the loader; secondary is the text colour.
+  const spinner = variant === 'danger' ? '#ef4444' : `rgb(${THEME_VARS['--ink-50']})`;
 
   const fillStyle = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }));
 
@@ -104,6 +112,23 @@ export const HoldButton = ({
       else setBusy(false);
     }, PAINT_MS);
   };
+  const disarm = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+  };
+  const pressIn = () => {
+    ctl.start();
+    disarm();
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      complete();
+    }, durationMs);
+  };
+  const pressOut = () => {
+    disarm();
+    ctl.reset();
+  };
+  useEffect(() => disarm, []);
   const onAccessibilityAction = (e: AccessibilityActionEvent) => {
     if (e.nativeEvent.actionName === 'activate') complete();
   };
@@ -120,10 +145,9 @@ export const HoldButton = ({
     >
       <Pressable
         disabled={disabled || busy}
-        onPressIn={ctl.start}
-        onPressOut={ctl.reset}
-        onLongPress={complete}
-        delayLongPress={durationMs}
+        onPressIn={pressIn}
+        onPressOut={pressOut}
+        pressRetentionOffset={PRESS_RETENTION}
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel ?? label}
         accessibilityHint={t('common.holdHint')}
