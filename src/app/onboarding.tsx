@@ -16,7 +16,6 @@ import { useAuth } from '@/features/auth/auth-context';
 import { ACTIVITY_LEVELS, lbToKg } from '@/features/bmr/calc';
 import { LOCALES, useI18n } from '@/i18n';
 import { settings, type Units } from '@/lib/storage';
-import { ThemeSelect } from '@/theme/ThemeSelect';
 
 /** Preferences → about you → the optional knowledge check. */
 const STEPS = 3;
@@ -105,13 +104,6 @@ const Onboarding = () => {
             value={units}
             onChange={setUnits}
           />
-          <View>
-            <Text className="mb-1.5 font-mono-medium text-xs uppercase tracking-wider text-ink-300">
-              {t('theme.title')}
-            </Text>
-            <ThemeSelect />
-          </View>
-
           <Button variant="brand" label={t('onb.next')} onPress={() => setStep(1)} />
         </View>
       ) : step === 1 ? (

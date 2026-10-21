@@ -17,10 +17,6 @@ export const en = {
   'lang.es': 'Spanish',
 
   // Theme
-  'theme.title': 'Appearance',
-  'theme.system': 'System',
-  'theme.light': 'Light',
-  'theme.dark': 'Dark',
 
   // Auth — sign in
   'auth.welcomeBack': 'Welcome back',

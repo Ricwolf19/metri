@@ -9,21 +9,19 @@ import { markdownRules } from '@/features/docs/MarkdownTable';
 import { markdownStyles } from '@/features/docs/markdownStyles';
 import { openContentLink } from '@/features/docs/openContentLink';
 import { useI18n } from '@/i18n';
-import { useTheme } from '@/theme/theme-context';
 
 const DocDetail = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { locale } = useI18n();
-  const { scheme } = useTheme();
   const router = useRouter();
 
   const section = typeof id === 'string' ? getDocById(locale, id) : null;
   const body = section?.body ?? '';
-  // One element the compiler memoizes on body and theme: the renderer parses
+  // One element the compiler memoizes on the body: the renderer parses
   // the whole markdown on every render it receives.
   const markdown = (
     <Markdown
-      style={markdownStyles(scheme)}
+      style={markdownStyles()}
       rules={markdownRules}
       onLinkPress={(href) => openContentLink(href, router)}
     >

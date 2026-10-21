@@ -72,17 +72,15 @@ export const Button = ({
   const isDisabled = disabled || loading;
   const { scale, onPressIn, onPressOut } = usePressScale();
   const pressAnim = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  const { scheme, brand, brandContrast } = useTheme();
+  const { brand, brandContrast } = useTheme();
 
-  // Spinner colour tracks the label colour (which inverts per scheme for the
-  // monochrome/neutral variants).
-  const dark = scheme === 'dark';
+  // Spinner colour tracks the label colour of each variant.
   const spinnerColor: Record<Variant, string> = {
     brand: brandContrast,
     brandSoft: brand,
-    secondary: dark ? '#f5f5f7' : '#18181b',
-    outline: dark ? '#e4e4e7' : '#27272a',
-    ghost: dark ? '#d4d4d8' : '#3f3f46',
+    secondary: '#f5f5f7',
+    outline: '#e4e4e7',
+    ghost: '#d4d4d8',
     danger: '#f87171',
   };
 

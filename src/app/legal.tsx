@@ -7,12 +7,10 @@ import { getLegal } from '@/features/legal/content';
 import { useRouter } from 'expo-router';
 
 import { useI18n } from '@/i18n';
-import { useTheme } from '@/theme/theme-context';
 
 const Legal = () => {
   const { t, locale } = useI18n();
   const router = useRouter();
-  const { scheme } = useTheme();
 
   return (
     <Screen
@@ -30,7 +28,7 @@ const Legal = () => {
     >
       <ScreenTitle title={t('legal.title')} />
       <Card>
-        <Markdown style={markdownStyles(scheme)}>{getLegal(locale)}</Markdown>
+        <Markdown style={markdownStyles()}>{getLegal(locale)}</Markdown>
       </Card>
     </Screen>
   );

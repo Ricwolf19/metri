@@ -8,7 +8,6 @@ import { markdownStyles } from '@/features/docs/markdownStyles';
 import { openContentLink } from '@/features/docs/openContentLink';
 import { useT } from '@/i18n';
 import { useDateFormat } from '@/lib/useDateFormat';
-import { useTheme } from '@/theme/theme-context';
 
 import { startUpdate } from '../start-update';
 import type { AppUpdate } from '../useAppUpdate';
@@ -28,7 +27,6 @@ const BYTES_PER_MB = 1_000_000;
 export const UpdateSheet = ({ update, visible, onClose }: Props) => {
   const t = useT();
   const router = useRouter();
-  const { scheme } = useTheme();
   const { date } = useDateFormat();
   const { release, kind } = update;
 
@@ -62,7 +60,7 @@ export const UpdateSheet = ({ update, visible, onClose }: Props) => {
         <SectionLabel label={t('release.whatsNew')} />
         {release.notes.trim() ? (
           <Markdown
-            style={markdownStyles(scheme)}
+            style={markdownStyles()}
             rules={markdownRules}
             onLinkPress={(href) => openContentLink(href, router)}
           >

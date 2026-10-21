@@ -14,13 +14,12 @@ export const storage = createMMKV({ id: 'metri' });
 
 export type Units = 'kg' | 'lb';
 export type LocaleCode = 'en' | 'es';
-export type ThemePreference = 'system' | 'light' | 'dark';
 export type ClockFormat = '24' | '12';
 
 export const SettingKeys = {
   units: 'settings.units',
   locale: 'settings.locale',
-  theme: 'settings.theme',
+  // `settings.theme` is retired (the app is dark only since 2026-10-20): never reuse the id.
   clock: 'settings.clock',
   // Read reactively through `useDateFormat`.
   dateFormat: 'settings.dateFormat',
@@ -82,12 +81,6 @@ export const settings = {
   },
   markBodyMetricsBackfilled() {
     storage.set(SettingKeys.bodyMetricsBackfilled, true);
-  },
-  getThemePreference(): ThemePreference {
-    return (storage.getString(SettingKeys.theme) as ThemePreference) ?? 'dark';
-  },
-  setThemePreference(theme: ThemePreference) {
-    storage.set(SettingKeys.theme, theme);
   },
   // Local-mode banner snooze deadline (epoch ms).
   getLocalBannerSnoozedUntil(): number {

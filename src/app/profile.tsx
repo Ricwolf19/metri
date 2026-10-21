@@ -33,7 +33,6 @@ import { useAppUpdate } from '@/features/release/useAppUpdate';
 import { LOCALES, useI18n, type Locale } from '@/i18n';
 import { APP_VERSION, WEB_URL } from '@/lib/env';
 import { settings, type ClockFormat, type Units } from '@/lib/storage';
-import { ThemeSelect } from '@/theme/ThemeSelect';
 import { DATE_FORMATS, formatDate, type DateFormat } from '@/lib/date-format';
 import { useDateFormat } from '@/lib/useDateFormat';
 import { UNIT_SEGMENTS, useUnits } from '@/lib/useUnits';
@@ -297,14 +296,6 @@ const Profile = () => {
             />
           </View>
         )}
-      </Card>
-
-      {/* Appearance */}
-      <Text className="mb-2 mt-7 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
-        {t('theme.title')}
-      </Text>
-      <Card>
-        <ThemeSelect />
       </Card>
 
       {/* Language */}

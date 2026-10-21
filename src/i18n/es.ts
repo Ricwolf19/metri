@@ -15,10 +15,6 @@ export const es: Record<TranslationKey, string> = {
   'lang.es': 'Español',
 
   // Theme
-  'theme.title': 'Apariencia',
-  'theme.system': 'Sistema',
-  'theme.light': 'Claro',
-  'theme.dark': 'Oscuro',
 
   // Auth — sign in
   'auth.welcomeBack': 'Bienvenido de nuevo',

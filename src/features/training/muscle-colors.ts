@@ -1,8 +1,6 @@
 import { MISSED } from './adherence-colors';
 import type { BalanceStatus } from './muscle-load';
-import { type ThemeScheme } from '@/theme/tokens';
-
-type Theme = { scheme: ThemeScheme; brand: string };
+type Theme = { brand: string };
 
 /**
  * Fills for the body map. Same discipline as `adherence-colors.ts`: every
@@ -32,16 +30,14 @@ const withAlpha = (hex: string, alpha: number): string =>
  * NOT a surface token: on the near-black page a card-coloured silhouette is
  * invisible, so this is the lightest fill that still reads as "inactive".
  */
-const BARE: Record<ThemeScheme, string> = { dark: '#3f3f46', light: '#d4d4d8' };
-
-export const untrainedFill = (theme: Theme): string => BARE[theme.scheme];
+export const UNTRAINED_FILL = '#3f3f46';
 
 /**
  * Balance view: below the productive band, inside it, or past it.
  * `optimal` uses brand so "good" reads the same as a trained day elsewhere.
  */
 export const balanceFill = (theme: Theme, status: BalanceStatus): string => {
-  if (status === 'untrained') return untrainedFill(theme);
+  if (status === 'untrained') return UNTRAINED_FILL;
   if (status === 'low') return UNDER;
   if (status === 'high') return OVER;
   return theme.brand;
@@ -52,7 +48,7 @@ export const balanceFill = (theme: Theme, status: BalanceStatus): string => {
  * rather than a set of categories. `index` is 0–1.
  */
 export const fatigueFill = (theme: Theme, index: number): string => {
-  if (index <= 0) return untrainedFill(theme);
+  if (index <= 0) return UNTRAINED_FILL;
   return withAlpha(OVER, MIN_TINT + index * (1 - MIN_TINT));
 };
 
@@ -64,7 +60,7 @@ export const DETRAINED_DAYS = 14;
  * the muscle goes untouched, and flips to amber once it looks abandoned.
  */
 export const recencyFill = (theme: Theme, daysSince: number | null): string => {
-  if (daysSince == null) return untrainedFill(theme);
+  if (daysSince == null) return UNTRAINED_FILL;
   if (daysSince >= DETRAINED_DAYS) return UNDER;
   const freshness = 1 - daysSince / DETRAINED_DAYS;
   return withAlpha(theme.brand, Math.max(MIN_TINT, freshness));

@@ -2,8 +2,6 @@ import { BlurView } from 'expo-blur';
 import { Platform, StyleSheet, View, type ViewStyle } from 'react-native';
 import Animated from 'react-native-reanimated';
 
-import { useTheme } from '@/theme/theme-context';
-
 type Props = {
   /** How far the content behind recedes. `full` is for a screen-blocking wait. */
   depth?: 'light' | 'medium' | 'full';
@@ -40,7 +38,6 @@ const DIM: Record<NonNullable<Props['depth']>, { ios: string; android: string }>
  * frame); only the dim carries the caller's transition.
  */
 export const Scrim = ({ depth = 'medium', style, children }: Props) => {
-  const { scheme } = useTheme();
   const dim = DIM[depth][Platform.OS === 'ios' ? 'ios' : 'android'];
 
   return (
@@ -48,9 +45,8 @@ export const Scrim = ({ depth = 'medium', style, children }: Props) => {
       {Platform.OS === 'ios' ? (
         <BlurView
           pointerEvents="none"
-          // The app's surfaces are dark in both themes, so the blur stays dark:
-          // a light blur over ink-950 content turns milky instead of frosted.
-          tint={scheme === 'light' ? 'systemThickMaterialLight' : 'systemThickMaterialDark'}
+          // A light blur over ink-950 content turns milky instead of frosted.
+          tint="systemThickMaterialDark"
           intensity={INTENSITY[depth]}
           style={StyleSheet.absoluteFill}
         />

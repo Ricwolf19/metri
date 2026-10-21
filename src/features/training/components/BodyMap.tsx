@@ -2,8 +2,8 @@ import Body, { type ExtendedBodyPart, type Slug } from 'react-native-body-highli
 import { View } from 'react-native';
 
 import type { Sex } from '@/db/schema';
+import { UNTRAINED_FILL } from '@/features/training/muscle-colors';
 import { MUSCLE_HEADS, type MuscleHead } from '@/features/training/muscles';
-import { useTheme } from '@/theme/theme-context';
 
 /**
  * The body figure. `react-native-body-highlighter` (MIT) draws it on
@@ -75,8 +75,6 @@ const toParts = (fills: BodyMapProps['fills']): ExtendedBodyPart[] => {
 };
 
 export const BodyMap = ({ fills, side, sex, onPressRegion, scale = 1 }: BodyMapProps) => {
-  const { scheme } = useTheme();
-
   return (
     <View className="items-center">
       <Body
@@ -89,9 +87,9 @@ export const BodyMap = ({ fills, side, sex, onPressRegion, scale = 1 }: BodyMapP
         // An outline + a fill light enough to separate from the near-black
         // page: without both, an untrained figure is invisible (it is the
         // default state of the screen, so it has to read first).
-        border={scheme === 'dark' ? '#52525b' : '#a1a1aa'}
+        border="#52525b"
         hiddenParts={HIDDEN}
-        defaultFill={scheme === 'dark' ? '#3f3f46' : '#d4d4d8'}
+        defaultFill={UNTRAINED_FILL}
         onBodyPartPress={(part) => {
           if (part.slug) onPressRegion?.(headsForRegion(part.slug));
         }}

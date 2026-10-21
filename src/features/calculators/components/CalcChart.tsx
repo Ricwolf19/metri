@@ -3,7 +3,6 @@ import Svg, { Circle, G } from 'react-native-svg';
 
 import { BarGraphic } from '@/components/BarGraphic';
 import { useT } from '@/i18n';
-import { useTheme } from '@/theme/theme-context';
 
 import type { CalcChart as Chart } from '../types';
 
@@ -14,8 +13,7 @@ const DIM: Record<Size, number> = { sm: 96, md: 132, lg: 168 };
 
 export const CalcChart = ({ chart, size = 'md' }: { chart: Chart; size?: Size }) => {
   const t = useT();
-  const { scheme } = useTheme();
-  const track = scheme === 'dark' ? '#27272a' : '#e4e4e7';
+  const track = '#27272a';
   const dim = DIM[size];
 
   if (chart.kind === 'bars') {

@@ -182,20 +182,14 @@ const SwipeHint = () => {
 
 const ToastView = ({ toast, onDone }: { toast: Toast; onDone: (id: number) => void }) => {
   const t = useT();
-  const { scheme, accent, brand } = useTheme();
+  const { accent, brand } = useTheme();
   const { width } = useWindowDimensions();
   const anim = useSharedValue(0);
   const life = useSharedValue(1);
   const panX = useSharedValue(0);
 
   const iconColor =
-    toast.type === 'success'
-      ? accent
-      : toast.type === 'error'
-        ? '#f87171'
-        : scheme === 'dark'
-          ? '#a1a1aa'
-          : '#52525b';
+    toast.type === 'success' ? accent : toast.type === 'error' ? '#f87171' : '#a1a1aa';
   const Icon = ICON[toast.type];
 
   const dismiss = useCallback(() => onDone(toast.id), [onDone, toast.id]);

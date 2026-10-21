@@ -60,9 +60,9 @@ export const TrendChart = ({
   yFormat = (v) => String(Math.round(v * 10) / 10),
   height = 132,
 }: Props) => {
-  const { brand, scheme } = useTheme();
+  const { brand } = useTheme();
   const [width, setWidth] = useState(0);
-  const ink = (token: string) => `rgb(${THEME_VARS[scheme][token]})`;
+  const ink = (token: string) => `rgb(${THEME_VARS[token]})`;
   const surface = ink('--ink-800'); // the raised Card this chart sits on
 
   const all = [...points, ...line, ...target, ...markers];

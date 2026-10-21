@@ -1,25 +1,18 @@
 import { DarkTheme } from 'expo-router';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { Appearance, View } from 'react-native';
+import { createContext, useContext } from 'react';
+import { View } from 'react-native';
 import { vars } from 'nativewind';
 
-import { settings, type ThemePreference } from '@/lib/storage';
-
-import { NAV_COLORS, THEME_VARS, type ThemeScheme } from './tokens';
+import { NAV_COLORS, THEME_VARS } from './tokens';
 
 type NavTheme = typeof DarkTheme;
 
 type ThemeContextValue = {
-  /** What the user picked: system / light / dark. */
-  preference: ThemePreference;
-  /** The resolved scheme actually rendered. */
-  scheme: ThemeScheme;
-  setPreference: (preference: ThemePreference) => void;
   navTheme: NavTheme;
-  statusBarStyle: 'light' | 'dark';
-  /** Accent hex that stays legible on the current surface (for icon `color` props). */
+  statusBarStyle: 'light';
+  /** Accent hex that stays legible on the surface (for icon `color` props). */
   accent: string;
-  /** Brand (lime) hex per scheme — for icon `color` props / lime accents. */
+  /** Brand (lime) hex — for icon `color` props / lime accents. */
   brand: string;
   /** Text/icon color that sits on a brand fill. */
   brandContrast: string;
@@ -33,69 +26,45 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-const resolve = (preference: ThemePreference): ThemeScheme => {
-  if (preference === 'system') return Appearance.getColorScheme() === 'light' ? 'light' : 'dark';
-  return preference;
+/**
+ * The one (dark) palette, as icon `color` props and the navigation shell read
+ * it. A system/light/dark preference used to live here; the light scale went
+ * with it (2026-10-20), so this is constant and never re-renders its tree.
+ */
+const NAV_THEME: NavTheme = {
+  ...DarkTheme,
+  dark: true,
+  colors: {
+    ...DarkTheme.colors,
+    primary: '#bef82b',
+    background: NAV_COLORS.background,
+    card: NAV_COLORS.card,
+    text: NAV_COLORS.text,
+    border: NAV_COLORS.border,
+  },
 };
 
-export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
-  const [preference, setPreferenceState] = useState<ThemePreference>(() =>
-    settings.getThemePreference(),
-  );
-  const [systemScheme, setSystemScheme] = useState<ThemeScheme>(() => resolve('system'));
-
-  // Track the OS scheme so 'system' stays live.
-  useEffect(() => {
-    const sub = Appearance.addChangeListener(({ colorScheme }) =>
-      setSystemScheme(colorScheme === 'light' ? 'light' : 'dark'),
-    );
-    return () => sub.remove();
-  }, []);
-
-  const scheme: ThemeScheme = preference === 'system' ? systemScheme : preference;
-
-  const setPreference = useCallback((next: ThemePreference) => {
-    settings.setThemePreference(next);
-    setPreferenceState(next);
-  }, []);
-
-  const value = useMemo<ThemeContextValue>(() => {
-    const c = NAV_COLORS[scheme];
-    const navTheme: NavTheme = {
-      ...DarkTheme,
-      dark: scheme === 'dark',
-      colors: {
-        ...DarkTheme.colors,
-        primary: '#bef82b',
-        background: c.background,
-        card: c.card,
-        text: c.text,
-        border: c.border,
-      },
-    };
-    return {
-      preference,
-      scheme,
-      setPreference,
-      navTheme,
-      statusBarStyle: scheme === 'dark' ? 'light' : 'dark',
-      accent: scheme === 'dark' ? '#bef82b' : '#65a30d',
-      brand: scheme === 'dark' ? '#bef82b' : '#4d7c0f',
-      brandContrast: scheme === 'dark' ? '#08090d' : '#f7fee7',
-      muted: '#71717a',
-      danger: '#ef4444',
-      info: scheme === 'dark' ? '#38bdf8' : '#0369a1',
-    };
-  }, [preference, scheme, setPreference]);
-
-  return (
-    <ThemeContext.Provider value={value}>
-      <View style={vars(THEME_VARS[scheme])} className="flex-1 bg-ink-900">
-        {children}
-      </View>
-    </ThemeContext.Provider>
-  );
+const THEME: ThemeContextValue = {
+  navTheme: NAV_THEME,
+  statusBarStyle: 'light',
+  accent: '#bef82b',
+  brand: '#bef82b',
+  brandContrast: '#08090d',
+  muted: '#71717a',
+  danger: '#ef4444',
+  info: '#38bdf8',
 };
+
+/** Installed once: NativeWind resolves the `ink-*` classes against these. */
+const ROOT_VARS = vars(THEME_VARS);
+
+export const ThemeProvider = ({ children }: { children: React.ReactNode }) => (
+  <ThemeContext.Provider value={THEME}>
+    <View style={ROOT_VARS} className="flex-1 bg-ink-900">
+      {children}
+    </View>
+  </ThemeContext.Provider>
+);
 
 export const useTheme = (): ThemeContextValue => {
   const ctx = useContext(ThemeContext);

@@ -1,4 +1,4 @@
-import { THEME_VARS, type ThemeScheme } from '@/theme/tokens';
+import { THEME_VARS } from '@/theme/tokens';
 
 /**
  * Theme-aware styles for react-native-markdown-display. The renderer takes inline
@@ -6,8 +6,8 @@ import { THEME_VARS, type ThemeScheme } from '@/theme/tokens';
  * Every block the library ships a default for (fence, code_inline, link…) must be
  * overridden: its defaults are light-theme hex that leak through `mergeStyle`.
  */
-const buildStyles = (scheme: ThemeScheme) => {
-  const rgb = (token: string) => `rgb(${THEME_VARS[scheme][token]})`;
+const buildStyles = () => {
+  const rgb = (token: string) => `rgb(${THEME_VARS[token]})`;
   const text = rgb('--ink-200');
   const heading = rgb('--ink-50');
   const border = rgb('--ink-600');
@@ -70,13 +70,10 @@ const buildStyles = (scheme: ThemeScheme) => {
   };
 };
 
-const CACHE = new Map<ThemeScheme, ReturnType<typeof buildStyles>>();
+let cached: ReturnType<typeof buildStyles> | null = null;
 
-/** One style object per scheme: a fresh object on every render defeats the renderer's memo. */
-export const markdownStyles = (scheme: ThemeScheme): ReturnType<typeof buildStyles> => {
-  const hit = CACHE.get(scheme);
-  if (hit) return hit;
-  const built = buildStyles(scheme);
-  CACHE.set(scheme, built);
-  return built;
+/** ONE style object: a fresh object on every render defeats the renderer's memo. */
+export const markdownStyles = (): ReturnType<typeof buildStyles> => {
+  cached ??= buildStyles();
+  return cached;
 };

@@ -4,7 +4,7 @@ import {
   balanceFill,
   fatigueFill,
   recencyFill,
-  untrainedFill,
+  UNTRAINED_FILL,
 } from '@/features/training/muscle-colors';
 import { useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
@@ -30,14 +30,14 @@ export const MapLegend = ({ view }: { view: MapView }) => {
   const entries =
     view === 'balance'
       ? [
-          { color: untrainedFill(theme), label: t('stats.legendUntrained') },
+          { color: UNTRAINED_FILL, label: t('stats.legendUntrained') },
           { color: balanceFill(theme, 'low'), label: t('stats.legendLow') },
           { color: balanceFill(theme, 'optimal'), label: t('stats.legendOptimal') },
           { color: balanceFill(theme, 'high'), label: t('stats.legendHigh') },
         ]
       : view === 'fatigue'
         ? [
-            { color: untrainedFill(theme), label: t('stats.legendFresh') },
+            { color: UNTRAINED_FILL, label: t('stats.legendFresh') },
             { color: fatigueFill(theme, 1), label: t('stats.legendFatigued') },
           ]
         : [
