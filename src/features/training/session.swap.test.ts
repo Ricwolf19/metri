@@ -167,6 +167,30 @@ describe('swap scopes and skipped sets', () => {
     expect(snapshot(start().id)[0]).toMatchObject({ exerciseId: 'db-bench' });
   });
 
+  it('takes the cycle swap on a copy enrolled before slots carried a program id', () => {
+    // Trees enrolled before migration 0008 (the owner's v1 data) have NULL
+    // `user_program_id` on their slots; the day of the session proves the slot
+    // is enrolled, and the column is backfilled on the way.
+    db.update(workoutDayExercises)
+      .set({ userProgramId: null })
+      .where(eq(workoutDayExercises.id, SLOT))
+      .run();
+    const log = start();
+    applySwap({
+      logId: log.id,
+      slotId: SLOT,
+      exerciseId: 'db-bench',
+      exerciseName: 'DB Bench',
+      reason: 'preference',
+      scope: { kind: 'cycle' },
+    });
+    expect(slotRow()).toMatchObject({
+      exerciseId: 'db-bench',
+      alternativeExerciseIds: ['bench'],
+      userProgramId: UP,
+    });
+  });
+
   it('never touches a template slot', () => {
     const log = start();
     applySwap({

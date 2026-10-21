@@ -501,15 +501,25 @@ export const applySwap = (input: {
 }): void => {
   const { logId, slotId, exerciseId, exerciseName, reason, scope } = input;
   swapSnapshotExercise(logId, slotId, exerciseId, exerciseName, reason);
+  const log = getWorkout(logId);
   const slot = db
     .select()
     .from(workoutDayExercises)
     .where(eq(workoutDayExercises.id, slotId))
     .all()[0];
-  if (!slot?.userProgramId) return;
+  // Enrolled, never a template: the slot sits on the day this session was
+  // started from, and a session only ever starts from an enrolled copy. Not
+  // `slot.userProgramId` — copies enrolled before that column existed carry
+  // NULL there, and the swap silently went nowhere; it is backfilled here.
+  if (!log || !slot || slot.workoutDayId !== log.workoutDayId) return;
+  const userProgramId = slot.userProgramId ?? log.userProgramId;
   if (scope.kind === 'sessions' && scope.count > 1) {
     db.update(workoutDayExercises)
-      .set({ swap: { exerciseId, sessionsLeft: scope.count - 1, reason }, updatedAt: new Date() })
+      .set({
+        swap: { exerciseId, sessionsLeft: scope.count - 1, reason },
+        userProgramId,
+        updatedAt: new Date(),
+      })
       .where(eq(workoutDayExercises.id, slotId))
       .run();
   } else if (scope.kind === 'cycle' && slot.exerciseId !== exerciseId) {
@@ -517,7 +527,13 @@ export const applySwap = (input: {
       (id, i, all) => id !== exerciseId && all.indexOf(id) === i,
     );
     db.update(workoutDayExercises)
-      .set({ exerciseId, alternativeExerciseIds: alternatives, swap: null, updatedAt: new Date() })
+      .set({
+        exerciseId,
+        alternativeExerciseIds: alternatives,
+        swap: null,
+        userProgramId,
+        updatedAt: new Date(),
+      })
       .where(eq(workoutDayExercises.id, slotId))
       .run();
   }
