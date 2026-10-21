@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.16.0](https://github.com/Ricwolf19/metri/compare/metri-v1.15.0...metri-v1.16.0) (2026-10-21)
+
+
+### Features
+
+* **calculators:** plate calculator loads a kg or lb rack ([f1f483b](https://github.com/Ricwolf19/metri/commit/f1f483bdbbab3f3846b4935dec4e5d0182d50d35))
+* **explore:** knowledge check opens on metri.info ([3d348c1](https://github.com/Ricwolf19/metri/commit/3d348c144997380c80c5b3e80ae05fea7c8a6147))
+* **plan:** export and import as one .json file ([adb111e](https://github.com/Ricwolf19/metri/commit/adb111eaebea70cd55120b9152d23e9ce859de3f))
+* **training:** set header, scrolling action line, kind tag ([fc1b026](https://github.com/Ricwolf19/metri/commit/fc1b026c3f3dfd276fd1582a8f72b35f3f59c9f0))
+* **training:** weekly top-set strip on the trend card ([66e36ac](https://github.com/Ricwolf19/metri/commit/66e36ac04f33f9656ec97b9347b5c3f41bafcaea))
+
+
+### Bug Fixes
+
+* **training:** prove enrollment through the log on swap ([ff09046](https://github.com/Ricwolf19/metri/commit/ff09046fa117cae41e95bd72e9c80476f4c64809))
+* **training:** seed per-side rows from logged plates ([75fe465](https://github.com/Ricwolf19/metri/commit/75fe465e50a27bbed35ad2b853eac1d3dacc694d))
+* **ui:** fire hold buttons from their own timer ([d3e7fd3](https://github.com/Ricwolf19/metri/commit/d3e7fd38068e2bf670c96d1bd48c605b2694dc01))
+
+
+### Performance Improvements
+
+* **tabs:** freeze blurred tabs, native fade, memo tiles ([f72a1e2](https://github.com/Ricwolf19/metri/commit/f72a1e230c0cd2d23f79751ee83dcded0429ef69))
+
 ## [1.15.0](https://github.com/Ricwolf19/metri/compare/metri-v1.14.0...metri-v1.15.0) (2026-10-17)
 
 
