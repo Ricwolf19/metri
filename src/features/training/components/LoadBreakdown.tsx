@@ -10,5 +10,7 @@ import { describeLoad, type LoadDetail } from '../load';
  * worse than the arithmetic once a side held more than a few plates.
  */
 export const LoadBreakdown = ({ load, unit }: { load: LoadDetail; unit: Units }) => (
-  <Text className="text-xs text-ink-400">{describeLoad(load, unit).parts}</Text>
+  <Text numberOfLines={1} className="text-xs text-ink-400">
+    {describeLoad(load, unit).parts}
+  </Text>
 );

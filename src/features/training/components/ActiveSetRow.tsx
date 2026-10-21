@@ -1,6 +1,7 @@
 import { Pressable, Text, View } from 'react-native';
 
-import { CheckIcon, DumbbellIcon, SkipIcon, XIcon } from '@/components/icons';
+import { CheckIcon, ChevronDownIcon, DumbbellIcon, SkipIcon, XIcon } from '@/components/icons';
+import { ScrollRow } from '@/components/ui';
 import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 import { useT } from '@/i18n';
 import type { Units } from '@/lib/storage';
@@ -47,18 +48,23 @@ type Props = {
   side?: SideInput;
   /** The weight field lost focus: the card snaps the number onto the rack. */
   onBlurWeight?: () => void;
+  /** A stack machine's tag (there is no base to name); plate rows derive theirs from `side`. */
+  kindTag?: string;
+  /** On a machine the tag is the way to re-choose plates / one post / stack. */
+  onChangeKind?: () => void;
 };
 
 /**
  * The set being filled, on three lines. The header is ONE uppercase mono line
- * ("SET 1 | TARGET: 12 REPS @ FAILURE") that wraps rather than clips: the
- * header holds nothing else, so a long Spanish target still reads whole. Then
- * the two number fields with nothing beside them. Then the action line: the
- * base weight and the derived total with its plate breakdown on the left (the
- * data, free to wrap), Skip set in the middle, the calculator and the check on
- * the right. One line for everything clipped "132.5" behind a base prefix and
- * an arrow on a phone. The ± / RIR controls live once at the bottom of the
- * card and drive this row.
+ * ("SET 1 | 12 REPS @ FAILURE") that wraps rather than clips: the header holds
+ * nothing else, so a long Spanish target still reads whole. Then the two
+ * number fields with nothing beside them. Then the action line: the base
+ * weight, the derived total and its plate breakdown on the left as ONE
+ * sideways-scrolling line of fixed height (the data never grows the row, so
+ * the check stays where the thumb left it from set to set), Skip set in the
+ * middle, the calculator and the check on the right. One line for everything
+ * clipped "132.5" behind a base prefix and an arrow on a phone. The ± / RIR
+ * controls live once at the bottom of the card and drive this row.
  */
 export const ActiveSetRow = ({
   label,
@@ -78,16 +84,21 @@ export const ActiveSetRow = ({
   repsTrend = null,
   side,
   onBlurWeight,
+  kindTag,
+  onChangeKind,
 }: Props) => {
   const t = useT();
   const { brandContrast, muted, info } = useTheme();
+  const tag = side
+    ? t(side.sides === 1 ? 'training.platesTag' : 'training.baseTag', { n: side.baseLabel, unit })
+    : (kindTag ?? null);
 
   return (
     <View className="rounded-field border border-brand/40 bg-ink-850 px-3 py-2">
       <View className="mb-2 flex-row items-start gap-2">
         <Text className="min-w-0 flex-1 font-mono-medium text-[11px] uppercase leading-4 tracking-wider text-brand">
           {label}
-          {legend ? `  |  ${legend}` : ''}
+          {legend ? ` | ${legend}` : ''}
         </Text>
         {onRemove ? (
           <Pressable onPress={onRemove} hitSlop={8} accessibilityRole="button">
@@ -127,24 +138,42 @@ export const ActiveSetRow = ({
         </View>
       </View>
       <View className="mt-2 flex-row items-center gap-2">
-        <View className="min-h-5 min-w-0 flex-1 justify-center gap-0.5">
-          {side ? (
-            <Text
-              maxFontSizeMultiplier={CONTROL_FONT_SCALE}
-              className="font-mono-medium text-[10px] uppercase tracking-wider text-ink-400"
-            >
-              {t(side.sides === 1 ? 'training.platesTag' : 'training.baseTag', {
-                n: side.baseLabel,
-                unit,
-              })}
-            </Text>
-          ) : null}
-          {caption || breakdown ? (
-            <View className="flex-row flex-wrap items-center gap-x-1.5">
-              {caption ? <Text className="text-xs text-ink-400">{caption}</Text> : null}
+        <View className="min-h-10 min-w-0 flex-1 justify-center">
+          {tag || caption || breakdown ? (
+            <ScrollRow className="items-center gap-x-1.5">
+              {tag ? (
+                <Pressable
+                  onPress={onChangeKind}
+                  disabled={!onChangeKind}
+                  hitSlop={6}
+                  accessibilityRole={onChangeKind ? 'button' : undefined}
+                  accessibilityHint={onChangeKind ? t('training.loadKindHint') : undefined}
+                  className="flex-row items-center gap-0.5"
+                >
+                  <Text
+                    numberOfLines={1}
+                    maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+                    className={[
+                      'font-mono-medium text-[10px] uppercase tracking-wider',
+                      onChangeKind ? 'text-ink-300 underline' : 'text-ink-400',
+                    ].join(' ')}
+                  >
+                    {tag}
+                  </Text>
+                  {onChangeKind ? <ChevronDownIcon color={muted} size={12} /> : null}
+                </Pressable>
+              ) : null}
+              {tag && (caption || breakdown) ? (
+                <Text className="text-xs text-ink-600">·</Text>
+              ) : null}
+              {caption ? (
+                <Text numberOfLines={1} className="text-xs text-ink-400">
+                  {caption}
+                </Text>
+              ) : null}
               {caption && breakdown ? <Text className="text-xs text-ink-600">·</Text> : null}
               {breakdown ? <LoadBreakdown load={breakdown} unit={unit} /> : null}
-            </View>
+            </ScrollRow>
           ) : null}
         </View>
         {onSkip ? (

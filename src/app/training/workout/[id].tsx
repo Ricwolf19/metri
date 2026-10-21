@@ -29,6 +29,7 @@ import {
   SegmentedControl,
   OptionSheet,
   Sheet,
+  type SelectItem,
   TextLink,
   TimedModal,
   useDialog,
@@ -94,6 +95,7 @@ import {
   machineLoadKind,
   PLATE_MACHINE_SEED,
   POST_MACHINE_SEED,
+  STACK_MACHINE_SEED,
   clampInput,
   type MachineKind,
   reconcileLoad,
@@ -103,7 +105,7 @@ import {
 } from '@/features/training/load';
 import { sideStep, sideFieldFromTotal, totalFromSide } from '@/features/training/plate-math';
 import { getWorkoutDay } from '@/features/training/programs.repo';
-import { getRoutine } from '@/features/training/authoring.repo';
+import { getRoutine, reorderSlots } from '@/features/training/authoring.repo';
 import { fromKg, isRmTestWeek } from '@/features/training/progression';
 import { closeSession } from '@/features/training/close-session';
 import { sessionShareModel } from '@/features/share/models';
@@ -115,7 +117,7 @@ import {
   previousSetFor,
   weightText,
 } from '@/features/training/set-prefill';
-import { badgeLabel } from '@/features/training/programs/badge-copy';
+import { badgeDetail, badgeLabel } from '@/features/training/programs/badge-copy';
 import { sessionBadges } from '@/features/training/session-badges';
 import {
   clearDraft,
@@ -289,6 +291,11 @@ const ExerciseCard = ({
   const drafts = useSessionDrafts(workoutLogId);
   const { extra: extraRows } = useSlotCounts(workoutLogId, planned.slotId);
   const [calcOpen, setCalcOpen] = useState(false);
+  // The kind the sheet must open in when a stack was just chosen: the saved
+  // setting and the row's draft still describe the plates for a tick.
+  const [calcSeed, setCalcSeed] = useState<LoadDetail | null>(null);
+  // The machine's loading, re-asked from the row's tag (plates per side, one post, stack).
+  const [kindOpen, setKindOpen] = useState(false);
   // A logged set reopened for a correction; its draft lives under `edit:<id>`.
   const [editingId, setEditingId] = useState<string | null>(null);
   // Shown once a machine's load kind is chosen: where to change it later.
@@ -650,9 +657,20 @@ const ExerciseCard = ({
           onChange: (text: string) => setSide(key, text),
         }
       : undefined;
+  const machineKind = facts?.equipment === 'machine' ? machineLoadKind(loadSetting?.load) : null;
+  // A stack has no base to name, so the row's tag says what it is; any machine's tag re-opens the choice.
+  const kindTag = machineKind === 'stack' ? t('training.stackTag') : undefined;
+  const onChangeKind = machineKind ? () => setKindOpen(true) : undefined;
   // Plates write their seed at once; a stack needs base + pins, so it opens the sheet.
+  // Re-choosing from the row's tag resets the saved picture the same way the
+  // exercise page does: the next number is built on the new kind.
   const chooseMachineKind = (kind: MachineKind) => {
+    if (kind === machineKind) return;
+    if (focusKey) clearDraftLoads(workoutLogId, planned.slotId);
     if (kind === 'stack') {
+      if (machineKind)
+        upsertExerciseSetting(userId, planned.exerciseId, { load: STACK_MACHINE_SEED });
+      setCalcSeed(STACK_MACHINE_SEED);
       setCalcOpen(true);
       return;
     }
@@ -661,6 +679,11 @@ const ExerciseCard = ({
     });
     setLoadHint(true);
   };
+  const kindItems: SelectItem<MachineKind>[] = [
+    { value: 'plates', label: t('load.platesPerSide') },
+    { value: 'post', label: t('load.platesOnePost') },
+    { value: 'stack', label: t('load.machineStack') },
+  ];
 
   const visualId = visualIdFor({ id: planned.exerciseId, name: planned.name });
 
@@ -717,6 +740,17 @@ const ExerciseCard = ({
         value={planned.exerciseId}
         onChange={pickVariant}
       />
+      <OptionSheet
+        visible={kindOpen}
+        onClose={() => setKindOpen(false)}
+        label={t('load.machineKindTitle')}
+        items={kindItems}
+        value={machineKind ?? undefined}
+        onChange={(kind) => {
+          setKindOpen(false);
+          chooseMachineKind(kind);
+        }}
+      />
       <SwapScopeSheet
         visible={pendingVariant !== null}
         exerciseName={
@@ -726,19 +760,28 @@ const ExerciseCard = ({
         onConfirm={confirmSwap}
       />
 
-      {/* Cues and facts share ONE line — a second strip pushed the sets down. */}
+      {/* Cues and facts share ONE sideways line — a second strip, or a hint
+          wrapping under it, moved the sets down on some cards and not others. */}
       {badges.length || facts?.unilateral ? (
         <View className="mt-2">
           <BadgeRow
             mono
             tone="brand"
             items={[
-              ...badges.map((b, i) => ({ value: `${b}-${i}`, label: badgeLabel(b, locale) })),
+              ...badges.map((b, i) => {
+                // A pause is technique, not a tag: it reads in full and in `info`
+                // so it is not forgotten by set three.
+                const detail = badgeDetail(b, locale);
+                const label = badgeLabel(b, locale);
+                return detail
+                  ? { value: `${b}-${i}`, label: `${label} · ${detail}`, tone: 'info' as const }
+                  : { value: `${b}-${i}`, label };
+              }),
               ...(facts?.unilateral
                 ? [
                     {
                       value: 'unilateral',
-                      label: t('training.unilateral'),
+                      label: `${t('training.unilateral')} · ${t('training.unilateralHint')}`,
                       tone: 'info' as const,
                       mono: false,
                     },
@@ -746,11 +789,6 @@ const ExerciseCard = ({
                 : []),
             ]}
           />
-          {facts?.unilateral ? (
-            <Text className="mt-1 text-xs leading-4 text-ink-400">
-              {t('training.unilateralHint')}
-            </Text>
-          ) : null}
         </View>
       ) : null}
 
@@ -826,6 +864,8 @@ const ExerciseCard = ({
                 repsTrend={trend.reps}
                 side={sideInputFor(editKey, draft)}
                 onBlurWeight={() => snapDraft(editKey)}
+                kindTag={kindTag}
+                onChangeKind={onChangeKind}
               />
             );
           }
@@ -868,6 +908,8 @@ const ExerciseCard = ({
               repsTrend={trend.reps}
               side={sideInputFor(key, draft)}
               onBlurWeight={() => snapDraft(key)}
+              kindTag={kindTag}
+              onChangeKind={onChangeKind}
             />
           );
         })}
@@ -952,10 +994,13 @@ const ExerciseCard = ({
           changed setup is remembered on the exercise for the next session. */}
       <WeightCalculatorSheet
         visible={calcOpen}
-        onClose={() => setCalcOpen(false)}
+        onClose={() => {
+          setCalcOpen(false);
+          setCalcSeed(null);
+        }}
         unit={unit}
         initialWeight={focusDraft?.weight ?? ''}
-        initialLoad={focusDraft?.load ?? loadSetting?.load ?? null}
+        initialLoad={calcSeed ?? focusDraft?.load ?? loadSetting?.load ?? null}
         equipment={facts?.equipment ?? null}
         unilateral={!!facts?.unilateral}
         preferMode={needsMachineKind ? 'machine' : undefined}
@@ -1003,6 +1048,8 @@ const WorkoutSession = () => {
   // The chip a hold picked up: the paging arrows move it instead of paging,
   // until a tap on the strip puts it down.
   const [lifted, setLifted] = useState<string | null>(null);
+  // The order when the chip was lifted, so putting it down knows whether anything moved.
+  const [liftOrder, setLiftOrder] = useState<string[] | null>(null);
   const [cardIndex, setCardIndex] = useState(() => {
     const snapshot = typeof id === 'string' ? (getWorkout(id)?.plannedSnapshot ?? []) : [];
     // A notification's `?slot=` wins; otherwise the page the lifter left open
@@ -1355,10 +1402,32 @@ const WorkoutSession = () => {
     const slot = planned[index];
     if (!slot) return;
     setLifted(slot.slotId);
+    setLiftOrder(planned.map((p) => p.slotId));
     setCardIndex(index);
   };
+  // Putting a moved chip down asks whether the order is today's or the
+  // split's from now on; the snapshot already holds it either way.
+  const putDown = () => {
+    setLifted(null);
+    const order = planned.map((p) => p.slotId);
+    const moved = liftOrder != null && liftOrder.some((id, i) => id !== order[i]);
+    setLiftOrder(null);
+    if (!moved) return;
+    dialog.show({
+      title: t('training.reorderScopeTitle'),
+      message: t('training.reorderScopeBody'),
+      actions: [
+        {
+          label: t('training.reorderCycle'),
+          style: 'confirm',
+          onPress: () => reorderSlots(log.workoutDayId, order),
+        },
+        { label: t('training.reorderSessionOnly'), style: 'cancel' },
+      ],
+    });
+  };
   const onChip = (index: number) => {
-    if (lifted) setLifted(null);
+    if (lifted) putDown();
     goTo(index);
   };
   const stepLeft = () => (lifted ? moveLifted(-1) : goTo(idx - 1));

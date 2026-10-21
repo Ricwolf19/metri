@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { badgeLabel } from './badge-copy';
+import { badgeDetail, badgeLabel } from './badge-copy';
 
 describe('badgeLabel', () => {
   it('resolves a preset cue into the app language whichever language it was stored in', () => {
@@ -11,5 +11,17 @@ describe('badgeLabel', () => {
 
   it('leaves a cue the lifter typed as typed', () => {
     expect(badgeLabel('CON PAUSA LARGA', 'en')).toBe('CON PAUSA LARGA');
+  });
+});
+
+describe('badgeDetail', () => {
+  it('spells out a pause whichever language it was stored in', () => {
+    expect(badgeDetail('Pausa 2s', 'en')).toBe('Hold the bottom 2 s before pushing');
+    expect(badgeDetail('pause', 'es')).toBe('Detente abajo, luego empuja');
+  });
+
+  it('has nothing to add to a grip or a typed cue', () => {
+    expect(badgeDetail('Agarre supino', 'en')).toBeNull();
+    expect(badgeDetail('Tempo 3-1-1', 'en')).toBeNull();
   });
 });
