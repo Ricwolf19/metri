@@ -22,3 +22,7 @@ export const betaLinks = {
  */
 export const downloadPageUrl = (locale: Locale): string =>
   locale === 'es' ? `${WEB_URL}/es/descargar` : betaLinks.download;
+
+/** The knowledge check lives on the website (the in-app quiz was removed). */
+export const quizUrl = (locale: Locale): string =>
+  locale === 'es' ? `${WEB_URL}/es/test` : `${WEB_URL}/quiz`;

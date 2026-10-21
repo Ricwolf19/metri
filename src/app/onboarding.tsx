@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { Linking, Text, View } from 'react-native';
 
 import {
   BrandLogo,
@@ -13,6 +13,7 @@ import {
 } from '@/components/ui';
 import type { ActivityLevel, Sex } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
+import { quizUrl } from '@/features/beta/links';
 import { ACTIVITY_LEVELS, lbToKg } from '@/features/bmr/calc';
 import { LOCALES, useI18n } from '@/i18n';
 import { settings, type Units } from '@/lib/storage';
@@ -175,7 +176,11 @@ const Onboarding = () => {
             <Button
               variant="brand"
               label={t('onb.quizStart')}
-              onPress={() => router.replace({ pathname: '/quiz', params: { from: 'onboarding' } })}
+              onPress={() => {
+                // The check lives on the website; the app is done setting up either way.
+                void Linking.openURL(quizUrl(locale)).catch(() => {});
+                router.replace('/(tabs)');
+              }}
             />
             <Button
               label={t('onb.quizLater')}

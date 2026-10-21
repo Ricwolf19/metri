@@ -57,8 +57,7 @@ export const SettingKeys = {
   releaseDismissed: 'release.dismissed',
   // Release-announcement emails, mirrored to the account profile.
   releaseEmails: 'release.emails',
-  // Highest level cleared per quiz area (see features/quiz).
-  quizScores: 'quiz.scores',
+  // `quiz.scores` is retired (the knowledge check lives on metri.info): never reuse the id.
 } as const;
 
 /** Typed accessors for every `SettingKeys` entry — screens never touch `storage` directly. */
@@ -214,13 +213,6 @@ export const settings = {
   },
   setReleaseEmails(value: boolean) {
     storage.set(SettingKeys.releaseEmails, value);
-  },
-  /** Highest level cleared per quiz area, as stored JSON (see features/quiz). */
-  getQuizScores(): string | undefined {
-    return storage.getString(SettingKeys.quizScores);
-  },
-  setQuizScores(json: string) {
-    storage.set(SettingKeys.quizScores, json);
   },
   /** Per-event notification config (see features/notifications/events). */
   getEventConfig<T>(eventId: string, defaults: T): T {

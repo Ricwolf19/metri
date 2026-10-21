@@ -9,8 +9,8 @@ import { CALC_CONTENT } from '@/features/calculators/content';
 import { CALC_META, calcShortTitle } from '@/features/calculators/registry';
 import type { CalcId } from '@/features/calculators/types';
 import { getDocs, searchDocs, type DocSection } from '@/features/docs';
+import { KnowledgeCheckCard } from '@/features/explore/KnowledgeCheckCard';
 import { TOPICS } from '@/features/explore/topics';
-import { QuizCard } from '@/features/quiz/QuizCard';
 import { useSpotlight } from '@/features/spotlight/SpotlightProvider';
 import { useI18n, useT } from '@/i18n';
 
@@ -100,7 +100,7 @@ const Explore = () => {
         )
       ) : (
         <>
-          <QuizCard />
+          <KnowledgeCheckCard />
           {TOPICS.map((topic, i) => {
             const tiles: Tile[] = [
               ...(topic.key === 'explore.topicTraining' ? [libraryTile] : []),

@@ -49,7 +49,6 @@ const SCREENS: { id: string; key: TranslationKey; href: Href }[] = [
   { id: 'goal', key: 'goal.title', href: '/body/goal' },
   { id: 'plan', key: 'plan.title', href: '/plan' },
   { id: 'profile', key: 'profile.title', href: '/profile' },
-  { id: 'quiz', key: 'quiz.title', href: '/quiz' },
   { id: 'faq', key: 'faq.title', href: '/faq' },
 ];
 
