@@ -20,12 +20,23 @@ export const RM_PERCENTAGES: { pct: number; reps: number }[] = [
 
 const PLATES_KG = [25, 20, 15, 10, 5, 2.5, 1.25];
 
-export const plateLoad = (targetKg: number, barKg = 20) => {
-  const perSide = (targetKg - barKg) / 2;
+/**
+ * The plates a rack holds, largest first, per unit: the training module's
+ * `plate-math.ts` list. Mirrored 1:1 in the web `lib/calculations`.
+ */
+export const PLATE_SETS = {
+  kg: [25, 20, 15, 10, 5, 2.5, 1.25, 0.5],
+  lb: [45, 35, 25, 10, 5, 2.5],
+} as const;
+export type PlateRack = keyof typeof PLATE_SETS;
+
+/** Greedy per-side load. `target` and `bar` are in the rack's unit. */
+export const plateLoad = (target: number, bar = 20, plates: readonly number[] = PLATES_KG) => {
+  const perSide = (target - bar) / 2;
   const result: { plate: number; count: number }[] = [];
   let remaining = perSide;
   if (perSide > 0) {
-    for (const plate of PLATES_KG) {
+    for (const plate of plates) {
       const count = Math.floor(remaining / plate + 1e-9);
       if (count > 0) {
         result.push({ plate, count });

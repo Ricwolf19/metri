@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { dotsScore, oneRm, plateLoad, RM_PERCENTAGES } from './strength';
+import { dotsScore, oneRm, PLATE_SETS, plateLoad, RM_PERCENTAGES } from './strength';
 
 describe('oneRm', () => {
   it('computes Epley and Brzycki estimates', () => {
@@ -49,6 +49,14 @@ describe('plateLoad', () => {
         { plate: 2.5, count: 1 },
         { plate: 1.25, count: 1 },
       ],
+      remainder: 0,
+    });
+  });
+
+  it('loads an lb rack in lb: 225 on a 45 bar is two 45s a side', () => {
+    expect(plateLoad(225, 45, PLATE_SETS.lb)).toEqual({
+      perSide: 90,
+      plates: [{ plate: 45, count: 2 }],
       remainder: 0,
     });
   });

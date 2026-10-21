@@ -12,7 +12,14 @@ export {
   type Sex,
 } from './shared';
 
-export { RM_PERCENTAGES, dotsScore, oneRm, plateLoad } from './strength';
+export {
+  PLATE_SETS,
+  type PlateRack,
+  RM_PERCENTAGES,
+  dotsScore,
+  oneRm,
+  plateLoad,
+} from './strength';
 
 export {
   ACTIVITY_METS,
