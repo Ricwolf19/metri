@@ -1,5 +1,5 @@
 import { useRouter, type Href } from 'expo-router';
-import type { ComponentType } from 'react';
+import { memo, type ComponentType } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import type { IconProps } from '@/components/icons';
@@ -21,8 +21,9 @@ export type Tile = {
 };
 
 /** Square-ish grid tile — two per row, icon on top, short title below. Used by
- * Explore, Home quick access and the quick-access picker. */
-export const GridTile = ({ tile }: { tile: Tile }) => {
+ * Explore, Home quick access and the quick-access picker. Memoised: Explore
+ * draws sixty of them and re-renders on every keystroke of its search. */
+export const GridTile = memo(({ tile }: { tile: Tile }) => {
   const router = useRouter();
   const { brand } = useTheme();
   const Icon = tile.icon;
@@ -53,4 +54,5 @@ export const GridTile = ({ tile }: { tile: Tile }) => {
       </Text>
     </Pressable>
   );
-};
+});
+GridTile.displayName = 'GridTile';

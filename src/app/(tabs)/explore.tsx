@@ -39,26 +39,47 @@ const Explore = () => {
   const docs = useMemo(() => getDocs(locale), [locale]);
   const iconOf = useMemo(() => new Map(CALC_META.map((m) => [m.id, m.icon])), []);
 
-  const calcTile = (id: CalcId): Tile => ({
-    id: `calc-${id}`,
-    title: calcShortTitle(id, locale),
-    href: { pathname: '/calculators/[id]', params: { id } },
-    icon: iconOf.get(id) ?? BookIcon,
-  });
-  const docTile = (doc: DocSection): Tile => ({
-    id: `doc-${doc.id}`,
-    title: doc.title,
-    href: { pathname: '/docs/[id]', params: { id: doc.id } },
-    icon: BookIcon,
-    isDoc: true,
-  });
-  // The exercise library is consultable knowledge, so it lives here too.
-  const libraryTile: Tile = {
-    id: 'exercise-library',
-    title: t('exercise.library'),
-    href: '/training/exercises',
-    icon: DumbbellIcon,
-  };
+  // Tiles keep their identity across renders (the search re-renders this
+  // screen per keystroke), so the memoised `GridTile` actually skips.
+  const { calcTile, docTile, libraryTile } = useMemo(() => {
+    const calcTiles = new Map<CalcId, Tile>(
+      CALC_META.map((m) => [
+        m.id,
+        {
+          id: `calc-${m.id}`,
+          title: calcShortTitle(m.id, locale),
+          href: { pathname: '/calculators/[id]', params: { id: m.id } },
+          icon: iconOf.get(m.id) ?? BookIcon,
+        },
+      ]),
+    );
+    const docTiles = new Map<string, Tile>(
+      docs.map((doc) => [
+        doc.id,
+        {
+          id: `doc-${doc.id}`,
+          title: doc.title,
+          href: { pathname: '/docs/[id]', params: { id: doc.id } },
+          icon: BookIcon,
+          isDoc: true,
+        },
+      ]),
+    );
+    // The exercise library is consultable knowledge, so it lives here too.
+    const library: Tile = {
+      id: 'exercise-library',
+      title: t('exercise.library'),
+      href: '/training/exercises',
+      icon: DumbbellIcon,
+    };
+    // Every id passed in comes from the same CALC_META / docs these maps were
+    // built from; the fallback only keeps the type honest.
+    return {
+      calcTile: (id: CalcId): Tile => calcTiles.get(id) ?? library,
+      docTile: (doc: DocSection): Tile => docTiles.get(doc.id) ?? library,
+      libraryTile: library,
+    };
+  }, [docs, iconOf, locale, t]);
 
   const needle = query.trim().toLowerCase();
   const results = useMemo(() => {
@@ -69,8 +90,7 @@ const Explore = () => {
     const docMatches = searchDocs(docs, needle).map(docTile);
     const libraryMatch = libraryTile.title.toLowerCase().includes(needle) ? [libraryTile] : [];
     return [...libraryMatch, ...calcMatches, ...docMatches];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [needle, locale, docs]);
+  }, [needle, locale, docs, calcTile, docTile, libraryTile]);
 
   return (
     <Screen

@@ -28,13 +28,9 @@ import { SpotlightProvider } from '@/features/spotlight/SpotlightProvider';
 import { useAutoSync } from '@/features/sync/useAutoSync';
 import { useWidgetSync } from '@/features/widget/useWidgetSync';
 import { useT } from '@/i18n';
-import { useTheme } from '@/theme/theme-context';
 import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 
-const TAB_BAR = {
-  dark: { active: '#bef82b', inactive: '#71717a', pill: 'rgba(190,248,43,0.13)' },
-  light: { active: '#4d7c0f', inactive: '#a1a1aa', pill: 'rgba(77,124,15,0.12)' },
-};
+const TAB_BAR = { active: '#bef82b', inactive: '#71717a', pill: 'rgba(190,248,43,0.13)' };
 
 /** WhatsApp-style icon: a rounded pill behind the active tab's icon. */
 const TabBarIcon = ({
@@ -46,7 +42,6 @@ const TabBarIcon = ({
   color: string;
   focused: boolean;
 }) => {
-  const { scheme } = useTheme();
   const pop = useSharedValue(1);
   useEffect(() => {
     if (!focused) return;
@@ -60,7 +55,7 @@ const TabBarIcon = ({
       style={[
         {
           borderRadius: 9999,
-          backgroundColor: focused ? TAB_BAR[scheme].pill : 'transparent',
+          backgroundColor: focused ? TAB_BAR.pill : 'transparent',
         },
         anim,
       ]}
@@ -78,10 +73,9 @@ const TabBarIcon = ({
  */
 const FloatingTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => {
   const insets = useSafeAreaInsets();
-  const { scheme } = useTheme();
   const vis = useScrollVisibility();
   const shown = vis?.shown;
-  const bar = TAB_BAR[scheme];
+  const bar = TAB_BAR;
 
   const anim = useAnimatedStyle(() => {
     const v = shown ? shown.value : 1;
@@ -97,7 +91,7 @@ const FloatingTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) =
           right: 16,
           bottom: insets.bottom + 8,
           shadowColor: '#000',
-          shadowOpacity: scheme === 'dark' ? 0.45 : 0.18,
+          shadowOpacity: 0.45,
           shadowRadius: 16,
           shadowOffset: { width: 0, height: 8 },
           elevation: 16,
@@ -208,9 +202,13 @@ const TabsLayout = () => {
             // layout jump. Queries are local SQLite, so mounting all five up
             // front is cheap and every tab opens already settled.
             lazy: false,
-            // NOT `freezeOnBlur` + `enableFreeze(true)`: tried on 2026-10-17, a
-            // cold launch then painted nothing after the splash (twice, on the
-            // emulator). Root-cause it with Metro logs before trying again.
+            // Inactive tabs stop re-rendering (react-native-screens suspends
+            // them) so a tab switch commits one tree, not five. Tried with the
+            // global `enableFreeze(true)` on 2026-10-17 and reverted: a cold
+            // launch painted nothing after the splash — the cause was every
+            // section sitting in an effect-started fade (`FadeInUp`), which is
+            // native now. Per-screen only; no `enableFreeze` at the root.
+            freezeOnBlur: true,
           }}
         >
           <Tabs.Screen
