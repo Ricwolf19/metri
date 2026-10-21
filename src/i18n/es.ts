@@ -560,18 +560,15 @@ export const es: Record<TranslationKey, string> = {
   'plan.bulletDevices': 'Dispositivos ilimitados, siempre sincronizados',
   'plan.bulletFuture': 'Futuras apps incluidas (versión para reloj en progreso)',
   'plan.dataTitle': 'Tus datos',
-  'plan.exportTitle': 'Exportar todo',
-  'plan.exportBody':
-    'Un archivo JSON con tus programas, sesiones, series e historial de adherencia. Compártelo, archívalo o impórtalo en otro dispositivo.',
-  'plan.importTitle': 'Importar un archivo Metri',
-  'plan.importBody':
-    'Acepta metri-export.json (versiones 2 a 4). Las filas se agregan con ids nuevos — importar dos veces duplica los datos.',
-  'plan.importPick': 'Elegir un archivo JSON',
-  'plan.importCta': 'Importar el JSON pegado',
-  'plan.importPlaceholder': 'O pega el JSON aquí…',
+  'plan.dataBody':
+    'Todo en un solo archivo .json: programas, sesiones, series, adherencia, cuerpo y comida. Expórtalo para guardar una copia o moverlo, importa uno para restaurar. Las filas se agregan con ids nuevos, así que importar el mismo archivo dos veces lo duplica.',
+  'plan.importPick': 'Importar un archivo .json',
+  'plan.jsonOnly': 'Por ahora, el único formato es JSON.',
+  'plan.exporting': 'Preparando tu archivo…',
+  'plan.importing': 'Importando…',
   'plan.importSuccess': 'Se importaron {n} filas.',
   'plan.importErrInvalid': 'Ese archivo no coincide con el formato de exportación de Metri.',
-  'plan.importErrVersion': 'Esa versión de exportación no es compatible (se esperan la 2 o la 3).',
+  'plan.importErrVersion': 'Esa versión de exportación no es compatible.',
   'plan.aiPromptTitle': 'Llénalo con IA',
   'plan.aiPromptBody':
     'Copia un prompt listo, pégalo en cualquier asistente de IA, describe tu historial de entrenamiento y generará un archivo de importación válido.',
@@ -1326,4 +1323,5 @@ export const es: Record<TranslationKey, string> = {
   'set.failureShort': 'F',
   'start.failed': 'No se pudo iniciar el programa. Inténtalo de nuevo.',
   'plan.importErrFailed': 'La importación falló. No se cambió nada.',
+  'plan.exportErrFailed': 'No se pudo preparar la exportación. No se cambió nada.',
 };

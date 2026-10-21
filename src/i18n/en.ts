@@ -549,18 +549,15 @@ export const en = {
   'plan.bulletDevices': 'Unlimited devices, always in sync',
   'plan.bulletFuture': 'Future apps included (watch version in progress)',
   'plan.dataTitle': 'Your data',
-  'plan.exportTitle': 'Export everything',
-  'plan.exportBody':
-    'One JSON file with your programs, sessions, sets and adherence history. Share it, archive it, or import it on another device.',
-  'plan.importTitle': 'Import a Metri file',
-  'plan.importBody':
-    'Accepts metri-export.json (versions 2 to 4). Rows are added with fresh ids — importing twice duplicates data.',
-  'plan.importPick': 'Pick a JSON file',
-  'plan.importCta': 'Import pasted JSON',
-  'plan.importPlaceholder': 'Or paste the JSON here…',
+  'plan.dataBody':
+    'Everything in one .json file: programs, sessions, sets, adherence, body and food. Export it to keep a copy or move it, import one to restore. Rows are added with fresh ids, so importing the same file twice duplicates it.',
+  'plan.importPick': 'Import a .json file',
+  'plan.jsonOnly': 'JSON is the only format for now.',
+  'plan.exporting': 'Preparing your file…',
+  'plan.importing': 'Importing…',
   'plan.importSuccess': 'Imported {n} rows.',
   'plan.importErrInvalid': "That file doesn't match the Metri export format.",
-  'plan.importErrVersion': 'That export version is not supported (expected 2 to 4).',
+  'plan.importErrVersion': 'That export version is not supported.',
   'plan.aiPromptTitle': 'Fill it with AI',
   'plan.aiPromptBody':
     'Copy a ready-made prompt, paste it into any AI assistant, describe your training history, and it will produce a valid import file for you.',
@@ -1309,6 +1306,7 @@ export const en = {
   'set.failureShort': 'F',
   'start.failed': 'The program could not be started. Try again.',
   'plan.importErrFailed': 'The import failed. Nothing was changed.',
+  'plan.exportErrFailed': 'The export could not be prepared. Nothing was changed.',
 } as const;
 
 export type TranslationKey = keyof typeof en;

@@ -7,9 +7,8 @@ import { TopBar } from '@/components/TopBar';
 import { Button, Card, Screen, ScreenTitle, useToast } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import type { Tier } from '@/features/auth/entitlements';
-import { exportUserData } from '@/features/plan/export';
 import { buildImportPrompt } from '@/features/plan/import-prompt';
-import { ImportPanel } from '@/features/plan/ImportPanel';
+import { DataCard } from '@/features/plan/DataCard';
 import { useI18n, useT, type TranslationKey } from '@/i18n';
 import { WEB_URL } from '@/lib/env';
 import { useTheme } from '@/theme/theme-context';
@@ -71,16 +70,6 @@ const Plan = () => {
   const { user, tier, isPremium } = useAuth();
   const toast = useToast();
 
-  const onExport = async () => {
-    if (!user) return;
-    try {
-      await exportUserData(user.id);
-      toast.success(t('premium.exportedToast'));
-    } catch {
-      /* user cancelled the share sheet */
-    }
-  };
-
   const onCopyPrompt = async () => {
     await Clipboard.setStringAsync(buildImportPrompt(locale));
     toast.success(t('plan.aiPromptCopied'));
@@ -117,19 +106,7 @@ const Plan = () => {
         {t('plan.dataTitle')}
       </Text>
       <View className="gap-3">
-        <Card>
-          <Text className="text-base font-sans-semibold text-ink-50">{t('plan.exportTitle')}</Text>
-          <Text className="mt-1 text-sm leading-6 text-ink-400">{t('plan.exportBody')}</Text>
-          <View className="mt-4">
-            <Button label={t('premium.exportCta')} variant="secondary" onPress={onExport} />
-          </View>
-        </Card>
-        <Card>
-          <Text className="text-base font-sans-semibold text-ink-50">{t('plan.importTitle')}</Text>
-          <View className="mt-3">
-            <ImportPanel userId={user?.id ?? ''} />
-          </View>
-        </Card>
+        <DataCard userId={user?.id ?? ''} />
         <Card>
           <Text className="text-base font-sans-semibold text-ink-50">
             {t('plan.aiPromptTitle')}
