@@ -24,7 +24,7 @@ const History = () => {
   const { locale } = useI18n();
   const { user } = useAuth();
   const { date } = useDateFormat();
-  const unit = settings.getUnits();
+  const unit = settings.getEquipmentUnits();
   const userId = user?.id ?? '';
   const { enrollment, structure } = useEnrollment(userId);
   const enrollmentId = enrollment?.id ?? '';

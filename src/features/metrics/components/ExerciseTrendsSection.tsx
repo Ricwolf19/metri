@@ -17,7 +17,7 @@ import { fromKgHalf } from '@/features/training/progression';
 import { exerciseSetsSinceQuery, groupByExercise } from '@/features/training/stats.repo';
 import { useI18n, useT } from '@/i18n';
 import { dateFromKey } from '@/features/training/dates';
-import { useUnits } from '@/lib/useUnits';
+import { useEquipmentUnits } from '@/lib/useUnits';
 import { useTodayKey } from '@/lib/useTodayKey';
 import { useTheme } from '@/theme/theme-context';
 
@@ -40,7 +40,7 @@ export const ExerciseTrendsSection = ({ headerRight }: MetricsSectionProps) => {
   const { locale } = useI18n();
   const { user } = useAuth();
   const { muted } = useTheme();
-  const { units: unit } = useUnits();
+  const { units: unit } = useEquipmentUnits();
   const today = useTodayKey();
   // Anchored to the day key, not the clock, so the query identity is stable
   // within a day and the deps still refresh it after midnight.

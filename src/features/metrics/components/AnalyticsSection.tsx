@@ -43,7 +43,7 @@ import {
 import { fromKgHalf } from '@/features/training/progression';
 import { useT } from '@/i18n';
 import { useDateFormat } from '@/lib/useDateFormat';
-import { useUnits } from '@/lib/useUnits';
+import { useEquipmentUnits } from '@/lib/useUnits';
 import { dayStartMs } from '@/lib/date';
 import { useFocusRead } from '@/lib/useFocusRead';
 import { useTodayKey } from '@/lib/useTodayKey';
@@ -71,7 +71,7 @@ export const AnalyticsSection = ({ headerRight }: MetricsSectionProps) => {
   const theme = useTheme();
   const { user } = useAuth();
   // Volume rows are kg from SQL; everything shown converts and rounds to the half.
-  const { units: unit } = useUnits();
+  const { units: unit } = useEquipmentUnits();
   const { date: formatDate } = useDateFormat();
   const today = useTodayKey();
 

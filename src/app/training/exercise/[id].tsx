@@ -97,7 +97,7 @@ const ExerciseHistory = () => {
   const { locale } = useI18n();
   const { dayMonth } = useDateFormat();
   const { brand, muted } = useTheme();
-  const unit = settings.getUnits();
+  const unit = settings.getEquipmentUnits();
 
   const exercise = id ? getExercise(id) : null;
   // Live, with deps: a screen mounted before auth resolves must not stay bound

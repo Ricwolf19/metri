@@ -36,7 +36,7 @@ import { openExternal } from '@/lib/open-external';
 import { settings, type ClockFormat, type Units } from '@/lib/storage';
 import { DATE_FORMATS, formatDate, type DateFormat } from '@/lib/date-format';
 import { useDateFormat } from '@/lib/useDateFormat';
-import { UNIT_SEGMENTS, useUnits } from '@/lib/useUnits';
+import { UNIT_SEGMENTS, useEquipmentUnits, useUnits } from '@/lib/useUnits';
 import { useTheme } from '@/theme/theme-context';
 
 const MetricRow = ({ label, value }: { label: string; value: string }) => {
@@ -63,6 +63,7 @@ const Profile = () => {
 
   const [clock, setClock] = useState<ClockFormat>(settings.getClockFormat());
   const { units, setUnits } = useUnits();
+  const equipment = useEquipmentUnits();
   const dateFormat = useDateFormat();
   const [sampleDate] = useState(() => new Date());
   if (!user) return null;
@@ -315,14 +316,30 @@ const Profile = () => {
         <SegmentedControl segments={clockSegments} value={clock} onChange={onClockChange} />
       </Card>
 
-      {/* Units — the same key the workout screen's kg/lb toggle writes, so the
-          choice follows the user everywhere and survives sessions. */}
+      {/* Units, two of them: the app-wide one (body weight, goals, calculators)
+          rides the account profile; the equipment one (sets, plates, training
+          volume) is the gym's, the same key the workout screen's toggle writes. */}
       <Text className="mb-2 mt-7 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
         {t('profile.units')}
       </Text>
       <Card>
+        <Text className="mb-2 text-sm font-sans-semibold text-ink-100">
+          {t('profile.unitsGlobal')}
+        </Text>
         <SegmentedControl segments={UNIT_SEGMENTS} value={units} onChange={onUnitsChange} />
         <Text className="mt-2 text-[11px] leading-4 text-ink-500">{t('profile.unitsHint')}</Text>
+        <View className="my-4 h-px bg-ink-700" />
+        <Text className="mb-2 text-sm font-sans-semibold text-ink-100">
+          {t('profile.unitsEquipment')}
+        </Text>
+        <SegmentedControl
+          segments={UNIT_SEGMENTS}
+          value={equipment.units}
+          onChange={equipment.setUnits}
+        />
+        <Text className="mt-2 text-[11px] leading-4 text-ink-500">
+          {t('profile.unitsEquipmentHint')}
+        </Text>
       </Card>
 
       {/* Date format */}

@@ -20,7 +20,7 @@ export const SummarySection = ({ headerRight }: MetricsSectionProps) => {
   const { user } = useAuth();
   const userId = user?.id ?? '';
 
-  const unit = settings.getUnits();
+  const unit = settings.getEquipmentUnits();
   const volume = useWeeklyVolume();
   // A synchronous read, once per return to the tab rather than on every render.
   const streak = useFocusRead(
