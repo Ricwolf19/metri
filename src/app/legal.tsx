@@ -1,8 +1,8 @@
-import Markdown from 'react-native-markdown-display';
-
 import { TopBar } from '@/components/TopBar';
-import { Button, Card, Screen, ScreenTitle } from '@/components/ui';
-import { markdownStyles } from '@/features/docs/markdownStyles';
+import { Button, Card, Deferred, Screen, ScreenTitle } from '@/components/ui';
+import { DocMarkdown } from '@/features/docs/DocMarkdown';
+import { docSections } from '@/features/docs/doc-sections';
+import { openContentLink } from '@/features/docs/openContentLink';
 import { getLegal } from '@/features/legal/content';
 import { useRouter } from 'expo-router';
 
@@ -27,8 +27,13 @@ const Legal = () => {
       }
     >
       <ScreenTitle title={t('legal.title')} />
+      {/* Long: it mounts after the push, a section a frame (see the docs screen). */}
       <Card>
-        <Markdown style={markdownStyles()}>{getLegal(locale)}</Markdown>
+        {docSections(getLegal(locale)).map((part, i) => (
+          <Deferred key={i} order={i} fallback={i === 0 ? undefined : null}>
+            <DocMarkdown onLinkPress={(href) => openContentLink(href, router)}>{part}</DocMarkdown>
+          </Deferred>
+        ))}
       </Card>
     </Screen>
   );

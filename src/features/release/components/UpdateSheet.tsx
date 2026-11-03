@@ -1,10 +1,8 @@
 import { useRouter } from 'expo-router';
 import { Text, View } from 'react-native';
-import Markdown from 'react-native-markdown-display';
 
 import { Button, ScrollArea, SectionLabel, Sheet, TextLink } from '@/components/ui';
-import { markdownRules } from '@/features/docs/MarkdownTable';
-import { markdownStyles } from '@/features/docs/markdownStyles';
+import { DocMarkdown } from '@/features/docs/DocMarkdown';
 import { openContentLink } from '@/features/docs/openContentLink';
 import { useT } from '@/i18n';
 import { useDateFormat } from '@/lib/useDateFormat';
@@ -60,13 +58,9 @@ export const UpdateSheet = ({ update, visible, onClose }: Props) => {
 
         <SectionLabel label={t('release.whatsNew')} />
         {release.notes.trim() ? (
-          <Markdown
-            style={markdownStyles()}
-            rules={markdownRules}
-            onLinkPress={(href) => openContentLink(href, router)}
-          >
+          <DocMarkdown onLinkPress={(href) => openContentLink(href, router)}>
             {release.notes}
-          </Markdown>
+          </DocMarkdown>
         ) : (
           <Text className="text-sm text-ink-400">{t('release.noNotes')}</Text>
         )}
