@@ -1,6 +1,7 @@
 import type { WidgetTaskHandlerProps } from 'react-native-android-widget';
 
-import { markTrainingDay } from '@/features/training/adherence.repo';
+import { dayQuery, localDateKey, markTrainingDay } from '@/features/training/adherence.repo';
+import { sessionState } from '@/features/training/session-state';
 import { session } from '@/lib/storage';
 
 import { computeWidgetSnapshot } from './data';
@@ -31,13 +32,20 @@ const safeSnapshot = (): WidgetSnapshot | null => {
   }
 };
 
-/** "Mark today" tapped on the widget: write the adherence row without opening
- * the app. The day lands as trained-with-no-session, same as marking it from
- * Home; sync picks it up on the next app foreground. */
+/**
+ * "Mark today" tapped on the widget: write the adherence row without opening
+ * the app — the day lands as trained-with-no-session, as the day sheet's
+ * manual mark does; sync picks it up on the next app foreground. Re-checked
+ * here, not trusted to the drawn badge (a render can be stale): a day already
+ * answered (trained, rest, missed) is never overwritten, and a workout in
+ * progress marks the day itself when it finishes.
+ */
 const markToday = (): void => {
   try {
     const userId = session.getUserId();
-    if (userId) markTrainingDay(userId, { status: 'trained' });
+    if (!userId || sessionState.get()) return;
+    if (dayQuery(userId, localDateKey()).all().length) return;
+    markTrainingDay(userId, { status: 'trained' });
   } catch {
     // The re-render below falls back to the cached snapshot; the app stays
     // the source of truth if the headless write is unavailable.

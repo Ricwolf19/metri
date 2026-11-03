@@ -1,30 +1,10 @@
 import { FlexWidget, ImageWidget, TextWidget } from 'react-native-android-widget';
 
+import { localDateKey } from '@/features/training/dates';
 import { weekdayLetter } from '@/features/training/labels';
 import type { LocaleCode } from '@/lib/storage';
 
-import type { WeekDay, WidgetSnapshot } from './snapshot';
-
-/** Mock month-over-month adherence — placeholder until the real metric lands. */
-const MOCK_MONTHLY = [35, 42, 40, 55, 63, 78];
-
-/** Brand-lime alpha ramp so the mock chart reads as "building toward now". */
-const RAMP = ['#bef82b2e', '#bef82b47', '#bef82b61', '#bef82b85', '#bef82bb3', '#bef82b'] as const;
-
-// Widgets render to RemoteViews outside the RN runtime: no NativeWind, no theme
-// context. The brand palette is hard-coded for the always-dark widget surface.
-const COLORS = {
-  bg: '#0c0c0c',
-  card: '#18181b',
-  ink: '#09090b',
-  text: '#fafafa',
-  dim: '#a1a1aa',
-  faint: '#71717a',
-  muted: '#52525b',
-  skipped: '#f87171',
-  skippedBg: '#2a1215',
-  accent: '#bef82b',
-} as const;
+import { dayVisual, WIDGET_COLORS as C, type WidgetSnapshot } from './snapshot';
 
 const MONTHS = {
   es: ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'],
@@ -36,8 +16,7 @@ const WEEKDAYS = {
   en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
 } as const;
 
-const dateLabel = (locale: LocaleCode): string => {
-  const now = new Date();
+const dateLabel = (locale: LocaleCode, now: Date): string => {
   const wd = WEEKDAYS[locale][now.getDay()];
   const month = MONTHS[locale][now.getMonth()];
   return locale === 'es' ? `${wd} ${now.getDate()} ${month}` : `${wd}, ${month} ${now.getDate()}`;
@@ -48,35 +27,9 @@ const dayLetter = (date: string, locale: LocaleCode): string => {
   return weekdayLetter(locale, new Date(y, m - 1, d).getDay() + 1);
 };
 
-const badgeLabel = (locale: LocaleCode, trained: boolean): string => {
-  if (locale === 'es') return trained ? 'Hoy: entrenado' : 'Marcar hoy';
-  return trained ? 'Today: trained' : 'Mark today';
-};
-
-const streakLabel = (locale: LocaleCode, n: number): string => {
-  if (locale === 'es') return `Racha: ${n} ${n === 1 ? 'día' : 'días'}`;
-  return `Streak: ${n} ${n === 1 ? 'day' : 'days'}`;
-};
-
-const chartLabel = (locale: LocaleCode): string =>
-  locale === 'es' ? 'Mensual (demo)' : 'Monthly (demo)';
-
-const PILLS = {
-  es: ['Entrenar', 'Progreso', 'Fotos'],
-  en: ['Train', 'Progress', 'Photos'],
-} as const;
 const PILL_URIS = ['metri://training', 'metri://metrics', 'metri://progress'];
-
-/** Visual for one square of the week strip; today-pending gets an accent ring. */
-const dayStyle = (day: WeekDay, isToday: boolean) => {
-  if (day.status === 'trained') return { bg: COLORS.accent, fg: COLORS.ink, border: false };
-  if (day.status === 'skipped') return { bg: COLORS.skippedBg, fg: COLORS.skipped, border: false };
-  if (day.status === 'rest') return { bg: COLORS.card, fg: COLORS.dim, border: false };
-  if (day.status === 'active') return { bg: COLORS.card, fg: COLORS.accent, border: false };
-  return isToday
-    ? { bg: COLORS.bg, fg: COLORS.accent, border: true }
-    : { bg: COLORS.card, fg: COLORS.muted, border: false };
-};
+/** Tallest monthly bar, in dp. */
+const BAR_MAX = 30;
 
 type MetriWidgetProps = {
   snapshot: WidgetSnapshot | null;
@@ -85,22 +38,29 @@ type MetriWidgetProps = {
 };
 
 /**
- * The home-screen widget. Interactions: root opens the app; the badge marks
- * today as trained (headless write) or opens the training tab once trained;
- * the week strip opens training; TDEE/chart open metrics; pills deep-link to
- * training, metrics and progress photos.
+ * The home-screen widget, in four rows: the header (date and how today
+ * stands), the session — the workout in progress with its next set, else the
+ * split up next and when — beside six months of finished sessions, the
+ * current week Monday-first in the adherence colours, and on a tall grid the
+ * shortcuts. Taps: the session row opens the workout (or the Train tab), the
+ * chart and TDEE open Metrics, "Mark today" marks the day headlessly and only
+ * shows while today is unmarked and no workout is open.
  */
 export const MetriWidget = ({ snapshot, height }: MetriWidgetProps) => {
   // The widget library calls this component as a raw function (outside React),
   // so the React Compiler must not inject its memo-cache hook here.
   'use no memo';
 
+  const now = new Date();
   const locale = snapshot?.locale ?? 'en';
-  const trained = snapshot?.trainedToday ?? false;
-  const tdee = snapshot?.tdee != null ? `${Math.round(snapshot.tdee)}` : '– –';
-  const streak = snapshot?.streak ?? 0;
   const week = snapshot?.week ?? [];
+  const todayKey = week.find((d) => d.date === localDateKey(now))?.date ?? null;
+  const live = snapshot?.live ?? null;
+  const next = snapshot?.next ?? null;
+  const monthly = snapshot?.monthly ?? [];
+  const peak = Math.max(1, ...monthly);
   const showPills = (height ?? 999) >= 150;
+  const canMark = !!snapshot && !live && snapshot.today === 'none';
 
   return (
     <FlexWidget
@@ -108,12 +68,13 @@ export const MetriWidget = ({ snapshot, height }: MetriWidgetProps) => {
       style={{
         height: 'match_parent',
         width: 'match_parent',
-        backgroundColor: COLORS.bg,
+        backgroundColor: C.bg,
         borderRadius: 16,
         padding: 12,
         flexDirection: 'column',
       }}
     >
+      {/* Header: the mark, the date, how today stands. */}
       <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center' }}>
         <ImageWidget
           image={require('@/assets/images/favicon.png')}
@@ -122,48 +83,42 @@ export const MetriWidget = ({ snapshot, height }: MetriWidgetProps) => {
           radius={4}
         />
         <TextWidget
-          text="Metri"
-          style={{ fontSize: 13, fontWeight: 'bold', color: COLORS.accent, marginLeft: 7 }}
+          text="metri"
+          style={{ fontSize: 13, fontWeight: 'bold', color: C.brand, marginLeft: 7 }}
         />
         <FlexWidget style={{ flex: 1 }} />
         <TextWidget
-          text={dateLabel(locale)}
-          style={{ fontSize: 10, color: COLORS.faint, marginRight: 8 }}
+          text={dateLabel(locale, now)}
+          style={{ fontSize: 10, color: C.faint, marginRight: 8 }}
         />
-        {trained ? (
+        {snapshot ? (
           <FlexWidget
-            clickAction="OPEN_URI"
-            clickActionData={{ uri: 'metri://training' }}
+            {...(canMark
+              ? { clickAction: 'MARK_TRAINED' }
+              : {
+                  clickAction: 'OPEN_URI',
+                  clickActionData: { uri: live?.url ?? 'metri://training' },
+                })}
             style={{
-              backgroundColor: COLORS.card,
+              backgroundColor: canMark || live ? C.brand : C.card,
               borderRadius: 999,
               paddingHorizontal: 10,
               paddingVertical: 4,
             }}
           >
             <TextWidget
-              text={badgeLabel(locale, trained)}
-              style={{ fontSize: 11, color: COLORS.accent }}
+              text={snapshot.copy.badge}
+              style={{
+                fontSize: 11,
+                fontWeight: canMark || live ? 'bold' : 'normal',
+                color: canMark || live ? C.onBrand : C.brand,
+              }}
             />
           </FlexWidget>
-        ) : (
-          <FlexWidget
-            clickAction="MARK_TRAINED"
-            style={{
-              backgroundColor: COLORS.accent,
-              borderRadius: 999,
-              paddingHorizontal: 10,
-              paddingVertical: 4,
-            }}
-          >
-            <TextWidget
-              text={badgeLabel(locale, trained)}
-              style={{ fontSize: 11, fontWeight: 'bold', color: COLORS.ink }}
-            />
-          </FlexWidget>
-        )}
+        ) : null}
       </FlexWidget>
 
+      {/* The session, and six months of them. */}
       <FlexWidget
         style={{
           width: 'match_parent',
@@ -175,56 +130,62 @@ export const MetriWidget = ({ snapshot, height }: MetriWidgetProps) => {
       >
         <FlexWidget
           clickAction="OPEN_URI"
-          clickActionData={{ uri: 'metri://metrics' }}
-          style={{ flex: 1, flexDirection: 'column' }}
+          clickActionData={{ uri: live?.url ?? 'metri://training' }}
+          style={{ flex: 1, flexDirection: 'column', marginRight: 8 }}
         >
-          <FlexWidget style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
-            <TextWidget
-              text={tdee}
-              style={{ fontSize: 30, fontWeight: 'bold', color: COLORS.text }}
-            />
-            <TextWidget
-              text="kcal · TDEE"
-              style={{ fontSize: 11, color: COLORS.dim, marginLeft: 6, marginBottom: 5 }}
-            />
-          </FlexWidget>
-          <FlexWidget style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+          <TextWidget
+            text={live ? (live.line ?? live.title) : (next?.name ?? snapshot?.copy.empty ?? '')}
+            maxLines={1}
+            truncate="END"
+            style={{ fontSize: 16, fontWeight: 'bold', color: live ? C.brand : C.text }}
+          />
+          <TextWidget
+            text={live ? live.title : next ? (next.when ?? '') : (snapshot?.copy.emptyHint ?? '')}
+            maxLines={1}
+            truncate="END"
+            style={{ fontSize: 11, color: C.dim, marginTop: 1 }}
+          />
+          <FlexWidget style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
             <FlexWidget
-              style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.accent }}
+              style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: C.brand }}
             />
             <TextWidget
-              text={streakLabel(locale, streak)}
-              style={{ fontSize: 12, color: COLORS.accent, marginLeft: 5 }}
+              text={snapshot?.copy.streak ?? ''}
+              style={{ fontSize: 11, color: C.brand, marginLeft: 5 }}
             />
           </FlexWidget>
         </FlexWidget>
 
-        <FlexWidget
-          clickAction="OPEN_URI"
-          clickActionData={{ uri: 'metri://metrics' }}
-          style={{ flexDirection: 'column', alignItems: 'flex-end' }}
-        >
-          <FlexWidget style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
-            {MOCK_MONTHLY.map((value, i) => (
-              <FlexWidget
-                key={`bar-${i}`}
-                style={{
-                  width: 10,
-                  height: Math.round(value * 0.45),
-                  borderRadius: 3,
-                  marginLeft: i === 0 ? 0 : 3,
-                  backgroundColor: RAMP[i],
-                }}
-              />
-            ))}
+        {monthly.length ? (
+          <FlexWidget
+            clickAction="OPEN_URI"
+            clickActionData={{ uri: 'metri://metrics' }}
+            style={{ flexDirection: 'column', alignItems: 'flex-end' }}
+          >
+            <FlexWidget style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
+              {monthly.map((count, i) => (
+                <FlexWidget
+                  key={`bar-${i}`}
+                  style={{
+                    width: 10,
+                    marginLeft: i ? 3 : 0,
+                    // An empty month still shows a stub: a missing bar reads as no data.
+                    height: Math.max(3, Math.round((count / peak) * BAR_MAX)),
+                    borderRadius: 3,
+                    backgroundColor: i === monthly.length - 1 ? C.brand : C.muted,
+                  }}
+                />
+              ))}
+            </FlexWidget>
+            <TextWidget
+              text={snapshot?.copy.monthly ?? ''}
+              style={{ fontSize: 9, color: C.faint, marginTop: 3 }}
+            />
           </FlexWidget>
-          <TextWidget
-            text={chartLabel(locale)}
-            style={{ fontSize: 9, color: COLORS.faint, marginTop: 3 }}
-          />
-        </FlexWidget>
+        ) : null}
       </FlexWidget>
 
+      {/* The week, Monday first. */}
       {week.length === 7 ? (
         <FlexWidget
           clickAction="OPEN_URI"
@@ -232,7 +193,9 @@ export const MetriWidget = ({ snapshot, height }: MetriWidgetProps) => {
           style={{ width: 'match_parent', flexDirection: 'row', marginTop: 8 }}
         >
           {week.map((day, i) => {
-            const visual = dayStyle(day, i === week.length - 1);
+            const when =
+              day.date === todayKey ? 'today' : todayKey && day.date > todayKey ? 'future' : 'past';
+            const visual = dayVisual(day.status, when);
             return (
               <FlexWidget
                 key={day.date}
@@ -242,7 +205,7 @@ export const MetriWidget = ({ snapshot, height }: MetriWidgetProps) => {
                   borderRadius: 6,
                   marginLeft: i === 0 ? 0 : 4,
                   backgroundColor: visual.bg,
-                  ...(visual.border ? { borderWidth: 1, borderColor: COLORS.accent } : {}),
+                  ...(visual.ring ? { borderWidth: 1, borderColor: C.brand } : {}),
                   justifyContent: 'center',
                   alignItems: 'center',
                 }}
@@ -257,24 +220,49 @@ export const MetriWidget = ({ snapshot, height }: MetriWidgetProps) => {
         </FlexWidget>
       ) : null}
 
-      {showPills ? (
-        <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', marginTop: 8 }}>
-          {PILLS[locale].map((label, i) => (
+      {/* Tall grids: the shortcuts, and the maintenance estimate. */}
+      {showPills && snapshot ? (
+        <FlexWidget
+          style={{
+            width: 'match_parent',
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginTop: 8,
+          }}
+        >
+          {snapshot.copy.pills.map((label, i) => (
             <FlexWidget
               key={label}
               clickAction="OPEN_URI"
               clickActionData={{ uri: PILL_URIS[i] }}
               style={{
-                backgroundColor: COLORS.card,
+                backgroundColor: C.card,
                 borderRadius: 999,
                 paddingHorizontal: 10,
                 paddingVertical: 5,
                 marginLeft: i === 0 ? 0 : 6,
               }}
             >
-              <TextWidget text={label} style={{ fontSize: 10, color: COLORS.dim }} />
+              <TextWidget text={label} style={{ fontSize: 10, color: C.dim }} />
             </FlexWidget>
           ))}
+          <FlexWidget style={{ flex: 1 }} />
+          {snapshot.tdee != null ? (
+            <FlexWidget
+              clickAction="OPEN_URI"
+              clickActionData={{ uri: 'metri://metrics' }}
+              style={{ flexDirection: 'row', alignItems: 'flex-end' }}
+            >
+              <TextWidget
+                text={`${Math.round(snapshot.tdee)}`}
+                style={{ fontSize: 13, fontWeight: 'bold', color: C.text }}
+              />
+              <TextWidget
+                text={` ${snapshot.copy.tdee}`}
+                style={{ fontSize: 9, color: C.faint, marginBottom: 1 }}
+              />
+            </FlexWidget>
+          ) : null}
         </FlexWidget>
       ) : null}
     </FlexWidget>
