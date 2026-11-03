@@ -13,9 +13,14 @@ import { ExerciseNote } from './ExerciseNote';
 export const SessionNotes = ({
   slotNote,
   exerciseId,
+  editing,
+  onEditingChange,
 }: {
   slotNote: string | null | undefined;
   exerciseId: string;
+  /** The card's pencil opens the lifter's note editor. */
+  editing: boolean;
+  onEditingChange: (editing: boolean) => void;
 }) => {
   const t = useT();
   const { user } = useAuth();
@@ -31,7 +36,14 @@ export const SessionNotes = ({
         </View>
       ) : null}
       {user ? (
-        <ExerciseNote compact userId={user.id} exerciseId={exerciseId} className="mt-2" />
+        <ExerciseNote
+          compact
+          userId={user.id}
+          exerciseId={exerciseId}
+          className="mt-2"
+          editing={editing}
+          onEditingChange={onEditingChange}
+        />
       ) : null}
     </View>
   );

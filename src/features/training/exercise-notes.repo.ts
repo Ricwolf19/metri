@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import { exerciseNotes } from '@/db/schema';
@@ -11,6 +11,13 @@ export const exerciseNoteQuery = (userId: string, exerciseId: string) =>
     .from(exerciseNotes)
     .where(and(eq(exerciseNotes.userId, userId), eq(exerciseNotes.exerciseId, exerciseId)))
     .limit(1);
+
+/** Live query: which of these exercises carry a note (the session strip marks them). */
+export const notedExercisesQuery = (userId: string, exerciseIds: string[]) =>
+  db
+    .select({ exerciseId: exerciseNotes.exerciseId })
+    .from(exerciseNotes)
+    .where(and(eq(exerciseNotes.userId, userId), inArray(exerciseNotes.exerciseId, exerciseIds)));
 
 /** Create or replace the note (empty string deletes it). */
 export const saveExerciseNote = (userId: string, exerciseId: string, note: string): void => {

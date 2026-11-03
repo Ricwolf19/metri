@@ -56,6 +56,8 @@ type Props = {
   initialLoad: LoadDetail | null;
   equipment: Equipment | null;
   unilateral: boolean;
+  /** One dumbbell held in both hands (the seated French press): the hand count is fixed at one. */
+  oneDumbbell?: boolean;
   /** The mode to open in when the equipment offers several (the machine chooser). */
   preferMode?: LoadMode;
   onApply: (result: LoadApply) => void;
@@ -80,6 +82,7 @@ export const WeightCalculatorSheet = ({
   initialLoad,
   equipment,
   unilateral,
+  oneDumbbell = false,
   preferMode,
   onApply,
 }: Props) => {
@@ -159,7 +162,13 @@ export const WeightCalculatorSheet = ({
       setStep(onPin ? Math.round(pin) : null);
       // Dumbbell: the row's number IS one dumbbell.
       setPerHandText(initialWeight);
-      setHands(initialLoad?.kind === 'dumbbell' ? initialLoad.hands : defaultHands(unilateral));
+      setHands(
+        oneDumbbell
+          ? 1
+          : initialLoad?.kind === 'dumbbell'
+            ? initialLoad.hands
+            : defaultHands(unilateral),
+      );
       setPlainText(initialWeight);
     }
   }
@@ -315,7 +324,7 @@ export const WeightCalculatorSheet = ({
             presets={DUMBBELL_PRESETS[unit]}
             missing={perHand == null}
             hands={hands}
-            onHands={edit(setHands)}
+            onHands={oneDumbbell ? undefined : edit(setHands)}
           />
         ) : null}
 

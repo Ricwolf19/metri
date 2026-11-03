@@ -48,6 +48,16 @@ const interpolate = (template: string, vars?: Record<string, string | number>): 
   );
 };
 
+/**
+ * The translator for a locale, outside React — for surfaces drawn with no
+ * provider mounted (the home-screen widget's headless renders). Screens use
+ * `useT`.
+ */
+export const tFor =
+  (locale: Locale): TFunction =>
+  (key, vars) =>
+    interpolate(DICTS[locale][key] ?? en[key] ?? key, vars);
+
 export const I18nProvider = ({ children }: { children: React.ReactNode }) => {
   // Saved choice wins; otherwise default to the device language (first launch).
   const [locale, setLocaleState] = useState<Locale>(() => resolveLocale());
@@ -60,10 +70,7 @@ export const I18nProvider = ({ children }: { children: React.ReactNode }) => {
     startTransition(() => setLocaleState(next));
   }, []);
 
-  const t = useCallback<TFunction>(
-    (key, vars) => interpolate(DICTS[locale][key] ?? en[key] ?? key, vars),
-    [locale],
-  );
+  const t = useMemo<TFunction>(() => tFor(locale), [locale]);
 
   const value = useMemo<I18nContextValue>(
     () => ({ locale, setLocale, pending, t }),

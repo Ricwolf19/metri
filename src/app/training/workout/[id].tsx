@@ -9,6 +9,7 @@ import {
   CheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  EditIcon,
   FlameIcon,
   PlusIcon,
   ShareIcon,
@@ -22,7 +23,6 @@ import {
   BadgeRow,
   BlockingOverlay,
   Card,
-  ChipRow,
   IconButton,
   Screen,
   ScrollArea,
@@ -37,6 +37,7 @@ import {
 } from '@/components/ui';
 import type {
   Equipment,
+  Exercise,
   ExerciseSetting,
   PlannedSlot,
   SetGroup,
@@ -45,15 +46,21 @@ import type {
   WorkoutLog,
 } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
-import { pushProfile } from '@/features/auth/profile-sync';
 import { lbToKg } from '@/features/bmr/calc';
 import { ExerciseDocButton } from '@/features/training/components/ExerciseDocButton';
 import { ActiveSetRow } from '@/features/training/components/ActiveSetRow';
 import { ExerciseFrames } from '@/features/training/components/ExerciseFrames';
 import { MachineLoadChooser } from '@/features/training/components/MachineLoadChooser';
 import { LastTraining } from '@/features/training/components/LastTraining';
+import { LoadPreviewSheet, type PreviewSet } from '@/features/training/components/LoadPreviewSheet';
 import { LoggedRow, PendingRow, SkippedRow } from '@/features/training/components/SetRows';
+import {
+  SessionChipStrip,
+  type SessionChip,
+} from '@/features/training/components/SessionChipStrip';
 import { SwapScopeSheet } from '@/features/training/components/SwapScopeSheet';
+import { SwapSheet, type SwapOption } from '@/features/training/components/SwapSheet';
+import { AddExerciseSheet } from '@/features/training/components/AddExerciseSheet';
 import { SessionNotes } from '@/features/training/components/SessionNotes';
 import { RestTimer } from '@/features/training/components/RestTimer';
 import { StepGroup } from '@/features/training/components/StepGroup';
@@ -79,7 +86,12 @@ import {
   targetLine,
   type SetTarget,
 } from '@/features/training/labels';
-import { exerciseFactsQuery, getExercise } from '@/features/training/exercises.repo';
+import {
+  exerciseFactsQuery,
+  exercisesQuery,
+  getExercise,
+} from '@/features/training/exercises.repo';
+import { exerciseHeads, muscleHeadKey } from '@/features/training/muscles';
 import { exerciseDisplayName } from '@/features/training/labels';
 import { visualIdFor } from '@/features/training/exercise-visuals';
 import {
@@ -87,11 +99,13 @@ import {
   upsertExerciseSetting,
 } from '@/features/training/exercise-settings.repo';
 import {
-  carriedLoadFor,
   defaultHands,
   deriveLoad,
   hasLoadDetail,
+  holdsOneDumbbell,
   kgToUnit,
+  loadTotalKg,
+  unitToKg,
   machineLoadKind,
   PLATE_MACHINE_SEED,
   POST_MACHINE_SEED,
@@ -100,12 +114,11 @@ import {
   type MachineKind,
   reconcileLoad,
   rowInputMode,
-  seedFromPlates,
   type LoadDetail,
 } from '@/features/training/load';
 import { sideStep, sideFieldFromTotal, totalFromSide } from '@/features/training/plate-math';
 import { getWorkoutDay } from '@/features/training/programs.repo';
-import { getRoutine, reorderSlots } from '@/features/training/authoring.repo';
+import { getRoutine, reorderSplitFromNowOn } from '@/features/training/authoring.repo';
 import { fromKg, isRmTestWeek } from '@/features/training/progression';
 import { closeSession } from '@/features/training/close-session';
 import { sessionShareModel } from '@/features/share/models';
@@ -119,6 +132,7 @@ import {
 } from '@/features/training/set-prefill';
 import { badgeDetail, badgeLabel } from '@/features/training/programs/badge-copy';
 import { sessionBadges } from '@/features/training/session-badges';
+import { oneDumbbellFill, seedRow } from '@/features/training/row-seed';
 import {
   clearDraft,
   clearDraftLoads,
@@ -151,13 +165,21 @@ import {
   type PreviousSession,
   type SessionSummary,
 } from '@/features/training/session.repo';
-import { prefillSourceKey, swapOptions } from '@/features/training/variants';
+import { notedExercisesQuery } from '@/features/training/exercise-notes.repo';
+import { addSessionExercise } from '@/features/training/session-add';
+import {
+  chronologyMove,
+  mergeOrder,
+  sessionOrder,
+  slotState,
+} from '@/features/training/session-order';
+import { prefillSourceKey, similarExercises, swapOptions } from '@/features/training/variants';
 import { useI18n, useT, type TFunction } from '@/i18n';
 import { formatNumber, parseDecimal, parseInteger, roundHalf, snapTo } from '@/lib/numbers';
 import { settings, type Units } from '@/lib/storage';
 import { playSound } from '@/lib/sounds';
 import { useBlockingTask } from '@/lib/useBlockingTask';
-import { UNIT_SEGMENTS, useUnits } from '@/lib/useUnits';
+import { UNIT_SEGMENTS, useEquipmentUnits } from '@/lib/useUnits';
 import { useTheme } from '@/theme/theme-context';
 
 // Lets the blocking overlay paint before the synchronous finish work.
@@ -248,6 +270,15 @@ type CardProps = {
   /** The owner's defaults for the exercise on the card (its last load config). */
   loadSetting: ExerciseSetting | null;
   userId: string;
+  /** The lifter keeps a note on this exercise (the header pencil drops its "+"). */
+  hasNote: boolean;
+  /** Every exercise in the session: never offered again as a swap. */
+  sessionExerciseIds: ReadonlySet<string>;
+  /**
+   * Runs `proceed` once the session order allows this exercise's set: a first
+   * set ahead of exercises not yet begun asks to move it up first.
+   */
+  guardOrder: (proceed: () => void) => void;
   requestEffort: RequestEffort;
   /** A set or the whole exercise was just marked missed: page on like a logged set would. */
   onSkipped: (patched: PlannedSlot) => void;
@@ -270,6 +301,9 @@ const ExerciseCard = ({
   facts,
   loadSetting,
   userId,
+  hasNote,
+  sessionExerciseIds,
+  guardOrder,
   requestEffort,
   onSkipped,
   onLogged,
@@ -279,8 +313,16 @@ const ExerciseCard = ({
   const router = useRouter();
   const toast = useToast();
   const dialog = useDialog();
-  const { brand, muted } = useTheme();
-  const [variantsOpen, setVariantsOpen] = useState(false);
+  const { brand, muted, info } = useTheme();
+  // The swap sheet's lists, read when it opens (never per render: the card
+  // re-renders on every keystroke in the live row). Kept after closing, so
+  // the sheet stays mounted and plays its fall.
+  const [swap, setSwap] = useState<{
+    current: SwapOption;
+    variants: SwapOption[];
+    others: SwapOption[];
+  } | null>(null);
+  const [swapOpen, setSwapOpen] = useState(false);
   // A variant picked but not yet scoped: the scope sheet asks why and for how long.
   const [pendingVariant, setPendingVariant] = useState<string | null>(null);
   const [weightStep, setWeightStep] = useState(() => settings.getWeightStep());
@@ -298,6 +340,10 @@ const ExerciseCard = ({
   const [kindOpen, setKindOpen] = useState(false);
   // A logged set reopened for a correction; its draft lives under `edit:<id>`.
   const [editingId, setEditingId] = useState<string | null>(null);
+  // The lifter's note, opened from the header pencil.
+  const [noteOpen, setNoteOpen] = useState(false);
+  // A logged weight on view as its plates / pin / dumbbells (read-only).
+  const [preview, setPreview] = useState<PreviewSet | null>(null);
   // Shown once a machine's load kind is chosen: where to change it later.
   const [loadHint, setLoadHint] = useState(false);
   useEffect(() => {
@@ -324,7 +370,20 @@ const ExerciseCard = ({
   // machine the lifter marked as plates), one dumbbell, else the total. The
   // draft's `weight` is always the total; `side` is presentation on top of it.
   const inputMode = rowInputMode(facts, loadSetting?.load, unit);
+  // One dumbbell in each hand unless the exercise works a side at a time or
+  // holds a single dumbbell in both hands (the seated French press).
+  const oneHand = !!facts?.unilateral || holdsOneDumbbell(planned.exerciseId);
   const perSide = inputMode.mode === 'perSide' ? inputMode : null;
+  // A pin stack the lifter has described (base + increment): every total is a pin.
+  const stack =
+    inputMode.mode === 'total' &&
+    loadSetting?.load?.kind === 'machine' &&
+    loadSetting.load.incrementKg > 0
+      ? loadSetting.load
+      : null;
+  // Plates or pins are picked in the load sheet, never typed: the number is
+  // always one the rack can build, and the prefill arrives as plates or a pin.
+  const picker = !!perSide || !!stack;
   const baseInUnit = perSide ? kgToUnit(perSide.baseKg, unit) : 0;
   const sideOf = (draft: RowDraft): string =>
     draft.side ?? (perSide ? sideFieldFromTotal(draft.weight, baseInUnit, perSide.sides) : '');
@@ -336,7 +395,7 @@ const ExerciseCard = ({
       unit,
       setting: loadSetting?.load,
       current: draft.load,
-      unilateral: facts?.unilateral,
+      unilateral: oneHand,
     });
   // A machine the lifter has not yet described: plates or a pin stack decides
   // what the row asks for, so the card asks first.
@@ -354,17 +413,11 @@ const ExerciseCard = ({
   /** Store keys carry the slotId so drafts from different exercises never mix. */
   const storeKey = (key: RowKey) => `${planned.slotId}:${key}`;
 
-  /** A seeded row's detail: the inherited one while it still describes the number, else derived. */
-  const seededLoad = (draft: RowDraft, carried: LoadDetail | null): LoadDetail | null => {
-    if (!perSide) return carried ?? deriveFor(draft);
-    const typed = parseDecimal(draft.weight);
-    const kg = typed == null ? null : unit === 'lb' ? lbToKg(typed) : typed;
-    return carriedLoadFor(carried, perSide.baseKg, kg) ?? deriveFor(draft);
-  };
   const seedDraft = (key: RowKey): RowDraft => {
     const i = Number(key);
     // Set 1 opens on last session's set 1; every later set on the set just
-    // logged here (see `nextSetPrefill`).
+    // logged here (`nextSetPrefill`) — and the plates, pin or dumbbells come
+    // with the number (`seedRow`).
     const fill = nextSetPrefill({
       index: i,
       planReps: rows[i]?.reps,
@@ -373,17 +426,13 @@ const ExerciseCard = ({
       logged: working,
       suggestedKg: suggested,
     });
-    // Plates first: the side and the total follow them, so a seed never reopens
-    // on a rounded total that no longer matches the detail (`seedFromPlates`).
-    const plates = perSide ? seedFromPlates(fill.load, perSide.baseKg, perSide.sides, unit) : null;
-    if (plates) return { ...plates, reps: String(fill.reps), effort: null };
-    const draft: RowDraft = {
-      weight: fill.weightKg != null ? weightText(fill.weightKg, unit) : '',
-      reps: String(fill.reps),
-      effort: null,
-      load: null,
-    };
-    return { ...draft, load: seededLoad(draft, fill.load) };
+    return seedRow({
+      fill: holdsOneDumbbell(planned.exerciseId) ? oneDumbbellFill(fill) : fill,
+      mode: inputMode,
+      unit,
+      setting: loadSetting?.load,
+      unilateral: oneHand,
+    });
   };
   /** A correction starts from what was logged — never from history. */
   const editSeed = (logged: SetLog): RowDraft => ({
@@ -455,6 +504,21 @@ const ExerciseCard = ({
   const bump = (field: 'weight' | 'reps', delta: number) => {
     if (!focusKey) return;
     const draft = freshDraft(focusKey);
+    // A stack moves pin by pin: the step becomes the nearest whole number of
+    // pins (at least one), so ± never lands between two holes.
+    if (field === 'weight' && stack) {
+      const typed = parseDecimal(draft.weight);
+      const kg = typed == null ? stack.baseKg : unitToKg(typed, unit);
+      const at = Math.max(0, Math.round((kg - stack.baseKg) / stack.incrementKg));
+      const pins = Math.max(1, Math.round(Math.abs(unitToKg(delta, unit)) / stack.incrementKg));
+      const steps = Math.max(0, at + Math.sign(delta) * pins);
+      const load: LoadDetail = { ...stack, steps };
+      patchDraft(focusKey, {
+        weight: formatNumber(kgToUnit(loadTotalKg(load), unit)),
+        load,
+      });
+      return;
+    }
     // On a plate-loaded row the ± steps the SIDE: that is the number in hand,
     // and the total plus its plates follow from it.
     if (field === 'weight' && perSide) {
@@ -499,24 +563,27 @@ const ExerciseCard = ({
         draft: draft.load,
         setting: loadSetting?.load,
         weightKg,
-        unilateral: facts?.unilateral,
+        unilateral: oneHand,
       }),
       rir: effort?.rir ?? null,
       isFailure: effort?.failure ?? false,
     };
   };
 
-  const confirm = async (key: RowKey) => {
+  const confirm = (key: RowKey) => {
     const index = Number(key);
+    // Checked before the order question: an incomplete row never asks to move.
     const read = readDraft(key, !!rows[index]?.wantsEffort);
     if (!read) return;
-    const logged = logSet({ workoutLogId, exerciseId: planned.exerciseId, ...read });
-    clearDraft(workoutLogId, storeKey(key));
-    onLogged({
-      restSeconds: planned.restSeconds ?? 120,
-      slotId: planned.slotId,
-      doneCount: doneCount + 1,
-      logged,
+    guardOrder(() => {
+      const logged = logSet({ workoutLogId, exerciseId: planned.exerciseId, ...read });
+      clearDraft(workoutLogId, storeKey(key));
+      onLogged({
+        restSeconds: planned.restSeconds ?? 120,
+        slotId: planned.slotId,
+        doneCount: doneCount + 1,
+        logged,
+      });
     });
   };
 
@@ -545,13 +612,33 @@ const ExerciseCard = ({
       patchDraft(focusKey, { effort: picked.rir == null && !picked.failure ? null : picked });
   };
 
-  // The variant picker is the shared Select, listing the exercise on the card
-  // first and every alternative after it; picking one swaps the snapshot slot.
-  const swapIds = swapOptions(planned);
-  const variantItems = [planned.exerciseId, ...swapIds].flatMap((id) => {
-    const e = getExercise(id);
-    return e ? [{ value: id, label: exerciseDisplayName(e, locale) }] : [];
+  // The swap sheet lists the exercise on the card, then its variants (the
+  // plan's movement on other kit), then — set apart — other movements for the
+  // same muscles. Picking one asks for the scope before the snapshot changes.
+  const optionFor = (e: Exercise): SwapOption => ({
+    id: e.id,
+    label: exerciseDisplayName(e, locale),
+    hint: exerciseHeads(e)
+      .slice(0, 3)
+      .map((h) => t(muscleHeadKey(h)))
+      .join(' · '),
   });
+  const openSwap = () => {
+    const onCard = getExercise(planned.exerciseId);
+    if (!onCard) return;
+    const variants = swapOptions(planned).flatMap((id) => {
+      const e = getExercise(id);
+      return e ? [optionFor(e)] : [];
+    });
+    const taken = new Set([...sessionExerciseIds, ...variants.map((o) => o.id)]);
+    setSwap({
+      current: optionFor(onCard),
+      variants,
+      others: similarExercises(onCard, exercisesQuery(userId).all(), taken).map(optionFor),
+    });
+    setSwapOpen(true);
+  };
+  const pendingExercise = pendingVariant ? getExercise(pendingVariant) : null;
   const pickVariant = (id: string) => {
     if (id === planned.exerciseId || !getExercise(id)) return;
     setPendingVariant(id);
@@ -628,7 +715,8 @@ const ExerciseCard = ({
     if (value == null) return { text: null, breakdown: null };
     const draftDumbbell = draft.load?.kind === 'dumbbell' ? draft.load : null;
     if (draftDumbbell || loadSetting?.load?.kind === 'dumbbell') {
-      const hands = draftDumbbell?.hands ?? defaultHands(facts?.unilateral);
+      const hands = draftDumbbell?.hands ?? defaultHands(oneHand);
+      // One dumbbell in both hands needs no caption: the number is the load.
       const text =
         hands === 2
           ? t('load.perHandCaption', {
@@ -637,12 +725,19 @@ const ExerciseCard = ({
               total: Math.round(value * 200) / 100,
               unit,
             })
-          : t('load.perSideCaption', { value: draft.weight, unit });
+          : facts?.unilateral
+            ? t('load.perSideCaption', { value: draft.weight, unit })
+            : null;
       return { text, breakdown: null };
     }
     const breakdown = draft.load ?? null;
-    // Per side typed → the total is the derived number worth reading back.
-    if (perSide) return { text: `${t('training.total')} ${draft.weight} ${unit}`, breakdown };
+    // The picker field shows the total, so the line under it reads per side
+    // (one post has no sides: its tag already says the plates go on once).
+    if (perSide)
+      return {
+        text: perSide.sides === 2 ? t('load.perSideCaption', { value: sideOf(draft), unit }) : null,
+        breakdown,
+      };
     if (facts?.unilateral)
       return { text: t('load.perSideCaption', { value: draft.weight, unit }), breakdown };
     return { text: null, breakdown };
@@ -705,11 +800,26 @@ const ExerciseCard = ({
         >
           <Text className="text-base font-sans-semibold text-ink-50">{planned.name}</Text>
         </Pressable>
-        {/* The swap glyph opens the variant list (the shared option sheet). */}
         <View className="flex-row items-center gap-1">
-          {swapIds.length ? (
+          {/* The lifter's note, one tap away: a pencil, with a "+" until there is one. */}
+          <Pressable
+            onPress={() => setNoteOpen((open) => !open)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={t(hasNote ? 'exNote.edit' : 'exNote.add')}
+            className="h-8 w-8 items-center justify-center"
+          >
+            <EditIcon color={hasNote ? info : muted} size={16} />
+            {!hasNote ? (
+              <View className="absolute right-0.5 top-0.5 h-3 w-3 items-center justify-center rounded-full bg-ink-700">
+                <PlusIcon color={brand} size={9} strokeWidth={3} />
+              </View>
+            ) : null}
+          </Pressable>
+          {/* The swap glyph opens the variants and same-muscle options. */}
+          {facts ? (
             <Pressable
-              onPress={() => setVariantsOpen(true)}
+              onPress={openSwap}
               hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel={t('training.alternatives')}
@@ -732,14 +842,16 @@ const ExerciseCard = ({
           <ExerciseDocButton exerciseId={planned.exerciseId} size={17} />
         </View>
       </View>
-      <OptionSheet
-        visible={variantsOpen}
-        onClose={() => setVariantsOpen(false)}
-        label={t('training.alternatives')}
-        items={variantItems}
-        value={planned.exerciseId}
-        onChange={pickVariant}
-      />
+      {swap ? (
+        <SwapSheet
+          visible={swapOpen}
+          onClose={() => setSwapOpen(false)}
+          current={swap.current}
+          variants={swap.variants}
+          others={swap.others}
+          onPick={pickVariant}
+        />
+      ) : null}
       <OptionSheet
         visible={kindOpen}
         onClose={() => setKindOpen(false)}
@@ -753,9 +865,7 @@ const ExerciseCard = ({
       />
       <SwapScopeSheet
         visible={pendingVariant !== null}
-        exerciseName={
-          pendingVariant ? (variantItems.find((v) => v.value === pendingVariant)?.label ?? '') : ''
-        }
+        exerciseName={pendingExercise ? exerciseDisplayName(pendingExercise, locale) : ''}
         onClose={() => setPendingVariant(null)}
         onConfirm={confirmSwap}
       />
@@ -792,9 +902,16 @@ const ExerciseCard = ({
         </View>
       ) : null}
 
-      <SessionNotes slotNote={planned.notes} exerciseId={planned.exerciseId} />
+      <SessionNotes
+        slotNote={planned.notes}
+        exerciseId={planned.exerciseId}
+        editing={noteOpen}
+        onEditingChange={setNoteOpen}
+      />
 
-      {previous?.sets.length ? <LastTraining previous={previous} unit={unit} /> : null}
+      {previous?.sets.length ? (
+        <LastTraining previous={previous} unit={unit} onSetPress={setPreview} />
+      ) : null}
 
       {/* Asked once per machine, before the first number: plates and a pin stack
           are different rows (per side vs total) and different pictures. */}
@@ -866,6 +983,7 @@ const ExerciseCard = ({
                 onBlurWeight={() => snapDraft(editKey)}
                 kindTag={kindTag}
                 onChangeKind={onChangeKind}
+                picker={picker}
               />
             );
           }
@@ -880,6 +998,7 @@ const ExerciseCard = ({
                 failureLabel={t('training.failure')}
                 editHint={t('training.editSetHint')}
                 onEdit={() => startEdit(logged.id)}
+                onWeightPress={() => setPreview(logged)}
               />
             );
           }
@@ -898,7 +1017,7 @@ const ExerciseCard = ({
               unit={unit}
               placeholder={row ? `${row.reps}${row.repsMax ? `-${row.repsMax}` : ''}` : '0'}
               onChange={(patch) => patchDraft(key, patch)}
-              onConfirm={() => void confirm(key)}
+              onConfirm={() => confirm(key)}
               onSkip={row ? skipSet : undefined}
               onOpenCalculator={() => setCalcOpen(true)}
               detailActive={detailActive}
@@ -910,6 +1029,7 @@ const ExerciseCard = ({
               onBlurWeight={() => snapDraft(key)}
               kindTag={kindTag}
               onChangeKind={onChangeKind}
+              picker={picker}
             />
           );
         })}
@@ -990,6 +1110,13 @@ const ExerciseCard = ({
         ) : null}
       </View>
 
+      <LoadPreviewSheet
+        set={preview}
+        onClose={() => setPreview(null)}
+        unit={unit}
+        equipment={facts?.equipment ?? null}
+      />
+
       {/* The load sheet applies straight into the live row's draft, and a
           changed setup is remembered on the exercise for the next session. */}
       <WeightCalculatorSheet
@@ -1002,7 +1129,8 @@ const ExerciseCard = ({
         initialWeight={focusDraft?.weight ?? ''}
         initialLoad={calcSeed ?? focusDraft?.load ?? loadSetting?.load ?? null}
         equipment={facts?.equipment ?? null}
-        unilateral={!!facts?.unilateral}
+        unilateral={oneHand}
+        oneDumbbell={holdsOneDumbbell(planned.exerciseId)}
         preferMode={needsMachineKind ? 'machine' : undefined}
         onApply={({ weightText, load, changed }) => {
           if (!focusKey) return;
@@ -1026,7 +1154,7 @@ const WorkoutSession = () => {
   const t = useT();
   const dialog = useDialog();
   const { user } = useAuth();
-  const { brand, brandContrast, muted, danger } = useTheme();
+  const { brandContrast, muted, danger } = useTheme();
   // The unmount can outlive the Activity (process killed, reload, OS teardown);
   // releasing the lock then rejects, and there is nothing left to keep awake.
   useKeepAwake(undefined, { suppressDeactivateWarnings: true });
@@ -1044,28 +1172,26 @@ const WorkoutSession = () => {
     if (current && current.workoutId !== id) void endRest();
   }, [id]);
 
-  const { units: unit, setUnits } = useUnits();
+  const { units: unit, setUnits } = useEquipmentUnits();
   // The chip a hold picked up: the paging arrows move it instead of paging,
   // until a tap on the strip puts it down.
   const [lifted, setLifted] = useState<string | null>(null);
   // The order when the chip was lifted, so putting it down knows whether anything moved.
   const [liftOrder, setLiftOrder] = useState<string[] | null>(null);
-  const [cardIndex, setCardIndex] = useState(() => {
-    const snapshot = typeof id === 'string' ? (getWorkout(id)?.plannedSnapshot ?? []) : [];
-    // A notification's `?slot=` wins; otherwise the page the lifter left open
-    // (leaving training mode unmounts this screen; coming back must not reset).
-    const wanted = focusSlot ?? (typeof id === 'string' ? readFocusSlot(id) : null);
-    const i = wanted ? snapshot.findIndex((p) => p.slotId === wanted) : -1;
-    return Math.max(0, i);
-  });
+  // The page in view, by slot: the strip's order is not the snapshot's (missed
+  // exercises sit at the end) and a reorder must not move the page under the lifter.
+  // A notification's `?slot=` wins; otherwise the page the lifter left open
+  // (leaving training mode unmounts this screen; coming back must not reset).
+  const [pageSlot, setPageSlot] = useState<string | null>(
+    () => focusSlot ?? (typeof id === 'string' ? readFocusSlot(id) : null),
+  );
   // The screen is singular per workout (`workoutScreenId`), so a later push —
   // the rest notification's `?slot=` — lands on this instance with new params
   // instead of mounting a copy. Follow it to that exercise's page.
   const [seenSlot, setSeenSlot] = useState(focusSlot);
   if (focusSlot !== seenSlot) {
     setSeenSlot(focusSlot);
-    const i = (log?.plannedSnapshot ?? []).findIndex((p) => p.slotId === focusSlot);
-    if (i >= 0) setCardIndex(i);
+    if (focusSlot) setPageSlot(focusSlot);
   }
   // One effort sheet serves every set row; the row awaits the resolver. If the
   // screen unmounts mid-pick (tab switch), resolve null so no await hangs.
@@ -1076,7 +1202,11 @@ const WorkoutSession = () => {
   }, []);
   // The page in view, remembered for the next mount of this screen (the user
   // left training mode and came back). Above the early returns: hooks order.
-  const focusedSlotId = log?.plannedSnapshot?.[cardIndex]?.slotId ?? null;
+  const snapshotNow = log?.plannedSnapshot ?? [];
+  const focusedSlotId =
+    (pageSlot && snapshotNow.some((p) => p.slotId === pageSlot) ? pageSlot : null) ??
+    snapshotNow[0]?.slotId ??
+    null;
   useEffect(() => {
     if (logId && focusedSlotId) writeFocusSlot(logId, focusedSlotId);
   }, [logId, focusedSlotId]);
@@ -1110,6 +1240,24 @@ const WorkoutSession = () => {
     user?.id,
     prefillKey,
   ]);
+  const { data: notedRows } = useLiveQuery(notedExercisesQuery(user?.id ?? '', exerciseIds), [
+    user?.id,
+    prefillKey,
+  ]);
+  const notedIds = new Set(notedRows.map((r) => r.exerciseId));
+  // What the session already holds — the planned exercise of a swapped slot too —
+  // so neither the add sheet nor a swap offers a second copy of it.
+  const sessionExerciseIds = useMemo(
+    () =>
+      new Set(
+        (log?.plannedSnapshot ?? []).flatMap((p) =>
+          p.originalExerciseId ? [p.exerciseId, p.originalExerciseId] : [p.exerciseId],
+        ),
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [prefillKey],
+  );
+  const [addOpen, setAddOpen] = useState(false);
   const factsById = new Map(factRows.map((r) => [r.id, r]));
   const settingById = new Map(settingRows.map((r) => [r.exerciseId, r]));
   // Lifted out of the card so the notification's "next load" is the same
@@ -1125,13 +1273,7 @@ const WorkoutSession = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [log?.id, prefillKey]);
 
-  // An exercise is done when its planned working sets are all logged.
   const plannedSetsOf = (p: PlannedSlot) => p.setGroups.reduce((x, g) => x + g.sets, 0);
-  const doneSlot = (p: PlannedSlot): boolean =>
-    !p.skipped &&
-    sets.filter((x) => !x.isWarmup && x.exerciseId === p.exerciseId).length +
-      (p.skippedSets?.length ?? 0) >=
-      plannedSetsOf(p);
   const workingSetsFor = (exerciseId: string) =>
     sets.filter((s) => !s.isWarmup && s.exerciseId === exerciseId);
   const doneFor = (exerciseId: string) => workingSetsFor(exerciseId).length;
@@ -1201,6 +1343,31 @@ const WorkoutSession = () => {
     // this one-time draw is corrected by the first logged set.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveWorkoutId, t]);
+
+  // Anything else that changes the next set — restoring a skip, deleting a set,
+  // a swap, a reorder, the unit — redraws the card from the exercise it already
+  // names, so it never points at a set that is no longer next. Logging and
+  // skipping write their own face first; this then finds nothing to change.
+  const nextSignature = JSON.stringify([
+    log?.plannedSnapshot,
+    sets.filter((s) => !s.isWarmup).map((s) => [s.id, s.weightKg, s.reps]),
+    unit,
+  ]);
+  useEffect(() => {
+    if (!liveWorkoutId) return;
+    const record = sessionState.get();
+    const workout = getWorkout(liveWorkoutId);
+    if (record?.workoutId !== liveWorkoutId || !workout) return;
+    const snapshot = workout.plannedSnapshot ?? [];
+    const anchor = snapshot.find((p) => p.slotId === record.next?.slotId) ?? snapshot[0] ?? null;
+    if (!anchor) return;
+    const upcoming = nextSetSummary(snapshot, anchor.slotId, doneFor(anchor.exerciseId), doneFor);
+    const next = nextSetCopy(snapshot, upcoming);
+    if (JSON.stringify(next) === JSON.stringify(record.next ?? null)) return;
+    void showSession(sessionRecord(workout, next));
+    // The helpers read the same render's sets; the signature is what changes them.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveWorkoutId, nextSignature, t]);
 
   // The OS may kill the foreground service alone and take the card with it;
   // a re-post of the current face is idempotent and cheap.
@@ -1282,16 +1449,21 @@ const WorkoutSession = () => {
   const advanceAfter = (plannedNow: PlannedSlot[], slotId: string, doneInSlot: number) => {
     const upcoming = nextSetSummary(plannedNow, slotId, doneInSlot, doneFor);
     if (upcoming.kind === 'done') finish(plannedNow);
-    else if (upcoming.slotId !== slotId) {
-      const next = plannedNow.findIndex((p) => p.slotId === upcoming.slotId);
-      if (next >= 0) setCardIndex(next);
-    }
+    else if (upcoming.slotId !== slotId) setPageSlot(upcoming.slotId);
     return upcoming;
   };
 
+  // A skip moves on from the set the session was heading for, not from the
+  // exercise skipped: skipping one further down the list while another is half
+  // done sends the lifter (and the notification) back to the half-done one.
   const onSkipped = (patched: PlannedSlot) => {
     const plannedNow = planned.map((p) => (p.slotId === patched.slotId ? patched : p));
-    const upcoming = advanceAfter(plannedNow, patched.slotId, doneFor(patched.exerciseId));
+    const record = sessionState.get();
+    const heading = record?.workoutId === log.id ? record.next?.slotId : undefined;
+    const anchor = plannedNow.find((p) => p.slotId === heading) ?? patched;
+    const upcoming = nextSetSummary(plannedNow, anchor.slotId, doneFor(anchor.exerciseId), doneFor);
+    if (upcoming.kind === 'done') finish(plannedNow);
+    else if (upcoming.slotId !== patched.slotId) setPageSlot(upcoming.slotId);
     void showSession(sessionRecord(log, nextSetCopy(plannedNow, upcoming)));
   };
 
@@ -1368,42 +1540,73 @@ const WorkoutSession = () => {
     });
 
   // The unit toggle lives in the pinned session strip (never in the top bar,
-  // never scrolling away), and the choice is a per-user preference: Settings
-  // edits the same key, so persist every toggle.
-  const changeUnit = (next: Units) => {
-    setUnits(next);
-    pushProfile(user);
-  };
+  // never scrolling away). It is the EQUIPMENT unit — the gym's plates — so
+  // flipping it here never changes how body weight or food read elsewhere;
+  // Settings edits the same key.
+  const changeUnit = (next: Units) => setUnits(next);
 
   // One exercise per page: the chip strip is the navigation (it follows the
   // current page), Prev/Next step through, and the page holds nothing but the
-  // exercise at hand.
-  const idx = Math.min(cardIndex, Math.max(0, planned.length - 1));
-  const current = planned[idx] ?? null;
+  // exercise at hand. Missed exercises sit at the end of the strip, so paging
+  // walks the strip's order, not the snapshot's.
+  const { active, missed } = sessionOrder(planned, doneFor);
+  const ordered = [...active, ...missed];
+  const idx = Math.max(
+    0,
+    ordered.findIndex((p) => p.slotId === focusedSlotId),
+  );
+  const current = ordered[idx] ?? null;
   const goTo = (index: number) => {
-    if (planned[index]) setCardIndex(index);
+    const slot = ordered[index];
+    if (slot) setPageSlot(slot.slotId);
+  };
+  /** A new order of the exercises in play; missed ones keep their snapshot places. */
+  const writeActiveOrder = (activeIds: string[]) =>
+    reorderSnapshot(
+      log.id,
+      mergeOrder(
+        planned.map((p) => p.slotId),
+        new Set(missed.map((p) => p.slotId)),
+        activeIds,
+      ),
+    );
+  // A first set ahead of exercises not yet begun moves the exercise up to be
+  // next: the session is recorded in the order it happened. Asked, then done.
+  const guardOrder = (slotId: string) => (proceed: () => void) => {
+    const moved = chronologyMove(active, slotId, doneFor);
+    if (!moved) {
+      proceed();
+      return;
+    }
+    const slot = active.find((p) => p.slotId === slotId);
+    dialog.confirm({
+      title: t('training.orderMoveTitle'),
+      message: t('training.orderMoveBody', {
+        name: slot?.name ?? '',
+        n: moved.indexOf(slotId) + 1,
+      }),
+      confirmLabel: t('training.orderMoveConfirm'),
+      onConfirm: () => {
+        writeActiveOrder(moved);
+        proceed();
+      },
+    });
   };
   // Reorder without a modal: hold a chip to lift it, the arrows move it one
   // place (persisted into the snapshot at once), a tap on the strip puts it down.
-  const liftedIndex = lifted ? planned.findIndex((p) => p.slotId === lifted) : -1;
+  const liftedIndex = lifted ? active.findIndex((p) => p.slotId === lifted) : -1;
   const moveLifted = (delta: number) => {
     const to = liftedIndex + delta;
-    if (liftedIndex < 0 || !planned[to]) return;
-    const next = [...planned];
-    const [slot] = next.splice(liftedIndex, 1);
-    next.splice(to, 0, slot);
-    reorderSnapshot(
-      log.id,
-      next.map((p) => p.slotId),
-    );
-    setCardIndex(to);
+    if (liftedIndex < 0 || !active[to]) return;
+    const ids = active.map((p) => p.slotId);
+    const [moving] = ids.splice(liftedIndex, 1);
+    ids.splice(to, 0, moving);
+    writeActiveOrder(ids);
   };
-  const lift = (index: number) => {
-    const slot = planned[index];
-    if (!slot) return;
-    setLifted(slot.slotId);
+  const lift = (slotId: string) => {
+    setLifted(slotId);
     setLiftOrder(planned.map((p) => p.slotId));
-    setCardIndex(index);
+    setPageSlot(slotId);
   };
   // Putting a moved chip down asks whether the order is today's or the
   // split's from now on; the snapshot already holds it either way.
@@ -1420,25 +1623,54 @@ const WorkoutSession = () => {
         {
           label: t('training.reorderCycle'),
           style: 'confirm',
-          onPress: () => reorderSlots(log.workoutDayId, order),
+          onPress: () => reorderSplitFromNowOn(log.workoutDayId, order),
         },
         { label: t('training.reorderSessionOnly'), style: 'cancel' },
       ],
     });
   };
-  const onChip = (index: number) => {
+  const onChip = (slotId: string) => {
     if (lifted) putDown();
-    goTo(index);
+    setPageSlot(slotId);
   };
   const stepLeft = () => (lifted ? moveLifted(-1) : goTo(idx - 1));
   const stepRight = () => (lifted ? moveLifted(1) : goTo(idx + 1));
   const atStart = lifted ? liftedIndex <= 0 : idx === 0;
-  const atEnd = lifted ? liftedIndex >= planned.length - 1 : idx >= planned.length - 1;
+  const atEnd = lifted ? liftedIndex >= active.length - 1 : idx >= ordered.length - 1;
+  // An exercise from the library joins today's session — for today, or kept
+  // in the split from now on. It lands last among the exercises still in play.
+  const addExercise = (exercise: Exercise) => {
+    const add = (keep: boolean) => {
+      const entry = addSessionExercise({
+        logId: log.id,
+        userId: user.id,
+        exerciseId: exercise.id,
+        keep,
+        locale,
+      });
+      if (entry) setPageSlot(entry.slotId);
+    };
+    dialog.show({
+      title: t('training.addScopeTitle', { name: exerciseDisplayName(exercise, locale) }),
+      message: t('training.addScopeBody'),
+      actions: [
+        { label: t('training.addToday'), style: 'confirm', onPress: () => add(false) },
+        { label: t('training.addKeep'), onPress: () => add(true) },
+        { label: t('common.cancel'), style: 'cancel' },
+      ],
+    });
+  };
+  const chipOf = (p: PlannedSlot): SessionChip => ({
+    slotId: p.slotId,
+    label: `${ordered.indexOf(p) + 1}. ${p.name}`,
+    state: slotState(p, doneFor(p.exerciseId)),
+    hasNote: notedIds.has(p.exerciseId),
+  });
 
   // Paging arrows flank the chip strip: one line carries the whole navigation.
   const NAV_BTN = 'h-8 w-8 shrink-0 items-center justify-center rounded-field bg-ink-800';
   const exerciseChips =
-    planned.length > 1 ? (
+    planned.length > 0 ? (
       <View className="mb-3 flex-row items-center gap-2">
         <Pressable
           onPress={stepLeft}
@@ -1450,20 +1682,14 @@ const WorkoutSession = () => {
           <ChevronLeftIcon color={muted} size={16} />
         </Pressable>
         <View className="min-w-0 flex-1">
-          <ChipRow
-            items={planned.map((p, i) => ({
-              value: String(i),
-              label: `${i + 1}. ${p.name}`,
-              done: doneSlot(p),
-              missed: !!p.skipped,
-            }))}
-            value={String(idx)}
-            onChange={(v) => onChip(Number(v))}
-            onLongPress={(v) => lift(Number(v))}
-            longPressHint={t('training.reorder')}
-            lifted={liftedIndex >= 0 ? String(liftedIndex) : null}
-            followSelection
-            cues={false}
+          <SessionChipStrip
+            active={active.map(chipOf)}
+            missed={missed.map(chipOf)}
+            focused={current?.slotId ?? null}
+            lifted={lifted}
+            onPress={onChip}
+            onLongPress={lift}
+            onAdd={() => setAddOpen(true)}
           />
         </View>
         <Pressable
@@ -1627,6 +1853,9 @@ const WorkoutSession = () => {
               facts={factsById.get(current.exerciseId) ?? null}
               loadSetting={settingById.get(current.exerciseId) ?? null}
               userId={user.id}
+              hasNote={notedIds.has(current.exerciseId)}
+              sessionExerciseIds={sessionExerciseIds}
+              guardOrder={guardOrder(current.slotId)}
               requestEffort={requestEffort}
               onSkipped={onSkipped}
               onLogged={onLogged}
@@ -1705,10 +1934,12 @@ const WorkoutSession = () => {
         paused={sharing}
         actions={
           summary?.exercises.length ? (
+            // Solid: it sits on the scrim, under the card, where a tinted fill
+            // let the screen behind show through.
             <Button
-              variant="brandSoft"
+              variant="brand"
               label={t('share.session')}
-              leftIcon={<ShareIcon color={brand} size={16} />}
+              leftIcon={<ShareIcon color={brandContrast} size={16} />}
               onPress={() => setSharing(true)}
             />
           ) : null
@@ -1775,6 +2006,13 @@ const WorkoutSession = () => {
               })
             : null
         }
+      />
+      <AddExerciseSheet
+        visible={addOpen}
+        onClose={() => setAddOpen(false)}
+        userId={user.id}
+        exclude={sessionExerciseIds}
+        onPick={addExercise}
       />
       <BlockingOverlay
         visible={blocking.busy !== null}

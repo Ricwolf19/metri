@@ -1,4 +1,6 @@
-import type { PlannedSlot } from '@/db/schema';
+import type { Exercise, PlannedSlot } from '@/db/schema';
+
+import { exerciseHeads, knownHeads, type MuscleHead } from './muscles';
 
 /**
  * Equipment variants: the same movement pattern on different kit, so a taken
@@ -87,3 +89,70 @@ export const swapOptions = (
  */
 export const prefillSourceKey = (snapshot: readonly Pick<PlannedSlot, 'slotId' | 'exerciseId'>[]) =>
   snapshot.map((p) => `${p.slotId}:${p.exerciseId}`).join('|');
+
+type Ranked = Pick<Exercise, 'id' | 'primaryMuscles' | 'secondaryMuscles' | 'category'>;
+
+/**
+ * Heads that are one muscle seen from two angles — a flat press still trains
+ * the upper chest, a pulldown the mid back. Not the category: "arms" holds
+ * biceps and triceps, and a curl is no stand-in for a pushdown.
+ */
+const SIBLING_HEADS: readonly (readonly MuscleHead[])[] = [
+  ['chest', 'upper_chest'],
+  ['lats', 'mid_back'],
+  ['abs', 'obliques'],
+  ['quads', 'adductors'],
+  ['hamstrings', 'glutes'],
+];
+const SIBLINGS_OF: ReadonlyMap<MuscleHead, readonly MuscleHead[]> = new Map(
+  SIBLING_HEADS.flatMap((group) =>
+    group.map((h) => [h, group.filter((other) => other !== h)] as const),
+  ),
+);
+
+/**
+ * A bigger replacement than a variant: other movements for the same muscles,
+ * for the day a whole family is out of reach (no rack, no machines). Ranked by
+ * how much of the target's work they cover: each primary head the candidate
+ * also trains as primary counts most, a sibling head (upper chest for chest,
+ * `SIBLING_HEADS`) a little less, and one of the two is required. Capped, because past
+ * a handful the list stops being a suggestion. Variants come first in the sheet: they keep the
+ * plan's movement; these keep only its muscles.
+ */
+export const similarExercises = <T extends Ranked>(
+  target: Ranked,
+  pool: readonly T[],
+  exclude: ReadonlySet<string>,
+  limit = 8,
+): T[] => {
+  const primary = exerciseHeads(target);
+  const secondary = knownHeads(target.secondaryMuscles);
+  const family = new Set([target.id, ...equipmentVariants(target.id)]);
+  const scored: { exercise: T; score: number; index: number }[] = [];
+  pool.forEach((exercise, index) => {
+    if (family.has(exercise.id) || exclude.has(exercise.id)) return;
+    const theirs = exerciseHeads(exercise);
+    const theirSecondary = knownHeads(exercise.secondaryMuscles);
+    const covered = primary.reduce(
+      (sum, h) =>
+        sum +
+        (theirs.includes(h)
+          ? 3
+          : (SIBLINGS_OF.get(h) ?? []).some((sib) => theirs.includes(sib))
+            ? 2
+            : 0),
+      0,
+    );
+    if (!covered) return;
+    const score =
+      covered +
+      primary.filter((h) => theirSecondary.includes(h)).length +
+      secondary.filter((h) => theirs.includes(h)).length +
+      (exercise.category === target.category ? 1 : 0);
+    scored.push({ exercise, score, index });
+  });
+  return scored
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .slice(0, limit)
+    .map((s) => s.exercise);
+};

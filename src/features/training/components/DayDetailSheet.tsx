@@ -69,7 +69,7 @@ export const DayDetailSheet = ({
   const { brand } = theme;
   const { dateKey } = useDateFormat();
   const today = useTodayKey();
-  const unit = settings.getUnits();
+  const unit = settings.getEquipmentUnits();
   const setLabel = (x: LoggedSet) => fmtSet(x, unit, t);
   const { ref, share, busy } = useShareCard(t('dayDetail.share'));
   // Deps are load-bearing: the sheet mounts closed (date null) and is reopened

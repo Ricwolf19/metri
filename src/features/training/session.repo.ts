@@ -437,15 +437,60 @@ export const previousSessionSets = (exerciseId: string): PreviousSession | null 
 const getExerciseRow = (id: string): Exercise | null =>
   db.select().from(exercises).where(eq(exercises.id, id)).all()[0] ?? null;
 
-/** Spend one session of a temporary swap; the column clears on the last one. */
+/**
+ * The same planned exercise on the OTHER splits of the slot's phase: a full
+ * body A/B/C repeats its exercises, and a swap "from now on" made on A must
+ * not come back on B. Matched by exercise and by occurrence within the day
+ * (the second lat pulldown of B pairs with the second of B's twin, never the
+ * first — they carry different grips).
+ */
+const siblingSlots = (slot: WorkoutDayExercise): WorkoutDayExercise[] => {
+  const [day] = db
+    .select({ routineId: workoutDays.routineId })
+    .from(workoutDays)
+    .where(eq(workoutDays.id, slot.workoutDayId))
+    .all();
+  if (!day) return [];
+  const rows = db
+    .select({ slot: workoutDayExercises })
+    .from(workoutDayExercises)
+    .innerJoin(workoutDays, eq(workoutDays.id, workoutDayExercises.workoutDayId))
+    .where(
+      and(
+        eq(workoutDays.routineId, day.routineId),
+        eq(workoutDayExercises.exerciseId, slot.exerciseId),
+      ),
+    )
+    .orderBy(asc(workoutDayExercises.orderIndex))
+    .all()
+    .map((r) => r.slot);
+  const occurrence = (s: WorkoutDayExercise) =>
+    rows.filter((r) => r.workoutDayId === s.workoutDayId).indexOf(s);
+  const mine = rows.findIndex((r) => r.id === slot.id);
+  if (mine < 0) return [];
+  const nth = occurrence(rows[mine]);
+  return rows.filter((r) => r.workoutDayId !== slot.workoutDayId && occurrence(r) === nth);
+};
+
+/**
+ * Spend one session of a temporary swap; the column clears on the last one.
+ * The count is shared with the twin slots it was written to (`applySwap`):
+ * "the next two sessions" means two sessions with that exercise, whichever
+ * split they fall on.
+ */
 const consumeSlotSwap = (slot: WorkoutDayExercise): SlotSwap | null => {
   const swap = slot.swap;
   if (!swap) return null;
   const left = swap.sessionsLeft - 1;
-  db.update(workoutDayExercises)
-    .set({ swap: left > 0 ? { ...swap, sessionsLeft: left } : null, updatedAt: new Date() })
-    .where(eq(workoutDayExercises.id, slot.id))
-    .run();
+  const twins = siblingSlots(slot).filter(
+    (s) => s.swap?.exerciseId === swap.exerciseId && s.swap.reason === swap.reason,
+  );
+  for (const id of [slot.id, ...twins.map((s) => s.id)]) {
+    db.update(workoutDayExercises)
+      .set({ swap: left > 0 ? { ...swap, sessionsLeft: left } : null, updatedAt: new Date() })
+      .where(eq(workoutDayExercises.id, id))
+      .run();
+  }
   return swap;
 };
 
@@ -462,6 +507,46 @@ const patchSnapshotSlot = (
       plannedSnapshot: log.plannedSnapshot.map((p) => (p.slotId === slotId ? patch(p) : p)),
       updatedAt: new Date(),
     })
+    .where(eq(workoutLogs.id, logId))
+    .run();
+};
+
+/**
+ * The snapshot entry for one slot of the plan at a week — the same
+ * materialisation `startWorkout` does, for a slot written after the session
+ * began (an exercise added mid-session and kept in the split).
+ */
+export const plannedSlotFor = (
+  slotId: string,
+  weekNumber: number,
+  locale: Locale,
+): PlannedSlot | null => {
+  const [row] = db
+    .select({ slot: workoutDayExercises, exercise: exercises })
+    .from(workoutDayExercises)
+    .innerJoin(exercises, eq(exercises.id, workoutDayExercises.exerciseId))
+    .where(eq(workoutDayExercises.id, slotId))
+    .all();
+  if (!row) return null;
+  const config = weekConfigFor(slotId, weekNumber);
+  return {
+    slotId,
+    exerciseId: row.exercise.id,
+    name: exerciseDisplayName(row.exercise, locale),
+    setGroups: expandPrescription(config),
+    restSeconds: resolveRest(row.slot, config),
+    badges: row.slot.badges ?? [],
+    alternativeExerciseIds: row.slot.alternativeExerciseIds ?? [],
+    notes: row.slot.notes ?? null,
+  };
+};
+
+/** Append a slot to a live session's snapshot (it lands last in the strip's active part). */
+export const appendSnapshotSlot = (logId: string, slot: PlannedSlot): void => {
+  const log = getWorkout(logId);
+  if (!log) return;
+  db.update(workoutLogs)
+    .set({ plannedSnapshot: [...(log.plannedSnapshot ?? []), slot], updatedAt: new Date() })
     .where(eq(workoutLogs.id, logId))
     .run();
 };
@@ -487,9 +572,10 @@ export type SwapScope =
 
 /**
  * A swap with a scope. The session's snapshot always changes; beyond it, the
- * enrolled slot either counts down the next sessions (`swap` column) or is
- * rewritten for the rest of the cycle, keeping the planned exercise among its
- * alternatives so it can be swapped back. Template slots are never touched.
+ * enrolled slot — and the same exercise on the phase's other splits
+ * (`siblingSlots`) — either counts down the next sessions (`swap` column) or
+ * is rewritten for the rest of the cycle, keeping the planned exercise among
+ * its alternatives so it can be swapped back. Template slots are never touched.
  */
 export const applySwap = (input: {
   logId: string;
@@ -513,29 +599,36 @@ export const applySwap = (input: {
   // NULL there, and the swap silently went nowhere; it is backfilled here.
   if (!log || !slot || slot.workoutDayId !== log.workoutDayId) return;
   const userProgramId = slot.userProgramId ?? log.userProgramId;
+  // Beyond today the swap follows the exercise onto the phase's other splits:
+  // the same exercise on a twin day is the same decision.
+  const targets = [slot, ...siblingSlots(slot)];
   if (scope.kind === 'sessions' && scope.count > 1) {
-    db.update(workoutDayExercises)
-      .set({
-        swap: { exerciseId, sessionsLeft: scope.count - 1, reason },
-        userProgramId,
-        updatedAt: new Date(),
-      })
-      .where(eq(workoutDayExercises.id, slotId))
-      .run();
+    for (const target of targets) {
+      db.update(workoutDayExercises)
+        .set({
+          swap: { exerciseId, sessionsLeft: scope.count - 1, reason },
+          userProgramId: target.userProgramId ?? userProgramId,
+          updatedAt: new Date(),
+        })
+        .where(eq(workoutDayExercises.id, target.id))
+        .run();
+    }
   } else if (scope.kind === 'cycle' && slot.exerciseId !== exerciseId) {
-    const alternatives = [...(slot.alternativeExerciseIds ?? []), slot.exerciseId].filter(
-      (id, i, all) => id !== exerciseId && all.indexOf(id) === i,
-    );
-    db.update(workoutDayExercises)
-      .set({
-        exerciseId,
-        alternativeExerciseIds: alternatives,
-        swap: null,
-        userProgramId,
-        updatedAt: new Date(),
-      })
-      .where(eq(workoutDayExercises.id, slotId))
-      .run();
+    for (const target of targets) {
+      const alternatives = [...(target.alternativeExerciseIds ?? []), target.exerciseId].filter(
+        (id, i, all) => id !== exerciseId && all.indexOf(id) === i,
+      );
+      db.update(workoutDayExercises)
+        .set({
+          exerciseId,
+          alternativeExerciseIds: alternatives,
+          swap: null,
+          userProgramId: target.userProgramId ?? userProgramId,
+          updatedAt: new Date(),
+        })
+        .where(eq(workoutDayExercises.id, target.id))
+        .run();
+    }
   }
 };
 

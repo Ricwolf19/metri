@@ -17,7 +17,11 @@ export type LocaleCode = 'en' | 'es';
 export type ClockFormat = '24' | '12';
 
 export const SettingKeys = {
+  // The app-wide unit: body weight, goals, check-ins, calculators.
   units: 'settings.units',
+  // The unit of the kit: sets, plates, bars, dumbbells, stacks, training
+  // volume. Absent = follows `units` (a gym can be lb in a kg country).
+  equipmentUnits: 'settings.equipmentUnits',
   locale: 'settings.locale',
   // `settings.theme` is retired (the app is dark only since 2026-10-20): never reuse the id.
   clock: 'settings.clock',
@@ -67,6 +71,10 @@ export const settings = {
   },
   setUnits(units: Units) {
     storage.set(SettingKeys.units, units);
+  },
+  /** The equipment unit; until chosen it follows the app-wide one. */
+  getEquipmentUnits(): Units {
+    return (storage.getString(SettingKeys.equipmentUnits) as Units) ?? settings.getUnits();
   },
   /** The user's saved locale, or null if they've never chosen one (use device default). */
   getLocale(): LocaleCode | null {

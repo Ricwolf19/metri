@@ -369,6 +369,8 @@ export type PlannedSlot = {
   skipped?: { at: number };
   /** Planned-row ordinals (0-based) the lifter skipped; they count as missed. */
   skippedSets?: number[];
+  /** Added mid-session, not part of the plan (a short day, a gym without the kit). */
+  added?: { at: number };
 };
 
 /**

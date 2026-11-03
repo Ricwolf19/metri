@@ -7,7 +7,7 @@ import { useTheme } from '@/theme/theme-context';
 
 import { MISSED } from '../adherence-colors';
 import { deleteSet } from '../session.repo';
-import { ConvertibleWeight } from './ConvertibleWeight';
+import { WeightButton } from './WeightButton';
 
 /** A planned set the lifter skipped: it counts as missed; the X restores it. */
 export const SkippedRow = ({
@@ -42,7 +42,10 @@ export const PendingRow = ({ label, legend }: { label: string; legend: string | 
   </View>
 );
 
-/** A set already logged. Tapping the row reopens it in place for a correction; the X deletes it. */
+/**
+ * A set already logged. Tapping the row reopens it in place for a correction;
+ * the weight opens its picture (plates, pin, dumbbells); the X deletes it.
+ */
 export const LoggedRow = ({
   label,
   logged,
@@ -51,6 +54,7 @@ export const LoggedRow = ({
   failureLabel,
   editHint,
   onEdit,
+  onWeightPress,
 }: {
   label: string;
   logged: SetLog;
@@ -59,6 +63,7 @@ export const LoggedRow = ({
   failureLabel: string;
   editHint?: string;
   onEdit?: () => void;
+  onWeightPress?: () => void;
 }) => {
   const { brandContrast, muted } = useTheme();
   return (
@@ -84,7 +89,7 @@ export const LoggedRow = ({
         {logged.load?.kind === 'dumbbell' && logged.load.hands === 2 ? (
           <Text className="text-sm font-sans-medium text-ink-400">2 × </Text>
         ) : null}
-        <ConvertibleWeight kg={logged.weightKg} unit={unit} />
+        <WeightButton kg={logged.weightKg} unit={unit} onPress={onWeightPress} />
         <Text className="text-sm font-sans-medium text-ink-100">
           {' '}
           × {logged.reps}

@@ -13,32 +13,48 @@ import { exerciseNoteQuery, saveExerciseNote } from '../exercise-notes.repo';
  * The lifter's own note on an exercise ("left shoulder nags below parallel").
  * Global to the exercise, so it follows it into every future session; edited
  * in place, deleted by hold. `compact` is the live-session variant: one line
- * of chrome, no call to action until there is something to say.
+ * of chrome, no call to action until there is something to say — the session
+ * card opens the editor from its own pencil (`editing` / `onEditingChange`).
  */
 export const ExerciseNote = ({
   userId,
   exerciseId,
   compact = false,
   className = '',
+  editing: controlled,
+  onEditingChange,
 }: {
   userId: string;
   exerciseId: string;
   compact?: boolean;
   /** Spacing for the root — applied only when something renders. */
   className?: string;
+  /** Controlled editor state, for a caller that opens it from elsewhere. */
+  editing?: boolean;
+  onEditingChange?: (editing: boolean) => void;
 }) => {
   const t = useT();
   const toast = useToast();
   const { muted, danger } = useTheme();
   const { data } = useLiveQuery(exerciseNoteQuery(userId, exerciseId), [userId, exerciseId]);
   const note = data[0]?.note ?? null;
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState('');
-
-  const startEdit = () => {
-    setDraft(note ?? '');
-    setEditing(true);
+  const [own, setOwn] = useState(false);
+  const editing = controlled ?? own;
+  const setEditing = (next: boolean) => {
+    setOwn(next);
+    onEditingChange?.(next);
   };
+  const [draft, setDraft] = useState('');
+  // Opened from outside: start from the saved note, once per opening.
+  const [seeded, setSeeded] = useState(false);
+  if (editing && !seeded) {
+    setSeeded(true);
+    setDraft(note ?? '');
+  } else if (!editing && seeded) {
+    setSeeded(false);
+  }
+
+  const startEdit = () => setEditing(true);
   const save = () => {
     saveExerciseNote(userId, exerciseId, draft);
     setEditing(false);

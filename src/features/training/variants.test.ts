@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { EXERCISE_SEEDS } from './exercises.seed';
-import { equipmentVariants, prefillSourceKey, swapOptions } from './variants';
+import { equipmentVariants, prefillSourceKey, similarExercises, swapOptions } from './variants';
 
 describe('equipmentVariants', () => {
   it('offers the same movement on other kit, never the exercise itself', () => {
@@ -90,5 +90,39 @@ describe('prefillSourceKey', () => {
     const before = prefillSourceKey([{ slotId: 's1', exerciseId: 'machine-row' }]);
     const after = prefillSourceKey([{ slotId: 's1', exerciseId: 'dumbbell-row' }]);
     expect(after).not.toBe(before);
+  });
+});
+
+describe('similarExercises', () => {
+  const pool = EXERCISE_SEEDS.map((e) => ({
+    ...e,
+    secondaryMuscles: e.secondaryMuscles ?? [],
+  }));
+  const byId = new Map(pool.map((e) => [e.id, e]));
+
+  it('offers other movements for the same muscles, never the family or the excluded', () => {
+    const bench = byId.get('barbell-bench-press')!;
+    const ids = similarExercises(bench, pool, new Set(['dumbbell-fly'])).map((e) => e.id);
+    expect(ids.length).toBeGreaterThan(0);
+    expect(ids).not.toContain('barbell-bench-press');
+    expect(ids).not.toContain('dumbbell-bench-press');
+    expect(ids).not.toContain('dumbbell-fly');
+    expect(ids[0]).toBe('cable-fly');
+    // Same region, another head: the incline press still trains the chest.
+    expect(ids).toContain('incline-bench-press');
+  });
+
+  it('never offers a movement for other muscles', () => {
+    const curl = byId.get('barbell-curl')!;
+    const ids = similarExercises(curl, pool, new Set());
+    expect(ids).not.toContain('barbell-bench-press');
+    expect(ids).not.toContain('barbell-back-squat');
+    // Same body region, another muscle: a triceps movement is no stand-in.
+    expect(ids).not.toContain('skullcrusher');
+  });
+
+  it('stops at the limit', () => {
+    const bench = byId.get('barbell-bench-press')!;
+    expect(similarExercises(bench, pool, new Set(), 3)).toHaveLength(3);
   });
 });

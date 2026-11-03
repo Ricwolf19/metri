@@ -30,7 +30,8 @@ export const DumbbellLoadForm = ({
   /** No usable number yet: the field explains what it needs. */
   missing: boolean;
   hands: 1 | 2;
-  onHands: (hands: 1 | 2) => void;
+  /** Absent: the exercise holds ONE dumbbell in both hands and there is nothing to choose. */
+  onHands?: (hands: 1 | 2) => void;
 }) => {
   const t = useT();
   return (
@@ -75,16 +76,20 @@ export const DumbbellLoadForm = ({
           );
         })}
       </ScrollRow>
-      <View className="mt-4">
-        <SegmentedControl
-          segments={[
-            { value: '1', label: t('load.oneDumbbell') },
-            { value: '2', label: t('load.twoDumbbells') },
-          ]}
-          value={String(hands) as '1' | '2'}
-          onChange={(v) => onHands(v === '1' ? 1 : 2)}
-        />
-      </View>
+      {onHands ? (
+        <View className="mt-4">
+          <SegmentedControl
+            segments={[
+              { value: '1', label: t('load.oneDumbbell') },
+              { value: '2', label: t('load.twoDumbbells') },
+            ]}
+            value={String(hands) as '1' | '2'}
+            onChange={(v) => onHands(v === '1' ? 1 : 2)}
+          />
+        </View>
+      ) : (
+        <Text className="mt-4 text-xs text-ink-500">{t('load.heldInBothHands')}</Text>
+      )}
     </>
   );
 };

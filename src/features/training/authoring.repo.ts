@@ -627,6 +627,43 @@ export const reorderSlots = (dayId: string, orderedIds: string[]): void => {
   });
 };
 
+/**
+ * A session's reorder kept "from now on": the split takes the order, and so
+ * does every other split of the phase that holds EXACTLY the same exercises —
+ * a full body A/B/C repeats one list, and reordering A while B and C kept the
+ * old order meant redoing it every session. Splits that merely share some
+ * exercises keep theirs. Ids that are not slots of the day (an exercise added
+ * for today only) are ignored; slots the order does not name keep their place
+ * at the end.
+ */
+export const reorderSplitFromNowOn = (dayId: string, orderedSlotIds: string[]): void => {
+  const slots = slotSiblings(dayId);
+  const byId = new Map(slots.map((s) => [s.id, s]));
+  const named = orderedSlotIds.filter((id) => byId.has(id));
+  const order = [...named, ...slots.filter((s) => !named.includes(s.id)).map((s) => s.id)];
+  reorderSlots(dayId, order);
+
+  const day = getDay(dayId);
+  if (!day) return;
+  // A repeated exercise is told apart by its occurrence in the OLD order (the
+  // narrow-grip pulldown was the first one), so each pairs with its twin.
+  const tag = (list: WorkoutDayExercise[], slot: WorkoutDayExercise) =>
+    `${slot.exerciseId}#${list.filter((s) => s.exerciseId === slot.exerciseId).indexOf(slot)}`;
+  const sequence = order.flatMap((id) => {
+    const slot = byId.get(id);
+    return slot ? [tag(slots, slot)] : [];
+  });
+  const key = (tags: string[]) => [...tags].sort().join('|');
+  for (const twin of daysQuery(day.routineId).all()) {
+    if (twin.id === dayId) continue;
+    const theirs = slotSiblings(twin.id);
+    const byTag = new Map(theirs.map((s) => [tag(theirs, s), s.id]));
+    if (key([...byTag.keys()]) !== key(sequence)) continue;
+    const twinOrder = sequence.flatMap((t) => byTag.get(t) ?? []);
+    if (twinOrder.some((id, i) => id !== theirs[i]?.id)) reorderSlots(twin.id, twinOrder);
+  }
+};
+
 /* ── Internals ───────────────────────────────────────────────────────────────── */
 
 const extractValues = (c: WeekConfig): ConfigValues => ({

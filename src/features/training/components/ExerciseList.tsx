@@ -29,6 +29,8 @@ type Props = {
   rowIcon?: React.ReactNode;
   /** Shows the standard book affordance per row (technique guide / history). */
   showDoc?: boolean;
+  /** Ids left out of the list (a live session's own exercises). */
+  exclude?: ReadonlySet<string>;
 };
 
 /**
@@ -36,7 +38,15 @@ type Props = {
  * filtered by the muscle it trains — the same vocabulary the body map and the
  * split badges use, so "quads" means the same thing everywhere.
  */
-export const ExerciseList = ({ userId, onPick, above, trailing, rowIcon, showDoc }: Props) => {
+export const ExerciseList = ({
+  userId,
+  onPick,
+  above,
+  trailing,
+  rowIcon,
+  showDoc,
+  exclude,
+}: Props) => {
   const t = useT();
   const { locale } = useI18n();
   const [search, setSearch] = useState('');
@@ -47,10 +57,11 @@ export const ExerciseList = ({ userId, onPick, above, trailing, rowIcon, showDoc
     const q = search.trim().toLowerCase();
     return exercises.filter(
       (e) =>
+        !exclude?.has(e.id) &&
         (!head || exerciseHeads(e).includes(head)) &&
         (!q || exerciseDisplayName(e, locale).toLowerCase().includes(q)),
     );
-  }, [exercises, search, head, locale]);
+  }, [exercises, search, head, locale, exclude]);
 
   return (
     <>

@@ -135,25 +135,6 @@ export const seedFromPlates = (
   };
 };
 
-/**
- * A seeded per-side row keeps the plates it inherits (the set just logged, or
- * last session's) only while they still describe the number on THIS base:
- * the lifter who put 4×25 on the sled sees 4×25 on the next set, not a greedy
- * 45 + 5. A different bar or a total that no longer adds up re-derives.
- */
-export const carriedLoadFor = (
-  load: LoadDetail | null,
-  baseKg: number,
-  weightKg: number | null,
-): LoadDetail | null =>
-  load &&
-  load.kind === 'barbell' &&
-  load.barKg === baseKg &&
-  weightKg != null &&
-  Math.abs(loadTotalKg(load) - weightKg) <= 0.02
-    ? load
-    : null;
-
 /** What a logged set actually moved: the detail's total, else the typed number
  * (a pre-upgrade row, or a plain entry). THE definition every volume read uses. */
 type LoadedSet = Pick<SetLog, 'weightKg' | 'reps'> & { load?: LoadDetail | null };
@@ -190,6 +171,19 @@ export const hasLoadDetail = (setting: { load?: LoadDetail | null } | null | und
 
 /** Two dumbbells unless the exercise works one side at a time. */
 export const defaultHands = (unilateral: boolean | undefined): 1 | 2 => (unilateral ? 1 : 2);
+
+/**
+ * Catalog exercises that hold ONE dumbbell in both hands — the seated French
+ * press, the goblet squat, the pullover: the number is the whole load, never
+ * ×2. Not `unilateral` (nothing is logged per side); only the hand count.
+ */
+const ONE_DUMBBELL: ReadonlySet<string> = new Set([
+  'overhead-tricep-extension',
+  'goblet-squat',
+  'pullover',
+]);
+
+export const holdsOneDumbbell = (exerciseId: string): boolean => ONE_DUMBBELL.has(exerciseId);
 
 /* ── Display unit ⇄ kg ──────────────────────────────────────────────────── */
 

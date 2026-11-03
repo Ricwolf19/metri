@@ -6,15 +6,26 @@ import type { Units } from '@/lib/storage';
 import { useDateFormat } from '@/lib/useDateFormat';
 
 import { describeLoad } from '../load';
+import type { SetLog } from '@/db/schema';
+
 import type { PreviousSession } from '../session.repo';
-import { ConvertibleWeight } from './ConvertibleWeight';
+import { WeightButton } from './WeightButton';
 
 /**
  * The last time THIS exercise was trained, whatever split or week it sat in:
  * every working set as weight × reps, plus how the load was built when a set
- * carries that detail.
+ * carries that detail. A weight opens the picture of that set's load.
  */
-export const LastTraining = ({ previous, unit }: { previous: PreviousSession; unit: Units }) => {
+export const LastTraining = ({
+  previous,
+  unit,
+  onSetPress,
+}: {
+  previous: PreviousSession;
+  unit: Units;
+  /** A set's weight opens its picture. */
+  onSetPress?: (set: SetLog) => void;
+}) => {
   const t = useT();
   const { dayMonth } = useDateFormat();
   const withLoad = previous.sets.find((s) => s.load && s.load.kind !== 'dumbbell');
@@ -33,7 +44,11 @@ export const LastTraining = ({ previous, unit }: { previous: PreviousSession; un
               {s.load?.kind === 'dumbbell' && s.load.hands === 2 ? (
                 <Text className="text-xs text-ink-400">2 × </Text>
               ) : null}
-              <ConvertibleWeight kg={s.weightKg} unit={unit} />
+              <WeightButton
+                kg={s.weightKg}
+                unit={unit}
+                onPress={onSetPress ? () => onSetPress(s) : undefined}
+              />
               <Text className="text-xs text-ink-400"> × {s.reps}</Text>
             </View>
           ))}

@@ -4,7 +4,6 @@ import type { Equipment } from '@/db/schema';
 
 import {
   DEFAULT_BAR_KG,
-  carriedLoadFor,
   defaultBarKg,
   seedFromPlates,
   LOAD_KIND_FOR,
@@ -441,23 +440,5 @@ describe('seedFromPlates', () => {
       seedFromPlates({ kind: 'machine', baseKg: 5, incrementKg: 5, steps: 4 }, 0, 2, 'kg'),
     ).toBeNull();
     expect(seedFromPlates(null, 20, 2, 'kg')).toBeNull();
-  });
-});
-
-describe('carriedLoadFor', () => {
-  const four25 = { kind: 'barbell' as const, barKg: 0, platesKg: [25, 25, 25, 25] };
-
-  it('keeps the inherited plates while they add up on the same base', () => {
-    expect(carriedLoadFor(four25, 0, 200)).toBe(four25);
-  });
-
-  it('drops them on another base, a different total, or no number at all', () => {
-    expect(carriedLoadFor(four25, 20, 220)).toBeNull();
-    expect(carriedLoadFor(four25, 0, 190)).toBeNull();
-    expect(carriedLoadFor(four25, 0, null)).toBeNull();
-    expect(
-      carriedLoadFor({ kind: 'machine', baseKg: 5, incrementKg: 5, steps: 4 }, 0, 25),
-    ).toBeNull();
-    expect(carriedLoadFor(null, 0, 200)).toBeNull();
   });
 });

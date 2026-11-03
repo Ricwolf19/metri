@@ -11,6 +11,7 @@ import type { LoadDetail } from '../load';
 import type { Trend } from '../set-prefill';
 import type { RowDraft } from '../workout-drafts';
 import { LoadBreakdown } from './LoadBreakdown';
+import { LoadPickerField } from './LoadPickerField';
 import { SetInput } from './SetInput';
 
 /** A plate-loaded row: the field holds the weight PER SIDE; the base is a tag. */
@@ -52,6 +53,12 @@ type Props = {
   kindTag?: string;
   /** On a machine the tag is the way to re-choose plates / one post / stack. */
   onChangeKind?: () => void;
+  /**
+   * Plates or a configured pin stack: the weight is picked in the load sheet,
+   * never typed. The field shows the total and opens the sheet; the separate
+   * calculator button goes (the field IS the button).
+   */
+  picker?: boolean;
 };
 
 /**
@@ -86,6 +93,7 @@ export const ActiveSetRow = ({
   onBlurWeight,
   kindTag,
   onChangeKind,
+  picker = false,
 }: Props) => {
   const t = useT();
   const { brandContrast, muted, info } = useTheme();
@@ -108,21 +116,30 @@ export const ActiveSetRow = ({
       </View>
       <View className="flex-row items-center gap-2">
         <View className="flex-1">
-          <SetInput
-            value={side ? side.value : draft.weight}
-            onChangeText={side ? side.onChange : (weight) => onChange({ weight })}
-            onBlur={onBlurWeight}
-            unitLabel={unit}
-            keyboardType="decimal-pad"
-            placeholder="0"
-            maxLength={6}
-            accessibilityLabel={
-              side
-                ? `${t(side.sides === 1 ? 'training.plates' : 'training.perSide')} (${unit})`
-                : `${t('training.weight')} (${unit})`
-            }
-            trend={weightTrend}
-          />
+          {picker && onOpenCalculator ? (
+            <LoadPickerField
+              value={draft.weight}
+              unitLabel={unit}
+              onPress={onOpenCalculator}
+              trend={weightTrend}
+            />
+          ) : (
+            <SetInput
+              value={side ? side.value : draft.weight}
+              onChangeText={side ? side.onChange : (weight) => onChange({ weight })}
+              onBlur={onBlurWeight}
+              unitLabel={unit}
+              keyboardType="decimal-pad"
+              placeholder="0"
+              maxLength={6}
+              accessibilityLabel={
+                side
+                  ? `${t(side.sides === 1 ? 'training.plates' : 'training.perSide')} (${unit})`
+                  : `${t('training.weight')} (${unit})`
+              }
+              trend={weightTrend}
+            />
+          )}
         </View>
         <View className="flex-1">
           <SetInput
@@ -193,7 +210,7 @@ export const ActiveSetRow = ({
             </Text>
           </Pressable>
         ) : null}
-        {onOpenCalculator ? (
+        {onOpenCalculator && !picker ? (
           <Pressable
             onPress={onOpenCalculator}
             accessibilityRole="button"
