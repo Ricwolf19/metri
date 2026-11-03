@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.17.0](https://github.com/Ricwolf19/metri/compare/metri-v1.16.0...metri-v1.17.0) (2026-11-03)
+
+
+### Features
+
+* **settings:** separate equipment weight unit ([629ed8b](https://github.com/Ricwolf19/metri/commit/629ed8b68e5ff2d3532cc5a4b63acfd5a4d934a0))
+* **training:** session strip states, add and swap ([c50bd92](https://github.com/Ricwolf19/metri/commit/c50bd92559243ebe42b87e234cf9bedc4bd742ea))
+* **widget:** live session, next split, real data ([e3a5c58](https://github.com/Ricwolf19/metri/commit/e3a5c58b531744306d84aef6924341496152eeee))
+
+
+### Bug Fixes
+
+* **content:** lying french press and es plan names ([87e7705](https://github.com/Ricwolf19/metri/commit/87e7705e17f956de5f64bfdae9877eb2cdff4721))
+* **docs:** mount bodies by section, fix soft breaks ([5ccb955](https://github.com/Ricwolf19/metri/commit/5ccb955b1481e518ee86b4e96ee6fb3de7153dbc))
+
+
+### Performance Improvements
+
+* **ui:** defer work until the transition ends ([1a79f32](https://github.com/Ricwolf19/metri/commit/1a79f3278d14ef165ae6b1ecb57135123e2bcc54))
+
 ## [1.16.0](https://github.com/Ricwolf19/metri/compare/metri-v1.15.0...metri-v1.16.0) (2026-10-21)
 
 
