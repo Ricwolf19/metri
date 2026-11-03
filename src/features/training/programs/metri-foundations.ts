@@ -399,7 +399,7 @@ export const FOUNDATIONS_CONTENT: Record<
   }
 > = {
   es: {
-    name: 'Cimientos',
+    name: 'Metri Cimientos',
     description:
       'Base de powerbuilding de tres meses para empezar: tres fases de 4 semanas, entrenando 3 días por semana. ' +
       'Todas las series efectivas van al fallo técnico —sin RIR—, con descansos de ~2 minutos ' +

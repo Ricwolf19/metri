@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, notInArray } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, notInArray } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import {
@@ -71,9 +71,12 @@ import { warmupSeeds } from './warmup-content';
  * (`overhead-tricep-extension`, `cable-overhead-extension`, `french-press`),
  * Foundations phase 1 trains the lying dumbbell press, Progression's incline
  * is the dumbbell exercise (no badge) and its paused seated press the barbell.
+ *
+ * v15 carries that fix into ENROLLED Foundations copies (`correctFoundationsFrenchPress`):
+ * phase 1 enrolled before v14 still planned the seated one-dumbbell press.
  */
 const SEED_KEY = 'training_seed_version';
-const SEED_VERSION = '14';
+const SEED_VERSION = '15';
 
 const alreadySeeded = (): boolean => {
   const [row] = db.select().from(appMeta).where(eq(appMeta.key, SEED_KEY)).all();
@@ -418,6 +421,55 @@ const seedWarmups = (): void => {
   }
 };
 
+/**
+ * v15: Foundations phase 1 plans the LYING two-dumbbell French press
+ * (`skullcrusher`); copies enrolled before v14 still plan the seated
+ * one-dumbbell press there. Their slot moves to the lying press and keeps the
+ * seated one among its alternatives, so it is one swap away. A slot whose
+ * alternatives already hold the lying press is a lifter's choice (a "rest of
+ * the cycle" swap writes the planned exercise there) and is left alone.
+ * `updatedAt` is stamped so sync carries the fix.
+ */
+const correctFoundationsFrenchPress = (): void => {
+  const dayIds = db
+    .select({ id: workoutDays.id })
+    .from(workoutDays)
+    .innerJoin(routines, eq(routines.id, workoutDays.routineId))
+    .where(
+      and(
+        eq(routines.programId, 'metri-foundations'),
+        eq(routines.orderIndex, 1),
+        isNotNull(routines.userProgramId),
+      ),
+    )
+    .all()
+    .map((d) => d.id);
+  if (!dayIds.length) return;
+  const slots = db
+    .select()
+    .from(workoutDayExercises)
+    .where(
+      and(
+        inArray(workoutDayExercises.workoutDayId, dayIds),
+        eq(workoutDayExercises.exerciseId, 'overhead-tricep-extension'),
+      ),
+    )
+    .all();
+  const now = new Date();
+  for (const slot of slots) {
+    const alternatives = slot.alternativeExerciseIds ?? [];
+    if (alternatives.includes('skullcrusher')) continue;
+    db.update(workoutDayExercises)
+      .set({
+        exerciseId: 'skullcrusher',
+        alternativeExerciseIds: [...alternatives, 'overhead-tricep-extension'],
+        updatedAt: now,
+      })
+      .where(eq(workoutDayExercises.id, slot.id))
+      .run();
+  }
+};
+
 export const seedTraining = async (): Promise<void> => {
   if (alreadySeeded()) return;
 
@@ -426,6 +478,7 @@ export const seedTraining = async (): Promise<void> => {
   seedExercises();
   seedWarmups();
   for (const program of PROGRAM_SEEDS) seedProgram(program);
+  correctFoundationsFrenchPress();
 
   db.insert(appMeta)
     .values({ key: SEED_KEY, value: SEED_VERSION })

@@ -1,4 +1,4 @@
-import { and, eq, isNull, like, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, like, sql } from 'drizzle-orm';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -365,6 +365,59 @@ describe('seedTraining v4', () => {
     expect(refreshed.sets).toBe(seeded.sets);
     expect(refreshed.restSeconds).toBe(seeded.restSeconds);
     expect(enrolled()).toEqual(before);
+  });
+
+  it('v15 moves an enrolled Foundations phase 1 onto the lying French press', async () => {
+    // Arrange: a copy enrolled before v14, whose phase 1 planned the seated press.
+    await seedTraining();
+    const tplDays = db
+      .select({ id: workoutDays.id })
+      .from(workoutDays)
+      .where(
+        and(like(workoutDays.routineId, 'metri-foundations%'), isNull(workoutDays.userProgramId)),
+      )
+      .all();
+    const enrollment = enrollInProgram(
+      'u-1',
+      'metri-foundations',
+      tplDays.map((d) => ({ dayId: d.id, weekday: 2, startMinute: 600 })),
+    );
+    const enrolledPress = () =>
+      db
+        .select()
+        .from(workoutDayExercises)
+        .where(
+          and(
+            eq(workoutDayExercises.userProgramId, enrollment.id),
+            inArray(workoutDayExercises.exerciseId, ['skullcrusher', 'overhead-tricep-extension']),
+          ),
+        )
+        .all();
+    const [chosen, ...old] = enrolledPress();
+    expect(old.length).toBeGreaterThan(0);
+    for (const slot of old)
+      db.update(workoutDayExercises)
+        .set({ exerciseId: 'overhead-tricep-extension', alternativeExerciseIds: null })
+        .where(eq(workoutDayExercises.id, slot.id))
+        .run();
+    // One the lifter swapped to the seated press on purpose (the lying one is its alternative).
+    db.update(workoutDayExercises)
+      .set({ exerciseId: 'overhead-tricep-extension', alternativeExerciseIds: ['skullcrusher'] })
+      .where(eq(workoutDayExercises.id, chosen.id))
+      .run();
+    db.run(sql`UPDATE app_meta SET value = '14' WHERE key = 'training_seed_version'`);
+
+    // Act
+    await seedTraining();
+
+    // Assert
+    const after = new Map(enrolledPress().map((s) => [s.id, s]));
+    for (const slot of old)
+      expect(after.get(slot.id)).toMatchObject({
+        exerciseId: 'skullcrusher',
+        alternativeExerciseIds: ['overhead-tricep-extension'],
+      });
+    expect(after.get(chosen.id)).toMatchObject({ exerciseId: 'overhead-tricep-extension' });
   });
 
   it('v13 re-seed stamps the RM-test week on an existing template routine and nothing else', async () => {

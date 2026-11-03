@@ -925,7 +925,7 @@ export const PROGRESSION_CONTENT: Record<
   }
 > = {
   es: {
-    name: 'Progresión',
+    name: 'Metri Progresión',
     description:
       'Programa de powerbuilding de 12 semanas: 3 fases de 4 semanas, con 4 días por semana (caras A-D). La intensidad se mide con RIR y se recorta semana a semana hasta llegar en la semana 4 a una serie tope al fallo seguida de series de descarga. Los descansos vienen fijados en el plan: 3 minutos en básicos y presses, 2 minutos en accesorios.',
     routines: {
