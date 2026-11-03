@@ -217,6 +217,20 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   (a form must never hide its own buttons below the fold); option pickers pass `PICKER_STOPS`
   (half, pull up to 92%). The rise starts in a layout effect — a plain effect drew the first open
   fully shown for a frame, then jumped away to rise.
+- **Two units.** `settings.units` is app-wide (body weight, goals, check-ins, calculators) and
+  rides the account profile; `settings.equipmentUnits` is the gym's — sets, plates, bars,
+  dumbbells, stacks and every number measured on them (volume, e1RM, trends, session cards) —
+  read through `useEquipmentUnits` / `settings.getEquipmentUnits()`, falling back to the
+  app-wide unit until chosen. The session's kg/lb toggle writes the equipment unit only. It is a
+  DEVICE setting: syncing it needs a profile field on the web side first.
+- **The widget** (Android only, `features/widget/`) draws a snapshot built by `computeWidgetSnapshot`
+  — the workout in progress (from the notification's MMKV record) or the split up next
+  (`nextPendingSplit`, the Train tab's rule), six months of finished sessions, the current week
+  Monday-first in the adherence colours (`dayVisual`, hex resolved from `THEME_VARS`) — with
+  its copy resolved through `tFor(resolveLocale())`, since a headless render has no provider.
+  It refreshes on mount, foreground and BACKGROUND (`useWidgetSync`). "Mark today" shows only
+  while today is unmarked and no workout is open, and the headless handler re-checks both: a
+  stale render must never overwrite a rest or missed day.
 - **Dates** render through `useDateFormat()` (user preset in Settings), never `toLocaleDateString`
   in a screen. Storage keys stay 'YYYY-MM-DD'.
 - **Section headers** are `<SectionLabel label hint>`; the hint always stacks below the label (a
@@ -270,7 +284,11 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   id would be refused while it runs. The face is derived from MMKV by `notification-content.ts`
   (pure, tested) and the copy (`NextSetCopy`, the rest labels) is frozen at write time because
   the headless redraws have no i18n. notifee keeps ONE background handler per process, so a
-  second module registering its own silently unhooks the actions. **A swiped-away card stays
+  second module registering its own silently unhooks the actions. The session screen redraws the
+  card whenever its next set changes for any reason — a restored skip, a deleted set, a swap, a
+  reorder, the unit — anchored on the set the card already names, and a skip moves on from THAT
+  set, not from the exercise skipped (skipping one further down used to point the card past the
+  half-done exercise). **A swiped-away card stays
   away**: the DISMISSED event sets `hidden` on the session record and `draw` skips the training
   and rest faces until the next session (rest-over still rings — it was asked for); a redraw never
   clears the flag, only a fresh workout does. `showSession` writes the MMKV
@@ -379,10 +397,18 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   500 kg a total) and the breakdown under the row is TEXT only ("20 + 2×(20, 2.5)") — plate
   swatches were tried and removed. `load` is written
   by the sheet's Apply and by that chooser only — never a slot field, never propagates — and
-  `reconcileLoad` still drops a detail that no longer adds up to the row. There is no free
-  "other load" or typed per-side field in the sheet: the row is where a number is typed, the
-  sheet is where a picture is built. Prefill is keyed by the exercise on the card, and a variant
-  swap clears the slot's draft details and per-side text (`clearDraftLoads`).
+  `reconcileLoad` still drops a detail that no longer adds up to the row. **Plates and a
+  configured pin stack are PICKED, never typed** (owner's call, 2026-11-02): on a per-side row
+  or a stack with an increment, the weight field is `LoadPickerField` — the total, opening the
+  sheet — and the separate calculator button goes; ± still step (a side through `deriveLoad`, a
+  stack pin by pin). Dumbbells and plain totals stay typed. A logged weight (the set rows, "Last
+  training") opens `LoadPreviewSheet`, the read-only picture of that set (plates on the bar, the
+  pin, the dumbbells; a bar set without a detail is drawn on the default bar and says so) with
+  the other unit as one line under the total — the in-place unit flip is gone. Lifts that hold
+  ONE dumbbell in both hands (`holdsOneDumbbell`: seated French press, goblet squat, pullover)
+  are fixed at one hand: the sheet hides the toggle and `oneDumbbellFill` reseeds older pairs.
+  Prefill is keyed by the exercise on the card, and a variant swap clears the slot's draft
+  details and per-side text (`clearDraftLoads`).
 - **Prefill: set 1 from the previous session, every later set from the set just logged.**
   Set 1 opens on set 1 of the previous completed session of that exercise
   (`previousSessionSets`, any split, any week; warm-ups filtered BEFORE indexing because
@@ -395,16 +421,32 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   lb base (the 20 kg bar read in lb) or a one-post 21.25 kg no longer matched the detail, so the
   side showed 44.955 and the plates were re-split. For the same reason a lb gym's default bar is
   45 lb (`defaultBarKg(unit)`, `LB_BARS`), kg values display at the quarter (`weightText`) and
-  every field writes two decimals. `carriedLoadFor` remains the rule for a non-seeded carry. The
+  every field writes two decimals. The whole seed is ONE pure function, `seedRow`
+  (`row-seed.ts`, tested): the picture always travels with the number, and a source without
+  one (a set logged before plates) gets one derived for the row's mode. The
   arrows beside the inputs still compare the typed value with the SAME ordinal set of the
   previous session: `info` up, the adherence `MISSED` red down — a comparison indicator, the
   one place those two tones mean neither a state nor a miss.
-- **The session has ONE view**: one exercise per page, the `ChipRow` strip (`followSelection`,
-  `cues={false}` because the paging arrows flank it) as the navigation, Prev/Next on the row
-  above the card. **Reorder is a hold on a chip**: the lifted chip (dashed outline, grip) moves
+- **The session has ONE view**: one exercise per page, `SessionChipStrip` as the navigation
+  (its own component — `ChipRow` no longer carries session states), Prev/Next on the row above
+  the card. A chip's FILL is its state (`slotState`, `session-order.ts`): brand = every set
+  logged, amber = partly (a set logged and some left or skipped), red = missed (nothing logged,
+  the exercise or all its sets skipped), gray = not begun; FOCUS is a dotted underline, never a
+  fill — a selected chip used to read as done. Missed exercises sit at the end behind a divider
+  (`sessionOrder`, display only: the snapshot keeps their place, so a restore puts them back;
+  every reorder writes through `mergeOrder`). The page is tracked by slot id, not index. A first
+  set on an exercise while an EARLIER one has not begun asks to move it up to be next
+  (`chronologyMove`): the session records the order it was trained in. A small pencil marks an
+  exercise with a personal note; the card's header pencil (with a "+" until there is a note)
+  opens the editor. The phantom "+ Add" chip after the exercises in play adds any library
+  exercise not already in the session (`addSessionExercise`): today only (a snapshot slot with
+  its own id and `PlannedSlot.added`, additive JSON) or kept in the split (`addSlot` first).
+  **Reorder is a hold on a chip**: the lifted chip (dashed outline, grip) moves
   one place per arrow tap — `reorderSnapshot` at once — and a tap on the strip puts it down,
-  which asks once whether the order is today's or the split's from now on (`reorderSlots` on
-  the enrolled day); the modal with the drag list is gone. The screen reopens on the page the lifter left
+  which asks once whether the order is today's or from now on (`reorderSplitFromNowOn`: the
+  enrolled day AND every split of the phase holding EXACTLY the same exercises — a full body
+  A/B/C repeats one list — paired by exercise + occurrence; partial overlaps keep theirs); the
+  modal with the drag list is gone. The screen reopens on the page the lifter left
   (`writeFocusSlot`/`readFocusSlot` in the drafts store; a notification's `?slot=` wins).
   `settings.workoutLayout` is retired — never reuse the id. The ± groups carry no visible
   caption (the field above them says the unit). The active row is three lines: ONE uppercase
@@ -419,11 +461,17 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   under it.
   A base prefix and an arrow beside the number clipped "132.5" on a phone, and a truncated
   header hid the target.
-- **Swaps have a scope and skips write "missed".** Picking a variant opens `SwapScopeSheet`:
+- **Swaps have a scope and skips write "missed".** The swap sheet (`SwapSheet`) lists the
+  variants first (the plan's movement on other kit) and, set apart, other movements for the same
+  muscles (`similarExercises`: a shared primary head, or a `SIBLING_HEADS` one — never the
+  category, which pairs biceps with triceps). Picking one opens `SwapScopeSheet`:
   the reason (`SWAP_REASONS`, wire format) preselects a scope — this session (snapshot only),
   the next N sessions (`workout_day_exercises.swap`, a synced countdown column consumed by
   `startWorkout`) or the rest of the cycle (`applySwap` rewrites the ENROLLED slot and keeps
-  the planned exercise among its alternatives; templates never). "Enrolled" is proven through
+  the planned exercise among its alternatives; templates never). Beyond today a swap reaches
+  the same exercise on the phase's OTHER splits (`siblingSlots`, by exercise + occurrence), and
+  "next N sessions" is ONE countdown shared by those twins — N sessions with the exercise,
+  whichever split they fall on. "Enrolled" is proven through
   the LOG (the slot sits on the day the session started from), not through
   `workout_day_exercises.user_program_id`: copies enrolled before migration 0008 carry NULL
   there and the swap silently went nowhere; the column is backfilled on the way. A skipped set
@@ -470,7 +518,15 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   muscle model and three queries while the tab animation was still drawing. Reads several
   sections share (weekly volume) live once in `MetricsDataProvider`. Sections below the fold,
   the Explore topics past the second and a doc's markdown body mount through `<Deferred>`
-  (after interactions, staggered), so a push paints its header first. `searchDocs` folds each
+  (staggered), so a push paints its header first. **"After the transition" means the
+  navigator's `transitionEnd`** (`lib/useTransitionSettled.ts`, with a 450 ms fallback for a
+  screen mounted without one): `InteractionManager.runAfterInteractions` is a deprecated stub in
+  RN 0.86 (`setImmediate`), so `Deferred` and `useFocusRead` used to mount and re-read INSIDE
+  the push — the docs screen's remaining jank. A deferred block holds a `Skeleton` meanwhile
+  (the one loading look; a spinner is for work the user started). Markdown renders through
+  `DocMarkdown` (stable parser props — the library's defaults rebuilt its renderer every
+  render — soft breaks as spaces, table links tappable), and a long body mounts a `##` section a
+  frame (`docSections`). `searchDocs` folds each
   locale's docs once (`WeakMap` on the array), so pass the module array, never a copy.
 - **Analytics.** Two muscle vocabularies coexist on purpose (`features/training/muscles.ts`):
   `MUSCLES` (coarse) is what a user tags a day with and is STORED in
@@ -546,7 +602,8 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
 - **Seed ids are a contract.** Catalog exercise ids and preset template ids (`metri-foundations`,
   `metri-progression`) are referenced by user history and enrolled copies. `seedTraining` is
   versioned in `app_meta` (v9 flips `unilateral` through the upsert; v11 drops the "O similar" cue —
-  `RETIRED_BADGES` in `session-badges.ts` hides it on open snapshots; v14 corrects the presets
+  `RETIRED_BADGES` in `session-badges.ts` hides it on open snapshots; v15 moves ENROLLED
+  Foundations phase 1 onto the lying press too, keeping the seated one as an alternative; v14 corrects the presets
   against the source PDFs — the French press is lying (`skullcrusher`, `barbell-skullcrusher`)
   or overhead (`overhead-tricep-extension`, `cable-overhead-extension`, `french-press`), two
   families, never one); removing a built-in
