@@ -46,12 +46,12 @@ themselves are unmodified. Source slug per file:
 | hack-squat                | hack-squat                         |
 | bulgarian-split-squat     | bulgarian-split-squat              |
 | preacher-curl             | preacher-curl                      |
-| spider-curl               | spider-curl                        |
+| barbell-spider-curl       | spider-curl                        |
 | incline-dumbbell-curl     | incline-dumbbell-curl              |
 | tricep-pushdown           | tricep-pushdown                    |
 | overhead-tricep-extension | dumbbell-overhead-tricep-extension |
 | cable-overhead-extension  | overhead-tricep-extension          |
-| cable-kickback            | tricep-kickback                    |
+| dumbbell-kickback         | tricep-kickback                    |
 | cable-crunch              | cable-crunch                       |
 
 Warm-up step demos (resolved by step name in `src/features/training/warmup-visuals.ts`)

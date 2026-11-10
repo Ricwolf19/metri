@@ -45,6 +45,156 @@ export class StartValidationError extends Error {
 }
 
 /**
+ * Deep-copy TEMPLATE routines — their days, slots and week rows — into an
+ * enrollment, every row tagged with `userProgramId` and re-pointed at its new
+ * parent. Preset copy lands in `locale` (raw, the lifter's to edit from then
+ * on); a day takes its weekday and start from `scheduleFor`. Returns template
+ * id → copy id. Enrolling uses it for the whole tree; the seed for a phase a
+ * preset restructured before the lifter reached it.
+ */
+export const copyTemplateRoutines = (input: {
+  programId: string;
+  routineIds: readonly string[];
+  userProgramId: string;
+  scheduleFor: (
+    templateDayId: string,
+  ) => { weekday: number | null; startMinute: number | null } | undefined;
+  locale: Locale;
+  /**
+   * The copy's id for a template row; random by default. The seed passes a
+   * deterministic one, so two synced devices rebuilding the same phase write
+   * the SAME rows instead of a copy each.
+   */
+  idFor?: (templateId: string) => string;
+}): Map<string, string> => {
+  const { programId, routineIds, userProgramId, scheduleFor, locale } = input;
+  const newId = input.idFor ?? (() => randomId());
+  const tplRoutines = routineIds.length
+    ? db
+        .select()
+        .from(routines)
+        .where(inArray(routines.id, [...routineIds]))
+        .all()
+    : [];
+  const tplDays = tplRoutines.length
+    ? db
+        .select()
+        .from(workoutDays)
+        .where(
+          inArray(
+            workoutDays.routineId,
+            tplRoutines.map((r) => r.id),
+          ),
+        )
+        .all()
+    : [];
+  const tplSlots = tplDays.length
+    ? db
+        .select()
+        .from(workoutDayExercises)
+        .where(
+          inArray(
+            workoutDayExercises.workoutDayId,
+            tplDays.map((d) => d.id),
+          ),
+        )
+        .all()
+    : [];
+  const tplConfigs = tplSlots.length
+    ? db
+        .select()
+        .from(weekConfigs)
+        .where(
+          inArray(
+            weekConfigs.workoutDayExerciseId,
+            tplSlots.map((s) => s.id),
+          ),
+        )
+        .all()
+    : [];
+  // template id -> fresh copy id, so child rows can re-point at their new parent.
+  const idMap = new Map<string, string>();
+  const copyId = (templateId: string): string => {
+    const id = newId(templateId);
+    idMap.set(templateId, id);
+    return id;
+  };
+
+  // Preset templates carry bilingual copy; the user's clone takes the strings
+  // in the caller's locale at enroll time (raw, theirs to edit, from then on).
+  for (const r of tplRoutines) {
+    db.insert(routines)
+      .values({
+        id: copyId(r.id),
+        programId: r.programId,
+        name: presetRoutineName(programId, r.id, r.name, locale),
+        orderIndex: r.orderIndex,
+        durationWeeks: r.durationWeeks,
+        rmTestWeek: r.rmTestWeek,
+        userProgramId,
+      })
+      .run();
+  }
+
+  for (const d of tplDays) {
+    const entry = scheduleFor(d.id);
+    db.insert(workoutDays)
+      .values({
+        id: copyId(d.id),
+        routineId: idMap.get(d.routineId)!,
+        name: presetDayName(programId, d.routineId, d.id, d.name, locale),
+        focusMuscles: d.focusMuscles,
+        orderIndex: d.orderIndex,
+        weekday: entry?.weekday ?? null,
+        startMinute: entry?.startMinute ?? null,
+        userProgramId,
+      })
+      .run();
+  }
+
+  for (const s of tplSlots) {
+    db.insert(workoutDayExercises)
+      .values({
+        id: copyId(s.id),
+        workoutDayId: idMap.get(s.workoutDayId)!,
+        exerciseId: s.exerciseId,
+        orderIndex: s.orderIndex,
+        defaultRestSeconds: s.defaultRestSeconds,
+        notes: s.notes,
+        badges: s.badges,
+        alternativeExerciseIds: s.alternativeExerciseIds,
+        // A temporary swap belongs to the enrollment it was made in.
+        swap: null,
+        userProgramId,
+      })
+      .run();
+  }
+
+  for (const c of tplConfigs) {
+    db.insert(weekConfigs)
+      .values({
+        id: newId(c.id),
+        workoutDayExerciseId: idMap.get(c.workoutDayExerciseId)!,
+        weekNumber: c.weekNumber,
+        sets: c.sets,
+        reps: c.reps,
+        repsMax: c.repsMax,
+        rirMin: c.rirMin,
+        rirMax: c.rirMax,
+        toFailure: c.toFailure,
+        restSeconds: c.restSeconds,
+        intensityType: c.intensityType,
+        intensityValue: c.intensityValue,
+        setGroups: c.setGroups,
+        userProgramId,
+      })
+      .run();
+  }
+
+  return idMap;
+};
+
+/**
  * Enroll a user in a template program by **deep-copying** its structure into
  * user-owned rows tagged with the new `user_programs.id`. The template is never
  * mutated, so later customization stays isolated to this user's copy. The
@@ -96,18 +246,6 @@ export const enrollInProgram = (
         )
         .all()
     : [];
-  const tplConfigs = tplSlots.length
-    ? db
-        .select()
-        .from(weekConfigs)
-        .where(
-          inArray(
-            weekConfigs.workoutDayExerciseId,
-            tplSlots.map((s) => s.id),
-          ),
-        )
-        .all()
-    : [];
 
   const tree: ProgramTree = {
     routines: tplRoutines.map((r) => ({
@@ -123,84 +261,13 @@ export const enrollInProgram = (
   if (!isScheduleComplete(tree, schedule)) throw new Error('Schedule is incomplete.');
   const scheduleByDay = new Map(schedule.map((e) => [e.dayId, e]));
 
-  // template id -> fresh copy id, so child rows can re-point at their new parent.
-  const idMap = new Map<string, string>();
-  const copyId = (templateId: string): string => {
-    const id = randomId();
-    idMap.set(templateId, id);
-    return id;
-  };
-
-  // Preset templates carry bilingual copy; the user's clone takes the strings
-  // in the caller's locale at enroll time (raw, theirs to edit, from then on).
-  for (const r of tplRoutines) {
-    db.insert(routines)
-      .values({
-        id: copyId(r.id),
-        programId: r.programId,
-        name: presetRoutineName(programId, r.id, r.name, locale),
-        orderIndex: r.orderIndex,
-        durationWeeks: r.durationWeeks,
-        rmTestWeek: r.rmTestWeek,
-        userProgramId,
-      })
-      .run();
-  }
-
-  for (const d of tplDays) {
-    const entry = scheduleByDay.get(d.id);
-    db.insert(workoutDays)
-      .values({
-        id: copyId(d.id),
-        routineId: idMap.get(d.routineId)!,
-        name: presetDayName(programId, d.routineId, d.id, d.name, locale),
-        focusMuscles: d.focusMuscles,
-        orderIndex: d.orderIndex,
-        weekday: entry?.weekday ?? null,
-        startMinute: entry?.startMinute ?? null,
-        userProgramId,
-      })
-      .run();
-  }
-
-  for (const s of tplSlots) {
-    db.insert(workoutDayExercises)
-      .values({
-        id: copyId(s.id),
-        workoutDayId: idMap.get(s.workoutDayId)!,
-        exerciseId: s.exerciseId,
-        orderIndex: s.orderIndex,
-        defaultRestSeconds: s.defaultRestSeconds,
-        notes: s.notes,
-        badges: s.badges,
-        alternativeExerciseIds: s.alternativeExerciseIds,
-        // A temporary swap belongs to the enrollment it was made in.
-        swap: null,
-        userProgramId,
-      })
-      .run();
-  }
-
-  for (const c of tplConfigs) {
-    db.insert(weekConfigs)
-      .values({
-        id: randomId(),
-        workoutDayExerciseId: idMap.get(c.workoutDayExerciseId)!,
-        weekNumber: c.weekNumber,
-        sets: c.sets,
-        reps: c.reps,
-        repsMax: c.repsMax,
-        rirMin: c.rirMin,
-        rirMax: c.rirMax,
-        toFailure: c.toFailure,
-        restSeconds: c.restSeconds,
-        intensityType: c.intensityType,
-        intensityValue: c.intensityValue,
-        setGroups: c.setGroups,
-        userProgramId,
-      })
-      .run();
-  }
+  const idMap = copyTemplateRoutines({
+    programId,
+    routineIds: tplRoutines.map((r) => r.id),
+    userProgramId,
+    scheduleFor: (templateDayId) => scheduleByDay.get(templateDayId),
+    locale,
+  });
 
   const [enrollment] = db
     .insert(userPrograms)

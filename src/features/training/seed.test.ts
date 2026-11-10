@@ -1,7 +1,8 @@
-import { and, eq, inArray, isNull, like, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, isNull, like, sql } from 'drizzle-orm';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  exerciseSettings,
   exercises,
   programs,
   routines,
@@ -22,6 +23,8 @@ const { db } = await import('@/db/client');
 const { seedTraining } = await import('./seed');
 const { EXERCISE_SEEDS } = await import('./exercises.seed');
 const { enrollInProgram } = await import('./enroll');
+const { PROGRAM_SEEDS } = await import('./programs');
+const { deleteRoutine } = await import('./authoring.repo');
 
 const wipe = () => {
   for (const table of [
@@ -87,8 +90,10 @@ describe('seedTraining v4', () => {
     expect(fRoutines.map((r) => [r.id, r.durationWeeks])).toEqual([
       ['metri-foundations-r1', 4],
       ['metri-foundations-r2', 4],
-      ['metri-foundations-r3a', 2],
-      ['metri-foundations-r3b', 2],
+      ['metri-foundations-r3w1', 1],
+      ['metri-foundations-r3w2', 1],
+      ['metri-foundations-r3w3', 1],
+      ['metri-foundations-r3w4', 1],
     ]);
     for (const r of fRoutines.slice(2)) {
       const days = db.select().from(workoutDays).where(eq(workoutDays.routineId, r.id)).all();
@@ -120,7 +125,7 @@ describe('seedTraining v4', () => {
     expect(pRoutines).toHaveLength(3);
     // v13: every Progression block tests maxes in its last week; Foundations only at the very end.
     expect(pRoutines.every((r) => r.rmTestWeek === 4)).toBe(true);
-    expect(fRoutines.map((r) => r.rmTestWeek)).toEqual([null, null, null, 2]);
+    expect(fRoutines.map((r) => r.rmTestWeek)).toEqual([null, null, null, null, null, 1]);
     const pDays = db
       .select()
       .from(workoutDays)
@@ -288,8 +293,9 @@ describe('seedTraining v4', () => {
     // v11: the "O similar" cue is gone from the template (the swap arrows say it).
     const curl = slots.find((sl) => sl.exerciseId === 'standing-leg-curl');
     expect(curl?.badges ?? null).toBeNull();
-    const pulldown = slots.find((sl) => sl.exerciseId === 'lat-pulldown');
-    expect(pulldown?.badges).toEqual(['Agarre supino']);
+    // v17: the grip is the exercise, not a cue on it.
+    const pulldown = slots.find((sl) => sl.exerciseId === 'supinated-lat-pulldown');
+    expect(pulldown?.badges ?? null).toBeNull();
   });
 
   it('v8 re-seed refreshes template week configs and never touches an enrolled copy', async () => {
@@ -420,6 +426,332 @@ describe('seedTraining v4', () => {
     expect(after.get(chosen.id)).toMatchObject({ exerciseId: 'overhead-tricep-extension' });
   });
 
+  /** An enrolled Foundations copy, as an install of seed v16 left it. */
+  const enrollFoundations = async () => {
+    await seedTraining();
+    const tplDays = db
+      .select({ id: workoutDays.id })
+      .from(workoutDays)
+      .where(
+        and(like(workoutDays.routineId, 'metri-foundations%'), isNull(workoutDays.userProgramId)),
+      )
+      .all();
+    return enrollInProgram(
+      'u-1',
+      'metri-foundations',
+      tplDays.map((d) => ({ dayId: d.id, weekday: 2, startMinute: 600 })),
+    );
+  };
+  const enrolledDay = (userProgramId: string, routineOrder: number, dayOrder: number) =>
+    db
+      .select({ id: workoutDays.id })
+      .from(workoutDays)
+      .innerJoin(routines, eq(routines.id, workoutDays.routineId))
+      .where(
+        and(
+          eq(workoutDays.userProgramId, userProgramId),
+          eq(routines.orderIndex, routineOrder),
+          eq(workoutDays.orderIndex, dayOrder),
+        ),
+      )
+      .all()[0];
+  const slotsOf = (dayId: string) =>
+    db
+      .select()
+      .from(workoutDayExercises)
+      .where(eq(workoutDayExercises.workoutDayId, dayId))
+      .all()
+      .sort((a, b) => a.orderIndex - b.orderIndex);
+  const backTo = (version: string) =>
+    db.run(sql`UPDATE app_meta SET value = ${version} WHERE key = 'training_seed_version'`);
+
+  it('v17 gives an enrolled Side B the decline sit-up and the cable crunch, not one exercise twice', async () => {
+    // Arrange: the older seed planned the floor crunch on both abdominal rows.
+    const enrollment = await enrollFoundations();
+    const sideB = enrolledDay(enrollment.id, 2, 2);
+    for (const slot of slotsOf(sideB.id).slice(0, 2))
+      db.update(workoutDayExercises)
+        .set({ exerciseId: 'crunch' })
+        .where(eq(workoutDayExercises.id, slot.id))
+        .run();
+    backTo('16');
+
+    // Act
+    await seedTraining();
+
+    // Assert
+    expect(
+      slotsOf(sideB.id)
+        .map((s) => s.exerciseId)
+        .slice(0, 2),
+    ).toEqual(['decline-sit-up', 'cable-crunch']);
+  });
+
+  it('v17 moves a grip cue onto its exercise, history included, when one pulldown proves it', async () => {
+    // Arrange: an older copy (pulldown + supinated cue) and a session logged on it.
+    const enrollment = await enrollFoundations();
+    const sideA = enrolledDay(enrollment.id, 2, 1);
+    const pull = slotsOf(sideA.id).find((s) => s.exerciseId === 'supinated-lat-pulldown')!;
+    db.update(workoutDayExercises)
+      .set({ exerciseId: 'lat-pulldown', badges: ['Agarre supino'] })
+      .where(eq(workoutDayExercises.id, pull.id))
+      .run();
+    const snapshot = [
+      {
+        slotId: pull.id,
+        exerciseId: 'lat-pulldown',
+        name: 'Jalones en polea',
+        setGroups: [{ sets: 2, reps: 8 }],
+        restSeconds: 120,
+        badges: ['Agarre supino'],
+        alternativeExerciseIds: [],
+      },
+    ];
+    db.insert(workoutLogs)
+      .values({
+        id: 'log-1',
+        userId: 'u-1',
+        userProgramId: enrollment.id,
+        workoutDayId: sideA.id,
+        weekNumber: 1,
+        status: 'completed',
+        plannedSnapshot: snapshot,
+      })
+      .run();
+    db.insert(setLogs)
+      .values({
+        id: 'set-1',
+        workoutLogId: 'log-1',
+        exerciseId: 'lat-pulldown',
+        setNumber: 1,
+        weightKg: 60,
+        reps: 8,
+      })
+      .run();
+    db.insert(exerciseSettings)
+      .values({
+        id: 'set-up',
+        userId: 'u-1',
+        exerciseId: 'lat-pulldown',
+        load: { kind: 'machine', baseKg: 5, incrementKg: 5, steps: 11 },
+      })
+      .run();
+    backTo('16');
+
+    // Act
+    await seedTraining();
+
+    // Assert
+    const slot = db
+      .select()
+      .from(workoutDayExercises)
+      .where(eq(workoutDayExercises.id, pull.id))
+      .all()[0];
+    expect(slot).toMatchObject({ exerciseId: 'supinated-lat-pulldown', badges: null });
+    expect(db.select().from(setLogs).where(eq(setLogs.id, 'set-1')).all()[0].exerciseId).toBe(
+      'supinated-lat-pulldown',
+    );
+    const [log] = db.select().from(workoutLogs).where(eq(workoutLogs.id, 'log-1')).all();
+    expect(log.plannedSnapshot?.[0]).toMatchObject({
+      exerciseId: 'supinated-lat-pulldown',
+      badges: [],
+    });
+    const moved = db
+      .select()
+      .from(exerciseSettings)
+      .where(eq(exerciseSettings.exerciseId, 'supinated-lat-pulldown'))
+      .all();
+    expect(moved[0]?.load).toMatchObject({ kind: 'machine', incrementKg: 5 });
+  });
+
+  it('v17 leaves the history of a pulldown its plan still trains as a pulldown', async () => {
+    // A custom program's pulldown with a supinated cue: no fix moves its slot.
+    await seedTraining();
+    db.insert(workoutDayExercises)
+      .values({
+        id: 'custom-slot',
+        workoutDayId: 'custom-day',
+        exerciseId: 'lat-pulldown',
+        orderIndex: 1,
+      })
+      .run();
+    db.insert(workoutLogs)
+      .values({
+        id: 'log-custom',
+        userId: 'u-1',
+        userProgramId: 'custom-up',
+        workoutDayId: 'custom-day',
+        weekNumber: 1,
+        status: 'completed',
+        plannedSnapshot: [
+          {
+            slotId: 'custom-slot',
+            exerciseId: 'lat-pulldown',
+            name: 'Lat Pulldown',
+            setGroups: [{ sets: 1, reps: 8 }],
+            restSeconds: 120,
+            badges: ['Agarre supino'],
+            alternativeExerciseIds: [],
+          },
+        ],
+      })
+      .run();
+    db.insert(setLogs)
+      .values({
+        id: 'set-c',
+        workoutLogId: 'log-custom',
+        exerciseId: 'lat-pulldown',
+        setNumber: 1,
+        weightKg: 50,
+        reps: 8,
+      })
+      .run();
+    backTo('16');
+
+    await seedTraining();
+
+    expect(db.select().from(setLogs).where(eq(setLogs.id, 'set-c')).all()[0].exerciseId).toBe(
+      'lat-pulldown',
+    );
+  });
+
+  it('v17 rests the old 90 s rows at 2 minutes on an enrolled copy', async () => {
+    const enrollment = await enrollFoundations();
+    const day = enrolledDay(enrollment.id, 1, 1);
+    const [first] = slotsOf(day.id);
+    db.update(workoutDayExercises)
+      .set({ defaultRestSeconds: 90 })
+      .where(eq(workoutDayExercises.id, first.id))
+      .run();
+    db.update(weekConfigs)
+      .set({ restSeconds: 90 })
+      .where(eq(weekConfigs.workoutDayExerciseId, first.id))
+      .run();
+    backTo('16');
+
+    await seedTraining();
+
+    expect(slotsOf(day.id)[0].defaultRestSeconds).toBe(120);
+    const weeks = db
+      .select()
+      .from(weekConfigs)
+      .where(eq(weekConfigs.workoutDayExerciseId, first.id))
+      .all();
+    expect(weeks.every((w) => w.restSeconds === 120)).toBe(true);
+  });
+
+  /** Replace an enrollment's phase 3 with the old shape: two 2-week routines, days on Wed/Fri/Mon. */
+  const oldPhase3 = (userProgramId: string) => {
+    const phase3 = db
+      .select()
+      .from(routines)
+      .where(and(eq(routines.userProgramId, userProgramId), gte(routines.orderIndex, 3)))
+      .all();
+    for (const r of phase3) deleteRoutine(r.id);
+    for (const [order, name] of [
+      [3, 'Fase 3 — Semanas 1–2 (A·B·A)'],
+      [4, 'Fase 3 — Semanas 3–4 (B·A·B)'],
+    ] as const) {
+      const id = `old-r${order}`;
+      db.insert(routines)
+        .values({
+          id,
+          programId: 'metri-foundations',
+          name,
+          orderIndex: order,
+          durationWeeks: 2,
+          userProgramId,
+        })
+        .run();
+      [4, 6, 2].forEach((weekday, i) =>
+        db
+          .insert(workoutDays)
+          .values({
+            id: `${id}-d${i + 1}`,
+            routineId: id,
+            name: '',
+            orderIndex: i + 1,
+            weekday,
+            startMinute: 420,
+            userProgramId,
+          })
+          .run(),
+      );
+    }
+  };
+  const phase3Of = (userProgramId: string) =>
+    db
+      .select()
+      .from(routines)
+      .where(and(eq(routines.userProgramId, userProgramId), gte(routines.orderIndex, 3)))
+      .all()
+      .sort((a, b) => a.orderIndex - b.orderIndex);
+
+  it('v17 swaps a never-reached phase 3 for the week-by-week one, on the same weekdays', async () => {
+    // Arrange
+    const enrollment = await enrollFoundations();
+    oldPhase3(enrollment.id);
+    backTo('16');
+
+    // Act
+    await seedTraining();
+
+    // Assert
+    const after = phase3Of(enrollment.id);
+    expect(after.map((r) => [r.orderIndex, r.durationWeeks, r.name])).toEqual([
+      [3, 1, 'Fase 3 — Semana 1 (A·B·A)'],
+      [4, 1, 'Fase 3 — Semana 2 (B·A·B)'],
+      [5, 1, 'Fase 3 — Semana 3 (A·B·A)'],
+      [6, 1, 'Fase 3 — Semana 4 (B·A·B)'],
+    ]);
+    const days = db
+      .select()
+      .from(workoutDays)
+      .where(eq(workoutDays.routineId, after[1].id))
+      .all()
+      .sort((a, b) => a.orderIndex - b.orderIndex);
+    expect(days.map((d) => d.weekday)).toEqual([4, 6, 2]);
+    expect(db.select().from(routines).where(eq(routines.id, 'old-r3')).all()).toHaveLength(0);
+    // Ids derive from the enrollment and the template: two synced devices write the same rows.
+    expect(after.every((r) => r.id.startsWith(`${enrollment.id}:metri-foundations-r3w`))).toBe(
+      true,
+    );
+  });
+
+  it('v17 leaves a phase 3 the lifter already trained', async () => {
+    const enrollment = await enrollFoundations();
+    oldPhase3(enrollment.id);
+    db.insert(workoutLogs)
+      .values({
+        id: 'log-p3',
+        userId: 'u-1',
+        userProgramId: enrollment.id,
+        workoutDayId: 'old-r3-d1',
+        weekNumber: 1,
+        status: 'completed',
+        plannedSnapshot: [],
+      })
+      .run();
+    backTo('16');
+
+    await seedTraining();
+
+    expect(phase3Of(enrollment.id).map((r) => r.id)).toEqual(['old-r3', 'old-r4']);
+  });
+
+  it('no preset plans the same exercise twice in a split', () => {
+    const repeats = PROGRAM_SEEDS.flatMap((program) =>
+      program.routines.flatMap((routine) =>
+        routine.days.flatMap((day) =>
+          day.exercises.filter(
+            (slot, i) => day.exercises.findIndex((s) => s.exerciseId === slot.exerciseId) !== i,
+          ),
+        ),
+      ),
+    );
+    expect(repeats).toEqual([]);
+  });
+
   it('v13 re-seed stamps the RM-test week on an existing template routine and nothing else', async () => {
     await seedTraining();
     db.update(routines)
@@ -502,8 +834,10 @@ describe('seedTraining v4', () => {
     expect(templateIds).toEqual([
       'metri-foundations-r1',
       'metri-foundations-r2',
-      'metri-foundations-r3a',
-      'metri-foundations-r3b',
+      'metri-foundations-r3w1',
+      'metri-foundations-r3w2',
+      'metri-foundations-r3w3',
+      'metri-foundations-r3w4',
     ]);
     expect(
       db.select().from(workoutDays).where(eq(workoutDays.routineId, 'metri-foundations-r3')).all(),

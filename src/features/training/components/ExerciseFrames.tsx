@@ -8,6 +8,7 @@ import {
   View,
   type ImageSourcePropType,
 } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import { ExpandIcon, PauseIcon, PlaySolidIcon } from '@/components/icons';
 import { useT } from '@/i18n';
@@ -190,10 +191,10 @@ const EXERCISE_FRAMES = {
     require('@/assets/exercises/preacher-curl-2.png'),
     require('@/assets/exercises/preacher-curl-3.png'),
   ],
-  'spider-curl': [
-    require('@/assets/exercises/spider-curl-1.png'),
-    require('@/assets/exercises/spider-curl-2.png'),
-    require('@/assets/exercises/spider-curl-3.png'),
+  'barbell-spider-curl': [
+    require('@/assets/exercises/barbell-spider-curl-1.png'),
+    require('@/assets/exercises/barbell-spider-curl-2.png'),
+    require('@/assets/exercises/barbell-spider-curl-3.png'),
   ],
   'incline-dumbbell-curl': [
     require('@/assets/exercises/incline-dumbbell-curl-1.png'),
@@ -215,10 +216,10 @@ const EXERCISE_FRAMES = {
     require('@/assets/exercises/cable-overhead-extension-2.png'),
     require('@/assets/exercises/cable-overhead-extension-3.png'),
   ],
-  'cable-kickback': [
-    require('@/assets/exercises/cable-kickback-1.png'),
-    require('@/assets/exercises/cable-kickback-2.png'),
-    require('@/assets/exercises/cable-kickback-3.png'),
+  'dumbbell-kickback': [
+    require('@/assets/exercises/dumbbell-kickback-1.png'),
+    require('@/assets/exercises/dumbbell-kickback-2.png'),
+    require('@/assets/exercises/dumbbell-kickback-3.png'),
   ],
 } satisfies Record<VisualId, Frames>;
 
@@ -296,7 +297,7 @@ const Pill = ({
 }) => (
   <Pressable
     onPress={onPress}
-    hitSlop={6}
+    hitSlop={9}
     accessibilityRole="button"
     accessibilityLabel={label}
     className="flex-row items-center gap-1.5 rounded-full bg-ink-800/90 px-2.5 py-1.5"
@@ -324,7 +325,10 @@ const FramePlayer = ({
   const t = useT();
   const { brand, muted } = useTheme();
   const [frame, setFrame] = useState(0);
-  const [paused, setPaused] = useState(!autoplay);
+  // RN state, not Reanimated: the flip-book ignores the system setting unless
+  // asked. With reduce motion on it opens paused; Play still runs it.
+  const reduced = useReducedMotion();
+  const [paused, setPaused] = useState(!autoplay || reduced);
   const [expanded, setExpanded] = useState(false);
   const pager = useRef<ScrollView>(null);
   // Measured, not derived from `height`: the plate spans whatever width its parent gives it.

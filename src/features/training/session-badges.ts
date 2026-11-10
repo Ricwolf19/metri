@@ -10,7 +10,7 @@
  * session start and an enrolled copy at enrollment, so the seed cannot reach
  * them; hiding at the render boundary is what keeps the old cue off the card.
  */
-const RETIRED_BADGES: ReadonlySet<string> = new Set(['O similar']);
+const RETIRED_BADGES: ReadonlySet<string> = new Set(['O similar', 'Similar al dibujo']);
 
 export const sessionBadges = (badges: unknown): string[] =>
   Array.isArray(badges)

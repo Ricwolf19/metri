@@ -19,7 +19,8 @@ const FAMILIES: readonly (readonly string[])[] = [
     'machine-chest-press',
   ],
   ['incline-bench-press', 'incline-dumbbell-press'],
-  ['dumbbell-fly', 'cable-fly'],
+  ['dumbbell-fly', 'cable-fly', 'machine-fly'],
+  ['rear-delt-fly', 'machine-rear-delt-fly'],
   ['lateral-raise', 'cable-lateral-raise', 'machine-lateral-raise'],
   [
     'machine-row',
@@ -29,7 +30,17 @@ const FAMILIES: readonly (readonly string[])[] = [
     'barbell-row',
     'chest-supported-row',
   ],
-  ['lat-pulldown', 'pull-up', 'assisted-pull-up'],
+  // The grips are separate exercises (their loads never cross), but on one
+  // machine and one pattern they are each other's first swap.
+  [
+    'lat-pulldown',
+    'supinated-lat-pulldown',
+    'close-grip-lat-pulldown',
+    'wide-grip-lat-pulldown',
+    'pull-up',
+    'assisted-pull-up',
+  ],
+  ['pullover', 'cable-pullover'],
   ['barbell-back-squat', 'goblet-squat', 'smith-machine-squat', 'hack-squat', 'leg-press'],
   // One leg at a time: a lunge family rather than a squat variant, so the
   // per-side log and the dumbbell-per-hand entry stay among their own kind.
@@ -37,7 +48,7 @@ const FAMILIES: readonly (readonly string[])[] = [
   ['romanian-deadlift', 'dumbbell-romanian-deadlift'],
   ['lying-leg-curl', 'standing-leg-curl'],
   ['standing-calf-raise', 'seated-calf-raise', 'single-leg-calf-raise'],
-  ['crunch', 'cable-crunch'],
+  ['crunch', 'cable-crunch', 'decline-sit-up', 'machine-crunch'],
   // Supinated curls only: the hammer curl is a different grip, not different kit.
   [
     'barbell-curl',
@@ -46,8 +57,10 @@ const FAMILIES: readonly (readonly string[])[] = [
     'preacher-curl',
     'machine-preacher-curl',
     'spider-curl',
+    'barbell-spider-curl',
     'incline-dumbbell-curl',
   ],
+  ['hammer-curl', 'cable-hammer-curl'],
   // Overhead ("tras nuca") and lying ("press francés") are different movements,
   // not different kit: two families, each with its own implements.
   ['overhead-tricep-extension', 'cable-overhead-extension', 'french-press'],

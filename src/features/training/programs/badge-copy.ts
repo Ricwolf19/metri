@@ -36,7 +36,14 @@ const COPY: Pair[] = [
   { es: 'Agarre ancho', en: 'Wide grip' },
   { es: 'Mancuernas', en: 'Dumbbells' },
   { es: 'Polea', en: 'Cable' },
-  { es: 'Similar al dibujo', en: 'As pictured' },
+  {
+    es: 'Mismo peso',
+    en: 'Same weight',
+    detail: {
+      es: 'Tu peso máximo para 8 en todas las series; las reps bajan',
+      en: 'Your 8-rep max on every set; the reps drop',
+    },
+  },
 ];
 
 /** Either language's spelling finds the pair, so stored EN and ES cues both resolve. */

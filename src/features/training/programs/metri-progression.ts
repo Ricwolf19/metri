@@ -6,9 +6,10 @@ import type { ProgramSeed, WeekSeed } from './types';
 /**
  * "Metri Progression" — 3 phases x 4 weeks, 4 days/week (sides A-D).
  * Every slot carries its explicit four-week prescription (phase 1/2/3,
- * sides A-D). Rule: any
- * cell without an RIR token is taken to failure ("todo lo que no indica RIR es
- * al FALLO").
+ * sides A-D). A cell without an RIR token is taken to failure: the sheets'
+ * FAQ says the previous program went to failure on everything and this one
+ * starts measuring SOME exercises with RIR. A pause without a printed length
+ * is a plain "Pausa"; only phase 2's bench prints one (2 s).
  */
 
 /** "3 min" rest — big lifts and presses. */
@@ -59,7 +60,7 @@ export const METRI_PROGRESSION: ProgramSeed = {
     'A 12-week powerbuilding program: 3 phases of 4 weeks, training 4 days per week (sides A-D). Intensity is set with RIR and tightens week by week, peaking in week 4 with a top set to failure followed by back-off sets. Rests are prescribed in the plan: 3 minutes on the big lifts and presses, 2 minutes on accessories.',
   durationWeeks: 12,
   routines: [
-    // ── Phase 1 (month 1) — paused bench (1 s) and paused squat ────────────
+    // ── Phase 1 (month 1) — paused bench and paused squat ──────────────────
     {
       slug: 'p1',
       name: 'Phase 1',
@@ -73,7 +74,7 @@ export const METRI_PROGRESSION: ProgramSeed = {
           exercises: [
             {
               exerciseId: 'barbell-bench-press',
-              badges: ['Pausa 1s'],
+              badges: ['Pausa'],
               restSeconds: REST_MAIN,
               weeks: [
                 rir(4, 6, 3, 4, REST_MAIN),
@@ -93,7 +94,7 @@ export const METRI_PROGRESSION: ProgramSeed = {
               ],
             },
             {
-              exerciseId: 'dumbbell-fly',
+              exerciseId: 'machine-fly',
               restSeconds: REST_ACCESSORY,
               weeks: [
                 fail(4, 12, REST_ACCESSORY),
@@ -141,7 +142,7 @@ export const METRI_PROGRESSION: ProgramSeed = {
           exercises: [
             {
               exerciseId: 'barbell-back-squat',
-              badges: ['Pausa 1s'],
+              badges: ['Pausa'],
               restSeconds: REST_MAIN,
               weeks: [
                 rir(4, 4, 3, 4, REST_MAIN),
@@ -181,7 +182,7 @@ export const METRI_PROGRESSION: ProgramSeed = {
               ],
             },
             {
-              exerciseId: 'pullover',
+              exerciseId: 'cable-pullover',
               restSeconds: REST_ACCESSORY,
               weeks: [
                 fail(4, 12, REST_ACCESSORY),
@@ -201,7 +202,7 @@ export const METRI_PROGRESSION: ProgramSeed = {
               ],
             },
             {
-              exerciseId: 'spider-curl',
+              exerciseId: 'barbell-spider-curl',
               restSeconds: REST_ACCESSORY,
               weeks: [
                 fail(3, 12, REST_ACCESSORY),
@@ -249,7 +250,7 @@ export const METRI_PROGRESSION: ProgramSeed = {
               ],
             },
             {
-              exerciseId: 'rear-delt-fly',
+              exerciseId: 'machine-rear-delt-fly',
               restSeconds: REST_ACCESSORY,
               weeks: [
                 fail(5, 12, REST_ACCESSORY),
@@ -299,7 +300,6 @@ export const METRI_PROGRESSION: ProgramSeed = {
             },
             {
               exerciseId: 'machine-row',
-              badges: ['Similar al dibujo'],
               restSeconds: REST_ACCESSORY,
               weeks: [
                 fail(4, 10, REST_ACCESSORY),
@@ -424,7 +424,7 @@ export const METRI_PROGRESSION: ProgramSeed = {
           exercises: [
             {
               exerciseId: 'barbell-back-squat',
-              badges: ['Pausa 1s'],
+              badges: ['Pausa'],
               restSeconds: REST_MAIN,
               weeks: [
                 rir(3, 6, 3, 4, REST_MAIN),
@@ -454,8 +454,7 @@ export const METRI_PROGRESSION: ProgramSeed = {
               ],
             },
             {
-              exerciseId: 'lat-pulldown',
-              badges: ['Agarre supino'],
+              exerciseId: 'supinated-lat-pulldown',
               restSeconds: REST_ACCESSORY,
               weeks: [
                 fail(4, 12, REST_ACCESSORY),
@@ -465,7 +464,7 @@ export const METRI_PROGRESSION: ProgramSeed = {
               ],
             },
             {
-              exerciseId: 'pullover',
+              exerciseId: 'cable-pullover',
               restSeconds: REST_ACCESSORY,
               weeks: [
                 fail(4, 12, REST_ACCESSORY),
@@ -485,7 +484,7 @@ export const METRI_PROGRESSION: ProgramSeed = {
               ],
             },
             {
-              exerciseId: 'spider-curl',
+              exerciseId: 'barbell-spider-curl',
               restSeconds: REST_ACCESSORY,
               weeks: [
                 fail(3, 12, REST_ACCESSORY),
@@ -519,9 +518,9 @@ export const METRI_PROGRESSION: ProgramSeed = {
                 rir(3, 6, 3, 4, REST_MAIN),
                 rir(3, 6, 2, 3, REST_MAIN),
                 rir(3, 6, 1, 2, REST_MAIN),
-                // Canonical week-4 ladder for the week-3 scheme (3x6 RIR 1-2):
-                // 1x6 RIR 0 + 2x6 RIR 3-4.
-                ladder(groupRir(1, 6, 0, 0), groupRir(2, 6, 3, 4), REST_MAIN),
+                // Printed "1X6 FALLO 2X8 RIR3": kept as printed (the same day's
+                // incline reads 2X6), like phase 3's literal D1.
+                ladder(groupFail(1, 6), groupRir(2, 8, 3, 3), REST_MAIN),
               ],
             },
             {
@@ -535,7 +534,7 @@ export const METRI_PROGRESSION: ProgramSeed = {
               ],
             },
             {
-              exerciseId: 'rear-delt-fly',
+              exerciseId: 'machine-rear-delt-fly',
               restSeconds: REST_ACCESSORY,
               weeks: [
                 fail(5, 12, REST_ACCESSORY),
@@ -585,7 +584,6 @@ export const METRI_PROGRESSION: ProgramSeed = {
             },
             {
               exerciseId: 'machine-row',
-              badges: ['Similar al dibujo'],
               restSeconds: REST_ACCESSORY,
               weeks: [
                 fail(4, 10, REST_ACCESSORY),
@@ -738,8 +736,7 @@ export const METRI_PROGRESSION: ProgramSeed = {
               ],
             },
             {
-              exerciseId: 'lat-pulldown',
-              badges: ['Agarre supino'],
+              exerciseId: 'supinated-lat-pulldown',
               restSeconds: REST_ACCESSORY,
               weeks: [
                 fail(4, 12, REST_ACCESSORY),
@@ -749,7 +746,7 @@ export const METRI_PROGRESSION: ProgramSeed = {
               ],
             },
             {
-              exerciseId: 'pullover',
+              exerciseId: 'cable-pullover',
               restSeconds: REST_ACCESSORY,
               weeks: [
                 fail(4, 12, REST_ACCESSORY),
@@ -759,8 +756,7 @@ export const METRI_PROGRESSION: ProgramSeed = {
               ],
             },
             {
-              exerciseId: 'hammer-curl',
-              badges: ['Polea'],
+              exerciseId: 'cable-hammer-curl',
               restSeconds: REST_ACCESSORY,
               weeks: [
                 fail(3, 12, REST_ACCESSORY),

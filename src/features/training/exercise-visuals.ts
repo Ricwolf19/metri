@@ -48,12 +48,12 @@ const VISUAL_IDS = [
   'hack-squat',
   'bulgarian-split-squat',
   'preacher-curl',
-  'spider-curl',
+  'barbell-spider-curl',
   'incline-dumbbell-curl',
   'tricep-pushdown',
   'overhead-tricep-extension',
   'cable-overhead-extension',
-  'cable-kickback',
+  'dumbbell-kickback',
 ] as const;
 
 export type VisualId = (typeof VISUAL_IDS)[number];

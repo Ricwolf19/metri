@@ -50,7 +50,8 @@ describe('demo seed (dev only)', () => {
     expect(summary!.days).toBeGreaterThan(60);
     const [enrollment] = db.select().from(userPrograms).where(eq(userPrograms.userId, U)).all();
     expect(enrollment.status).toBe('active');
-    expect(enrollment.currentWeek).toBe(2);
+    // Week 12 is phase 3's last 1-week routine (v17: phase 3 alternates week by week).
+    expect(enrollment.currentWeek).toBe(1);
   });
 
   it('numbers sets per exercise within a log, like logSet, when a split repeats one', () => {

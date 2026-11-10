@@ -1,8 +1,9 @@
-import { and, eq, inArray, isNotNull, isNull, notInArray } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, isNotNull, isNull, notInArray } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import {
   appMeta,
+  exerciseSettings,
   exercises,
   programs,
   routines,
@@ -13,10 +14,16 @@ import {
   workoutDays,
   workoutLogs,
   warmupRoutines,
+  type SetGroup,
 } from '@/db/schema';
+import type { Locale } from '@/i18n';
+import { randomId } from '@/lib/crypto';
 
+import { deleteRoutine } from './authoring.repo';
+import { copyTemplateRoutines, refreshTrainingWeekdays } from './enroll';
 import { EXERCISE_SEEDS } from './exercises.seed';
 import { PROGRAM_SEEDS, type ProgramSeed } from './programs';
+import { badgeLabel } from './programs/badge-copy';
 import { warmupSeeds } from './warmup-content';
 
 /**
@@ -74,9 +81,14 @@ import { warmupSeeds } from './warmup-content';
  *
  * v15 carries that fix into ENROLLED Foundations copies (`correctFoundationsFrenchPress`):
  * phase 1 enrolled before v14 still planned the seated one-dumbbell press.
+ * v17 re-reads both presets against their sheets (PB1 → Foundations, PB2 →
+ * Progression): new catalog exercises for the grips and the machines the
+ * sheets draw, 2-minute rests where Foundations had 90 s, phase 3 week by
+ * week, and the enrolled copies, history included, carried along
+ * (`correctEnrolledCopies`).
  */
 const SEED_KEY = 'training_seed_version';
-const SEED_VERSION = '15';
+const SEED_VERSION = '17';
 
 const alreadySeeded = (): boolean => {
   const [row] = db.select().from(appMeta).where(eq(appMeta.key, SEED_KEY)).all();
@@ -88,7 +100,12 @@ const alreadySeeded = (): boolean => {
  * are user-owned rows and survive untouched. */
 const RETIRED_PROGRAM_IDS = ['pb-2-0', 'ul-4', 'fb-3'];
 /** Template routines a preset no longer lists (v12: Foundations' 2-split phase 3). Never reuse an id. */
-const RETIRED_ROUTINE_IDS = ['metri-foundations-r3'];
+const RETIRED_ROUTINE_IDS = [
+  'metri-foundations-r3',
+  // v17: phase 3 became four 1-week routines (r3w1…r3w4).
+  'metri-foundations-r3a',
+  'metri-foundations-r3b',
+];
 
 /** Delete the TEMPLATE tree under these routine ids (days, slots, week configs, the routines). */
 const retireTemplateRoutines = (routineIds: string[]): void => {
@@ -470,6 +487,409 @@ const correctFoundationsFrenchPress = (): void => {
   }
 };
 
+const FOUNDATIONS = 'metri-foundations';
+const PROGRESSION = 'metri-progression';
+
+/** Enrolled slots of a preset, with the day each sits on (routine orderIndex filter optional). */
+const enrolledSlots = (programId: string, routineOrders?: number[]) =>
+  db
+    .select({ slot: workoutDayExercises, routineOrder: routines.orderIndex })
+    .from(workoutDayExercises)
+    .innerJoin(workoutDays, eq(workoutDays.id, workoutDayExercises.workoutDayId))
+    .innerJoin(routines, eq(routines.id, workoutDays.routineId))
+    .where(
+      and(
+        eq(routines.programId, programId),
+        isNotNull(routines.userProgramId),
+        routineOrders ? inArray(routines.orderIndex, routineOrders) : undefined,
+      ),
+    )
+    .orderBy(asc(workoutDayExercises.orderIndex))
+    .all();
+
+/**
+ * Slots the old seed planned on the wrong exercise: a grip told apart only by
+ * a cue (the cue goes; the grip is the exercise now), or kit the sheet does
+ * not draw. `dayHas` tells Side A from Side B where the phase holds both.
+ */
+type SlotFix = {
+  programId: string;
+  routines?: number[];
+  from: string;
+  badge?: string;
+  dayHas?: string;
+  to: string;
+};
+const SLOT_FIXES: SlotFix[] = [
+  {
+    programId: FOUNDATIONS,
+    from: 'lat-pulldown',
+    badge: 'Agarre supino',
+    to: 'supinated-lat-pulldown',
+  },
+  {
+    programId: FOUNDATIONS,
+    from: 'lat-pulldown',
+    badge: 'Agarre estrecho',
+    to: 'close-grip-lat-pulldown',
+  },
+  {
+    programId: FOUNDATIONS,
+    from: 'lat-pulldown',
+    badge: 'Agarre ancho',
+    to: 'wide-grip-lat-pulldown',
+  },
+  {
+    programId: FOUNDATIONS,
+    routines: [3, 4],
+    from: 'cable-crunch',
+    dayHas: 'barbell-bench-press',
+    to: 'machine-crunch',
+  },
+  { programId: FOUNDATIONS, routines: [3, 4], from: 'dumbbell-fly', to: 'machine-fly' },
+  {
+    programId: PROGRESSION,
+    from: 'lat-pulldown',
+    badge: 'Agarre supino',
+    to: 'supinated-lat-pulldown',
+  },
+  { programId: PROGRESSION, from: 'hammer-curl', badge: 'Polea', to: 'cable-hammer-curl' },
+  { programId: PROGRESSION, routines: [1], from: 'dumbbell-fly', to: 'machine-fly' },
+  { programId: PROGRESSION, from: 'pullover', to: 'cable-pullover' },
+  { programId: PROGRESSION, routines: [1, 2], from: 'spider-curl', to: 'barbell-spider-curl' },
+  { programId: PROGRESSION, routines: [1, 2], from: 'rear-delt-fly', to: 'machine-rear-delt-fly' },
+];
+
+/** Stored cues are either language's spelling; compare on the Spanish one the seed writes. */
+const sameCue = (badge: string, cue: string): boolean => badgeLabel(badge, 'es') === cue;
+
+const applySlotFixes = (now: Date): void => {
+  for (const fix of SLOT_FIXES) {
+    const rows = enrolledSlots(fix.programId, fix.routines);
+    for (const { slot } of rows) {
+      if (slot.exerciseId !== fix.from) continue;
+      const badges = slot.badges ?? [];
+      if (fix.badge && !badges.some((b) => sameCue(b, fix.badge!))) continue;
+      if (
+        fix.dayHas &&
+        !rows.some(
+          (r) => r.slot.workoutDayId === slot.workoutDayId && r.slot.exerciseId === fix.dayHas,
+        )
+      )
+        continue;
+      const kept = fix.badge ? badges.filter((b) => !sameCue(b, fix.badge!)) : badges;
+      db.update(workoutDayExercises)
+        .set({ exerciseId: fix.to, badges: kept.length ? kept : null, updatedAt: now })
+        .where(eq(workoutDayExercises.id, slot.id))
+        .run();
+    }
+  }
+};
+
+/**
+ * Foundations phase 2 Side B plans two abdominal rows: the sheet draws a
+ * decline-bench sit-up, then the kneeling cable crunch. Older seeds planned
+ * one exercise twice, and sets are counted per exercise, so the second copy
+ * always read as the first one's sets.
+ */
+const correctSideBAbs = (now: Date): void => {
+  const abs = enrolledSlots(FOUNDATIONS, [2]).filter((r) =>
+    ['crunch', 'cable-crunch'].includes(r.slot.exerciseId),
+  );
+  const days = new Set(abs.map((r) => r.slot.workoutDayId));
+  for (const dayId of days) {
+    const [first, second] = abs.filter((r) => r.slot.workoutDayId === dayId).map((r) => r.slot);
+    if (!first || !second || first.exerciseId !== second.exerciseId) continue;
+    const set = (id: string, exerciseId: string) =>
+      db
+        .update(workoutDayExercises)
+        .set({ exerciseId, updatedAt: now })
+        .where(eq(workoutDayExercises.id, id))
+        .run();
+    set(first.id, 'decline-sit-up');
+    if (second.exerciseId !== 'cable-crunch') set(second.id, 'cable-crunch');
+  }
+};
+
+/** The sheets rest 2 to 3 minutes on every exercise: Foundations' old 90 s light band goes to 2. */
+const correctFoundationsRest = (now: Date): void => {
+  const rows = enrolledSlots(FOUNDATIONS);
+  for (const { slot } of rows) {
+    if (slot.defaultRestSeconds === 90)
+      db.update(workoutDayExercises)
+        .set({ defaultRestSeconds: 120, updatedAt: now })
+        .where(eq(workoutDayExercises.id, slot.id))
+        .run();
+  }
+  const ids = rows.map((r) => r.slot.id);
+  if (ids.length)
+    db.update(weekConfigs)
+      .set({ restSeconds: 120, updatedAt: now })
+      .where(and(inArray(weekConfigs.workoutDayExerciseId, ids), eq(weekConfigs.restSeconds, 90)))
+      .run();
+};
+
+/**
+ * Progression: the sheets print no length for three pauses (only phase 2's
+ * bench says 2 s), and phase 2's seated press peaks at "1X6 FALLO 2X8 RIR3".
+ * A week row moves only while it still holds what the old seed wrote.
+ */
+const OLD_P2_PRESS_PEAK: SetGroup[] = [
+  { sets: 1, reps: 6, rirMin: 0, rirMax: 0 },
+  { sets: 2, reps: 6, rirMin: 3, rirMax: 4 },
+];
+const P2_PRESS_PEAK: SetGroup[] = [
+  { sets: 1, reps: 6, toFailure: true },
+  { sets: 2, reps: 8, rirMin: 3, rirMax: 3 },
+];
+const correctProgressionCopies = (now: Date): void => {
+  for (const { slot } of enrolledSlots(PROGRESSION)) {
+    const badges = slot.badges ?? [];
+    // An unprinted pause length goes; the retired drawing cue goes too (the
+    // render hides it on snapshots, but the editor shows a slot's cues raw).
+    const next = badges
+      .filter((b) => b !== 'Similar al dibujo')
+      .map((b) => (sameCue(b, 'Pausa 1s') ? 'Pausa' : b));
+    if (JSON.stringify(next) === JSON.stringify(badges)) continue;
+    db.update(workoutDayExercises)
+      .set({ badges: next.length ? next : null, updatedAt: now })
+      .where(eq(workoutDayExercises.id, slot.id))
+      .run();
+  }
+  const presses = enrolledSlots(PROGRESSION, [2])
+    .filter((r) => r.slot.exerciseId === 'seated-barbell-press')
+    .map((r) => r.slot.id);
+  if (!presses.length) return;
+  const peaks = db
+    .select()
+    .from(weekConfigs)
+    .where(and(inArray(weekConfigs.workoutDayExerciseId, presses), eq(weekConfigs.weekNumber, 4)))
+    .all();
+  for (const week of peaks) {
+    if (JSON.stringify(week.setGroups) !== JSON.stringify(OLD_P2_PRESS_PEAK)) continue;
+    db.update(weekConfigs)
+      .set({
+        setGroups: P2_PRESS_PEAK,
+        rirMin: null,
+        rirMax: null,
+        toFailure: true,
+        updatedAt: now,
+      })
+      .where(eq(weekConfigs.id, week.id))
+      .run();
+  }
+};
+
+/** How long after the enrollment row its copied tree may still be stamped by the copy itself. */
+const ENROLL_COPY_WINDOW_MS = 10 * 60 * 1000;
+
+/** Rows written at enrollment and never edited since: a lifter's own phase is theirs. */
+const untouchedSince = (enrolledAt: Date, stamps: (Date | null | undefined)[]): boolean =>
+  stamps.every((at) => !at || at.getTime() - enrolledAt.getTime() < ENROLL_COPY_WINDOW_MS);
+
+/**
+ * Phase 3 alternates its sides WEEK BY WEEK (A·B·A, B·A·B, A·B·A, B·A·B); the
+ * old copy ran two weeks of each. An enrollment that has not reached phase 3,
+ * never trained it and never edited it gets the new four 1-week routines in
+ * place of the old two, on the same weekdays. Anyone already in it — or who
+ * shaped it — keeps theirs.
+ */
+const reclonePhase3 = (): void => {
+  const templateIds = db
+    .select({ id: routines.id })
+    .from(routines)
+    .where(
+      and(
+        eq(routines.programId, FOUNDATIONS),
+        isNull(routines.userProgramId),
+        gte(routines.orderIndex, 3),
+      ),
+    )
+    .orderBy(asc(routines.orderIndex))
+    .all()
+    .map((r) => r.id);
+  if (templateIds.length !== 4) return;
+  const templateDays = db
+    .select()
+    .from(workoutDays)
+    .where(inArray(workoutDays.routineId, templateIds))
+    .all();
+  const enrollments = db
+    .select()
+    .from(userPrograms)
+    .where(
+      and(
+        eq(userPrograms.programId, FOUNDATIONS),
+        inArray(userPrograms.status, ['active', 'paused']),
+      ),
+    )
+    .all();
+  for (const enrollment of enrollments) {
+    const old = db
+      .select()
+      .from(routines)
+      .where(and(eq(routines.userProgramId, enrollment.id), gte(routines.orderIndex, 3)))
+      .orderBy(asc(routines.orderIndex))
+      .all();
+    if (old.length !== 2 || old.some((r) => r.durationWeeks !== 2)) continue;
+    if (old.some((r) => r.id === enrollment.currentRoutineId)) continue;
+    const oldDays = db
+      .select()
+      .from(workoutDays)
+      .where(
+        inArray(
+          workoutDays.routineId,
+          old.map((r) => r.id),
+        ),
+      )
+      .all();
+    const dayIds = oldDays.map((d) => d.id);
+    const trained =
+      dayIds.length > 0 &&
+      db
+        .select({ id: workoutLogs.id })
+        .from(workoutLogs)
+        .where(inArray(workoutLogs.workoutDayId, dayIds))
+        .limit(1)
+        .all().length > 0;
+    if (trained) continue;
+    const slots = dayIds.length
+      ? db
+          .select()
+          .from(workoutDayExercises)
+          .where(inArray(workoutDayExercises.workoutDayId, dayIds))
+          .all()
+      : [];
+    const configs = slots.length
+      ? db
+          .select({ updatedAt: weekConfigs.updatedAt })
+          .from(weekConfigs)
+          .where(
+            inArray(
+              weekConfigs.workoutDayExerciseId,
+              slots.map((s) => s.id),
+            ),
+          )
+          .all()
+      : [];
+    const enrolledAt = enrollment.createdAt;
+    if (
+      !untouchedSince(enrolledAt, [
+        ...old.map((r) => r.updatedAt),
+        ...oldDays.map((d) => d.updatedAt),
+        ...slots.map((s) => s.updatedAt),
+        ...configs.map((c) => c.updatedAt),
+      ])
+    )
+      continue;
+    // Same weekdays, by position: the old first week's days.
+    const schedule = oldDays
+      .filter((d) => d.routineId === old[0].id)
+      .sort((a, b) => a.orderIndex - b.orderIndex);
+    // The copy's names are in the language it was enrolled in.
+    const locale: Locale = /^Fase\b/.test(old[0].name) ? 'es' : 'en';
+    for (const routine of old) deleteRoutine(routine.id);
+    copyTemplateRoutines({
+      programId: FOUNDATIONS,
+      routineIds: templateIds,
+      userProgramId: enrollment.id,
+      scheduleFor: (templateDayId) => {
+        const day = templateDays.find((d) => d.id === templateDayId);
+        const source = day ? schedule[day.orderIndex - 1] : undefined;
+        return source ? { weekday: source.weekday, startMinute: source.startMinute } : undefined;
+      },
+      locale,
+      idFor: (templateId) => `${enrollment.id}:${templateId}`,
+    });
+    refreshTrainingWeekdays(enrollment.id);
+  }
+};
+
+/** The grip a pulldown cue stood for, now its own exercise. */
+const GRIP_EXERCISES: Record<string, string> = {
+  'Agarre supino': 'supinated-lat-pulldown',
+  'Agarre estrecho': 'close-grip-lat-pulldown',
+  'Agarre ancho': 'wide-grip-lat-pulldown',
+};
+const gripOf = (badges: readonly string[] | undefined): string | null =>
+  (badges ?? []).map((b) => GRIP_EXERCISES[badgeLabel(b, 'es')]).find(Boolean) ?? null;
+
+/**
+ * The sets already logged on a grip cue belong to that grip's exercise, so its
+ * prefill, "Last training" and records carry over. The session snapshot is
+ * the evidence: a session with ONE pulldown slot carrying a grip cue moves
+ * that slot and its sets; two pulldowns in one session cannot be told apart
+ * and stay. The pulldown's saved machine picture goes with them.
+ */
+const rekeyGripHistory = (now: Date): void => {
+  const logs = db.select().from(workoutLogs).all();
+  const moved = new Map<string, Set<string>>();
+  for (const log of logs) {
+    const snapshot = log.plannedSnapshot ?? [];
+    const pulldowns = snapshot.filter((p) => p.exerciseId === 'lat-pulldown');
+    if (pulldowns.length !== 1) continue;
+    const [slot] = pulldowns;
+    if (slot.originalExerciseId && slot.originalExerciseId !== 'lat-pulldown') continue;
+    const target = gripOf(slot.badges);
+    if (!target) continue;
+    // Only where the plan itself now trains that grip (a preset copy the
+    // fixes above moved): a custom program keeps its pulldown, and its history.
+    const [planned] = db
+      .select({ exerciseId: workoutDayExercises.exerciseId })
+      .from(workoutDayExercises)
+      .where(eq(workoutDayExercises.id, slot.slotId))
+      .all();
+    if (planned?.exerciseId !== target) continue;
+    db.update(setLogs)
+      .set({ exerciseId: target, updatedAt: now })
+      .where(and(eq(setLogs.workoutLogId, log.id), eq(setLogs.exerciseId, 'lat-pulldown')))
+      .run();
+    db.update(workoutLogs)
+      .set({
+        plannedSnapshot: snapshot.map((p) =>
+          p === slot
+            ? {
+                ...p,
+                exerciseId: target,
+                badges: (p.badges ?? []).filter((b) => !GRIP_EXERCISES[badgeLabel(b, 'es')]),
+              }
+            : p,
+        ),
+        updatedAt: now,
+      })
+      .where(eq(workoutLogs.id, log.id))
+      .run();
+    const targets = moved.get(log.userId) ?? new Set<string>();
+    moved.set(log.userId, targets.add(target));
+  }
+  for (const [userId, targets] of moved) {
+    const [setting] = db
+      .select()
+      .from(exerciseSettings)
+      .where(
+        and(eq(exerciseSettings.userId, userId), eq(exerciseSettings.exerciseId, 'lat-pulldown')),
+      )
+      .all();
+    if (!setting?.load) continue;
+    for (const exerciseId of targets)
+      db.insert(exerciseSettings)
+        .values({ id: randomId(), userId, exerciseId, load: setting.load })
+        .onConflictDoNothing()
+        .run();
+  }
+};
+
+/** v17: the enrolled copies follow the presets' re-read (see each step). */
+const correctEnrolledCopies = (): void => {
+  const now = new Date();
+  reclonePhase3();
+  correctSideBAbs(now);
+  applySlotFixes(now);
+  correctFoundationsRest(now);
+  correctProgressionCopies(now);
+  rekeyGripHistory(now);
+};
+
 export const seedTraining = async (): Promise<void> => {
   if (alreadySeeded()) return;
 
@@ -479,6 +899,7 @@ export const seedTraining = async (): Promise<void> => {
   seedWarmups();
   for (const program of PROGRAM_SEEDS) seedProgram(program);
   correctFoundationsFrenchPress();
+  correctEnrolledCopies();
 
   db.insert(appMeta)
     .values({ key: SEED_KEY, value: SEED_VERSION })
