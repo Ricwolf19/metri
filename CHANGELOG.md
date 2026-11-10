@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.18.0](https://github.com/Ricwolf19/metri/compare/metri-v1.17.0...metri-v1.18.0) (2026-11-10)
+
+
+### Features
+
+* **content:** re-read presets against the source sheets ([6fcd018](https://github.com/Ricwolf19/metri/commit/6fcd01865b59aa89b9fefcef2107d35858fcc8f4))
+* **share:** one session card everywhere ([b054216](https://github.com/Ricwolf19/metri/commit/b054216bf854f983f8616ee3b96b206dce7ce1e2))
+* **training:** fill the calendar from the schedule ([241f1db](https://github.com/Ricwolf19/metri/commit/241f1db622b9876f0f0cdc88912083d7abd1e441))
+* **training:** settle exercises in order, rest by exercise ([b4e3ad8](https://github.com/Ricwolf19/metri/commit/b4e3ad8704dcb56816ea1fd4fc2cb2fbe3ea32fe))
+* **ui:** accessible primitives, selection colour and contrast ([dca8874](https://github.com/Ricwolf19/metri/commit/dca887401908e4cf30a901b7bd86f53d2a408982))
+
 ## [1.17.0](https://github.com/Ricwolf19/metri/compare/metri-v1.16.0...metri-v1.17.0) (2026-11-03)
 
 
