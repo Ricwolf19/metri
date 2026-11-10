@@ -2,33 +2,27 @@ import { useLiveQuery } from '@/db/useLiveQuery';
 import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { DumbbellIcon, FlameIcon } from '@/components/icons';
-import {
-  BadgeRow,
-  Button,
-  ScrollArea,
-  Sheet,
-  ShareCard,
-  TextLink,
-  useToast,
-} from '@/components/ui';
+import { DumbbellIcon, FlameIcon, ShareIcon } from '@/components/icons';
+import { BadgeRow, IconButton, ScrollArea, Sheet, TextLink } from '@/components/ui';
 import type { SkipReason, TrainingDayStatus } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
+import { sessionShareModel, type ShareModel } from '@/features/share/models';
+import { ShareSheet } from '@/features/share/ShareSheet';
 import { useI18n, useT, type TFunction, type TranslationKey } from '@/i18n';
 import { settings, type Units } from '@/lib/storage';
 import { useDateFormat } from '@/lib/useDateFormat';
 import { useTodayKey } from '@/lib/useTodayKey';
-import { useShareCard } from '@/lib/useShareCard';
 import { useTheme } from '@/theme/theme-context';
 import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 
 import { adherenceDot } from '../adherence-colors';
+import { isAutoMissed } from '../auto-adherence';
 import { dayDisplayName, exerciseDisplayName } from '../labels';
 import { dayQuery, markTrainingDay } from '../adherence.repo';
 import { getDayDetail, type LoggedSet } from '../day-events';
 import { getWorkoutDay } from '../programs.repo';
+import { getWorkout, sessionSummary } from '../session.repo';
 import { skipPlannedDay, unskipDay } from '../skip-split';
-import { setVolumeKg } from '../load';
 import { fromKgHalf } from '../progression';
 import { DeleteSessionButton } from './DeleteSessionButton';
 import { SessionTimeline } from './SessionTimeline';
@@ -63,15 +57,13 @@ export const DayDetailSheet = ({
 }) => {
   const t = useT();
   const { locale } = useI18n();
-  const toast = useToast();
   const { user } = useAuth();
   const theme = useTheme();
-  const { brand } = theme;
+  const { brand, muted } = theme;
   const { dateKey } = useDateFormat();
   const today = useTodayKey();
   const unit = settings.getEquipmentUnits();
   const setLabel = (x: LoggedSet) => fmtSet(x, unit, t);
-  const { ref, share, busy } = useShareCard(t('dayDetail.share'));
   // Deps are load-bearing: the sheet mounts closed (date null) and is reopened
   // for many dates; without them the query stayed on '' and a mark never showed.
   const { data: adherenceRows } = useLiveQuery(dayQuery(user?.id ?? '', date ?? ''), [
@@ -96,8 +88,13 @@ export const DayDetailSheet = ({
       if (!next.delete(logId)) next.add(logId);
       return next;
     });
+  // The card is kept after closing, so the share sheet plays its fall with it
+  // (a model cleared on close emptied the sheet mid-fall).
+  const [shareModel, setShareModel] = useState<ShareModel | null>(null);
+  const [sharing, setSharing] = useState(false);
   const [marking, setMarking] = useState(false);
-  const [askingReason, setAskingReason] = useState(false);
+  // The status picked, waiting for its reason.
+  const [pendingStatus, setPendingStatus] = useState<TrainingDayStatus | null>(null);
 
   // Manual marking works for any past-or-today date, enrollment or not.
   const markable = !!user && !!date && date <= today;
@@ -111,30 +108,41 @@ export const DayDetailSheet = ({
       ? getWorkoutDay(adherence.workoutDayId)
       : null;
   const skippedSplit = skippedLogId ? markedSplit : null;
+  // A red day changes only with a reason — whatever it becomes, the lifter says
+  // why the schedule's verdict was wrong — and a miss always asks for one.
+  const changingMissed = adherence?.status === 'skipped';
   const mark = (status: TrainingDayStatus, skipReason?: SkipReason) => {
     if (!user || !date) return;
-    if (status === 'skipped' && !skipReason) {
-      setAskingReason(true);
+    if ((status === 'skipped' || changingMissed) && !skipReason) {
+      setPendingStatus(status);
       return;
     }
     if (status === 'skipped') skipPlannedDay(user.id, date, skipReason ?? null);
     else {
       if (skippedLogId) unskipDay(user.id, date);
-      markTrainingDay(user.id, { date, status });
+      markTrainingDay(user.id, { date, status, skipReason: skipReason ?? null });
     }
     setMarking(false);
-    setAskingReason(false);
+    setPendingStatus(null);
   };
 
   const workouts = (detail?.workouts ?? []).filter((w) => !deleted.has(w.logId));
-  const totalSets = workouts.reduce((n, w) => n + w.setCount, 0);
-  const totalVolume = workouts.reduce((n, w) => n + w.volumeKg, 0);
-  const totalDuration = workouts.reduce((n, w) => n + (w.durationSeconds ?? 0), 0);
   const empty = !adherence && !workouts.length && !detail?.tdeeComputed;
   const title = date ? dateKey(date) : '';
 
-  const onShare = async () => {
-    if (!(await share())) toast.error(t('dayDetail.shareFailed'));
+  // Sharing a past session draws the same card as finishing one.
+  const shareSession = (logId: string, name: string) => {
+    const week = getWorkout(logId)?.weekNumber;
+    setShareModel(
+      sessionShareModel({
+        summary: sessionSummary(logId, locale),
+        splitName: name,
+        programLine: week != null ? t('training.weekN', { n: week }) : null,
+        unit,
+        t,
+      }),
+    );
+    setSharing(true);
   };
 
   return (
@@ -161,6 +169,9 @@ export const DayDetailSheet = ({
               <TextLink label={t('dayDetail.changeMark')} onPress={() => setMarking(true)} />
             ) : null}
           </View>
+        ) : null}
+        {isAutoMissed(adherence ?? undefined) ? (
+          <Text className="mt-1.5 text-xs text-ink-400">{t('dayDetail.autoMissed')}</Text>
         ) : null}
         {markedSplit && !skippedLogId ? (
           <Text className="mt-1.5 text-xs text-ink-400">
@@ -199,6 +210,13 @@ export const DayDetailSheet = ({
                     {w.durationSeconds ? ` · ${fmtDur(w.durationSeconds)}` : ''}
                   </Text>
                 </View>
+                {w.exercises.length ? (
+                  <IconButton
+                    icon={<ShareIcon color={muted} size={16} />}
+                    onPress={() => shareSession(w.logId, splitName(w))}
+                    accessibilityLabel={t('share.session')}
+                  />
+                ) : null}
                 <DeleteSessionButton
                   logId={w.logId}
                   compact
@@ -261,48 +279,17 @@ export const DayDetailSheet = ({
             <Text className="mt-4 text-center text-sm text-ink-400">{t('dayDetail.empty')}</Text>
           ) : null}
 
-          {workouts.length ? (
-            <View className="mt-2 items-center">
-              <ShareCard
-                ref={ref}
-                eyebrow={t('share.trainingDay')}
-                title={workouts.map((w) => splitName(w)).join(' + ')}
-                subtitle={title}
-                metrics={[
-                  { label: t('share.volume'), value: `${fromKgHalf(totalVolume, unit)} ${unit}` },
-                  { label: t('share.sets'), value: `${totalSets}` },
-                  { label: t('share.duration'), value: fmtDur(totalDuration) || '—' },
-                ]}
-                bars={workouts
-                  .flatMap((w) => w.exercises)
-                  .slice(0, 8)
-                  .map((ex) => ({
-                    label: displayName(ex).slice(0, 6),
-                    value: ex.sets.reduce((n, s) => n + setVolumeKg(s), 0),
-                  }))}
-                lines={workouts
-                  .flatMap((w) => w.exercises)
-                  .slice(0, 6)
-                  .map((ex) => `${displayName(ex)} · ${ex.sets.map(setLabel).join(', ')}`)}
-                footer={t('share.footer')}
-              />
-              <View className="mt-3 w-full">
-                <Button
-                  variant="brand"
-                  label={t('dayDetail.share')}
-                  loading={busy}
-                  onPress={() => void onShare()}
-                />
-              </View>
-            </View>
-          ) : null}
-
           {/* Manual adherence mark — useful with no enrollment or to fix a day. An
            * answered day shows its summary above and opens the choices from "Change". */}
           {markable ? (
             marking ? (
-              askingReason ? (
-                <SkipReasonChips onPick={(r) => mark('skipped', r)} />
+              pendingStatus ? (
+                <View>
+                  {changingMissed ? (
+                    <Text className="mt-4 text-sm text-ink-300">{t('dayDetail.changeReason')}</Text>
+                  ) : null}
+                  <SkipReasonChips onPick={(r) => mark(pendingStatus, r)} />
+                </View>
               ) : (
                 <View className="mt-4 flex-row flex-wrap gap-2">
                   {STATUS_CHOICES.map((c) => (
@@ -333,6 +320,7 @@ export const DayDetailSheet = ({
           ) : null}
         </View>
       </ScrollArea>
+      <ShareSheet visible={sharing} onClose={() => setSharing(false)} model={shareModel} />
     </Sheet>
   );
 };

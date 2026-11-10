@@ -5,21 +5,13 @@ import { Text, View } from 'react-native';
 
 import type { WorkoutStatus } from '@/db/schema';
 
-import {
-  ChevronRightIcon,
-  HistoryIcon,
-  PlayIcon,
-  PlusIcon,
-  ShareIcon,
-  SparksIcon,
-} from '@/components/icons';
+import { ChevronRightIcon, HistoryIcon, PlayIcon, PlusIcon, SparksIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import {
   BlockingOverlay,
   Card,
   FadeInUp,
   HoldButton,
-  IconButton,
   PressableScale,
   Screen,
   Skeleton,
@@ -28,20 +20,12 @@ import {
 } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { isRmTestWeek } from '@/features/training/progression';
-import { routineShareModel, type ShareModel } from '@/features/share/models';
-import { ShareSheet } from '@/features/share/ShareSheet';
-import { slotsQuery } from '@/features/training/authoring.repo';
 import { ProgramCard } from '@/features/training/components/ProgramCard';
 import { presetProgramCopy } from '@/features/training/programs';
 import { SplitPreviewSheet } from '@/features/training/components/SplitPreviewSheet';
 import { SplitRow } from '@/features/training/components/SplitRow';
 import { abandonEnrollment, setEnrollmentPosition } from '@/features/training/enroll';
-import {
-  WEEKDAY_KEY,
-  dayDisplayName,
-  exerciseDisplayName,
-  routineDisplayName,
-} from '@/features/training/labels';
+import { WEEKDAY_KEY, dayDisplayName, routineDisplayName } from '@/features/training/labels';
 import { ownProgramsQuery, recommendedProgramsQuery } from '@/features/training/programs.repo';
 import { syncTrainingReminder } from '@/features/training/reminders';
 import {
@@ -102,7 +86,6 @@ const Training = () => {
   // A split opened to read (the ones not up yet, and the ones already done).
   const [preview, setPreview] = useState<ScheduledDay | null>(null);
   // The plan as a card: built when asked for, from the current phase's splits.
-  const [planShare, setPlanShare] = useState<ShareModel | null>(null);
   // Snapshot on focus: an overnight tab shows the right day without a clock read in render.
   const [now, setNow] = useState(() => new Date());
   useFocusEffect(useCallback(() => setNow(new Date()), []));
@@ -150,29 +133,6 @@ const Training = () => {
       const workout = startWorkout(user.id, enrollment.id, dayId, enrollment.currentWeek, locale);
       router.push({ pathname: '/training/workout/[id]', params: { id: workout.id } });
     });
-  };
-
-  const sharePlan = () => {
-    if (!structure?.program) return;
-    setPlanShare(
-      routineShareModel({
-        programName:
-          presetProgramCopy(structure.program.id, locale)?.name ?? structure.program.name,
-        phaseLine: [
-          structure.currentRoutine ? routineDisplayName(structure.currentRoutine, t) : null,
-          t('training.weekOf', { week: structure.programWeek, total: structure.totalWeeks }),
-        ]
-          .filter(Boolean)
-          .join(' · '),
-        days: days.map((d) => ({
-          name: dayDisplayName(d, t),
-          exercises: slotsQuery(d.id)
-            .all()
-            .map((r) => ({ id: r.exercise.id, name: exerciseDisplayName(r.exercise, locale) })),
-        })),
-        t,
-      }),
-    );
   };
 
   const abandon = () => {
@@ -225,16 +185,9 @@ const Training = () => {
       {loaded && enrollment && structure?.program ? (
         <FadeInUp delay={60}>
           <Card>
-            <View className="flex-row items-start">
-              <Text className="flex-1 pr-2 text-xl font-sans-bold text-ink-50">
-                {presetProgramCopy(structure.program.id, locale)?.name ?? structure.program.name}
-              </Text>
-              <IconButton
-                icon={<ShareIcon color={muted} size={16} />}
-                onPress={sharePlan}
-                accessibilityLabel={t('share.routine')}
-              />
-            </View>
+            <Text className="text-xl font-sans-bold text-ink-50">
+              {presetProgramCopy(structure.program.id, locale)?.name ?? structure.program.name}
+            </Text>
             <Text className="mt-0.5 text-sm text-ink-400">
               {structure.currentRoutine
                 ? `${routineDisplayName(structure.currentRoutine, t)} · `
@@ -396,11 +349,6 @@ const Training = () => {
             : null
         }
         onClose={() => setPreview(null)}
-      />
-      <ShareSheet
-        visible={planShare !== null}
-        onClose={() => setPlanShare(null)}
-        model={planShare}
       />
       <BlockingOverlay
         visible={blocking.busy !== null || !settled}

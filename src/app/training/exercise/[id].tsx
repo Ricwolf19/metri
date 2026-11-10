@@ -3,17 +3,9 @@ import { useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { ShareIcon, StarIcon } from '@/components/icons';
+import { StarIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
-import {
-  Card,
-  DurationPicker,
-  FadeInUp,
-  IconButton,
-  Screen,
-  ScreenTitle,
-  TextLink,
-} from '@/components/ui';
+import { Card, DurationPicker, FadeInUp, Screen, ScreenTitle, TextLink } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { BadgesEditor } from '@/features/training/components/BadgesEditor';
 import { ExerciseDocButton } from '@/features/training/components/ExerciseDocButton';
@@ -24,8 +16,6 @@ import { ExerciseNote } from '@/features/training/components/ExerciseNote';
 import { getExercise } from '@/features/training/exercises.repo';
 import { EXERCISE_CONTENT } from '@/features/training/exercise-content';
 import { buildExerciseSeries } from '@/features/training/exercise-trend';
-import { exerciseShareModel } from '@/features/share/models';
-import { ShareSheet } from '@/features/share/ShareSheet';
 import {
   getExerciseSetting,
   upsertExerciseSetting,
@@ -96,7 +86,7 @@ const ExerciseHistory = () => {
   const t = useT();
   const { locale } = useI18n();
   const { dayMonth } = useDateFormat();
-  const { brand, muted } = useTheme();
+  const { brand } = useTheme();
   const unit = settings.getEquipmentUnits();
 
   const exercise = id ? getExercise(id) : null;
@@ -116,7 +106,6 @@ const ExerciseHistory = () => {
     user && id ? getExerciseSetting(user.id, id) : null,
   );
   const [restOpen, setRestOpen] = useState(false);
-  const [sharing, setSharing] = useState(false);
 
   const dateLabel = dayMonth;
   const content = id ? (EXERCISE_CONTENT[id]?.[locale] ?? null) : null;
@@ -142,24 +131,7 @@ const ExerciseHistory = () => {
     });
 
   return (
-    <Screen
-      scroll
-      contentClassName="px-5 pb-10"
-      header={
-        <TopBar
-          showBack
-          right={
-            exercise && points.length ? (
-              <IconButton
-                icon={<ShareIcon color={muted} size={18} />}
-                onPress={() => setSharing(true)}
-                accessibilityLabel={t('share.exercise')}
-              />
-            ) : undefined
-          }
-        />
-      }
-    >
+    <Screen scroll contentClassName="px-5 pb-10" header={<TopBar showBack />}>
       <ScreenTitle
         title={exercise ? exerciseDisplayName(exercise, locale) : t('exHistory.title')}
         subtitle={t('exHistory.subtitle')}
@@ -311,19 +283,6 @@ const ExerciseHistory = () => {
           </View>
         </>
       )}
-      {exercise ? (
-        <ShareSheet
-          visible={sharing}
-          onClose={() => setSharing(false)}
-          model={exerciseShareModel({
-            name: exerciseDisplayName(exercise, locale),
-            points,
-            unit,
-            formatDate: (at) => dayMonth(new Date(at)),
-            t,
-          })}
-        />
-      ) : null}
     </Screen>
   );
 };

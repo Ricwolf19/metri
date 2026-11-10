@@ -2,8 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { TFunction } from '@/i18n';
 
-import type { ExerciseSessionPoint } from '../training/exercise-trend';
-import { exerciseShareModel, routineShareModel, sessionShareModel } from './models';
+import { sessionShareModel } from './models';
 
 // The card copy is the key plus its params: what the model asked for is what is asserted.
 const t = ((key: string, params?: Record<string, unknown>) =>
@@ -65,57 +64,5 @@ describe('sessionShareModel', () => {
     expect(model.rows).toHaveLength(8);
     expect(model.lines).toEqual(['share.more:{"n":3}']);
     expect(model.subtitle).toBeUndefined();
-  });
-});
-
-const point = (at: number, topKg: number, reps: number, isPr = false): ExerciseSessionPoint => ({
-  logId: String(at),
-  at,
-  topKg,
-  e1rmKg: topKg * (1 + reps / 30),
-  volumeKg: topKg * reps,
-  sets: [{ weightKg: topKg, reps, e1rmKg: topKg * (1 + reps / 30) }],
-  isPr,
-});
-
-describe('exerciseShareModel', () => {
-  it('shows best set, best e1RM, record count, a sparkline and the last three sessions', () => {
-    const points = [
-      point(1, 100, 6, true),
-      point(2, 100, 8),
-      point(3, 102.5, 5, true),
-      point(4, 100, 6),
-    ];
-    const model = exerciseShareModel({
-      name: 'Bench Press',
-      points,
-      unit: 'kg',
-      formatDate: (at) => `d${at}`,
-      t,
-    });
-    expect(model.metrics?.map((m) => m.value)).toEqual(['102.5×5', '126.5 kg', '2']);
-    expect(model.spark).toHaveLength(4);
-    expect(model.lines).toEqual(['d4 · 100×6', 'd3 · 102.5×5', 'd2 · 100×8']);
-  });
-});
-
-describe('routineShareModel', () => {
-  it('lists every split with its exercises by name, never sets and reps', () => {
-    const model = routineShareModel({
-      programName: 'Foundations',
-      phaseLine: 'Phase 1 · Week 2 of 12',
-      days: [
-        {
-          name: 'Workout A',
-          exercises: [
-            { id: 'leg-press', name: 'Leg Press' },
-            { id: 'lat-pulldown', name: 'Lat Pulldown' },
-          ],
-        },
-      ],
-      t,
-    });
-    expect(model.lines).toEqual(['Workout A · Leg Press · Lat Pulldown']);
-    expect(model.rows).toBeUndefined();
   });
 });
