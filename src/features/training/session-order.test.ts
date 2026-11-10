@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import type { PlannedSlot } from '@/db/schema';
 
-import { chronologyMove, mergeOrder, sessionOrder, slotState } from './session-order';
+import {
+  chronologyMove,
+  mergeOrder,
+  pendingElsewhere,
+  sessionNext,
+  sessionOrder,
+  slotState,
+} from './session-order';
 
 const slot = (id: string, sets = 3, extra: Partial<PlannedSlot> = {}): PlannedSlot => ({
   slotId: id,
@@ -80,5 +87,58 @@ describe('chronologyMove', () => {
 
   it('never moves an exercise that is already under way', () => {
     expect(chronologyMove(planned, 'd', counts({ d: 1 }))).toBeNull();
+  });
+});
+
+describe('pendingElsewhere', () => {
+  it('finds an exercise left with sets open', () => {
+    const found = pendingElsewhere([slot('a'), slot('b')], 'b', counts({ a: 1 }));
+    expect(found?.slot.slotId).toBe('a');
+    expect(found?.open).toBe(2);
+  });
+
+  it('counts a skipped row as settled, not as open', () => {
+    const planned = [slot('a', 3, { skippedSets: [2] }), slot('b')];
+    expect(pendingElsewhere(planned, 'b', counts({ a: 2 }))).toBeNull();
+    expect(pendingElsewhere(planned, 'b', counts({ a: 1 }))?.open).toBe(1);
+  });
+
+  it('ignores the exercise being logged, and exercises not begun or finished', () => {
+    const planned = [slot('a'), slot('b'), slot('c')];
+    expect(pendingElsewhere(planned, 'a', counts({ a: 1, b: 3 }))).toBeNull();
+  });
+
+  it('never holds a slot up on another slot of the same exercise', () => {
+    const narrow = slot('a');
+    const wide = { ...slot('b'), exerciseId: narrow.exerciseId };
+    expect(pendingElsewhere([narrow, wide], 'a', counts({ a: 1 }))).toBeNull();
+  });
+
+  it('does not hold the lifter for an exercise skipped after a logged set', () => {
+    const planned = [slot('a', 3, { skipped: { at: 1 } }), slot('b')];
+    expect(pendingElsewhere(planned, 'b', counts({ a: 1 }))).toBeNull();
+  });
+});
+
+describe('sessionNext', () => {
+  const next = (planned: PlannedSlot[], done: Record<string, number>) => {
+    const n = sessionNext(planned, counts(done));
+    return n.kind === 'done' ? 'done' : `${n.slotId}:${n.setNumber}`;
+  };
+
+  it('follows the current order, so a reorder changes what is next', () => {
+    expect(next([slot('a'), slot('b'), slot('c')], {})).toBe('a:1');
+    expect(next([slot('c'), slot('a'), slot('b')], {})).toBe('c:1');
+  });
+
+  it('stays on an exercise under way even when one was moved ahead of it', () => {
+    expect(next([slot('c'), slot('a'), slot('b')], { a: 1 })).toBe('a:2');
+  });
+
+  it('passes over settled exercises and ends when nothing is open', () => {
+    expect(next([slot('a', 1), slot('b', 3, { skipped: { at: 1 } }), slot('c')], { a: 1 })).toBe(
+      'c:1',
+    );
+    expect(next([slot('a', 1)], { a: 1 })).toBe('done');
   });
 });

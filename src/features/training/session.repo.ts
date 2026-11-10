@@ -1,10 +1,11 @@
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, lte, ne, sql } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import type { Locale } from '@/i18n';
 
 import { exerciseDisplayName } from './labels';
 import {
+  exerciseSettings,
   exercises,
   setLogs,
   weekConfigs,
@@ -28,9 +29,11 @@ import { recordDeletion } from '@/features/sync/tombstones';
 
 import { localDateKey, markTrainingDay, releaseTrainingDay } from './adherence.repo';
 import { advanceUserProgram, rewindUserProgram } from './enroll';
+import { defaultRestFor } from './exercise-rest';
 import { setVolumeKg } from './load';
 import { plannedSets } from './rest-summary';
 import { estimate1Rm, roundToPlate, weightForReps } from './progression';
+import { DEFAULT_REST } from './slot-draft';
 
 /* ── Active session ──────────────────────────────────────────────────────── */
 
@@ -103,7 +106,11 @@ export const startWorkout = (
         // Frozen at session start in the user's locale (snapshots never re-resolve).
         name: exerciseDisplayName(shown, locale),
         setGroups: expandPrescription(config),
-        restSeconds: resolveRest(slot, config),
+        // A countdown swap rests as the exercise it opens on, not as the one it replaced.
+        restSeconds:
+          shown.id !== exercise.id
+            ? exerciseRestSeconds(userId, shown.id)
+            : resolveRest(slot, config),
         badges: slot.badges ?? [],
         alternativeExerciseIds: slot.alternativeExerciseIds ?? [],
         notes: slot.notes ?? null,
@@ -437,6 +444,20 @@ export const previousSessionSets = (exerciseId: string): PreviousSession | null 
 const getExerciseRow = (id: string): Exercise | null =>
   db.select().from(exercises).where(eq(exercises.id, id)).all()[0] ?? null;
 
+/** Whether a split already plans this exercise. */
+const dayPlans = (workoutDayId: string, exerciseId: string): boolean =>
+  db
+    .select({ id: workoutDayExercises.id })
+    .from(workoutDayExercises)
+    .where(
+      and(
+        eq(workoutDayExercises.workoutDayId, workoutDayId),
+        eq(workoutDayExercises.exerciseId, exerciseId),
+      ),
+    )
+    .limit(1)
+    .all().length > 0;
+
 /**
  * The same planned exercise on the OTHER splits of the slot's phase: a full
  * body A/B/C repeats its exercises, and a swap "from now on" made on A must
@@ -551,21 +572,64 @@ export const appendSnapshotSlot = (logId: string, slot: PlannedSlot): void => {
     .run();
 };
 
-/** Swap a snapshot slot to an alternative exercise for THIS session only. */
+/**
+ * How long an exercise rests away from a slot that plans it: the lifter's own
+ * default for it (`exercise_settings`), else what it trains calls for. Reads
+ * the table here rather than through `getExerciseSetting`, whose module
+ * imports this one.
+ */
+/** What an exercise rests at when nobody set a rest for it: what it trains calls for. */
+export const catalogRestSeconds = (exerciseId: string): number => {
+  const exercise = getExerciseRow(exerciseId);
+  return exercise ? defaultRestFor(exercise) : DEFAULT_REST;
+};
+
+export const exerciseRestSeconds = (userId: string, exerciseId: string): number => {
+  const [setting] = db
+    .select({ restSeconds: exerciseSettings.restSeconds })
+    .from(exerciseSettings)
+    .where(and(eq(exerciseSettings.userId, userId), eq(exerciseSettings.exerciseId, exerciseId)))
+    .all();
+  if (setting?.restSeconds != null) return setting.restSeconds;
+  const exercise = getExerciseRow(exerciseId);
+  // An id the catalog no longer knows rests at the plain default.
+  return exercise ? defaultRestFor(exercise) : DEFAULT_REST;
+};
+
+/** The rest of an exercise landing on a slot: the plan's own, swapping back to it; else its own. */
+const restOnSlot = (log: WorkoutLog, slotId: string, exerciseId: string): number => {
+  const [slot] = db
+    .select()
+    .from(workoutDayExercises)
+    .where(eq(workoutDayExercises.id, slotId))
+    .all();
+  const planned =
+    slot?.exerciseId === exerciseId
+      ? resolveRest(slot, weekConfigFor(slotId, log.weekNumber))
+      : null;
+  return planned ?? exerciseRestSeconds(log.userId, exerciseId);
+};
+
+/** Swap a snapshot slot to an alternative exercise for THIS session only; its timer follows. */
 export const swapSnapshotExercise = (
   logId: string,
   slotId: string,
   exerciseId: string,
   exerciseName: string,
   reason?: SwapReason,
-): void =>
+): void => {
+  const log = getWorkout(logId);
+  if (!log) return;
+  const restSeconds = restOnSlot(log, slotId, exerciseId);
   patchSnapshotSlot(logId, slotId, (p) => ({
     ...p,
     originalExerciseId: p.originalExerciseId ?? p.exerciseId,
     exerciseId,
     name: exerciseName,
+    restSeconds,
     ...(reason ? { swapReason: reason } : {}),
   }));
+};
 
 export type SwapScope =
   { kind: 'session' } | { kind: 'sessions'; count: number } | { kind: 'cycle' };
@@ -600,8 +664,12 @@ export const applySwap = (input: {
   if (!log || !slot || slot.workoutDayId !== log.workoutDayId) return;
   const userProgramId = slot.userProgramId ?? log.userProgramId;
   // Beyond today the swap follows the exercise onto the phase's other splits:
-  // the same exercise on a twin day is the same decision.
-  const targets = [slot, ...siblingSlots(slot)];
+  // the same exercise on a twin day is the same decision. A twin that already
+  // plans the new exercise keeps its slot, or the swap would repeat it there.
+  const targets = [
+    slot,
+    ...siblingSlots(slot).filter((twin) => !dayPlans(twin.workoutDayId, exerciseId)),
+  ];
   if (scope.kind === 'sessions' && scope.count > 1) {
     for (const target of targets) {
       db.update(workoutDayExercises)
@@ -614,6 +682,8 @@ export const applySwap = (input: {
         .run();
     }
   } else if (scope.kind === 'cycle' && slot.exerciseId !== exerciseId) {
+    const restSeconds = exerciseRestSeconds(log.userId, exerciseId);
+    const now = new Date();
     for (const target of targets) {
       const alternatives = [...(target.alternativeExerciseIds ?? []), target.exerciseId].filter(
         (id, i, all) => id !== exerciseId && all.indexOf(id) === i,
@@ -623,10 +693,20 @@ export const applySwap = (input: {
           exerciseId,
           alternativeExerciseIds: alternatives,
           swap: null,
+          defaultRestSeconds: restSeconds,
           userProgramId: target.userProgramId ?? userProgramId,
-          updatedAt: new Date(),
+          updatedAt: now,
         })
         .where(eq(workoutDayExercises.id, target.id))
+        .run();
+      // A week's rest override wins over the slot default, and it was written
+      // for the exercise that just left. Only rows holding one are stamped:
+      // `updatedAt` is what sync pushes.
+      db.update(weekConfigs)
+        .set({ restSeconds: null, updatedAt: now })
+        .where(
+          and(eq(weekConfigs.workoutDayExerciseId, target.id), isNotNull(weekConfigs.restSeconds)),
+        )
         .run();
     }
   }
@@ -653,11 +733,11 @@ export const skipSnapshotSet = (
   });
 
 /**
- * Finishing with planned rows still open: every one of them is marked skipped,
- * so the session closes as "these sets were missed", not as if the plan had
- * been shorter.
+ * Planned rows still open become skipped, so the session records "these sets
+ * were missed", not a plan that had been shorter: every exercise when it
+ * closes, or one exercise when the lifter moves on from it (`slotId`).
  */
-export const markRemainingSkipped = (logId: string): void => {
+export const markRemainingSkipped = (logId: string, slotId?: string): void => {
   const log = getWorkout(logId);
   if (!log?.plannedSnapshot) return;
   const working = db
@@ -667,7 +747,7 @@ export const markRemainingSkipped = (logId: string): void => {
     .all();
   const doneFor = (exerciseId: string) => working.filter((s) => s.exerciseId === exerciseId).length;
   const next = log.plannedSnapshot.map((p) => {
-    if (p.skipped) return p;
+    if (p.skipped || (slotId && p.slotId !== slotId)) return p;
     const total = plannedSets(p);
     const done = doneFor(p.exerciseId);
     const already = new Set(p.skippedSets ?? []);
@@ -727,7 +807,8 @@ export const propagateSlotMeta = (
             ...p,
             ...(meta.badges !== undefined && !p.originalExerciseId ? { badges: meta.badges } : {}),
             ...(meta.notes !== undefined ? { notes: meta.notes } : {}),
-            ...(rest !== undefined ? { restSeconds: rest } : {}),
+            // A swapped slot rests as the exercise on it, not as the planned one.
+            ...(rest !== undefined && !p.originalExerciseId ? { restSeconds: rest } : {}),
           }
         : p,
     );
@@ -799,8 +880,10 @@ export const sessionSummary = (logId: string, locale: Locale = 'en'): SessionSum
     .orderBy(asc(setLogs.createdAt), asc(setLogs.setNumber))
     .all();
   const volumeKg = Math.round(rows.reduce((sum, r) => sum + setVolumeKg(r), 0));
+  // A closed session keeps the length it was saved with (a past one is shared from the day sheet).
   const durationSeconds = log
-    ? Math.max(0, Math.round((Date.now() - log.startedAt.getTime()) / 1000))
+    ? (log.durationSeconds ??
+      Math.max(0, Math.round((Date.now() - log.startedAt.getTime()) / 1000)))
     : 0;
 
   const topByExercise = new Map<string, { weightKg: number; reps: number }>();
@@ -822,8 +905,8 @@ export const sessionSummary = (logId: string, locale: Locale = 'en'): SessionSum
   );
   const summaryExercises: SummaryExercise[] = [];
   for (const [exerciseId, top] of topByExercise) {
-    // The best of every COMPLETED session: this one is still in progress, so
-    // it is not in the comparison and a first-ever session counts as a record.
+    // The best of the COMPLETED sessions before this one, so a past session
+    // shared later keeps its records; a first-ever session counts as one.
     const [best] = db
       .select({ weightKg: setLogs.weightKg })
       .from(setLogs)
@@ -833,6 +916,8 @@ export const sessionSummary = (logId: string, locale: Locale = 'en'): SessionSum
           eq(setLogs.exerciseId, exerciseId),
           eq(setLogs.isWarmup, false),
           eq(workoutLogs.status, 'completed'),
+          ne(workoutLogs.id, logId),
+          log ? lte(workoutLogs.startedAt, log.startedAt) : undefined,
         ),
       )
       .orderBy(desc(setLogs.weightKg))

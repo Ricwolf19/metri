@@ -1,12 +1,18 @@
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 
 import { PlusIcon, TrashIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import { Button, HoldButton, Screen, useToast } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
-import { addSlot, getDay, getSlot, setSlotAlternatives } from '@/features/training/authoring.repo';
+import {
+  addSlot,
+  getDay,
+  getSlot,
+  setSlotAlternatives,
+  slotsQuery,
+} from '@/features/training/authoring.repo';
 import { ExerciseList } from '@/features/training/components/ExerciseList';
 import { NewExerciseForm } from '@/features/training/components/NewExerciseForm';
 import { deleteCustomExercise } from '@/features/training/exercises.repo';
@@ -24,6 +30,19 @@ const ExercisePicker = () => {
 
   const day = typeof dayId === 'string' ? getDay(dayId) : null;
   const [creating, setCreating] = useState(false);
+  // Sets are counted per exercise, so a split never plans the same one twice.
+  // An alternative is a different list: there any exercise may be offered.
+  const onDay = useMemo(
+    () =>
+      typeof dayId === 'string' && typeof altFor !== 'string'
+        ? new Set(
+            slotsQuery(dayId)
+              .all()
+              .map((r) => r.exercise.id),
+          )
+        : undefined,
+    [dayId, altFor],
+  );
 
   if (!user || !day || typeof dayId !== 'string') return <Redirect href="/training" />;
 
@@ -76,6 +95,7 @@ const ExercisePicker = () => {
         <ExerciseList
           userId={user.id}
           onPick={(e) => pick(e.id)}
+          exclude={onDay}
           showDoc
           rowIcon={<PlusIcon color={brand} size={20} />}
           above={

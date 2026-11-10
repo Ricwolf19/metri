@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AppState, Pressable, Text, View } from 'react-native';
+import { AccessibilityInfo, AppState, Pressable, Text, View } from 'react-native';
 
 import { CheckIcon, TimerIcon, XIcon } from '@/components/icons';
 import { ScrollRow } from '@/components/ui';
@@ -93,6 +93,9 @@ export const RestTimer = ({ endsAt, onExtend, onDone }: Props) => {
       // running once the screen goes off; this screen just changes its face.
       if (left <= 0 && !firedRef.current) {
         firedRef.current = true;
+        // Said once per rest, by the same latch: the countdown itself is never
+        // a live region (a tick every half second would talk over everything).
+        AccessibilityInfo.announceForAccessibility(t('training.restOver'));
       }
     };
     const interval = setInterval(tick, 500);
@@ -104,7 +107,7 @@ export const RestTimer = ({ endsAt, onExtend, onDone }: Props) => {
       clearInterval(interval);
       sub.remove();
     };
-  }, [endsAt]);
+  }, [endsAt, t]);
 
   return (
     <View
@@ -116,12 +119,18 @@ export const RestTimer = ({ endsAt, onExtend, onDone }: Props) => {
       <View className="flex-row items-center justify-between">
         <View className="flex-row items-center">
           <TimerIcon color={brand} size={24} />
-          <Text className="ml-2 text-base font-sans-semibold text-brand">
+          <Text
+            maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+            className="ml-2 text-base font-sans-semibold text-brand"
+          >
             {over ? t('training.restOver') : t('training.rest')}
           </Text>
         </View>
         {over ? null : (
-          <Text className="text-4xl font-sans-bold tabular-nums text-brand">
+          <Text
+            maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+            className="text-4xl font-sans-bold tabular-nums text-brand"
+          >
             {mmss(Math.max(0, remaining))}
           </Text>
         )}
@@ -135,6 +144,7 @@ export const RestTimer = ({ endsAt, onExtend, onDone }: Props) => {
           ].join(' ')}
         >
           <Text
+            maxFontSizeMultiplier={CONTROL_FONT_SCALE}
             className={[
               'mr-1.5 text-sm font-sans-semibold',
               over ? 'text-brandContrast' : 'text-brand',

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { PlannedSlot } from '@/db/schema';
 
-import { nextSetSummary, remainingSets, resolvedSets } from './rest-summary';
+import { nextSetSummary, resolvedSets } from './rest-summary';
 
 const slot = (
   id: string,
@@ -103,11 +103,5 @@ describe('skipped sets and exercises', () => {
     expect(resolvedSets(skippedExercise, 0)).toBe(3);
     const next = nextSetSummary([planned[0], skippedExercise, planned[2]], 'a', 3, () => 0);
     expect(next).toMatchObject({ kind: 'next', slotId: 'c' });
-  });
-
-  it('remainingSets counts what is neither logged nor skipped', () => {
-    const done: Record<string, number> = { 'ex-a': 3, 'ex-b': 1, 'ex-c': 0 };
-    expect(remainingSets(planned, (id) => done[id] ?? 0)).toBe(4);
-    expect(remainingSets([planned[0], skippedSet, skippedExercise], (id) => done[id] ?? 0)).toBe(1);
   });
 });

@@ -33,6 +33,8 @@ type Props = {
   onChange: (patch: Partial<RowDraft>) => void;
   onConfirm: () => void;
   onRemove?: () => void;
+  /** What the X does here, for screen readers: drop an extra row, or stop a correction. */
+  removeLabel?: string;
   /** Mark this planned set as missed and move on (the card confirms first). */
   onSkip?: () => void;
   onOpenCalculator?: () => void;
@@ -82,6 +84,7 @@ export const ActiveSetRow = ({
   onChange,
   onConfirm,
   onRemove,
+  removeLabel,
   onSkip,
   onOpenCalculator,
   detailActive = false,
@@ -108,8 +111,16 @@ export const ActiveSetRow = ({
           {label}
           {legend ? ` | ${legend}` : ''}
         </Text>
+        {/* 36 dp plus a 4 dp slop; the negative margins keep the header one
+            text line tall, so the fields below never move. */}
         {onRemove ? (
-          <Pressable onPress={onRemove} hitSlop={8} accessibilityRole="button">
+          <Pressable
+            onPress={onRemove}
+            hitSlop={4}
+            accessibilityRole="button"
+            accessibilityLabel={removeLabel ?? t('training.removeSet')}
+            className="-my-2.5 -mr-2 h-9 w-9 items-center justify-center rounded-full active:bg-ink-700"
+          >
             <XIcon color={muted} size={14} />
           </Pressable>
         ) : null}
@@ -155,17 +166,16 @@ export const ActiveSetRow = ({
         </View>
       </View>
       <View className="mt-2 flex-row items-center gap-2">
-        <View className="min-h-10 min-w-0 flex-1 justify-center">
+        <View className="min-h-11 min-w-0 flex-1 justify-center">
           {tag || caption || breakdown ? (
             <ScrollRow className="items-center gap-x-1.5">
               {tag ? (
                 <Pressable
                   onPress={onChangeKind}
                   disabled={!onChangeKind}
-                  hitSlop={6}
                   accessibilityRole={onChangeKind ? 'button' : undefined}
                   accessibilityHint={onChangeKind ? t('training.loadKindHint') : undefined}
-                  className="flex-row items-center gap-0.5"
+                  className="min-h-11 flex-row items-center gap-0.5"
                 >
                   <Text
                     numberOfLines={1}
@@ -196,10 +206,9 @@ export const ActiveSetRow = ({
         {onSkip ? (
           <Pressable
             onPress={onSkip}
-            hitSlop={6}
             accessibilityRole="button"
             accessibilityLabel={t('training.skipSet')}
-            className="h-10 shrink-0 items-center justify-center gap-0.5 rounded-field px-2"
+            className="min-h-11 shrink-0 items-center justify-center gap-0.5 rounded-field px-2"
           >
             <SkipIcon color={muted} size={16} />
             <Text
@@ -216,7 +225,7 @@ export const ActiveSetRow = ({
             accessibilityRole="button"
             accessibilityLabel={t('training.calculatorTitle')}
             className={[
-              'h-10 w-10 shrink-0 items-center justify-center rounded-field border',
+              'h-11 w-11 shrink-0 items-center justify-center rounded-field border',
               detailActive ? 'border-info/40 bg-info/10' : 'border-ink-700 bg-ink-800',
             ].join(' ')}
           >
@@ -227,7 +236,7 @@ export const ActiveSetRow = ({
           onPress={onConfirm}
           accessibilityRole="button"
           accessibilityLabel={t('training.addSet')}
-          className="h-10 w-12 shrink-0 items-center justify-center rounded-field bg-brand"
+          className="h-11 w-12 shrink-0 items-center justify-center rounded-field bg-brand"
         >
           <CheckIcon color={brandContrast} size={22} />
         </Pressable>

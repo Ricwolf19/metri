@@ -77,7 +77,7 @@ describe('propagateSlotMeta via saveSlotDraft', () => {
       db.delete(t).run();
   });
 
-  it('keeps the week rest override, skips swapped badges and leaves finished logs alone', () => {
+  it('keeps the week rest override, skips a swapped slot (badges and rest) and leaves finished logs alone', () => {
     const program = createCustomProgram(USER, { name: 'P' });
     const phase = addRoutine(program.id, null, { name: '', durationWeeks: 2 });
     const day = addDay(phase.id, null, { name: '' });
@@ -110,8 +110,9 @@ describe('propagateSlotMeta via saveSlotDraft', () => {
       notes: 'wide',
     });
     // Week 1 has no override → the slot default; the variant keeps its own badges.
+    // The swapped slot rests as the exercise on it, not as the planned one.
     expect(snapshotOf('swapped-w1')).toMatchObject({
-      restSeconds: 120,
+      restSeconds: 90,
       badges: ['VARIANT'],
       notes: 'wide',
     });

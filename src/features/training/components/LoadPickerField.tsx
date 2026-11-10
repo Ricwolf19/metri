@@ -5,6 +5,7 @@ import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 import { useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
+import { trendPhrase } from '../session-a11y';
 import type { Trend } from '../set-prefill';
 import { TrendArrow } from './TrendArrow';
 import { UnitSuffix } from './UnitSuffix';
@@ -29,11 +30,18 @@ export const LoadPickerField = ({ value, unitLabel, onPress, trend = null }: Pro
   const t = useT();
   const { info, muted } = useTheme();
   const empty = value === '';
+  // The arrow inside is part of this one element, so its direction rides in the label.
+  const label = [
+    `${t('training.weight')}: ${empty ? t('training.pickLoad') : `${value} ${unitLabel}`}`,
+    trendPhrase(trend, t),
+  ]
+    .filter(Boolean)
+    .join(', ');
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${t('training.weight')}: ${empty ? '—' : `${value} ${unitLabel}`}`}
+      accessibilityLabel={label}
       accessibilityHint={t('training.pickLoadHint')}
       className="min-h-12 flex-row items-stretch overflow-hidden rounded-field border border-info/40 bg-ink-900 active:bg-ink-850"
     >
@@ -51,7 +59,7 @@ export const LoadPickerField = ({ value, unitLabel, onPress, trend = null }: Pro
         </Text>
       </View>
       <View className="items-center justify-center border-l border-ink-700 bg-ink-850 px-2">
-        <TrendArrow trend={trend} />
+        <TrendArrow trend={trend} accessible={false} />
         <UnitSuffix label={unitLabel} />
       </View>
     </Pressable>

@@ -19,22 +19,11 @@ export const plannedSets = (slot: PlannedSlot) => slot.setGroups.reduce((n, g) =
 /**
  * How many of a slot's planned rows are settled: logged sets plus skipped
  * ones, or every row once the whole exercise is skipped. Paging, the progress
- * bar and the finish guard all read this, so a skip moves the session on
+ * bar and the open-exercise guard all read this, so a skip moves the session on
  * exactly like a logged set does.
  */
 export const resolvedSets = (slot: PlannedSlot, done: number): number =>
   slot.skipped ? plannedSets(slot) : done + (slot.skippedSets?.length ?? 0);
-
-/** Planned rows still neither logged nor skipped, across the session. */
-export const remainingSets = (
-  planned: readonly PlannedSlot[],
-  doneFor: (exerciseId: string) => number,
-): number =>
-  planned.reduce(
-    (sum, slot) =>
-      sum + Math.max(0, plannedSets(slot) - resolvedSets(slot, doneFor(slot.exerciseId))),
-    0,
-  );
 
 const repsForSet = (slot: PlannedSlot, setIndex: number): string => {
   let i = setIndex;

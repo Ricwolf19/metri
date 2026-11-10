@@ -3,6 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { MinusIcon, PlusIcon } from '@/components/icons';
 import { ScrollRow } from '@/components/ui';
+import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 import { useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
@@ -21,7 +22,9 @@ type Props = {
  * and the keyboard takes over.
  */
 const STEPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-const BTN = 'h-9 flex-1 items-center justify-center rounded-field border border-ink-700 bg-ink-800';
+/** 44 dp tall at least: the bar sits under a thumb mid-set. */
+const BTN =
+  'min-h-11 flex-1 items-center justify-center rounded-field border border-ink-700 bg-ink-800';
 
 /**
  * A −/+ pair showing its own step between the buttons. No visible caption:
@@ -44,7 +47,7 @@ export const StepGroup = ({
   return (
     <View className="flex-1">
       {picking ? (
-        <View className="h-9 justify-center">
+        <View className="min-h-11 justify-center">
           <ScrollRow className="gap-1">
             {steps.map((n) => (
               <Pressable
@@ -54,13 +57,15 @@ export const StepGroup = ({
                   setPicking(false);
                 }}
                 accessibilityRole="button"
+                accessibilityLabel={t('training.stepSize', { n })}
                 accessibilityState={{ selected: n === step }}
                 className={[
-                  'h-8 min-w-8 shrink-0 items-center justify-center rounded-field border px-1.5',
+                  'min-h-11 min-w-11 shrink-0 items-center justify-center rounded-field border px-1.5',
                   n === step ? 'border-brand/50 bg-brand/15' : 'border-ink-700 bg-ink-800',
                 ].join(' ')}
               >
                 <Text
+                  maxFontSizeMultiplier={CONTROL_FONT_SCALE}
                   className={[
                     'text-xs font-sans-semibold',
                     n === step ? 'text-brand' : 'text-ink-300',
@@ -73,7 +78,7 @@ export const StepGroup = ({
           </ScrollRow>
         </View>
       ) : (
-        <View className="flex-row items-center gap-1.5">
+        <View className="flex-row items-center gap-1">
           <Pressable
             onPress={() => onBump(-step)}
             onLongPress={() => setPicking(true)}
@@ -85,13 +90,19 @@ export const StepGroup = ({
             <MinusIcon color={muted} size={15} />
           </Pressable>
 
+          {/* As tall as the ± beside it; the width is all the bar can spare. */}
           <Pressable
             onPress={() => setPicking(true)}
             accessibilityRole="button"
             accessibilityLabel={t('training.stepSize', { n: step })}
-            className="h-9 w-8 items-center justify-center"
+            className="min-h-11 min-w-8 items-center justify-center px-0.5"
           >
-            <Text className="text-xs font-sans-bold text-brand">{step}</Text>
+            <Text
+              maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+              className="text-xs font-sans-bold text-brand"
+            >
+              {step}
+            </Text>
           </Pressable>
 
           <Pressable

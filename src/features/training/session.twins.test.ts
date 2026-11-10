@@ -185,7 +185,7 @@ describe('adding an exercise to a live session', () => {
     expect(snapshot(log.id).at(-1)).toMatchObject({
       exerciseId: 'row',
       added: { at: expect.any(Number) },
-      setGroups: [{ sets: 3, reps: 8 }],
+      setGroups: [{ sets: 1, reps: 8 }],
     });
     expect(orderOf('c')).not.toContain(entry?.slotId);
     expect(orderOf('c')).toHaveLength(3);

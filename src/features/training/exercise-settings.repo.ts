@@ -11,7 +11,8 @@ import {
 } from '@/db/schema';
 import { randomId } from '@/lib/crypto';
 
-import { propagateSlotMeta } from './session.repo';
+import { catalogRestSeconds, propagateSlotMeta } from './session.repo';
+import { DEFAULT_REST } from './slot-draft';
 
 /** @see src/db/schema.ts `exerciseSettings` — per-user defaults for an exercise. */
 export const getExerciseSetting = (userId: string, exerciseId: string): ExerciseSetting | null =>
@@ -42,14 +43,17 @@ export const exerciseSettingsQuery = (userId: string, exerciseIds: string[]) =>
       ),
     );
 
-/** Plain rest for a slot when the owner configured none. */
-const FALLBACK_REST_SECONDS = 120;
-
-/** What `addSlot` writes onto a new slot from the owner's defaults (or none). */
+/**
+ * What `addSlot` writes onto a new slot from the owner's defaults (or none).
+ * With no rest configured the slot rests at `fallbackRest` — the exercise's
+ * own (`catalogRestSeconds`), so a new slot, a swap and a mid-session add all
+ * agree, and settings propagation compares against the same baseline.
+ */
 export const slotSeed = (
   preset: Pick<ExerciseSetting, 'restSeconds' | 'badges' | 'alternativeExerciseIds'> | null,
+  fallbackRest: number = DEFAULT_REST,
 ): Pick<WorkoutDayExercise, 'defaultRestSeconds' | 'badges' | 'alternativeExerciseIds'> => ({
-  defaultRestSeconds: preset?.restSeconds ?? FALLBACK_REST_SECONDS,
+  defaultRestSeconds: preset?.restSeconds ?? fallbackRest,
   badges: preset?.badges?.length ? preset.badges : null,
   alternativeExerciseIds: preset?.alternativeExerciseIds?.length
     ? preset.alternativeExerciseIds
@@ -93,8 +97,9 @@ const propagateSettingsToEnrolled = (
   previous: ExerciseSetting | null,
   current: ExerciseSetting | null,
 ): void => {
-  const before = slotSeed(previous);
-  const after = slotSeed(current);
+  const fallbackRest = catalogRestSeconds(exerciseId);
+  const before = slotSeed(previous, fallbackRest);
+  const after = slotSeed(current, fallbackRest);
   const fields = (['defaultRestSeconds', 'badges', 'alternativeExerciseIds'] as const).filter(
     (f) => !sameValue(before[f], after[f]),
   );

@@ -1,6 +1,6 @@
 import type { PlannedSlot } from '@/db/schema';
 
-import { plannedSets } from './rest-summary';
+import { nextSetSummary, plannedSets, resolvedSets, type NextSet } from './rest-summary';
 
 /**
  * Where an exercise of the live session stands, as the chip strip paints it:
@@ -58,6 +58,43 @@ export const mergeOrder = (
 ): string[] => {
   let k = 0;
   return snapshotIds.map((id) => (missedIds.has(id) ? id : (activeIds[k++] ?? id)));
+};
+
+/**
+ * An exercise under way with planned sets still open, other than `slotId`
+ * (null: any). It has to be finished or marked missed before a set goes on
+ * another one, which is what lets a session close without asking about open rows.
+ */
+export const pendingElsewhere = (
+  planned: readonly PlannedSlot[],
+  slotId: string | null,
+  doneFor: (exerciseId: string) => number,
+): { slot: PlannedSlot; open: number } | null => {
+  // Sets are counted per exercise: two grips of one exercise (a preset's narrow
+  // and wide pull-down) share their count, and never hold each other up.
+  const logging = planned.find((p) => p.slotId === slotId)?.exerciseId;
+  for (const slot of planned) {
+    if (slot.slotId === slotId || slot.exerciseId === logging) continue;
+    const done = doneFor(slot.exerciseId);
+    const open = plannedSets(slot) - resolvedSets(slot, done);
+    if (open > 0 && slotState(slot, done) === 'partial') return { slot, open };
+  }
+  return null;
+};
+
+/**
+ * The set the session is heading for, as the notification names it: the
+ * exercise under way, else the first with sets open in the CURRENT order — so
+ * a reorder changes it. A pure read of the session, never of the last answer.
+ */
+export const sessionNext = (
+  planned: PlannedSlot[],
+  doneFor: (exerciseId: string) => number,
+): NextSet => {
+  const begun = pendingElsewhere(planned, null, doneFor)?.slot;
+  return begun
+    ? nextSetSummary(planned, begun.slotId, doneFor(begun.exerciseId), doneFor)
+    : nextSetSummary(planned, '', 0, doneFor);
 };
 
 /**

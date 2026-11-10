@@ -20,7 +20,7 @@ import {
 import { recordDeletion } from '@/features/sync/tombstones';
 import { randomId } from '@/lib/crypto';
 
-import { propagateSlotMeta } from './session.repo';
+import { catalogRestSeconds, propagateSlotMeta } from './session.repo';
 import { getExerciseSetting, slotSeed } from './exercise-settings.repo';
 import { exerciseHeads, type MuscleHead } from './muscles';
 
@@ -400,6 +400,8 @@ export const addSlot = (
   dayId: string,
   userProgramId: string | null,
   exerciseId: string,
+  /** Overrides the seeded rest: a slot added mid-session already knows its exercise's. */
+  restSeconds?: number,
 ): WorkoutDayExercise => {
   const orderIndex = slotSiblings(dayId).length;
   // The program owner's per-exercise defaults seed the new slot.
@@ -419,7 +421,8 @@ export const addSlot = (
       workoutDayId: dayId,
       exerciseId,
       orderIndex,
-      ...slotSeed(preset),
+      ...slotSeed(preset, catalogRestSeconds(exerciseId)),
+      ...(restSeconds != null ? { defaultRestSeconds: restSeconds } : {}),
       userProgramId,
     })
     .returning()
