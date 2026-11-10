@@ -170,8 +170,7 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   `programs/badge-copy.ts` (`badgeLabel`, either language's spelling finds the pair); the stored
   string stays whatever the seed or the lifter wrote. A pause carries a `detail` ("Hold the
   bottom 1 s before pushing", `badgeDetail`) and the session card draws it in `info`, spelled
-  out — a two-word pill was forgotten by set three. The PB2 PDFs were re-read on 2026-10-20: the
-  seven pause badges in the Progression preset are exactly what the source prescribes.
+  out — a two-word pill was forgotten by set three. Both presets were re-read against their sheets on 2026-11-09 (PB1 → Foundations, PB2 → Progression): the sheets print a pause length ONLY on Progression phase 2's bench (2 s), so every other pause is a plain "Pausa" (the old "Pausa 1s" was an invention); Foundations' false pyramids carry "Mismo peso" (one weight, the 8-rep max, across the sets). A cue that named a grip or kit is gone: the grip or the kit IS the exercise now.
 - **Dev-only demo data**: `bun run dev:seed` (`scripts/dev-seed.ts`, `--ios` for the simulator)
   opens the deep link `metri://dev/seed`; the `src/app/dev/seed.tsx` screen (mounts under
   `__DEV__` only, redirects otherwise) wipes the user's training, body and diary rows, creates a
@@ -245,6 +244,17 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   "Read more", expands or navigates); tappable knowledge is a `<TextLink>` (lime underline, same
   look as markdown links). Controls cap the OS font multiplier with
   `maxFontSizeMultiplier={CONTROL_FONT_SCALE}` (`components/ui/typography.ts`); body copy never.
+- **Accessibility** (audited 2026-11-09, mirrored on metri.info). Selected text sits on lime at
+  40 % (`TEXT_SELECTION`, spread on every TextInput through `useTheme().textSelection`; Android
+  also gets an opaque caret and handles): the opaque lime made selected text 1.16:1. `ink-400`
+  is 136 136 146 and `ink-500` 124 124 134 so muted copy reads ≥ 4.5:1 on ink-900 (`global.css`
+  and metri.info's tokens carry the same values). Under a screen reader a `<HoldButton>` ARMS on
+  the first activation and fires on a second within 4 s — a TalkBack double-tap is a click, not a
+  hold. State is never colour alone: session chips carry a glyph, the calendar strikes a missed
+  day and outlines a rest day, the week strip uses shapes. Controls reach 44 dp (size or
+  hitSlop); toasts, a logged set, rest over and each ± step are announced
+  (`announceForAccessibility`, never a live region on ticking text). Functional progress (the
+  hold fill, countdowns) uses `ReduceMotion.Never`; decoration follows the system setting.
 - **Docs markdown** (`features/docs/markdownStyles.ts`) must override every block the library
   styles by default (`fence`, `code_block`, `code_inline`, `link`…) — its defaults are light-theme
   hex that leak through. Formula blocks are one short line per formula, no column alignment.
@@ -286,9 +296,7 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   the headless redraws have no i18n. notifee keeps ONE background handler per process, so a
   second module registering its own silently unhooks the actions. The session screen redraws the
   card whenever its next set changes for any reason — a restored skip, a deleted set, a swap, a
-  reorder, the unit — anchored on the set the card already names, and a skip moves on from THAT
-  set, not from the exercise skipped (skipping one further down used to point the card past the
-  half-done exercise). **A swiped-away card stays
+  reorder, the unit — from `sessionNext`: the exercise under way, else the first with sets open in the CURRENT order. A skip moves on the same way, not from the exercise skipped (skipping one further down used to point the card past the half-done exercise). **A swiped-away card stays
   away**: the DISMISSED event sets `hidden` on the session record and `draw` skips the training
   and rest faces until the next session (rest-over still rings — it was asked for); a redraw never
   clears the flag, only a fresh workout does. `showSession` writes the MMKV
@@ -340,7 +348,7 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   near-black = missed, gray = rest) for the calendar, the week strip and the day sheet — never inline.
 - **Adherence follows the schedule.** Only PLANNED weekdays (`training_weekdays`, re-derived by
   `refreshTrainingWeekdays` from the current phase) can break a streak or raise the catch-up banner;
-  unlogged unplanned days are neutral, and with no schedule every unlogged day breaks. Finishing a
+  unlogged unplanned days are neutral, and with no schedule every unlogged day breaks. **The calendar fills itself** (`planAutoMarks` / `reconcileAutoAdherence`, run by `useAutoAdherence` on mount and foreground and by `closeSession` on finish): a planned day of the active enrollment that has PASSED with nothing marked is written missed with no reason (`skipPlannedDay`), never today and nothing before the enrollment started; a session finished on an unplanned day within `MOVED_GRACE_DAYS` (2) makes up the nearest open planned day before it, which becomes `rest` + reason `moved`, so the streak holds; each session makes up one day. Only empty days and automatic misses (`isAutoMissed`: skipped, no reason, no legacy log) are ever written: a reason the lifter chose is their word. An empty day is judged ONCE (an `app_meta` bookmark; the first run looks back at most `CATCHUP_DAYS_BACK`), so a schedule change never rewrites settled weeks, and every automatic mark is stamped at the START of its own day (`stampedAt`): sync never pushes it and any real answer, from any device, wins under last-write-wins. A red day changes only with a reason (the day sheet asks), and `skip_reason` may ride any status. The schedule read is the CURRENT phase's weekdays. Finishing a
   workout marks the day; manual marking in the Day Detail sheet is the fallback for any past date.
   The Home catch-up asks about unresolved planned days up to 30 back (trained / rest / missed, plus
   a bulk "all missed"), and about TODAY only once its scheduled session plus the check-in delay has
@@ -431,16 +439,12 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   (its own component — `ChipRow` no longer carries session states), Prev/Next on the row above
   the card. A chip's FILL is its state (`slotState`, `session-order.ts`): brand = every set
   logged, amber = partly (a set logged and some left or skipped), red = missed (nothing logged,
-  the exercise or all its sets skipped), gray = not begun; FOCUS is a dotted underline, never a
-  fill — a selected chip used to read as done. Missed exercises sit at the end behind a divider
+  the exercise or all its sets skipped), gray = not begun; FOCUS is a dotted border around the chip, never a fill — a selected chip used to read as done. Missed exercises sit at the end behind a divider
   (`sessionOrder`, display only: the snapshot keeps their place, so a restore puts them back;
-  every reorder writes through `mergeOrder`). The page is tracked by slot id, not index. A first
-  set on an exercise while an EARLIER one has not begun asks to move it up to be next
-  (`chronologyMove`): the session records the order it was trained in. A small pencil marks an
+  every reorder writes through `mergeOrder`). The page is tracked by slot id, not index. An exercise left half done is settled first: a set on another one asks to go back or mark its open sets missed (`pendingElsewhere`). A first set on an exercise while an EARLIER one has not begun asks to move it up to be next (`chronologyMove`): the session records the order it was trained in. Paging on happens only after the planned sets of a planned exercise; an extra set (RIR required, its row spent on logging) or an exercise added today stays on the page. A small pencil marks an
   exercise with a personal note; the card's header pencil (with a "+" until there is a note)
   opens the editor. The phantom "+ Add" chip after the exercises in play adds any library
-  exercise not already in the session (`addSessionExercise`): today only (a snapshot slot with
-  its own id and `PlannedSlot.added`, additive JSON) or kept in the split (`addSlot` first).
+  exercise not already in the session (`addSessionExercise`) with ONE set, more through "Extra set": today only (a snapshot slot with its own id and `PlannedSlot.added`, additive JSON) or kept in the split (`addSlot` first).
   **Reorder is a hold on a chip**: the lifted chip (dashed outline, grip) moves
   one place per arrow tap — `reorderSnapshot` at once — and a tap on the strip puts it down,
   which asks once whether the order is today's or from now on (`reorderSplitFromNowOn`: the
@@ -461,7 +465,7 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   under it.
   A base prefix and an arrow beside the number clipped "132.5" on a phone, and a truncated
   header hid the target.
-- **Swaps have a scope and skips write "missed".** The swap sheet (`SwapSheet`) lists the
+- **Swaps have a scope and skips write "missed". The timer follows the exercise** (`exerciseRestSeconds`: the lifter's `exercise_settings` rest, else `catalogRestSeconds` → `defaultRestFor` — the same baseline `slotSeed` gives a new slot and settings propagation compares against; `propagateSlotMeta` never re-rests a swapped slot; the presets' two bands read from what it trains (the sheets rest 2–3 min on everything: 3 on the main lifts); a rest-of-cycle swap clears the slot's week overrides, written for the exercise that left). The swap sheet (`SwapSheet`) lists the
   variants first (the plan's movement on other kit) and, set apart, other movements for the same
   muscles (`similarExercises`: a shared primary head, or a `SIBLING_HEADS` one — never the
   category, which pairs biceps with triceps). Picking one opens `SwapScopeSheet`:
@@ -471,15 +475,14 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   the planned exercise among its alternatives; templates never). Beyond today a swap reaches
   the same exercise on the phase's OTHER splits (`siblingSlots`, by exercise + occurrence), and
   "next N sessions" is ONE countdown shared by those twins — N sessions with the exercise,
-  whichever split they fall on. "Enrolled" is proven through
+  whichever split they fall on. A twin that already plans the new exercise keeps its slot, and neither the sheet nor the editor's picker offers one already on the split: sets are counted per exercise, so a second copy reads as the first one's sets. "Enrolled" is proven through
   the LOG (the slot sits on the day the session started from), not through
   `workout_day_exercises.user_program_id`: copies enrolled before migration 0008 carry NULL
   there and the swap silently went nowhere; the column is backfilled on the way. A skipped set
   (`PlannedSlot.skippedSets`, 0-based ordinals) or exercise (`PlannedSlot.skipped`) is a
   snapshot field, confirmed with a hold, and counts as SETTLED (`resolvedSets`) for paging,
-  the progress bar and the finish guard — never as trained: `sessionSummary.missedSets` says
-  how much was missed. Finishing with planned rows still open asks once and
-  `markRemainingSkipped` writes them before the log closes.
+  the progress bar and the open-exercise guard — never as trained: `sessionSummary.missedSets` says
+  how much was missed. Finishing never asks about open rows (the guard above already settled anything half done): `markRemainingSkipped` writes what is left before the log closes.
 - **`exercises.unilateral`** (seed v9 for the catalog, a toggle on custom exercises) only tags
   and captions — one `set_logs` row per set, the weight per side; left/right rows are a later
   step, not a column to add casually.
@@ -489,8 +492,7 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   lands on the next launch) and can only be copied, never edited or deleted; only `is_custom`
   rows sync. The shipped content follows RAMP (raise, activate, mobilise, potentiate) and static
   stretching stays after the session — don't "fix" that into a pre-lift stretch.
-- **Share cards** render ONE template (`components/ui/share/ShareCard`) from a pure `ShareModel`
-  (`features/share/models.ts`) inside `ShareSheet`, the only caller of `useShareCard`. Exercise
+- **Share cards** are the SESSION card only (owner's call, 2026-11-09: the exercise, plan and day variants are gone): ONE template (`components/ui/share/ShareCard`) from `sessionShareModel` (`features/share/models.ts`) inside `ShareSheet`, the only caller of `useShareCard`, opened from the finish modal and from a session in the day sheet. Exercise
   rows carry the FULL exercise name, clamped to one line with an ellipsis, with the result in a
   fixed right-aligned column (codes were tried and read worse). A card is a PNG the lifter hands
   to the OS share sheet themselves; no card ever carries a progress photo.
@@ -602,8 +604,7 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
 - **Seed ids are a contract.** Catalog exercise ids and preset template ids (`metri-foundations`,
   `metri-progression`) are referenced by user history and enrolled copies. `seedTraining` is
   versioned in `app_meta` (v9 flips `unilateral` through the upsert; v11 drops the "O similar" cue —
-  `RETIRED_BADGES` in `session-badges.ts` hides it on open snapshots; v15 moves ENROLLED
-  Foundations phase 1 onto the lying press too, keeping the seated one as an alternative; v14 corrects the presets
+  `RETIRED_BADGES` in `session-badges.ts` hides it on open snapshots; v15 moves ENROLLED Foundations phase 1 onto the lying press too, keeping the seated one as an alternative; v17 re-reads both presets against the sheets: new catalog exercises for the grips and the machines the sheets draw (`supinated-`/`close-grip-`/`wide-grip-lat-pulldown`, `decline-sit-up`, `machine-crunch`, `machine-fly`, `machine-rear-delt-fly`, `cable-pullover`, `cable-hammer-curl`, `barbell-spider-curl`), Foundations rests at 2 min where it had 90 s, its phase 3 as four 1-week routines (`r3w1`…`r3w4`, A·B·A / B·A·B alternating weekly as the sheet recommends; `r3a`/`r3b` retired), and `correctEnrolledCopies` carries it into enrolled copies — a phase 3 not yet reached, trained or edited is rebuilt on the same weekdays (ids derived from enrollment + template, so two synced devices write the same rows), wrong slots move (`SLOT_FIXES`), and sets logged on a grip cue move to the grip's exercise when the session snapshot holds ONE pulldown carrying that cue AND its plan slot now trains that grip (`rekeyGripHistory`, the one place a seed relabels history); v14 corrects the presets
   against the source PDFs — the French press is lying (`skullcrusher`, `barbell-skullcrusher`)
   or overhead (`overhead-tricep-extension`, `cable-overhead-extension`, `french-press`), two
   families, never one); removing a built-in
@@ -623,7 +624,7 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   add new frames as id-named files plus literal `require`s in `ExerciseFrames.tsx` (Metro only
   bundles statically reachable assets). Custom exercises match visuals by name in
   `exercise-visuals.ts`; no schema field is involved.
-- **Equipment variants** are separate catalog exercises grouped in `FAMILIES` (`variants.ts`);
+- **Equipment variants** are separate catalog exercises grouped in `FAMILIES` (`variants.ts`); so are the pulldown GRIPS (sets are counted per exercise, so two grips on one id shared their count), which share one family with the pull-ups;
   the mid-session swap offers the slot's alternatives plus those, and the snapshot keeps
   `originalExerciseId` to swap back. Prefill is keyed by the exercise on the card, never the
   slot, so loads never cross variants. Personal exercise notes (`exercise_notes`) are local-only
