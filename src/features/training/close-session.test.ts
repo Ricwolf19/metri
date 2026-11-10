@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { reconcileAutoAdherence } from './auto-adherence.repo';
 import { closeSession } from './close-session';
 import { readSessionDrafts, writeDraft } from './workout-drafts';
 
@@ -11,6 +12,12 @@ vi.mock('@/features/notifications/rest-notification', () => ({
 }));
 vi.mock('./reminders', () => ({
   syncTrainingReminder: vi.fn(async (userId: string) => void calls.push(`reminder:${userId}`)),
+}));
+vi.mock('./auto-adherence.repo', () => ({
+  reconcileAutoAdherence: vi.fn((userId: string) => void calls.push(`adherence:${userId}`)),
+}));
+vi.mock('@/lib/telemetry', () => ({
+  captureError: vi.fn(() => void calls.push('captureError')),
 }));
 vi.mock('./session.repo', () => ({
   finishWorkout: vi.fn((id: string) => void calls.push(`finish:${id}`)),
@@ -25,7 +32,28 @@ describe('closeSession', () => {
 
   it('finishes: saves, stops the rest and session, clears drafts, refreshes the reminder', () => {
     closeSession('finish', 'log-1', 'user-1');
-    expect(calls).toEqual(['finish:log-1', 'endRest', 'endSession', 'reminder:user-1']);
+    expect(calls).toEqual([
+      'finish:log-1',
+      'endRest',
+      'endSession',
+      'reminder:user-1',
+      'adherence:user-1',
+    ]);
+    expect(readSessionDrafts('log-1').size).toBe(0);
+  });
+
+  it('finishes even when the calendar fill throws: it is reported, never rethrown', () => {
+    vi.mocked(reconcileAutoAdherence).mockImplementationOnce(() => {
+      throw new Error('boom');
+    });
+    expect(() => closeSession('finish', 'log-1', 'user-1')).not.toThrow();
+    expect(calls).toEqual([
+      'finish:log-1',
+      'endRest',
+      'endSession',
+      'reminder:user-1',
+      'captureError',
+    ]);
     expect(readSessionDrafts('log-1').size).toBe(0);
   });
 

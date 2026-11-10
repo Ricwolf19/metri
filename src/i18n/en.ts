@@ -38,6 +38,9 @@ export const en = {
   'timed.pause': 'Keep this open',
   'timed.resume': 'Let this close by itself',
   'timed.hint': 'Closes on its own after a few seconds. Swipe sideways to close it now.',
+  'adherence.unmarked': 'Not marked',
+  'adherence.prevMonth': 'Previous month',
+  'adherence.nextMonth': 'Next month',
   'profile.changePhoto': 'Change profile photo',
   'picker.day': 'Day',
   'picker.month': 'Month',
@@ -47,6 +50,7 @@ export const en = {
   'picker.period': 'AM or PM',
   'picker.minutes': 'Minutes',
   'picker.seconds': 'Seconds',
+  'widget.weekA11y': 'This week: {days}',
 
   // Languages
   'lang.en': 'English',

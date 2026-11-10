@@ -179,7 +179,7 @@ export const MetriWidget = ({ snapshot, height }: MetriWidgetProps) => {
             </FlexWidget>
             <TextWidget
               text={snapshot?.copy.monthly ?? ''}
-              style={{ fontSize: 9, color: C.faint, marginTop: 3 }}
+              style={{ fontSize: 10, color: C.faint, marginTop: 3 }}
             />
           </FlexWidget>
         ) : null}
@@ -190,12 +190,14 @@ export const MetriWidget = ({ snapshot, height }: MetriWidgetProps) => {
         <FlexWidget
           clickAction="OPEN_URI"
           clickActionData={{ uri: 'metri://training' }}
+          {...(snapshot?.copy.week ? { accessibilityLabel: snapshot.copy.week } : {})}
           style={{ width: 'match_parent', flexDirection: 'row', marginTop: 8 }}
         >
           {week.map((day, i) => {
             const when =
               day.date === todayKey ? 'today' : todayKey && day.date > todayKey ? 'future' : 'past';
             const visual = dayVisual(day.status, when);
+            const border = visual.ring ? C.brand : visual.outline ? C.muted : null;
             return (
               <FlexWidget
                 key={day.date}
@@ -205,14 +207,14 @@ export const MetriWidget = ({ snapshot, height }: MetriWidgetProps) => {
                   borderRadius: 6,
                   marginLeft: i === 0 ? 0 : 4,
                   backgroundColor: visual.bg,
-                  ...(visual.ring ? { borderWidth: 1, borderColor: C.brand } : {}),
+                  ...(border ? { borderWidth: 1, borderColor: border } : {}),
                   justifyContent: 'center',
                   alignItems: 'center',
                 }}
               >
                 <TextWidget
-                  text={dayLetter(day.date, locale)}
-                  style={{ fontSize: 9, fontWeight: 'bold', color: visual.fg }}
+                  text={`${dayLetter(day.date, locale)}${visual.cross ? ' ×' : ''}`}
+                  style={{ fontSize: 10, fontWeight: 'bold', color: visual.fg }}
                 />
               </FlexWidget>
             );

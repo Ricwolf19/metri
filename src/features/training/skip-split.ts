@@ -20,6 +20,8 @@ export const skipPlannedDay = (
   userId: string,
   date: string,
   skipReason: SkipReason | null,
+  /** @see MarkDayInput.stampedAt */
+  stampedAt?: Date,
 ): void => {
   const [enrollment] = activeEnrollmentQuery(userId).all();
   const days =
@@ -35,6 +37,7 @@ export const skipPlannedDay = (
     skipReason,
     workoutLogId: legacyLog,
     workoutDayId: split?.id ?? existing?.workoutDayId ?? null,
+    stampedAt,
   });
 };
 

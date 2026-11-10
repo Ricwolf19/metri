@@ -24,13 +24,20 @@ import { ScrollVisibilityProvider, useScrollVisibility } from '@/components/ui/s
 import { useAuth } from '@/features/auth/auth-context';
 import { closeSession } from '@/features/training/close-session';
 import { activeWorkoutQuery } from '@/features/training/session.repo';
+import { useAutoAdherence } from '@/features/training/useAutoAdherence';
 import { SpotlightProvider } from '@/features/spotlight/SpotlightProvider';
 import { useAutoSync } from '@/features/sync/useAutoSync';
 import { useWidgetSync } from '@/features/widget/useWidgetSync';
 import { useT } from '@/i18n';
 import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
+import { tokenHex, tokenRgba } from '@/theme/tokens';
 
-const TAB_BAR = { active: '#bef82b', inactive: '#71717a', pill: 'rgba(190,248,43,0.13)' };
+const TAB_BAR = {
+  active: tokenHex('--brand'),
+  // ink-400: an idle tab's icon and label still read 5.5:1 on the bar.
+  inactive: tokenHex('--ink-400'),
+  pill: tokenRgba('--brand', 0.13),
+};
 
 /** WhatsApp-style icon: a rounded pill behind the active tab's icon. */
 const TabBarIcon = ({
@@ -119,7 +126,9 @@ const FloatingTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) =
             accessibilityRole="tab"
             accessibilityState={{ selected: focused }}
             accessibilityLabel={options.title}
-            className="flex-1 items-center rounded-full py-0.5"
+            // The bar's own padding joins the target: 44 dp tall at any font scale.
+            hitSlop={{ top: 8, bottom: 8 }}
+            className="min-h-11 flex-1 items-center justify-center rounded-full py-0.5"
           >
             {options.tabBarIcon?.({ focused, color, size: 20 })}
             <Text
@@ -146,6 +155,9 @@ const TabsLayout = () => {
 
   // Premium: sync training data on foreground (no-op for free users).
   useAutoSync();
+  // Fill the calendar from the schedule (passed planned days with nothing
+  // logged are missed) before the widget reads it.
+  useAutoAdherence(user?.id);
   // Keep the Android home-screen widget fed with fresh local data.
   useWidgetSync();
 

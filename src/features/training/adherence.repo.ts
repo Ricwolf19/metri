@@ -28,16 +28,24 @@ export type MarkDayInput = {
   /** Defaults to today. */
   date?: string;
   status: TrainingDayStatus;
+  /** Why: a miss, a missed day changed to another status, or a session moved ("moved" rest). */
   skipReason?: SkipReason | null;
   note?: string | null;
   workoutLogId?: string | null;
   workoutDayId?: string | null;
+  /**
+   * `updatedAt` to write, now by default. An automatic mark is stamped at the
+   * start of its own day: sync never pushes it (it is older than the push
+   * watermark) and any real answer, from any device, wins over it.
+   */
+  stampedAt?: Date;
 };
 
 /** Record (or overwrite) the adherence entry for a day. */
 export const markTrainingDay = (userId: string, input: MarkDayInput): TrainingDay => {
   const date = input.date ?? localDateKey();
-  const skipReason = input.status === 'skipped' ? (input.skipReason ?? null) : null;
+  // Omitted = none: a re-mark never keeps the reason of the status it replaces.
+  const skipReason = input.skipReason ?? null;
   const [row] = db
     .insert(trainingDays)
     .values({
@@ -49,6 +57,7 @@ export const markTrainingDay = (userId: string, input: MarkDayInput): TrainingDa
       note: input.note ?? null,
       workoutLogId: input.workoutLogId ?? null,
       workoutDayId: input.workoutDayId ?? null,
+      updatedAt: input.stampedAt ?? new Date(),
     })
     .onConflictDoUpdate({
       target: [trainingDays.userId, trainingDays.date],
@@ -58,7 +67,7 @@ export const markTrainingDay = (userId: string, input: MarkDayInput): TrainingDa
         note: input.note ?? null,
         workoutLogId: input.workoutLogId ?? null,
         workoutDayId: input.workoutDayId ?? null,
-        updatedAt: new Date(),
+        updatedAt: input.stampedAt ?? new Date(),
       },
     })
     .returning()

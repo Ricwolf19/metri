@@ -1,9 +1,11 @@
 import type { TrainingDayStatus } from '@/db/schema';
-import { dateFromKey, localDateKey, mondayOf } from '@/features/training/dates';
-import { MISSED } from '@/features/training/adherence-colors';
+import { dateFromKey, localDateKey, mondayOf, weekdayOf } from '@/features/training/dates';
+import { MISSED, adherenceStatusKey } from '@/features/training/adherence-colors';
+import { WEEKDAY_KEY } from '@/features/training/labels';
+import type { TFunction } from '@/i18n';
 import { parseJson } from '@/lib/safe-json';
 import { storage, type LocaleCode } from '@/lib/storage';
-import { THEME_VARS } from '@/theme/tokens';
+import { tokenHex } from '@/theme/tokens';
 
 /** Adherence status for one day of the widget's week strip. */
 export type WeekDayStatus = TrainingDayStatus | 'none';
@@ -42,6 +44,9 @@ type WidgetCopy = {
   empty: string;
   emptyHint: string;
   pills: [string, string, string];
+  /** The week read out by a screen reader ("This week: Monday, trained, …").
+   * Optional: a snapshot from an older build has none. */
+  week?: string;
 };
 
 const KEY = 'widget.snapshot';
@@ -72,45 +77,69 @@ export const currentWeekKeys = (today: string): string[] => {
   );
 };
 
-const hex = (token: string): `#${string}` =>
-  `#${(THEME_VARS[token] ?? '0 0 0')
-    .split(' ')
-    .map((c) => Number(c).toString(16).padStart(2, '0'))
-    .join('')}`;
-
 /**
  * The widget's palette, from the app's tokens (RemoteViews take no NativeWind,
  * so the values are resolved to hex here, never typed by hand).
  */
 export const WIDGET_COLORS = {
-  bg: hex('--ink-900'),
-  card: hex('--ink-800'),
-  raised: hex('--ink-700'),
-  sunken: hex('--ink-750'),
-  text: hex('--ink-50'),
-  dim: hex('--ink-300'),
-  faint: hex('--ink-400'),
-  muted: hex('--ink-500'),
-  brand: hex('--brand'),
-  onBrand: hex('--brand-contrast'),
+  bg: tokenHex('--ink-900'),
+  card: tokenHex('--ink-800'),
+  raised: tokenHex('--ink-700'),
+  sunken: tokenHex('--ink-750'),
+  text: tokenHex('--ink-50'),
+  dim: tokenHex('--ink-300'),
+  faint: tokenHex('--ink-400'),
+  muted: tokenHex('--ink-500'),
+  brand: tokenHex('--brand'),
+  onBrand: tokenHex('--brand-contrast'),
   missed: MISSED,
 } as const;
 
+type DayVisual = {
+  bg: `#${string}`;
+  fg: `#${string}`;
+  /** Today, still unmarked: a brand ring. */
+  ring: boolean;
+  /** Rest: an outline, so it never reads as an unlogged day (fills 1.1:1 apart). */
+  outline: boolean;
+  /** Missed: a "×" after the letter — under deuteranopia red and lime are one olive. */
+  cross: boolean;
+};
+
 /**
  * One square of the week strip, in the app's adherence colours: brand =
- * trained, red with near-black text = missed, gray = rest, today unmarked
- * ringed in brand, the days still ahead bare.
+ * trained, red with near-black text and a cross = missed, outlined gray =
+ * rest, today unmarked ringed in brand, the days still ahead bare. Colour is
+ * never the only cue (the app's calendar follows the same rule).
  */
-export const dayVisual = (
-  status: WeekDayStatus,
-  when: 'past' | 'today' | 'future',
-): { bg: `#${string}`; fg: `#${string}`; ring: boolean } => {
+export const dayVisual = (status: WeekDayStatus, when: 'past' | 'today' | 'future'): DayVisual => {
   const c = WIDGET_COLORS;
-  if (status === 'trained') return { bg: c.brand, fg: c.onBrand, ring: false };
-  if (status === 'skipped') return { bg: c.missed, fg: c.onBrand, ring: false };
-  if (status === 'active') return { bg: c.muted, fg: c.brand, ring: false };
-  if (status === 'rest') return { bg: c.raised, fg: c.dim, ring: false };
-  if (when === 'today') return { bg: c.sunken, fg: c.brand, ring: true };
-  if (when === 'future') return { bg: c.bg, fg: c.muted, ring: false };
-  return { bg: c.sunken, fg: c.faint, ring: false };
+  const plain = { ring: false, outline: false, cross: false };
+  if (status === 'trained') return { ...plain, bg: c.brand, fg: c.onBrand };
+  if (status === 'skipped') return { ...plain, bg: c.missed, fg: c.onBrand, cross: true };
+  // Near-black: brand on the ink-500 fill read 3.28:1.
+  if (status === 'active') return { ...plain, bg: c.muted, fg: c.onBrand };
+  if (status === 'rest') return { ...plain, bg: c.raised, fg: c.dim, outline: true };
+  if (when === 'today') return { ...plain, bg: c.sunken, fg: c.brand, ring: true };
+  if (when === 'future') return { ...plain, bg: c.bg, fg: c.muted };
+  return { ...plain, bg: c.sunken, fg: c.faint };
 };
+
+/**
+ * The week strip as one spoken line ("This week: Monday, Trained; Tuesday,
+ * Missed; …"): the cells are letters on colours, which a screen reader cannot
+ * see. Days still ahead name only the weekday.
+ */
+export const weekA11yLabel = (week: WeekDay[], today: string, t: TFunction): string =>
+  t('widget.weekA11y', {
+    days: week
+      .map((d) => {
+        const day = t(WEEKDAY_KEY[weekdayOf(dateFromKey(d.date))]);
+        const status = adherenceStatusKey(
+          d.status === 'none' ? undefined : d.status,
+          d.date > today,
+        );
+        return status ? `${day}, ${t(status)}` : day;
+      })
+      .join('; '),
+  });

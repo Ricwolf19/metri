@@ -36,6 +36,9 @@ export const es: Record<TranslationKey, string> = {
   'timed.pause': 'Mantener abierto',
   'timed.resume': 'Dejar que se cierre solo',
   'timed.hint': 'Se cierra solo en unos segundos. Desliza de lado para cerrarlo ya.',
+  'adherence.unmarked': 'Sin marcar',
+  'adherence.prevMonth': 'Mes anterior',
+  'adherence.nextMonth': 'Mes siguiente',
   'profile.changePhoto': 'Cambiar foto de perfil',
   'picker.day': 'Día',
   'picker.month': 'Mes',
@@ -45,6 +48,7 @@ export const es: Record<TranslationKey, string> = {
   'picker.period': 'a. m. o p. m.',
   'picker.minutes': 'Minutos',
   'picker.seconds': 'Segundos',
+  'widget.weekA11y': 'Esta semana: {days}',
 
   // Languages
   'lang.en': 'Inglés',

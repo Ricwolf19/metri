@@ -10,7 +10,7 @@ vi.mock('@/lib/storage', () => ({
 }));
 
 const { MISSED } = await import('@/features/training/adherence-colors');
-const { currentWeekKeys, dayVisual, readWidgetSnapshot, WIDGET_COLORS } =
+const { currentWeekKeys, dayVisual, readWidgetSnapshot, weekA11yLabel, WIDGET_COLORS } =
   await import('./snapshot');
 
 describe('currentWeekKeys', () => {
@@ -41,6 +41,20 @@ describe('dayVisual', () => {
     expect(dayVisual('rest', 'past').bg).not.toBe(dayVisual('none', 'past').bg);
   });
 
+  it('marks missed and rest by more than colour', () => {
+    expect(dayVisual('skipped', 'past').cross).toBe(true);
+    expect(dayVisual('trained', 'past').cross).toBe(false);
+    expect(dayVisual('rest', 'past').outline).toBe(true);
+    expect(dayVisual('none', 'past').outline).toBe(false);
+  });
+
+  it('writes near-black letters on the other-activity fill (brand read 3.28:1)', () => {
+    expect(dayVisual('active', 'past')).toMatchObject({
+      bg: WIDGET_COLORS.muted,
+      fg: WIDGET_COLORS.onBrand,
+    });
+  });
+
   it('rings only today while it is unmarked', () => {
     expect(dayVisual('none', 'today').ring).toBe(true);
     expect(dayVisual('trained', 'today').ring).toBe(false);
@@ -49,6 +63,29 @@ describe('dayVisual', () => {
 
   it('resolves every colour to hex for RemoteViews', () => {
     for (const value of Object.values(WIDGET_COLORS)) expect(value).toMatch(/^#[0-9a-f]{6}$/);
+  });
+});
+
+describe('weekA11yLabel', () => {
+  // Echoes the key and its vars, so the test reads the structure, not a dictionary.
+  const t = (key: string, vars?: Record<string, string | number>) =>
+    vars ? `${key}(${Object.values(vars).join('')})` : key;
+
+  it('names every day and its status, and only the weekday for the days ahead', () => {
+    const label = weekA11yLabel(
+      [
+        { date: '2026-11-02', status: 'trained' },
+        { date: '2026-11-03', status: 'skipped' },
+        { date: '2026-11-04', status: 'none' },
+        { date: '2026-11-05', status: 'none' },
+      ],
+      '2026-11-04',
+      t,
+    );
+    expect(label).toBe(
+      'widget.weekA11y(weekday.mon, adherence.trained; weekday.tue, adherence.skipped; ' +
+        'weekday.wed, adherence.unmarked; weekday.thu)',
+    );
   });
 });
 

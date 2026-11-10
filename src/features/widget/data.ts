@@ -20,7 +20,7 @@ import { monthlyWorkouts } from '@/features/training/stats.repo';
 import { resolveLocale, tFor, type TFunction, type TranslationKey } from '@/i18n';
 import { session, settings } from '@/lib/storage';
 
-import { currentWeekKeys, type WeekDay, type WidgetSnapshot } from './snapshot';
+import { currentWeekKeys, weekA11yLabel, type WeekDay, type WidgetSnapshot } from './snapshot';
 
 const TODAY_KEY: Record<WidgetSnapshot['today'], TranslationKey> = {
   trained: 'widget.today.trained',
@@ -111,6 +111,7 @@ export const computeWidgetSnapshot = (now = new Date()): WidgetSnapshot | null =
       empty: t('widget.noProgram'),
       emptyHint: t('widget.noProgramHint'),
       pills: [t('widget.pill.train'), t('widget.pill.metrics'), t('widget.pill.photos')],
+      week: weekA11yLabel(week, today, t),
     },
     locale,
     updatedAt: now.getTime(),
