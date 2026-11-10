@@ -24,12 +24,14 @@ import { getProgram, getProgramTree } from '@/features/training/programs.repo';
 import { formatClockTime } from '@/features/training/schedule';
 import { useI18n, useT } from '@/i18n';
 import { useClockFormat } from '@/lib/useClockFormat';
+import { useTheme } from '@/theme/theme-context';
 
 /** Program detail: phases/splits (schedule shown when active), Start / Continue / Switch, Edit + hold-to-delete for the owner. */
 const ProgramDetail = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const t = useT();
+  const { muted } = useTheme();
   const { locale } = useI18n();
   const toast = useToast();
   const dialog = useDialog();
@@ -153,7 +155,7 @@ const ProgramDetail = () => {
                       {schedule ? <Text className="text-xs text-ink-400">{schedule}</Text> : null}
                       {enrolledHere ? (
                         <View className="ml-1">
-                          <ChevronRightIcon color="#71717a" size={16} />
+                          <ChevronRightIcon color={muted} size={16} />
                         </View>
                       ) : null}
                     </View>

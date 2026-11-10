@@ -12,6 +12,7 @@ import {
   HoldButton,
   Input,
   ReorderRow,
+  moveActions,
   Screen,
   SectionLabel,
   Select,
@@ -171,6 +172,16 @@ const EditRoutine = () => {
     </View>
   );
 
+  // One reorder for the drag and for the screen reader's move up / move down.
+  const move = (from: number, to: number) => {
+    const next = reorderItems(items, from, to);
+    setItems(next);
+    reorderDays(
+      routineId,
+      next.map((d) => d.id),
+    );
+  };
+
   return (
     <Screen
       edges={['top']}
@@ -189,12 +200,13 @@ const EditRoutine = () => {
       <ReorderableList
         data={items}
         keyExtractor={(d) => d.id}
-        renderItem={({ item }) => {
+        renderItem={({ item, index }) => {
           const focus = dayMuscleHeads(item.id)
             .slice(0, 4)
             .map((h) => t(muscleHeadKey(h)));
           return (
             <ReorderRow
+              {...moveActions(index, items.length, move)}
               title={dayDisplayName(item, t)}
               subtitle={focus.length ? focus.join(' · ') : undefined}
               dragLabel={t('editor.dragHandle')}
@@ -204,14 +216,7 @@ const EditRoutine = () => {
             />
           );
         }}
-        onReorder={({ from, to }) => {
-          const next = reorderItems(items, from, to);
-          setItems(next);
-          reorderDays(
-            routineId,
-            next.map((d) => d.id),
-          );
-        }}
+        onReorder={({ from, to }) => move(from, to)}
         ListHeaderComponent={header}
         ListFooterComponent={footer}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}

@@ -40,13 +40,13 @@ export const SetInput = ({
   trend = null,
   onBlur,
 }: Props) => {
-  const { brand, muted } = useTheme();
+  const { muted, textSelection } = useTheme();
   const [focused, setFocused] = useState(false);
   return (
     <View
       className={[
         'min-h-12 flex-row items-stretch overflow-hidden rounded-field border bg-ink-900',
-        focused ? 'border-brand/60' : 'border-ink-600',
+        focused ? 'border-brand/60' : 'border-ink-500',
       ].join(' ')}
     >
       <TextInput
@@ -56,7 +56,7 @@ export const SetInput = ({
         maxLength={maxLength}
         placeholder={placeholder}
         placeholderTextColor={muted}
-        selectionColor={brand}
+        {...textSelection}
         accessibilityLabel={accessibilityLabel}
         maxFontSizeMultiplier={CONTROL_FONT_SCALE}
         onFocus={() => setFocused(true)}

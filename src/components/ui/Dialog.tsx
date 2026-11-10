@@ -83,14 +83,26 @@ export const DialogProvider = ({ children }: { children: React.ReactNode }) => {
       {children}
       <Modal visible={options !== null} transparent animationType="fade" onRequestClose={close}>
         <Scrim depth="medium">
-          <Pressable className="flex-1 items-center justify-center px-8" onPress={close}>
+          {/* Both Pressables only route touches (backdrop closes, card swallows).
+              Left accessible — Pressable's default — each grouped everything
+              inside into one element and VoiceOver never reached the buttons.
+              Back / the escape scrub close it for a screen reader. */}
+          <Pressable
+            className="flex-1 items-center justify-center px-8"
+            onPress={close}
+            accessible={false}
+          >
             <Pressable
               className="w-full rounded-card border border-ink-700 bg-ink-850 p-5"
               onPress={() => {}}
+              accessible={false}
+              onAccessibilityEscape={close}
             >
               {options ? (
                 <>
-                  <Text className="text-lg font-sans-bold text-ink-50">{options.title}</Text>
+                  <Text accessibilityRole="header" className="text-lg font-sans-bold text-ink-50">
+                    {options.title}
+                  </Text>
                   {options.message ? (
                     <Text className="mt-2 text-sm leading-6 text-ink-300">{options.message}</Text>
                   ) : null}

@@ -12,6 +12,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useT } from '@/i18n';
+
 import { Scrim } from './Scrim';
 import { computeStops, keyboardLift, keyboardLimit, type Bounds } from './sheet-math';
 
@@ -198,6 +200,7 @@ const makePan = (
  * hand-close path that already ships, applied to every open.
  */
 export const Sheet = ({ visible, onClose, children, snapPoints, expandable = true }: Props) => {
+  const t = useT();
   const { height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   /** A full-height sheet still stops below the status bar. */
@@ -317,7 +320,12 @@ export const Sheet = ({ visible, onClose, children, snapPoints, expandable = tru
       {/* A Modal is its own native view tree: gestures need a root inside it. */}
       <GestureHandlerRootView style={{ flex: 1, justifyContent: 'flex-end' }}>
         <Scrim depth="light" style={scrimStyle}>
-          <Pressable className="flex-1" onPress={ctl.close} accessibilityRole="button" />
+          <Pressable
+            className="flex-1"
+            onPress={ctl.close}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.close')}
+          />
         </Scrim>
         <Animated.View
           onLayout={(e) => {
@@ -337,6 +345,7 @@ export const Sheet = ({ visible, onClose, children, snapPoints, expandable = tru
             <Pressable
               onPress={onHandlePress}
               accessibilityRole="button"
+              accessibilityLabel={resizable ? t('sheet.resize') : t('common.close')}
               hitSlop={10}
               className="items-center pb-3 pt-3"
             >

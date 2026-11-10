@@ -42,12 +42,14 @@ import {
 } from '@/features/training/slot-draft';
 import { useI18n, useT } from '@/i18n';
 import { mmss } from '@/lib/duration';
+import { useTheme } from '@/theme/theme-context';
 
 /** Slot editor: draft written in one Save. A fresh slot (`fresh=1`) is deleted if the user leaves
  * unsaved, so no half-configured exercise reaches a workout. */
 const EditSlot = () => {
   const { id, fresh } = useLocalSearchParams<{ id: string; fresh?: string }>();
   const t = useT();
+  const { muted } = useTheme();
   const { locale } = useI18n();
   const router = useRouter();
   const toast = useToast();
@@ -363,8 +365,15 @@ const EditSlot = () => {
                   <Text className="text-xs font-sans-medium text-ink-200">
                     {exerciseDisplayName(alt, locale)}
                   </Text>
-                  <Pressable onPress={() => removeAlternative(altId)} hitSlop={6}>
-                    <XIcon color="#71717a" size={13} />
+                  <Pressable
+                    onPress={() => removeAlternative(altId)}
+                    hitSlop={16}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('common.removeNamed', {
+                      name: exerciseDisplayName(alt, locale),
+                    })}
+                  >
+                    <XIcon color={muted} size={13} />
                   </Pressable>
                 </View>
               );

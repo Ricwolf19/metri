@@ -1,11 +1,18 @@
 import { DarkTheme } from 'expo-router';
 import { createContext, useContext } from 'react';
-import { View } from 'react-native';
+import { Platform, View, type ColorValue } from 'react-native';
 import { vars } from 'nativewind';
 
-import { NAV_COLORS, THEME_VARS } from './tokens';
+import { NAV_COLORS, TEXT_SELECTION, THEME_VARS, tokenHex } from './tokens';
 
 type NavTheme = typeof DarkTheme;
+
+/** Spread onto a `TextInput`: the selection highlight, caret and handles. */
+type TextSelectionProps = {
+  selectionColor: ColorValue;
+  cursorColor?: ColorValue;
+  selectionHandleColor?: ColorValue;
+};
 
 type ThemeContextValue = {
   navTheme: NavTheme;
@@ -22,6 +29,8 @@ type ThemeContextValue = {
   danger: string;
   /** Informational icon color (sky): a per-side tag, a saved load detail. Never "active". */
   info: string;
+  /** Selection colours for every text field (`{...textSelection}` before the caller's props). */
+  textSelection: TextSelectionProps;
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -36,7 +45,7 @@ const NAV_THEME: NavTheme = {
   dark: true,
   colors: {
     ...DarkTheme.colors,
-    primary: '#bef82b',
+    primary: tokenHex('--brand'),
     background: NAV_COLORS.background,
     card: NAV_COLORS.card,
     text: NAV_COLORS.text,
@@ -44,15 +53,32 @@ const NAV_THEME: NavTheme = {
   },
 };
 
+/**
+ * Android takes the highlight as given and draws caret and handles from their
+ * own props; iOS uses `selectionColor` as the field's tint (caret, handles AND
+ * a highlight it lightens itself), so it gets the opaque brand.
+ */
+const TEXT_SELECTION_PROPS = Platform.select<TextSelectionProps>({
+  android: {
+    selectionColor: TEXT_SELECTION.highlight,
+    cursorColor: TEXT_SELECTION.caret,
+    selectionHandleColor: TEXT_SELECTION.caret,
+  },
+  default: { selectionColor: TEXT_SELECTION.caret },
+});
+
+const BRAND = tokenHex('--brand');
+
 const THEME: ThemeContextValue = {
   navTheme: NAV_THEME,
   statusBarStyle: 'light',
-  accent: '#bef82b',
-  brand: '#bef82b',
-  brandContrast: '#08090d',
-  muted: '#71717a',
+  accent: BRAND,
+  brand: BRAND,
+  brandContrast: tokenHex('--brand-contrast'),
+  muted: tokenHex('--ink-400'),
   danger: '#ef4444',
-  info: '#38bdf8',
+  info: tokenHex('--info'),
+  textSelection: TEXT_SELECTION_PROPS,
 };
 
 /** Installed once: NativeWind resolves the `ink-*` classes against these. */

@@ -27,7 +27,7 @@ type Props = {
 export const TagPicker = ({ label, sections, value, onChange, placeholder, doneLabel }: Props) => {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<string[]>(value);
-  const { brand } = useTheme();
+  const { brand, muted } = useTheme();
   const listRef = useRef<ScrollView>(null);
   // Opening scrolls once to the first checked option; toggling must not jump.
   // The option's y is relative to its section, and the two onLayout events
@@ -74,7 +74,7 @@ export const TagPicker = ({ label, sections, value, onChange, placeholder, doneL
         onPress={show}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
-        className="min-h-11 w-full flex-row items-center justify-between rounded-field border border-ink-600 bg-ink-900 px-3 py-2"
+        className="min-h-11 w-full flex-row items-center justify-between rounded-field border border-ink-500 bg-ink-900 px-3 py-2"
       >
         {selected.length ? (
           <View className="flex-1 flex-row flex-wrap gap-1.5">
@@ -98,7 +98,7 @@ export const TagPicker = ({ label, sections, value, onChange, placeholder, doneL
             {placeholder ?? ''}
           </Text>
         )}
-        <ChevronDownIcon color="#71717a" size={18} />
+        <ChevronDownIcon color={muted} size={18} />
       </Pressable>
 
       <Sheet visible={open} onClose={() => setOpen(false)} snapPoints={PICKER_STOPS}>

@@ -3,9 +3,12 @@ import {
   ScrollView,
   Text,
   View,
+  type AccessibilityActionEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
+
+import { wheelStep } from './wheel-step';
 
 const ITEM_HEIGHT = 44;
 const VISIBLE = 5; // odd — selected row sits in the middle
@@ -16,11 +19,33 @@ type Props = {
   value: number;
   onChange: (value: number) => void;
   format?: (n: number) => string;
+  /** What the column picks ("Day", "Minutes") — a screen reader names the wheel by it. */
+  accessibilityLabel?: string;
 };
 
-export const WheelPicker = ({ values, value, onChange, format }: Props) => {
+const A11Y_ACTIONS = [{ name: 'increment' }, { name: 'decrement' }];
+
+/** The colon between two wheels: drawn, never read (each wheel names itself). */
+export const WheelSeparator = () => (
+  <Text
+    importantForAccessibility="no"
+    accessibilityElementsHidden
+    className="px-2 text-2xl font-sans-bold text-ink-300"
+  >
+    :
+  </Text>
+);
+
+/**
+ * One column of a wheel. To a screen reader it is ONE adjustable control
+ * (swipe up/down steps it, the value is read back) and the rows are hidden: a
+ * scroll view of 60 focusable numbers, with no way to tell which one is
+ * chosen, is what TalkBack used to walk through.
+ */
+export const WheelPicker = ({ values, value, onChange, format, accessibilityLabel }: Props) => {
   const ref = useRef<ScrollView>(null);
   const index = Math.max(0, values.indexOf(value));
+  const label = (v: number) => (format ? format(v) : String(v));
 
   useEffect(() => {
     const t = setTimeout(
@@ -36,8 +61,24 @@ export const WheelPicker = ({ values, value, onChange, format }: Props) => {
     if (next !== value) onChange(next);
   };
 
+  const onAccessibilityAction = (e: AccessibilityActionEvent) => {
+    const name = e.nativeEvent.actionName;
+    if (name !== 'increment' && name !== 'decrement') return;
+    const next = wheelStep(values, value, name === 'increment' ? 1 : -1);
+    if (next !== value) onChange(next);
+  };
+
   return (
-    <View style={{ height: ITEM_HEIGHT * VISIBLE }} className="flex-1">
+    <View
+      style={{ height: ITEM_HEIGHT * VISIBLE }}
+      className="flex-1"
+      accessible
+      accessibilityRole="adjustable"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityValue={{ text: label(value) }}
+      accessibilityActions={A11Y_ACTIONS}
+      onAccessibilityAction={onAccessibilityAction}
+    >
       <View
         pointerEvents="none"
         style={{ position: 'absolute', top: PAD, left: 0, right: 0, height: ITEM_HEIGHT }}
@@ -56,6 +97,8 @@ export const WheelPicker = ({ values, value, onChange, format }: Props) => {
         // wheel never moves.
         nestedScrollEnabled
         overScrollMode="never"
+        importantForAccessibility="no-hide-descendants"
+        accessibilityElementsHidden
       >
         {values.map((v) => {
           const selected = v === value;
@@ -66,7 +109,7 @@ export const WheelPicker = ({ values, value, onChange, format }: Props) => {
                   selected ? 'text-2xl font-sans-bold text-ink-50' : 'text-lg text-ink-400',
                 ].join(' ')}
               >
-                {format ? format(v) : String(v)}
+                {label(v)}
               </Text>
             </View>
           );

@@ -15,8 +15,16 @@ type Theme = { brand: string };
 const OVER = MISSED;
 const UNDER = '#f59e0b';
 
-/** Faintest tint that still separates from the bare fill on a black page. */
-const MIN_TINT = 0.4;
+/**
+ * Faintest tint of each ramp that still reads ≥ 3:1 against the card it sits
+ * on (WCAG non-text contrast): brand reaches it at 40 %, the darker red only
+ * at 75 % — a 40 % red was 1.7:1, a state nobody could see.
+ */
+const RECENCY_MIN_TINT = 0.4;
+const FATIGUE_MIN_TINT = 0.75;
+
+/** The figure's outline: ≥ 3:1 on every card surface (the old zinc-600 was 2.4:1). */
+export const MAP_OUTLINE = '#71717a';
 
 /** `#rrggbb` + 0–1 opacity → `#rrggbbaa`. Both ramps below fade one hue rather
  * than switching colour, so the scale stays readable without hue perception. */
@@ -49,7 +57,7 @@ export const balanceFill = (theme: Theme, status: BalanceStatus): string => {
  */
 export const fatigueFill = (theme: Theme, index: number): string => {
   if (index <= 0) return UNTRAINED_FILL;
-  return withAlpha(OVER, MIN_TINT + index * (1 - MIN_TINT));
+  return withAlpha(OVER, FATIGUE_MIN_TINT + index * (1 - FATIGUE_MIN_TINT));
 };
 
 /** Days after which a muscle reads as detrained rather than merely resting. */
@@ -63,5 +71,5 @@ export const recencyFill = (theme: Theme, daysSince: number | null): string => {
   if (daysSince == null) return UNTRAINED_FILL;
   if (daysSince >= DETRAINED_DAYS) return UNDER;
   const freshness = 1 - daysSince / DETRAINED_DAYS;
-  return withAlpha(theme.brand, Math.max(MIN_TINT, freshness));
+  return withAlpha(theme.brand, Math.max(RECENCY_MIN_TINT, freshness));
 };

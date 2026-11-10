@@ -19,6 +19,7 @@ export const SectionLabel = ({ label, hint, icon, right, className }: Props) => 
       {icon}
       <Text
         maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+        accessibilityRole="header"
         className="font-mono-medium text-xs uppercase tracking-wider text-ink-400"
       >
         {label}

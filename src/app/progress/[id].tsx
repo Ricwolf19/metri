@@ -9,12 +9,14 @@ import { Button, Card, DatePicker, FadeInUp, Screen, ScreenTitle, useToast } fro
 import { useAuth } from '@/features/auth/auth-context';
 import { deletePhoto, getPhoto, updatePhotoDate } from '@/features/photos/photos.repo';
 import { useT } from '@/i18n';
+import { useTheme } from '@/theme/theme-context';
 
 const PhotoViewer = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const toast = useToast();
   const t = useT();
+  const { muted } = useTheme();
   const { user } = useAuth();
 
   // Deep-linkable route (`metri://progress/<id>`), so the lookup is owner-scoped
@@ -59,7 +61,7 @@ const PhotoViewer = () => {
               <Text className="text-base font-sans-semibold text-ink-50">
                 {date.toISOString().slice(0, 10)}
               </Text>
-              <ChevronRightIcon color="#71717a" size={18} />
+              <ChevronRightIcon color={muted} size={18} />
             </View>
           </Card>
         </Pressable>

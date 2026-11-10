@@ -24,6 +24,7 @@ import { groupByPeriod, PERIODS, type Period } from '@/features/photos/period';
 import { addPhoto, photosQuery } from '@/features/photos/photos.repo';
 import { useT } from '@/i18n';
 import { formatYmd } from '@/lib/date';
+import { useTheme } from '@/theme/theme-context';
 
 const Progress = () => {
   const { user } = useAuth();
@@ -31,6 +32,7 @@ const Progress = () => {
   const toast = useToast();
   const dialog = useDialog();
   const t = useT();
+  const { muted } = useTheme();
   const { data } = useLiveQuery(photosQuery(user?.id ?? ''), [user?.id]);
 
   const [period, setPeriod] = useState<Period>('month');
@@ -74,7 +76,7 @@ const Progress = () => {
       onPress={onAdd}
       accessibilityRole="button"
       accessibilityLabel={t('photos.add')}
-      className="h-9 w-9 items-center justify-center rounded-full border border-brand/30 bg-brand/10"
+      className="min-h-9 min-w-9 items-center justify-center rounded-full border border-brand/30 bg-brand/10"
     >
       <Text className="text-xl font-sans-bold text-brand">+</Text>
     </Pressable>
@@ -92,7 +94,7 @@ const Progress = () => {
       {data.length === 0 ? (
         <FadeInUp>
           <Card className="mt-1 items-center py-8">
-            <CameraIcon color="#71717a" size={32} />
+            <CameraIcon color={muted} size={32} />
             <Text className="mt-3 text-base font-sans-semibold text-ink-50">
               {t('photos.empty')}
             </Text>

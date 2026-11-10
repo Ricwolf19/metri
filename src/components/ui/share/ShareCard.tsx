@@ -1,14 +1,11 @@
 import { forwardRef } from 'react';
 import { Text, View } from 'react-native';
-import Svg, { Rect } from 'react-native-svg';
 
 import { BrandMark } from '../BrandMark';
 import { SHARE } from './palette';
-import { ShareSparkline } from './ShareSparkline';
 
 type ShareMetric = { label: string; value: string };
-type ShareBar = { label: string; value: number };
-/** One exercise line: a short code, what was done, a star when it was a record. */
+/** One exercise line: the full name, what was done, a star when it was a record. */
 type ShareRow = { name: string; detail: string; pr?: boolean };
 
 export type ShareCardProps = {
@@ -17,10 +14,6 @@ export type ShareCardProps = {
   title: string;
   subtitle?: string;
   metrics?: ShareMetric[];
-  /** Optional mini bar chart (values are relative). */
-  bars?: ShareBar[];
-  /** A trend as a bare line (e.g. e1RM over the last sessions). */
-  spark?: number[];
   /** Exercise rows: the name truncates, the result column stays aligned on the right. */
   rows?: ShareRow[];
   lines?: string[];
@@ -28,19 +21,13 @@ export type ShareCardProps = {
 };
 
 const WIDTH = 340;
-const INNER = WIDTH - 48;
-const CHART_H = 64;
 
 /** Brand share card (twin of metri.info's OG card). Always dark — it is an image, not a themed surface.
  * Render it, then capture with `useShareCard`. */
 export const ShareCard = forwardRef<View, ShareCardProps>(function ShareCard(
-  { eyebrow, title, subtitle, metrics = [], bars = [], spark = [], rows = [], lines = [], footer },
+  { eyebrow, title, subtitle, metrics = [], rows = [], lines = [], footer },
   ref,
 ) {
-  const max = Math.max(1, ...bars.map((b) => b.value));
-  const gap = 6;
-  const barW = bars.length ? (INNER - gap * (bars.length - 1)) / bars.length : 0;
-
   return (
     <View
       ref={ref}
@@ -108,45 +95,6 @@ export const ShareCard = forwardRef<View, ShareCardProps>(function ShareCard(
               </Text>
             </View>
           ))}
-        </View>
-      ) : null}
-
-      {spark.length > 1 ? (
-        <View className="mt-5">
-          <ShareSparkline values={spark} width={INNER} />
-        </View>
-      ) : null}
-
-      {bars.length ? (
-        <View className="mt-5">
-          <Svg width={INNER} height={CHART_H}>
-            {bars.map((b, i) => {
-              const h = Math.max(3, (b.value / max) * CHART_H);
-              return (
-                <Rect
-                  key={`${i}-${b.label}`}
-                  x={i * (barW + gap)}
-                  y={CHART_H - h}
-                  width={barW}
-                  height={h}
-                  rx={3}
-                  fill={i === bars.length - 1 ? SHARE.brand : SHARE.brandSoft}
-                />
-              );
-            })}
-          </Svg>
-          <View className="mt-1.5 flex-row">
-            {bars.map((b, i) => (
-              <Text
-                key={`${i}-${b.label}`}
-                numberOfLines={1}
-                style={{ color: SHARE.dim, width: barW + gap }}
-                className="text-center font-mono-medium text-[9px] uppercase"
-              >
-                {b.label}
-              </Text>
-            ))}
-          </View>
         </View>
       ) : null}
 

@@ -14,6 +14,8 @@ export const PressableScale = ({ scaleTo, onPressIn, onPressOut, children, ...re
 
   return (
     <AnimatedPressable
+      // A tappable card IS a button to a screen reader; a caller's role still wins.
+      accessibilityRole="button"
       style={anim}
       onPressIn={(e) => {
         scaleIn();

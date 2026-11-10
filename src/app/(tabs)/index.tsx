@@ -19,6 +19,7 @@ import { WidgetPromoBanner } from '@/features/widget/components/WidgetPromoBanne
 import { useSpotlight } from '@/features/spotlight/SpotlightProvider';
 import { useI18n, useT } from '@/i18n';
 import { settings } from '@/lib/storage';
+import { useTheme } from '@/theme/theme-context';
 
 /**
  * Home = today, nothing else: the "did you train?" check-in, the recent weeks
@@ -31,6 +32,7 @@ const Home = () => {
   const t = useT();
   const spotlight = useSpotlight();
   const { locale } = useI18n();
+  const { muted } = useTheme();
 
   // Pinned quick actions live in MMKV; the starter set shows until the user
   // customizes (an explicit empty list shows the invite card). Re-read on focus.
@@ -91,7 +93,7 @@ const Home = () => {
             accessibilityLabel={t('home.customize')}
             className="flex-row items-center"
           >
-            <GearIcon color="#71717a" size={14} />
+            <GearIcon color={muted} size={14} />
             <Text className="ml-1 text-xs font-sans-semibold text-ink-400">
               {t('home.customize')}
             </Text>

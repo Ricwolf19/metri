@@ -4,7 +4,10 @@ import { Pressable, Text, View } from 'react-native';
 
 import { useAuth } from '@/features/auth/auth-context';
 import { SyncPanel } from '@/features/sync/SyncPanel';
-import { SyncRing } from '@/features/sync/SyncRing';
+import { SYNC_STATE_KEY, SyncRing } from '@/features/sync/SyncRing';
+import { useSyncState } from '@/features/sync/useSyncState';
+import { useT } from '@/i18n';
+import { useTheme } from '@/theme/theme-context';
 
 import { HeaderMenu } from './HeaderMenu';
 import { BookIcon, ChevronLeftIcon, FlaskIcon, HelpIcon } from './icons';
@@ -46,8 +49,16 @@ export const TopBar = ({
   showBeta,
 }: Props) => {
   const router = useRouter();
+  const t = useT();
+  const { brand } = useTheme();
   const { user } = useAuth();
+  const syncState = useSyncState();
   const [syncOpen, setSyncOpen] = useState(false);
+  // The ring's colour is the only sync signal on screen; its name says the same.
+  const syncLabel =
+    syncState === 'off'
+      ? t('topbar.sync')
+      : t('topbar.syncState', { state: t(SYNC_STATE_KEY[syncState]) });
 
   const accessories = (
     <View className="flex-row items-center gap-3">
@@ -56,10 +67,10 @@ export const TopBar = ({
           hitSlop={8}
           onPress={() => router.push({ pathname: '/docs/[id]', params: { id: docId } })}
           accessibilityRole="button"
-          accessibilityLabel="How to use"
+          accessibilityLabel={t('topbar.howTo')}
           className="h-9 w-9 items-center justify-center rounded-full bg-ink-800"
         >
-          <BookIcon color="#bef82b" size={18} />
+          <BookIcon color={brand} size={18} />
         </Pressable>
       ) : null}
       {right}
@@ -68,7 +79,7 @@ export const TopBar = ({
           hitSlop={8}
           onPress={() => router.push('/faq')}
           accessibilityRole="button"
-          accessibilityLabel="FAQ"
+          accessibilityLabel={t('faq.title')}
           className="h-9 w-9 items-center justify-center rounded-full bg-ink-800"
         >
           <HelpIcon color="#a1a1aa" size={18} />
@@ -88,7 +99,7 @@ export const TopBar = ({
             hitSlop={14}
             onPress={onBack ?? (() => router.back())}
             accessibilityRole="button"
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('common.back')}
             className="-ml-1"
           >
             <ChevronLeftIcon color="#e4e4e7" size={26} />
@@ -100,7 +111,7 @@ export const TopBar = ({
               hitSlop={8}
               onPress={() => setSyncOpen(true)}
               accessibilityRole="button"
-              accessibilityLabel="Sync status"
+              accessibilityLabel={syncLabel}
             >
               {/* The ring is the only sync indicator; tapping it opens the
                   panel with the legend + recent activity (beta support). */}
@@ -116,10 +127,10 @@ export const TopBar = ({
             hitSlop={8}
             onPress={() => router.push('/beta')}
             accessibilityRole="button"
-            accessibilityLabel="Beta"
+            accessibilityLabel={t('beta.title')}
             className="h-9 w-9 items-center justify-center rounded-full border border-brand/30 bg-brand/10"
           >
-            <FlaskIcon color="#bef82b" size={17} />
+            <FlaskIcon color={brand} size={17} />
           </Pressable>
         ) : null}
       </View>

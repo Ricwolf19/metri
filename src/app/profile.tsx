@@ -157,7 +157,12 @@ const Profile = () => {
       <ScreenTitle title={t('profile.title')} />
 
       <Card className="items-center">
-        <Pressable onPress={onChangePhoto} accessibilityRole="button" className="relative">
+        <Pressable
+          onPress={onChangePhoto}
+          accessibilityRole="button"
+          accessibilityLabel={t('profile.changePhoto')}
+          className="relative"
+        >
           <Avatar uri={user.avatarUri} size={84} />
           <View className="absolute -bottom-0.5 -right-0.5 h-7 w-7 items-center justify-center rounded-full border-2 border-ink-800 bg-brand/10">
             <CameraIcon color={brand} size={13} />
@@ -406,7 +411,13 @@ const Profile = () => {
         <Pressable onPress={() => router.push('/beta')} accessibilityRole="button">
           <Text className="text-xs font-sans-semibold text-ink-400">{t('profile.beta')}</Text>
         </Pressable>
-        <Text className="text-xs text-ink-600">·</Text>
+        <Text
+          importantForAccessibility="no"
+          accessibilityElementsHidden
+          className="text-xs text-ink-500"
+        >
+          ·
+        </Text>
         <Pressable onPress={() => router.push('/legal')} accessibilityRole="button">
           <Text className="text-xs font-sans-semibold text-ink-400">{t('legal.title')}</Text>
         </Pressable>

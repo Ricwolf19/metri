@@ -19,6 +19,7 @@ import { useAuth } from '@/features/auth/auth-context';
 import { latestTapeCm } from '@/features/body/body-measurements.repo';
 import { useI18n, useT } from '@/i18n';
 import { useDateFormat } from '@/lib/useDateFormat';
+import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 
 import { CALC_CONTENT } from '../content';
 import { energySnapshot } from '../energy-snapshot';
@@ -56,6 +57,7 @@ const NumberField = ({
   const max = field.max ?? 9999;
   const step = field.step ?? 1;
   const current = Number(value) || 0;
+  const name = field.unit ? `${t(field.labelKey)} (${field.unit})` : t(field.labelKey);
 
   // While the input has focus the user edits a local draft — the result only
   // recomputes on commit (blur or steppers), so charts and layout never mutate
@@ -86,9 +88,12 @@ const NumberField = ({
         <Pressable
           onPress={() => nudge(-1)}
           accessibilityRole="button"
-          className="h-11 w-11 items-center justify-center rounded-field border border-ink-600 bg-ink-800 active:bg-ink-700"
+          accessibilityLabel={t('common.decreaseNamed', { label: name })}
+          className="min-h-11 min-w-11 items-center justify-center rounded-field border border-ink-600 bg-ink-800 active:bg-ink-700"
         >
-          <Text className="text-lg text-ink-100">−</Text>
+          <Text maxFontSizeMultiplier={CONTROL_FONT_SCALE} className="text-lg text-ink-100">
+            −
+          </Text>
         </Pressable>
         <View className="flex-1">
           <Input
@@ -99,14 +104,18 @@ const NumberField = ({
             keyboardType="decimal-pad"
             className="text-center font-mono"
             maxLength={7}
+            accessibilityLabel={name}
           />
         </View>
         <Pressable
           onPress={() => nudge(1)}
           accessibilityRole="button"
-          className="h-11 w-11 items-center justify-center rounded-field border border-ink-600 bg-ink-800 active:bg-ink-700"
+          accessibilityLabel={t('common.increaseNamed', { label: name })}
+          className="min-h-11 min-w-11 items-center justify-center rounded-field border border-ink-600 bg-ink-800 active:bg-ink-700"
         >
-          <Text className="text-lg text-ink-100">+</Text>
+          <Text maxFontSizeMultiplier={CONTROL_FONT_SCALE} className="text-lg text-ink-100">
+            +
+          </Text>
         </Pressable>
       </View>
     </View>

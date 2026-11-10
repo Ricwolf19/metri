@@ -18,7 +18,7 @@ export { IconButton } from './IconButton';
 export { Input } from './Input';
 export { PressableScale } from './PressableScale';
 export { PromoBanner } from './PromoBanner';
-export { ReorderRow } from './ReorderRow';
+export { moveActions, ReorderRow } from './ReorderRow';
 export { Scrim } from './Scrim';
 export { Screen } from './Screen';
 export { SectionLabel } from './SectionLabel';

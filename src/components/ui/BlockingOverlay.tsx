@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Modal, Text, View } from 'react-native';
+import { AccessibilityInfo, Modal, Text, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -11,6 +11,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 
+import { useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
 import { BrandMark } from './BrandMark';
@@ -41,6 +42,7 @@ const STROKE = 3;
  * on its first frame.
  */
 export const BlockingOverlay = ({ visible, label, onShow }: Props) => {
+  const t = useT();
   const { brand } = useTheme();
   const pulse = useSharedValue(0);
   const spin = useSharedValue(0);
@@ -75,13 +77,23 @@ export const BlockingOverlay = ({ visible, label, onShow }: Props) => {
 
   const r = (RING - STROKE) / 2;
   const circumference = 2 * Math.PI * r;
+  const spoken = label ?? t('common.wait');
+
+  // A live region only speaks when its text CHANGES, and this one mounts with
+  // its text already set: say it once the Modal is actually up.
+  const shown = () => {
+    AccessibilityInfo.announceForAccessibility(spoken);
+    onShow?.();
+  };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onShow={onShow}>
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onShow={shown}>
       <View
         className="flex-1 items-center justify-center bg-ink-900 px-10"
-        accessibilityLiveRegion="polite"
+        accessible
         accessibilityRole="progressbar"
+        accessibilityLabel={spoken}
+        accessibilityState={{ busy: true }}
       >
         <View style={{ width: RING, height: RING }} className="items-center justify-center">
           <Animated.View style={[{ position: 'absolute', width: RING, height: RING }, ringAnim]}>

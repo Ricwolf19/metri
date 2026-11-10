@@ -3,6 +3,7 @@ import { Modal, Pressable, View, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
   Easing,
+  ReduceMotion,
   cancelAnimation,
   runOnJS,
   useAnimatedProps,
@@ -13,9 +14,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Rect } from 'react-native-svg';
 
+import { useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
 import { Scrim } from './Scrim';
+import { useScreenReader } from './useScreenReader';
 
 type Props = {
   visible: boolean;
@@ -50,11 +53,17 @@ const makeController = (life: SharedValue<number>, panX: SharedValue<number>) =>
     if (timer) clearTimeout(timer);
     timer = null;
   };
-  // Ring and timeout always move together, so the ring never lies about the wait.
+  // Ring and timeout always move together, so the ring never lies about the wait
+  // (hence `Never`: under reduce motion the ring emptied at once and the card
+  // still sat there for eight seconds).
   const run = (fraction: number) => {
     stop();
     const ms = Math.max(400, fraction * duration);
-    life.value = withTiming(0, { duration: ms, easing: Easing.linear });
+    life.value = withTiming(0, {
+      duration: ms,
+      easing: Easing.linear,
+      reduceMotion: ReduceMotion.Never,
+    });
     timer = setTimeout(() => done(), ms);
   };
   return {
@@ -113,6 +122,11 @@ const makePan = (panX: SharedValue<number>, ctl: Controller) =>
  * read, tapping again resumes, a swipe either way leaves at once. For showing a
  * result the user already asked for — it carries no decision, so it has no
  * buttons.
+ *
+ * With a screen reader on it opens FROZEN and stays so: eight seconds is not
+ * enough to hear a summary read out, and a swipe is not a gesture a screen
+ * reader passes through. The card then stops being one big button so its rows
+ * are read one by one; back (or the iOS escape scrub) closes it.
  */
 export const TimedModal = ({
   visible,
@@ -122,10 +136,13 @@ export const TimedModal = ({
   actions,
   children,
 }: Props) => {
+  const t = useT();
   const { brand } = useTheme();
   const { width: screenW } = useWindowDimensions();
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [frozen, setFrozen] = useState(false);
+  const screenReader = useScreenReader();
+  const hold = paused || screenReader;
 
   const life = useSharedValue(1);
   const panX = useSharedValue(0);
@@ -137,12 +154,12 @@ export const TimedModal = ({
   const [prevVisible, setPrevVisible] = useState(visible);
   if (visible !== prevVisible) {
     setPrevVisible(visible);
-    if (visible) setFrozen(paused);
+    if (visible) setFrozen(hold);
   }
-  const [prevPaused, setPrevPaused] = useState(paused);
-  if (paused !== prevPaused) {
-    setPrevPaused(paused);
-    setFrozen(paused);
+  const [prevHold, setPrevHold] = useState(hold);
+  if (hold !== prevHold) {
+    setPrevHold(hold);
+    setFrozen(hold);
   }
 
   useEffect(() => {
@@ -158,11 +175,12 @@ export const TimedModal = ({
   // An outside hold works like a tap-freeze, so the ring never lies about the wait.
   useEffect(() => {
     if (!visible) return;
-    if (paused) ctl.freeze();
+    if (hold) ctl.freeze();
     else ctl.thaw();
-  }, [paused, visible, ctl]);
+  }, [hold, visible, ctl]);
 
   const toggleFreeze = () => {
+    if (screenReader) return;
     setFrozen((was) => {
       if (was) ctl.thaw();
       else ctl.freeze();
@@ -188,14 +206,19 @@ export const TimedModal = ({
     >
       <Scrim depth="medium">
         {/* A Modal is its own native view tree: gestures need a root inside it. */}
-        <GestureHandlerRootView style={{ flex: 1 }}>
+        <GestureHandlerRootView style={{ flex: 1 }} onAccessibilityEscape={onDone}>
           <View className="flex-1 items-center justify-center px-8">
             <GestureDetector gesture={pan}>
               <Animated.View style={cardAnim} className="w-full">
                 <Pressable
                   onPress={toggleFreeze}
-                  accessibilityRole="button"
-                  accessibilityState={{ expanded: !frozen }}
+                  {...(screenReader
+                    ? { accessible: false }
+                    : {
+                        accessibilityRole: 'button' as const,
+                        accessibilityLabel: frozen ? t('timed.resume') : t('timed.pause'),
+                        accessibilityHint: t('timed.hint'),
+                      })}
                   onLayout={(e) =>
                     setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })
                   }

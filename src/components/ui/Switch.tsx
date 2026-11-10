@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Animated, Pressable, View } from 'react-native';
+import { Animated, Easing, Pressable, View } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 
 type Size = 'sm' | 'md';
 
@@ -17,8 +18,11 @@ const DIMENSIONS: Record<Size, { track: [number, number]; thumb: number; pad: nu
   md: { track: [48, 28], thumb: 24, pad: 2 },
 };
 
+/** The thumb's travel: a plain ease-out, no spring (AGENTS.md#conventions, Motion). */
+const TRAVEL_MS = 160;
+
 /**
- * Themed toggle: the thumb springs between sides and stretches while pressed,
+ * Themed toggle: the thumb slides between sides and stretches while pressed,
  * the track crossfades ink→lime. All native-driver — the lime track is an
  * overlay whose opacity rides the same value as the thumb, so color and motion
  * cannot drift apart.
@@ -37,20 +41,22 @@ export const Switch = ({
   // without tripping the refs-in-render lint (same pattern as Toast).
   const [anim] = useState(() => new Animated.Value(value ? 1 : 0));
   const [press] = useState(() => new Animated.Value(0));
+  // RN's Animated does not read the system setting the way Reanimated does.
+  const reduced = useReducedMotion();
 
   useEffect(() => {
-    Animated.spring(anim, {
+    Animated.timing(anim, {
       toValue: value ? 1 : 0,
-      speed: 20,
-      bounciness: 6,
+      duration: reduced ? 0 : TRAVEL_MS,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
-  }, [value, anim]);
+  }, [value, anim, reduced]);
 
   const setPressed = (down: boolean) => {
     Animated.timing(press, {
       toValue: down ? 1 : 0,
-      duration: 120,
+      duration: reduced ? 0 : 120,
       useNativeDriver: true,
     }).start();
   };
@@ -66,7 +72,8 @@ export const Switch = ({
       accessibilityRole="switch"
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ checked: value, disabled }}
-      hitSlop={8}
+      // A 44 dp target whatever the track's height.
+      hitSlop={{ top: (44 - track[1]) / 2, bottom: (44 - track[1]) / 2, left: 8, right: 8 }}
       disabled={disabled}
       style={{ width: track[0], height: track[1] }}
       className={disabled ? 'opacity-50' : ''}

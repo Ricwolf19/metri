@@ -2,7 +2,7 @@ import Body, { type ExtendedBodyPart, type Slug } from 'react-native-body-highli
 import { View } from 'react-native';
 
 import type { Sex } from '@/db/schema';
-import { UNTRAINED_FILL } from '@/features/training/muscle-colors';
+import { MAP_OUTLINE, UNTRAINED_FILL } from '@/features/training/muscle-colors';
 import { MUSCLE_HEADS, type MuscleHead } from '@/features/training/muscles';
 
 /**
@@ -87,7 +87,7 @@ export const BodyMap = ({ fills, side, sex, onPressRegion, scale = 1 }: BodyMapP
         // An outline + a fill light enough to separate from the near-black
         // page: without both, an untrained figure is invisible (it is the
         // default state of the screen, so it has to read first).
-        border="#52525b"
+        border={MAP_OUTLINE}
         hiddenParts={HIDDEN}
         defaultFill={UNTRAINED_FILL}
         onBodyPartPress={(part) => {

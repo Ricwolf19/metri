@@ -1,8 +1,9 @@
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 
+import { useT } from '@/i18n';
 import type { ClockFormat } from '@/lib/storage';
 
-import { WheelPicker } from './WheelPicker';
+import { WheelPicker, WheelSeparator } from './WheelPicker';
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 const HOURS_24 = Array.from({ length: 24 }, (_, i) => i);
@@ -19,6 +20,7 @@ type Props = {
 
 /** Apple-style HH : MM wheel picker; adds an AM/PM column when `clock` is 12h. */
 export const TimePicker = ({ hour, minute, onChange, clock = '24' }: Props) => {
+  const t = useT();
   if (clock === '12') {
     const h12 = hour % 12 || 12;
     const period = hour < 12 ? 0 : 1;
@@ -30,19 +32,22 @@ export const TimePicker = ({ hour, minute, onChange, clock = '24' }: Props) => {
           value={h12}
           onChange={(h) => onChange({ hour: to24(h, period), minute })}
           format={String}
+          accessibilityLabel={t('picker.hour')}
         />
-        <Text className="px-2 text-2xl font-sans-bold text-ink-300">:</Text>
+        <WheelSeparator />
         <WheelPicker
           values={MINUTES}
           value={minute}
           onChange={(m) => onChange({ hour, minute: m })}
           format={pad2}
+          accessibilityLabel={t('picker.minute')}
         />
         <WheelPicker
           values={PERIODS}
           value={period}
           onChange={(p) => onChange({ hour: to24(h12, p), minute })}
           format={(p) => (p === 0 ? 'AM' : 'PM')}
+          accessibilityLabel={t('picker.period')}
         />
       </View>
     );
@@ -55,13 +60,15 @@ export const TimePicker = ({ hour, minute, onChange, clock = '24' }: Props) => {
         value={hour}
         onChange={(h) => onChange({ hour: h, minute })}
         format={pad2}
+        accessibilityLabel={t('picker.hour')}
       />
-      <Text className="px-2 text-2xl font-sans-bold text-ink-300">:</Text>
+      <WheelSeparator />
       <WheelPicker
         values={MINUTES}
         value={minute}
         onChange={(m) => onChange({ hour, minute: m })}
         format={pad2}
+        accessibilityLabel={t('picker.minute')}
       />
     </View>
   );

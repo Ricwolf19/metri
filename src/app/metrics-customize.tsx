@@ -2,7 +2,7 @@ import { useState } from 'react';
 import ReorderableList, { reorderItems } from 'react-native-reorderable-list';
 
 import { TopBar } from '@/components/TopBar';
-import { ReorderRow, Screen, ScreenTitle, Switch } from '@/components/ui';
+import { ReorderRow, moveActions, Screen, ScreenTitle, Switch } from '@/components/ui';
 import type { MetricsSectionId } from '@/features/metrics/layout';
 import { orderedSections, type MetricsSection } from '@/features/metrics/sections';
 import { metricsLayout } from '@/features/metrics/useMetricsLayout';
@@ -30,14 +30,22 @@ const MetricsCustomize = () => {
     persist(items, next);
   };
 
+  // One reorder for the drag and for the screen reader's move up / move down.
+  const move = (from: number, to: number) => {
+    const next = reorderItems(items, from, to);
+    setItems(next);
+    persist(next, hidden);
+  };
+
   return (
     <Screen edges={['top']} contentClassName="px-5" header={<TopBar showBack showAvatar={false} />}>
       <ScreenTitle title={t('metrics.customizeTitle')} subtitle={t('metrics.customizeSub')} />
       <ReorderableList
         data={items}
         keyExtractor={(s) => s.id}
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <ReorderRow
+            {...moveActions(index, items.length, move)}
             dragOnly
             title={t(item.labelKey)}
             dragLabel={t('editor.dragHandle')}
@@ -50,11 +58,7 @@ const MetricsCustomize = () => {
             }
           />
         )}
-        onReorder={({ from, to }) => {
-          const next = reorderItems(items, from, to);
-          setItems(next);
-          persist(next, hidden);
-        }}
+        onReorder={({ from, to }) => move(from, to)}
         contentContainerStyle={{ paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       />

@@ -2,10 +2,10 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { CheckIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import { BrandMark, Button, Input, Screen, ScreenTitle, useToast } from '@/components/ui';
 import { AuthRejectedError, useAuth } from '@/features/auth/auth-context';
+import { TermsCheckbox } from '@/features/auth/components/TermsCheckbox';
 import { useT } from '@/i18n';
 import { captureError } from '@/lib/telemetry';
 import { LocaleToggle } from '@/i18n/LocaleToggle';
@@ -125,25 +125,7 @@ const SignUp = () => {
           returnKeyType="go"
         />
 
-        <Pressable
-          onPress={onToggleTerms}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: acceptedTerms }}
-          className="flex-row items-center gap-3"
-        >
-          <View
-            className={[
-              'h-6 w-6 items-center justify-center rounded-field border',
-              acceptedTerms ? 'border-brand bg-brand' : 'border-ink-500 bg-transparent',
-            ].join(' ')}
-          >
-            {acceptedTerms ? <CheckIcon color="#08090d" size={16} /> : null}
-          </View>
-          <Text className="flex-1 text-sm text-ink-300">
-            {t('auth.agree')}{' '}
-            <Text className="font-sans-semibold text-brand">{t('legal.title')}</Text>
-          </Text>
-        </Pressable>
+        <TermsCheckbox checked={acceptedTerms} onToggle={onToggleTerms} />
 
         <Button
           variant="brand"

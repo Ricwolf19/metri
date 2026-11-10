@@ -7,10 +7,11 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { AccessibilityInfo, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Easing,
+  ReduceMotion,
   cancelAnimation,
   interpolate,
   runOnJS,
@@ -68,7 +69,8 @@ const DISMISS_VX = 800;
 const SURFACE: Record<ToastType, string> = {
   success: 'border-brand/40 bg-ink-800',
   error: 'border-red-500/40 bg-ink-800',
-  info: 'border-ink-500 bg-ink-800',
+  // Half strength: the retuned ink-500 is a text tone, too loud for an outline.
+  info: 'border-ink-500/50 bg-ink-800',
 };
 
 const CHIP: Record<ToastType, string> = {
@@ -102,10 +104,16 @@ const makeToastController = (opts: {
   const { anim, life, panX, width, sticky, dismiss } = opts;
   let timer: ReturnType<typeof setTimeout> | null = null;
 
-  // Life bar and timeout always move together so the countdown never lies.
+  // Life bar and timeout always move together so the countdown never lies —
+  // which is why the bar ignores reduce motion: snapped to empty, it said the
+  // toast was leaving for the whole 7.5 s it stayed.
   const schedule = (ms: number) => {
     if (timer) clearTimeout(timer);
-    life.value = withTiming(0, { duration: ms, easing: Easing.linear });
+    life.value = withTiming(0, {
+      duration: ms,
+      easing: Easing.linear,
+      reduceMotion: ReduceMotion.Never,
+    });
     timer = setTimeout(() => {
       anim.value = withTiming(0, { duration: 180, easing: Easing.in(Easing.cubic) }, (finished) => {
         if (finished) runOnJS(dismiss)();
@@ -161,6 +169,7 @@ const makeToastController = (opts: {
 
 /** Perpetually drifting chevrons — the visual "slide me away" affordance. */
 const SwipeHint = () => {
+  const { muted } = useTheme();
   const drift = useSharedValue(0);
   useEffect(() => {
     drift.value = withRepeat(
@@ -174,8 +183,8 @@ const SwipeHint = () => {
   }));
   return (
     <Animated.View style={anim} className="ml-3 flex-row items-center">
-      <ChevronRightIcon color="#71717a" size={14} />
-      <ChevronRightIcon color="#71717a" size={14} strokeWidth={1.6} />
+      <ChevronRightIcon color={muted} size={14} />
+      <ChevronRightIcon color={muted} size={14} strokeWidth={1.6} />
     </Animated.View>
   );
 };
@@ -285,6 +294,11 @@ export const ToastProvider = ({ children }: { children: React.ReactNode }) => {
 
   const show = useCallback((message: string, type: ToastType = 'info', opts?: ToastOptions) => {
     const id = nextId.current++;
+    // `role="alert"` only sets a role description on Android: nothing is spoken
+    // unless it is announced. A visible toast that is silent is a lost message.
+    AccessibilityInfo.announceForAccessibility(
+      opts?.action ? `${message}. ${opts.action.label}` : message,
+    );
     setToasts((prev) => [
       ...prev,
       { id, type, message, action: opts?.action, sticky: opts?.sticky },

@@ -43,6 +43,9 @@ export const SegmentedControl = <T extends string>({
               onPress={() => onChange(seg.value)}
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
+              // `sm` stays compact to the eye (it shares a line with other
+              // controls) but its target still reaches 44 dp.
+              hitSlop={small ? { top: 10, bottom: 10 } : { top: 4, bottom: 4 }}
               className={[
                 'flex-1 items-center justify-center rounded-[0.375rem] px-1',
                 small ? 'py-1' : 'py-2.5',

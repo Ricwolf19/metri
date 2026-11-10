@@ -14,7 +14,9 @@ type Props = {
  */
 export const ScreenTitle = ({ title, subtitle }: Props) => (
   <View className="mb-5">
-    <Text className="text-[28px] font-sans-bold leading-9 text-ink-50">{title}</Text>
+    <Text accessibilityRole="header" className="text-[28px] font-sans-bold leading-9 text-ink-50">
+      {title}
+    </Text>
     {subtitle ? <Text className="mt-1.5 text-sm leading-5 text-ink-400">{subtitle}</Text> : null}
   </View>
 );

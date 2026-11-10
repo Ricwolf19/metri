@@ -13,6 +13,7 @@ import {
   HoldButton,
   Input,
   ReorderRow,
+  moveActions,
   Screen,
   SectionLabel,
   useToast,
@@ -186,6 +187,16 @@ const EditDay = () => {
     </View>
   );
 
+  // One reorder for the drag and for the screen reader's move up / move down.
+  const move = (from: number, to: number) => {
+    const next = reorderItems(items, from, to);
+    setItems(next);
+    reorderSlots(
+      dayId,
+      next.map((row) => row.slot.id),
+    );
+  };
+
   return (
     <Screen
       edges={['top']}
@@ -204,8 +215,9 @@ const EditDay = () => {
       <ReorderableList
         data={items}
         keyExtractor={(row) => row.slot.id}
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <ReorderRow
+            {...moveActions(index, items.length, move)}
             title={exerciseDisplayName(item.exercise, locale)}
             subtitle={item.slot.badges?.length ? item.slot.badges.join(' · ') : undefined}
             dragLabel={t('editor.dragHandle')}
@@ -215,14 +227,7 @@ const EditDay = () => {
             right={<ExerciseDocButton exerciseId={item.exercise.id} />}
           />
         )}
-        onReorder={({ from, to }) => {
-          const next = reorderItems(items, from, to);
-          setItems(next);
-          reorderSlots(
-            dayId,
-            next.map((row) => row.slot.id),
-          );
-        }}
+        onReorder={({ from, to }) => move(from, to)}
         ListHeaderComponent={header}
         ListFooterComponent={footer}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}

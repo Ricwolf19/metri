@@ -1,6 +1,9 @@
 import { forwardRef, useEffect, useRef, useState } from 'react';
 import { Pressable, Text, TextInput, View, type TextInputProps } from 'react-native';
 
+import { useT } from '@/i18n';
+import { useTheme } from '@/theme/theme-context';
+
 import { CONTROL_FONT_SCALE } from './typography';
 
 type Props = TextInputProps & {
@@ -32,6 +35,8 @@ export const Input = forwardRef<TextInput, Props>(function Input(
   },
   ref,
 ) {
+  const t = useT();
+  const { muted, textSelection } = useTheme();
   const [hidden, setHidden] = useState(!!secureTextEntry);
   const [focused, setFocused] = useState(false);
   const showToggle = (secureToggle ?? !!secureTextEntry) && !disabled;
@@ -76,6 +81,9 @@ export const Input = forwardRef<TextInput, Props>(function Input(
       {label ? (
         <Text
           maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+          // The field below carries this as its name; read once, not twice.
+          importantForAccessibility="no"
+          accessibilityElementsHidden
           className="mb-1.5 font-mono-medium text-xs uppercase tracking-wider text-ink-300"
         >
           {label}
@@ -89,17 +97,21 @@ export const Input = forwardRef<TextInput, Props>(function Input(
           disabled
             ? ''
             : error
-              ? 'border-red-500/60'
+              ? 'border-red-500'
               : focused
                 ? 'border-brand/60'
-                : 'border-ink-600',
+                : // ink-500: a field's edge must read (3:1) against the screen; 600 was 1.39.
+                  'border-ink-500',
         ].join(' ')}
       >
         <TextInput
           ref={ref}
           maxFontSizeMultiplier={CONTROL_FONT_SCALE}
-          placeholderTextColor="#71717a"
-          selectionColor="#bef82b"
+          placeholderTextColor={muted}
+          {...textSelection}
+          // The visible label above is a sibling, not the field's name: name the
+          // field itself (a caller's own label still wins through `rest`).
+          accessibilityLabel={label ?? rest.placeholder}
           // Masking happens in JS above; the native flag would hide the tail too.
           secureTextEntry={false}
           autoCorrect={masked ? false : rest.autoCorrect}
@@ -129,10 +141,13 @@ export const Input = forwardRef<TextInput, Props>(function Input(
             hitSlop={8}
             onPress={() => setHidden((v) => !v)}
             accessibilityRole="button"
-            accessibilityLabel={hidden ? 'Show password' : 'Hide password'}
+            accessibilityLabel={hidden ? t('input.showPassword') : t('input.hidePassword')}
           >
-            <Text className="font-mono-medium text-xs uppercase tracking-wider text-brand">
-              {hidden ? 'Show' : 'Hide'}
+            <Text
+              maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+              className="font-mono-medium text-xs uppercase tracking-wider text-brand"
+            >
+              {hidden ? t('input.show') : t('input.hide')}
             </Text>
           </Pressable>
         ) : (

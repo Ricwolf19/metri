@@ -14,7 +14,7 @@ import { useTheme } from '@/theme/theme-context';
 export const LocalModeBanner = () => {
   const t = useT();
   const router = useRouter();
-  const { brand } = useTheme();
+  const { brand, muted } = useTheme();
   const { isLocalOnly } = useAuth();
   // Snooze check happens once per mount (initializer), keeping render pure.
   const [hidden, setHidden] = useState(() => Date.now() < settings.getLocalBannerSnoozedUntil());
@@ -49,7 +49,7 @@ export const LocalModeBanner = () => {
           accessibilityRole="button"
           accessibilityLabel={t('common.cancel')}
         >
-          <XIcon color="#71717a" size={16} />
+          <XIcon color={muted} size={16} />
         </Pressable>
       </View>
     </Card>

@@ -24,6 +24,7 @@ export const IconButton = ({
   disabled = false,
 }: Props) => (
   <Pressable
+    // 36 dp disc + 8 dp each side = a 52 dp target, past the 44 dp floor.
     hitSlop={8}
     onPress={onPress}
     disabled={disabled}

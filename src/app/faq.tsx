@@ -4,8 +4,9 @@ import { ExternalLinkIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import { Button, Card, Screen, ScreenTitle, SectionLabel, TextLink } from '@/components/ui';
 import { betaLinks, downloadPageUrl } from '@/features/beta/links';
+import { SYNC_LEGEND, SyncSwatch } from '@/features/sync/SyncRing';
 import { useRouter } from 'expo-router';
-import { type TranslationKey, useI18n, useT } from '@/i18n';
+import { useI18n, useT } from '@/i18n';
 import { WEB_URL } from '@/lib/env';
 import { openExternal } from '@/lib/open-external';
 import { useTheme } from '@/theme/theme-context';
@@ -16,14 +17,6 @@ const QA = ({ q, a }: { q: string; a: string }) => (
     <Text className="mt-1 text-sm leading-6 text-ink-300">{a}</Text>
   </View>
 );
-
-/** Ring color legend rows (mirrors SyncRing's palette). */
-const RING: { color: string; key: TranslationKey }[] = [
-  { color: '#bef82b', key: 'sync.legendSynced' },
-  { color: '#38bdf8', key: 'sync.legendSyncing' },
-  { color: '#71717a', key: 'sync.legendOffline' },
-  { color: '#f87171', key: 'sync.legendError' },
-];
 
 /**
  * Quick answers: what the avatar ring means, what each plan includes, what
@@ -56,9 +49,9 @@ const Faq = () => {
       <SectionLabel label={t('faq.ringTitle')} />
       <Card className="gap-2.5">
         <Text className="text-sm leading-6 text-ink-300">{t('faq.ringBody')}</Text>
-        {RING.map(({ color, key }) => (
+        {SYNC_LEGEND.map(({ state, key }) => (
           <View key={key} className="flex-row items-center gap-2.5">
-            <View style={{ backgroundColor: color }} className="h-2.5 w-2.5 rounded-full" />
+            <SyncSwatch state={state} />
             <Text className="text-sm text-ink-300">{t(key)}</Text>
           </View>
         ))}

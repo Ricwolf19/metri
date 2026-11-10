@@ -5,6 +5,7 @@ import { XIcon } from '@/components/icons';
 import { Button, Input } from '@/components/ui';
 import { MAX_BADGES, MAX_BADGE_LEN } from '@/features/training/authoring.repo';
 import { useI18n, useT } from '@/i18n';
+import { useTheme } from '@/theme/theme-context';
 
 import { badgeLabel } from '../programs/badge-copy';
 
@@ -18,6 +19,7 @@ export const BadgesEditor = ({
   onChange: (badges: string[]) => void;
 }) => {
   const t = useT();
+  const { muted } = useTheme();
   const { locale } = useI18n();
   const [input, setInput] = useState('');
 
@@ -40,8 +42,13 @@ export const BadgesEditor = ({
               <Text className="font-mono-medium text-[11px] tracking-wide text-ink-200">
                 {badgeLabel(b, locale)}
               </Text>
-              <Pressable onPress={() => onChange(value.filter((_, j) => j !== i))} hitSlop={6}>
-                <XIcon color="#71717a" size={13} />
+              <Pressable
+                onPress={() => onChange(value.filter((_, j) => j !== i))}
+                hitSlop={16}
+                accessibilityRole="button"
+                accessibilityLabel={t('common.removeNamed', { name: badgeLabel(b, locale) })}
+              >
+                <XIcon color={muted} size={13} />
               </Pressable>
             </View>
           ))}

@@ -3,6 +3,8 @@ import { View } from 'react-native';
 
 import MetriIcon from '@/assets/images/metri-icon.svg';
 import { StarIcon } from '@/components/icons';
+import { useT } from '@/i18n';
+import { useTheme } from '@/theme/theme-context';
 
 type Props = {
   uri?: string | null;
@@ -17,6 +19,8 @@ type Props = {
  * reads the same on any theme).
  */
 export const Avatar = ({ uri, size = 44, premium = false }: Props) => {
+  const t = useT();
+  const { brand, brandContrast } = useTheme();
   const inner = uri ? (
     <Image
       source={{ uri }}
@@ -25,7 +29,7 @@ export const Avatar = ({ uri, size = 44, premium = false }: Props) => {
         height: size,
         borderRadius: size / 2,
         borderWidth: Math.max(2, size * 0.045),
-        borderColor: '#bef82b',
+        borderColor: brand,
       }}
       contentFit="cover"
       transition={150}
@@ -52,9 +56,10 @@ export const Avatar = ({ uri, size = 44, premium = false }: Props) => {
           borderRadius: badge / 2,
         }}
         className="items-center justify-center border-2 border-ink-900 bg-brand"
-        accessibilityLabel="Premium"
+        accessible
+        accessibilityLabel={t('plan.premium')}
       >
-        <StarIcon color="#08090d" size={badge * 0.6} />
+        <StarIcon color={brandContrast} size={badge * 0.6} />
       </View>
     </View>
   );

@@ -42,7 +42,7 @@ const WarmupDetail = () => {
   const { locale } = useI18n();
   const toast = useToast();
   const { user } = useAuth();
-  const { brand } = useTheme();
+  const { brand, muted } = useTheme();
 
   const isNew = id === 'new';
   const [routine] = useState(() => (id && !isNew ? getWarmup(id) : null));
@@ -207,10 +207,13 @@ const WarmupDetail = () => {
                       setSteps((prev) => prev.filter((_, j) => j !== i));
                       setDirty(true);
                     }}
-                    hitSlop={8}
+                    hitSlop={14}
                     accessibilityRole="button"
+                    accessibilityLabel={t('common.removeNamed', {
+                      name: step.name.trim() || `${t('warmup.steps')} ${i + 1}`,
+                    })}
                   >
-                    <XIcon color="#71717a" size={16} />
+                    <XIcon color={muted} size={16} />
                   </Pressable>
                 ) : null}
               </View>

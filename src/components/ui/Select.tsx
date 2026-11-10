@@ -48,7 +48,7 @@ export const Select = <T extends string>({
         onPress={() => setOpen(true)}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
-        className="min-h-11 w-full flex-row items-center rounded-field border border-ink-600 bg-ink-900 px-4 py-2.5"
+        className="min-h-11 w-full flex-row items-center rounded-field border border-ink-500 bg-ink-900 px-4 py-2.5"
       >
         <Text
           numberOfLines={1}

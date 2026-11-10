@@ -12,6 +12,7 @@ import {
   HoldButton,
   Input,
   ReorderRow,
+  moveActions,
   Screen,
   SectionLabel,
   useDialog,
@@ -138,6 +139,17 @@ const EditProgram = () => {
     </View>
   );
 
+  // One reorder for the drag and for the screen reader's move up / move down.
+  const move = (from: number, to: number) => {
+    const next = reorderItems(items, from, to);
+    setItems(next);
+    reorderRoutines(
+      programId,
+      null,
+      next.map((r) => r.id),
+    );
+  };
+
   return (
     <Screen
       edges={['top']}
@@ -156,8 +168,9 @@ const EditProgram = () => {
       <ReorderableList
         data={items}
         keyExtractor={(r) => r.id}
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <ReorderRow
+            {...moveActions(index, items.length, move)}
             title={routineDisplayName(item, t)}
             subtitle={t('training.weeks', { count: item.durationWeeks })}
             dragLabel={t('editor.dragHandle')}
@@ -166,15 +179,7 @@ const EditProgram = () => {
             }
           />
         )}
-        onReorder={({ from, to }) => {
-          const next = reorderItems(items, from, to);
-          setItems(next);
-          reorderRoutines(
-            programId,
-            null,
-            next.map((r) => r.id),
-          );
-        }}
+        onReorder={({ from, to }) => move(from, to)}
         ListHeaderComponent={header}
         ListFooterComponent={footer}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}

@@ -24,7 +24,12 @@ const Panel = ({
   active: boolean;
   onPress: () => void;
 }) => (
-  <Pressable onPress={onPress} accessibilityRole="button" className="flex-1">
+  <Pressable
+    onPress={onPress}
+    accessibilityRole="button"
+    accessibilityState={{ selected: active }}
+    className="flex-1"
+  >
     <View
       className={[
         'overflow-hidden rounded-card border-2 bg-ink-800',

@@ -1,5 +1,7 @@
 import { View } from 'react-native';
 
+import { useT } from '@/i18n';
+
 import { WheelPicker } from './WheelPicker';
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
@@ -10,6 +12,7 @@ type Props = { value: Date; onChange: (d: Date) => void; yearsBack?: number };
 
 /** Apple-style day / month / year wheel picker (recent years only). */
 export const DatePicker = ({ value, onChange, yearsBack = 8 }: Props) => {
+  const t = useT();
   const year = value.getFullYear();
   const month = value.getMonth();
   const day = value.getDate();
@@ -29,14 +32,21 @@ export const DatePicker = ({ value, onChange, yearsBack = 8 }: Props) => {
         value={day}
         onChange={(d) => update(year, month, d)}
         format={pad2}
+        accessibilityLabel={t('picker.day')}
       />
       <WheelPicker
         values={months}
         value={month}
         onChange={(m) => update(year, m, day)}
         format={(m) => pad2(m + 1)}
+        accessibilityLabel={t('picker.month')}
       />
-      <WheelPicker values={years} value={year} onChange={(y) => update(y, month, day)} />
+      <WheelPicker
+        values={years}
+        value={year}
+        onChange={(y) => update(y, month, day)}
+        accessibilityLabel={t('picker.year')}
+      />
     </View>
   );
 };
