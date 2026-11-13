@@ -15,7 +15,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useT } from '@/i18n';
 
 import { Scrim } from './Scrim';
-import { computeStops, keyboardLift, keyboardLimit, type Bounds } from './sheet-math';
+import {
+  computeStops,
+  keyboardLift,
+  keyboardLimit,
+  scrimOpacity,
+  sheetTranslate,
+  type Bounds,
+} from './sheet-math';
 
 type Props = {
   visible: boolean;
@@ -38,8 +45,8 @@ type Props = {
  * nearly full when the list is longer — a list scrolls, so it never needs to
  * open at full height the way a form with buttons does. */
 export const PICKER_STOPS = ['50%', '92%'];
-const RISE_MS = 220;
-const FALL_MS = 170;
+const RISE_MS = 200;
+const FALL_MS = 160;
 const SNAP_MS = 200;
 const SCRIM_OPACITY = 0.6;
 /** Dragging further than this share of the sheet below its smallest stop closes it. */
@@ -47,43 +54,30 @@ const CLOSE_RATIO = 0.25;
 const FLING_VELOCITY = 900;
 const EASE_OUT = Easing.out(Easing.cubic);
 const HANDLE_WIDTH = 40;
-/** One sweep on open; the handle then STAYS lime. A resting state is an
- * affordance, a loop is noise. */
-const HINT_MS = 420;
 
 // Shared-value writes stay in module-scope factories (AGENTS.md#architecture-invariants).
 // `limit` is the sheet's MAX height: short content renders shorter than it and the
-// sheet hugs the content; long content is clamped to it and scrolls. `offset`
-// slides the sheet out during the rise/fall and when a drag goes below the sheet.
+// sheet hugs the content; long content is clamped to it and scrolls. `shown` is
+// the rise/fall (0 closed … 1 open) and `drag` the pull below the smallest stop.
 const makeController = (
   limit: SharedValue<number>,
-  offset: SharedValue<number>,
+  shown: SharedValue<number>,
+  drag: SharedValue<number>,
   bounds: SharedValue<Bounds>,
   sheetHeight: SharedValue<number>,
-  hint: SharedValue<number>,
 ) => {
   let closing = false;
   /** When the running fall comes to rest, so a second close path waits it out. */
   let restsAt = 0;
   let onClose = () => {};
-  // Every close path ends here: `offset` rests at the CLOSED position and the
-  // handle hint is blank, so the next mount's first frame is below the edge.
+  // Every close path ends here: `shown` rests at 0, so the next mount's first
+  // frame is below the edge.
   const fall = () => {
     closing = true;
     restsAt = Date.now() + FALL_MS;
-    offset.value = withTiming(sheetHeight.value || limit.value, {
-      duration: FALL_MS,
-      easing: Easing.in(Easing.quad),
-    });
+    shown.value = withTiming(0, { duration: FALL_MS, easing: Easing.in(Easing.quad) });
   };
-  const afterFall = (done: () => void) =>
-    setTimeout(
-      () => {
-        hint.value = 0;
-        done();
-      },
-      Math.max(0, restsAt - Date.now()),
-    );
+  const afterFall = (done: () => void) => setTimeout(done, Math.max(0, restsAt - Date.now()));
   return {
     setOnClose: (next: () => void) => {
       onClose = next;
@@ -98,17 +92,10 @@ const makeController = (
     /** Called when the Modal mounts: start below the edge, rise into place. */
     enter: () => {
       closing = false;
-      // Blank the handle before the first frame; `hintAt` sweeps it after paint.
-      hint.value = 0;
       limit.value = bounds.value.min;
-      // Rise from the cap rather than the measured height — it is at least as
-      // tall, so the sheet still starts off-screen without waiting on layout.
-      offset.value = bounds.value.min;
-      offset.value = withTiming(0, { duration: RISE_MS, easing: EASE_OUT });
-    },
-    hintAt: () => {
-      hint.value = 0;
-      hint.value = withTiming(1, { duration: HINT_MS, easing: Easing.inOut(Easing.quad) });
+      drag.value = 0;
+      shown.value = 0;
+      shown.value = withTiming(1, { duration: RISE_MS, easing: EASE_OUT });
     },
     /** Sheet-initiated close: play the fall, then let the parent flip `visible`. */
     close: () => {
@@ -137,7 +124,7 @@ const makeController = (
 // height it follows the finger and a long enough pull (or a fling) closes it.
 const makePan = (
   limit: SharedValue<number>,
-  offset: SharedValue<number>,
+  drag: SharedValue<number>,
   bounds: SharedValue<Bounds>,
   startLimit: SharedValue<number>,
   sheetHeight: SharedValue<number>,
@@ -154,23 +141,20 @@ const makePan = (
       const next = startLimit.value - e.translationY;
       if (next >= min) {
         limit.value = Math.min(max, next);
-        offset.value = 0;
+        drag.value = 0;
       } else {
         limit.value = min;
-        offset.value = min - next;
+        drag.value = min - next;
       }
     })
     .onEnd((e) => {
       const { stops } = bounds.value;
       const height = sheetHeight.value || bounds.value.min;
-      if (
-        offset.value > height * CLOSE_RATIO ||
-        (offset.value > 0 && e.velocityY > FLING_VELOCITY)
-      ) {
+      if (drag.value > height * CLOSE_RATIO || (drag.value > 0 && e.velocityY > FLING_VELOCITY)) {
         runOnJS(requestClose)();
         return;
       }
-      offset.value = withTiming(0, { duration: SNAP_MS, easing: EASE_OUT });
+      drag.value = withTiming(0, { duration: SNAP_MS, easing: EASE_OUT });
       // Snap to the nearest stop, nudged by the fling direction.
       const biased = limit.value - e.velocityY * 0.08;
       let target = stops[0];
@@ -187,11 +171,13 @@ const makePan = (
  * tall, a form shows every field and its buttons — up to nearly the full
  * screen, then its `<ScrollArea inSheet>` scrolls. Motion rules: AGENTS.md#conventions.
  *
- * Resting states: CLOSED is `offset = sheetHeight` (and the shared value's
- * initial `bounds.min`, so a fresh sheet's first frame is below the edge);
- * OPEN is `offset = 0`, reached by `enter()` in a layout effect keyed on the
- * open counter, which re-runs on EVERY open. `Animated.View` paints its first
- * frame from the shared values AS THEY ARE at mount, so every close path —
+ * Resting states: CLOSED is `shown = 0` (also its initial value), which puts
+ * the sheet a full height CAP below the edge — it can never be taller, so the
+ * first frame is hidden without waiting on a measurement; OPEN is `shown = 1`,
+ * reached by `enter()` in a layout effect keyed on the open counter, which
+ * re-runs on EVERY open. The scrim follows `shown` too (`sheet-math.ts`).
+ * `Animated.View` paints its first frame from the shared values AS THEY ARE at
+ * mount, so every close path —
  * hand-closed or parent-flipped `visible` — plays the fall and only then
  * unmounts the Modal, and a mount never starts at 0: both shapes drew one
  * open frame, then a drop below the edge, then the rise (appear / disappear /
@@ -241,15 +227,15 @@ export const Sheet = ({ visible, onClose, children, snapPoints, expandable = tru
 
   const limit = useSharedValue(bounded.min);
   // Starts CLOSED: `Animated.View` paints its first frame from the shared
-  // value as it is at mount, so an initial 0 drew a fresh sheet fully open for
-  // one frame before the rise effect dropped it below the edge (appear /
+  // value as it is at mount, so starting open drew a fresh sheet fully shown
+  // for one frame before the rise effect dropped it below the edge (appear /
   // disappear / appear on every first open). The rise is a deps-keyed layout
   // effect that re-runs on each open; see the component comment.
-  const offset = useSharedValue(bounded.min);
+  const shown = useSharedValue(0);
+  const drag = useSharedValue(0);
   const bounds = useSharedValue<Bounds>(bounded);
   const startLimit = useSharedValue(bounded.min);
   const sheetHeight = useSharedValue(0);
-  const hint = useSharedValue(0);
   // Android never resizes a `statusBarTranslucent` Modal for the IME
   // (edge-to-edge), so translating the sheet is the only way to keep a field
   // above the keyboard; keyboard-controller reports the keyboard inside RN
@@ -257,8 +243,8 @@ export const Sheet = ({ visible, onClose, children, snapPoints, expandable = tru
   // NEGATIVE while open, `progress` runs 0..1. Needs `KeyboardProvider`
   // (`app/_layout.tsx`).
   const { height: kb, progress: kbProgress } = useReanimatedKeyboardAnimation();
-  const [ctl] = useState(() => makeController(limit, offset, bounds, sheetHeight, hint));
-  const [pan] = useState(() => makePan(limit, offset, bounds, startLimit, sheetHeight, ctl.close));
+  const [ctl] = useState(() => makeController(limit, shown, drag, bounds, sheetHeight));
+  const [pan] = useState(() => makePan(limit, drag, bounds, startLimit, sheetHeight, ctl.close));
 
   useEffect(() => {
     ctl.setOnClose(onClose);
@@ -277,10 +263,6 @@ export const Sheet = ({ visible, onClose, children, snapPoints, expandable = tru
     if (visible) ctl.enter();
   }, [visible, gen, ctl]);
 
-  useEffect(() => {
-    if (visible) ctl.hintAt();
-  }, [visible, gen, ctl]);
-
   // Parent-initiated close: fall, then unmount. The cleanup drops the unmount
   // when a re-open clears `falling` before the fall rests.
   useEffect(() => {
@@ -290,7 +272,7 @@ export const Sheet = ({ visible, onClose, children, snapPoints, expandable = tru
   }, [falling, ctl]);
 
   const scrimStyle = useAnimatedStyle(() => ({
-    opacity: SCRIM_OPACITY * (1 - offset.value / Math.max(1, sheetHeight.value || limit.value)),
+    opacity: scrimOpacity(shown.value, drag.value, sheetHeight.value, SCRIM_OPACITY),
   }));
   // `maxHeight`, not `height`: short content keeps its own height (the sheet hugs
   // it), long content is clamped here and scrolls inside. The keyboard shrinks
@@ -299,10 +281,16 @@ export const Sheet = ({ visible, onClose, children, snapPoints, expandable = tru
   const sheetStyle = useAnimatedStyle(() => ({
     maxHeight: keyboardLimit(limit.value, kb.value),
     transform: [
-      { translateY: keyboardLift(offset.value, kb.value, bottomInset, kbProgress.value) },
+      {
+        translateY: keyboardLift(
+          sheetTranslate(shown.value, limit.value, drag.value),
+          kb.value,
+          bottomInset,
+          kbProgress.value,
+        ),
+      },
     ],
   }));
-  const hintStyle = useAnimatedStyle(() => ({ width: HANDLE_WIDTH * hint.value }));
 
   const onHandlePress = () => {
     if (resizable) ctl.toggle();
@@ -349,12 +337,9 @@ export const Sheet = ({ visible, onClose, children, snapPoints, expandable = tru
               hitSlop={10}
               className="items-center pb-3 pt-3"
             >
-              <View
-                style={{ width: HANDLE_WIDTH }}
-                className="h-1 overflow-hidden rounded-full bg-ink-600"
-              >
-                <Animated.View style={hintStyle} className="h-full rounded-full bg-brand" />
-              </View>
+              {/* Always lime, never animated: the sweep it used to play on open
+                  was one more thing drawing during the rise. */}
+              <View style={{ width: HANDLE_WIDTH }} className="h-1 rounded-full bg-brand" />
             </Pressable>
           </GestureDetector>
           {children}

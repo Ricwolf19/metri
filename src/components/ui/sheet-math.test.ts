@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { FIT_CAP, MIN_LIMIT, computeStops, keyboardLift, keyboardLimit, pct } from './sheet-math';
+import {
+  FIT_CAP,
+  MIN_LIMIT,
+  computeStops,
+  keyboardLift,
+  keyboardLimit,
+  pct,
+  scrimOpacity,
+  sheetTranslate,
+} from './sheet-math';
 
 const WINDOW = 1000;
 const CEILING = 950;
@@ -72,5 +81,32 @@ describe('keyboardLift', () => {
 
   it('scales the inset term with progress mid-flight', () => {
     expect(keyboardLift(0, -150, 40, 0.5)).toBe(-130);
+  });
+});
+
+describe('sheetTranslate', () => {
+  it('rests closed a full cap below the edge and open at zero', () => {
+    expect(sheetTranslate(0, 920, 0)).toBe(920);
+    expect(sheetTranslate(1, 920, 0)).toBe(0);
+  });
+
+  it('adds the pull of a drag on top of the slide', () => {
+    expect(sheetTranslate(1, 920, 80)).toBe(80);
+    expect(sheetTranslate(0.5, 920, 80)).toBe(540);
+  });
+});
+
+describe('scrimOpacity', () => {
+  it('follows the rise alone: the measured height arriving mid-rise never moves it', () => {
+    // Before layout the height is unknown (0); a frame later it is the content's.
+    expect(scrimOpacity(0.3, 0, 0, 0.6)).toBeCloseTo(0.18);
+    expect(scrimOpacity(0.3, 0, 300, 0.6)).toBeCloseTo(0.18);
+    expect(scrimOpacity(0, 0, 300, 0.6)).toBe(0);
+    expect(scrimOpacity(1, 0, 300, 0.6)).toBeCloseTo(0.6);
+  });
+
+  it('clears as a drag pulls the open sheet away', () => {
+    expect(scrimOpacity(1, 150, 300, 0.6)).toBeCloseTo(0.3);
+    expect(scrimOpacity(1, 600, 300, 0.6)).toBe(0);
   });
 });

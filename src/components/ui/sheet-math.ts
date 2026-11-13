@@ -25,7 +25,7 @@ export const pct = (stop: string): number => Math.min(1, Math.max(0.2, parseFloa
  *
  * Taller stops are only offered once the content is known to overflow the
  * first one: the sheet sizes to its content, so on a short list dragging up
- * would stretch nothing. Gating here is what keeps the handle hint and the
+ * would stretch nothing. Gating here is what keeps the handle's
  * tap-to-toggle honest.
  */
 export const computeStops = (
@@ -70,4 +70,27 @@ export const keyboardLift = (
 ): number => {
   'worklet';
   return offset + kb + bottomInset * progress;
+};
+
+/**
+ * The sheet's translateY before the keyboard: `shown` (0 closed … 1 open)
+ * slides it over `travel`, its height CAP — the sheet can never be taller, so
+ * 0 is fully below the edge whatever the content and nothing waits on a
+ * measurement — and `drag` adds the finger's pull below the smallest stop.
+ */
+export const sheetTranslate = (shown: number, travel: number, drag: number): number => {
+  'worklet';
+  return (1 - shown) * travel + drag;
+};
+
+/**
+ * The scrim's opacity: it follows the rise/fall alone, fading further as a
+ * drag pulls the sheet away. It used to divide the slide by the MEASURED
+ * height, which lands a frame after mount, so every first open dimmed,
+ * cleared and dimmed again.
+ */
+export const scrimOpacity = (shown: number, drag: number, height: number, max: number): number => {
+  'worklet';
+  const pulled = height > 0 ? Math.min(1, Math.max(0, drag) / height) : 0;
+  return max * shown * (1 - pulled);
 };
