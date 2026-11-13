@@ -16,17 +16,25 @@ import {
   useToast,
 } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
+import {
+  ProgramQuickView,
+  type QuickViewTarget,
+} from '@/features/training/components/ProgramQuickView';
 import { presetDayName, presetProgramCopy, presetRoutineName } from '@/features/training/programs';
 import { deleteProgramTree } from '@/features/training/authoring.repo';
 import { activeEnrollmentQuery } from '@/features/training/enroll';
-import { WEEKDAY_KEY, dayDisplayName, routineDisplayName } from '@/features/training/labels';
+import {
+  dayDisplayName,
+  phaseMeta,
+  routineDisplayName,
+  scheduleLabel,
+} from '@/features/training/labels';
 import { getProgram, getProgramTree } from '@/features/training/programs.repo';
-import { formatClockTime } from '@/features/training/schedule';
 import { useI18n, useT } from '@/i18n';
 import { useClockFormat } from '@/lib/useClockFormat';
 import { useTheme } from '@/theme/theme-context';
 
-/** Program detail: phases/splits (schedule shown when active), Start / Continue / Switch, Edit + hold-to-delete for the owner. */
+/** Program detail: phases/splits (schedule shown when active), a quick view of any phase or split, Start / Continue / Switch, Edit + hold-to-delete for the owner. */
 const ProgramDetail = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -45,6 +53,7 @@ const ProgramDetail = () => {
 
   const [program, setProgram] = useState(() => (programId ? getProgram(programId) : null));
   const [tree, setTree] = useState(() => getProgramTree(programId, null));
+  const [quick, setQuick] = useState<QuickViewTarget | null>(null);
   // Reload on focus: the editors behind Edit write straight to SQLite.
   useFocusEffect(
     useCallback(() => {
@@ -118,32 +127,48 @@ const ProgramDetail = () => {
         {tree.routines.map((routine, i) => (
           <FadeInUp key={routine.id} delay={i * 60}>
             <Card>
-              <View className="flex-row items-center justify-between">
-                <Text className="text-base font-sans-semibold text-ink-50">
-                  {routineDisplayName(
-                    {
-                      name: presetRoutineName(program.id, routine.id, routine.name, locale),
-                      orderIndex: routine.orderIndex,
-                    },
-                    t,
-                  )}
-                </Text>
-                <Text className="text-xs text-ink-400">
-                  {t('training.weeks', { count: routine.durationWeeks })}
-                  {routine.rmTestWeek
-                    ? ` · ${t('program.rmTestWeek', { n: routine.rmTestWeek })}`
-                    : ''}
-                </Text>
-              </View>
+              {/* Stacked, never side by side: a preset phase name ("Fase 3 — Semana 1
+                  (A·B·A)") and its weeks + RM test line both run long in Spanish, and
+                  on one row they pushed each other off the screen. */}
+              <Pressable
+                onPress={() => setQuick({ routineId: routine.id, dayId: null })}
+                accessibilityRole="button"
+                accessibilityHint={t('program.quickViewHint')}
+                className="-m-1 flex-row items-center rounded-field p-1 active:bg-ink-800"
+              >
+                <View className="min-w-0 flex-1">
+                  <Text className="text-base font-sans-semibold text-ink-50">
+                    {routineDisplayName(
+                      {
+                        name: presetRoutineName(program.id, routine.id, routine.name, locale),
+                        orderIndex: routine.orderIndex,
+                      },
+                      t,
+                    )}
+                  </Text>
+                  <Text className="mt-0.5 text-xs text-ink-400">{phaseMeta(routine, t)}</Text>
+                </View>
+                <View className="ml-2 shrink-0">
+                  <ChevronRightIcon color={muted} size={18} />
+                </View>
+              </Pressable>
               <View className="mt-3 gap-2">
                 {routine.days.map((day) => {
-                  const schedule =
-                    day.weekday != null && day.startMinute != null
-                      ? `${t(WEEKDAY_KEY[day.weekday])} · ${formatClockTime(day.startMinute, clock)}`
-                      : null;
-                  const row = (
-                    <View className="flex-row items-center rounded-field bg-ink-850 px-3 py-2">
-                      <Text className="flex-1 text-sm text-ink-100">
+                  const schedule = scheduleLabel(day, t, clock);
+                  // Every split opens the quick view on itself; on the active copy
+                  // the quick view links on to the split's editor (the schedule
+                  // lives there).
+                  return (
+                    <Pressable
+                      key={day.id}
+                      onPress={() => setQuick({ routineId: routine.id, dayId: day.id })}
+                      accessibilityRole="button"
+                      accessibilityHint={t('program.quickViewHint')}
+                      // Literal dp: NativeWind's rem is 14, so `min-h-11` is 38.5.
+                      style={{ minHeight: 44 }}
+                      className="flex-row items-center rounded-field bg-ink-850 px-3 py-2 active:bg-ink-800"
+                    >
+                      <Text className="min-w-0 flex-1 text-sm text-ink-100">
                         {dayDisplayName(
                           {
                             name: presetDayName(program.id, routine.id, day.id, day.name, locale),
@@ -152,26 +177,13 @@ const ProgramDetail = () => {
                           t,
                         )}
                       </Text>
-                      {schedule ? <Text className="text-xs text-ink-400">{schedule}</Text> : null}
-                      {enrolledHere ? (
-                        <View className="ml-1">
-                          <ChevronRightIcon color={muted} size={16} />
-                        </View>
+                      {schedule ? (
+                        <Text className="ml-2 shrink-0 text-xs text-ink-400">{schedule}</Text>
                       ) : null}
-                    </View>
-                  );
-                  // On the active copy each split opens its editor (schedule lives there).
-                  return enrolledHere ? (
-                    <Pressable
-                      key={day.id}
-                      onPress={() =>
-                        router.push({ pathname: '/training/edit/day/[id]', params: { id: day.id } })
-                      }
-                    >
-                      {row}
+                      <View className="ml-1 shrink-0">
+                        <ChevronRightIcon color={muted} size={16} />
+                      </View>
                     </Pressable>
-                  ) : (
-                    <View key={day.id}>{row}</View>
                   );
                 })}
               </View>
@@ -179,6 +191,26 @@ const ProgramDetail = () => {
           </FadeInUp>
         ))}
       </View>
+
+      <ProgramQuickView
+        programId={program.id}
+        routines={tree.routines}
+        target={quick}
+        current={
+          enrolledHere && enrollment?.currentRoutineId
+            ? { routineId: enrollment.currentRoutineId, week: enrollment.currentWeek }
+            : null
+        }
+        onClose={() => setQuick(null)}
+        onEditDay={
+          enrolledHere
+            ? (dayId) => {
+                setQuick(null);
+                router.push({ pathname: '/training/edit/day/[id]', params: { id: dayId } });
+              }
+            : undefined
+        }
+      />
 
       <View className="mt-6 gap-3">
         <Button variant="brand" size="lg" label={primaryLabel} onPress={onPrimary} />

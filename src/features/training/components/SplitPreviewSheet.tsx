@@ -7,6 +7,8 @@ import { useI18n, useT } from '@/i18n';
 import { splitPreview } from '../session.repo';
 import type { ScheduledDay } from '../schedule';
 
+import { SplitExercises } from './SplitExercises';
+
 type Props = {
   /** The split to read, with the program week its prescription is for; null when closed. */
   split: { day: ScheduledDay; weekNumber: number; title: string; subtitle: string | null } | null;
@@ -35,24 +37,8 @@ export const SplitPreviewSheet = ({ split, onClose }: Props) => {
           <Text className="mt-1 text-sm text-ink-400">{split.subtitle}</Text>
         ) : null}
         <Text className="mt-1 text-xs text-ink-500">{t('training.previewHint')}</Text>
-        <View className="mt-4 gap-2">
-          {rows.map((row, i) => (
-            <View
-              key={`${row.exerciseId}-${i}`}
-              className="flex-row items-center gap-3 rounded-field bg-ink-850 px-3 py-2.5"
-            >
-              <Text className="w-6 font-mono-medium text-xs text-ink-500">{i + 1}</Text>
-              <Text className="min-w-0 flex-1 text-sm font-sans-medium text-ink-100">
-                {row.name}
-              </Text>
-              <Text className="shrink-0 font-mono-medium text-xs text-ink-400">
-                {row.sets} × {row.reps}
-              </Text>
-            </View>
-          ))}
-          {!rows.length ? (
-            <Text className="text-center text-sm text-ink-400">{t('training.empty')}</Text>
-          ) : null}
+        <View className="mt-4">
+          <SplitExercises rows={rows} />
         </View>
       </ScrollArea>
     </Sheet>

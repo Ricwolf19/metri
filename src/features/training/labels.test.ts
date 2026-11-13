@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import type { TFunction } from '@/i18n';
 
-import { dayDisplayName, routineDisplayName, targetLine } from './labels';
+import {
+  dayDisplayName,
+  phaseMeta,
+  routineDisplayName,
+  scheduleLabel,
+  setGroupLine,
+  targetLine,
+} from './labels';
 
 // Captures the key + vars instead of translating — the mapping is the contract.
 const t: TFunction = (key, vars) => `${key}:${vars?.n}`;
@@ -54,5 +61,48 @@ describe('targetLine', () => {
     ],
   ] as const)('%s', (_label, row, expected) => {
     expect(targetLine(row, tt)).toBe(expected);
+  });
+});
+
+describe('plan read-outs', () => {
+  // Renders key + vars, so the assertion reads what the lifter is told.
+  const tt: TFunction = (key, vars) =>
+    vars
+      ? `${key}(${Object.entries(vars)
+          .map(([k, v]) => `${k}=${v}`)
+          .join(',')})`
+      : key;
+
+  it.each([
+    ['one group, fixed reps', { sets: 3, reps: 8 }, null, '3 × 8'],
+    [
+      'a rep range with RIR',
+      { sets: 3, reps: 8, repsMax: 10, rirMin: 2 },
+      null,
+      '3 × 8–10 · RIR 2',
+    ],
+    [
+      'a named top set to failure',
+      { sets: 1, reps: 6, toFailure: true },
+      'Top set',
+      'Top set · 1 × 6 · training.failure',
+    ],
+  ] as const)('setGroupLine: %s', (_label, group, name, expected) => {
+    expect(setGroupLine(group, name, tt)).toBe(expected);
+  });
+
+  it('phaseMeta names the RM test week only when the phase has one', () => {
+    expect(phaseMeta({ durationWeeks: 4, rmTestWeek: null }, tt)).toBe('training.weeks(count=4)');
+    expect(phaseMeta({ durationWeeks: 4, rmTestWeek: 4 }, tt)).toBe(
+      'training.weeks(count=4) · program.rmTestWeek(n=4)',
+    );
+  });
+
+  it('scheduleLabel needs both a weekday and a time', () => {
+    expect(scheduleLabel({ weekday: 2, startMinute: 18 * 60 }, tt, '24')).toBe(
+      'weekday.mon · 18:00',
+    );
+    expect(scheduleLabel({ weekday: 2, startMinute: null }, tt, '24')).toBeNull();
+    expect(scheduleLabel({ weekday: null, startMinute: 600 }, tt, '24')).toBeNull();
   });
 });

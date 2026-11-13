@@ -1,8 +1,10 @@
 import type { Equipment, IntensityType, SetGroup } from '@/db/schema';
 import type { Locale, TFunction } from '@/i18n';
 import type { TranslationKey } from '@/i18n/en';
+import type { ClockFormat } from '@/lib/storage';
 
 import { EXERCISE_NAMES } from './exercise-content';
+import { formatClockTime } from './schedule';
 
 export const EQUIPMENT_KEY: Record<Equipment, TranslationKey> = {
   barbell: 'equipment.barbell',
@@ -72,6 +74,10 @@ export type SetTarget = {
   groupName: string | null;
 };
 
+/** "8" or "8–10": the reps a set or a group asks for. */
+const repsRange = (r: { reps: number; repsMax?: number }): string =>
+  `${r.reps}${r.repsMax ? `–${r.repsMax}` : ''}`;
+
 /** The effort a set group asks for: "Failure", "RIR 2", "RIR 1-2" or nothing. */
 export const groupIntensity = (g: SetGroup, t: TFunction): string => {
   if (g.toFailure) return t('training.failure');
@@ -86,9 +92,38 @@ export const groupIntensity = (g: SetGroup, t: TFunction): string => {
  * The reps AND the effort, so the lifter never has to decode a bare "RIR 1-2".
  */
 export const targetLine = (row: SetTarget, t: TFunction): string => {
-  const reps = `${row.reps}${row.repsMax ? `–${row.repsMax}` : ''}`;
+  const reps = repsRange(row);
   const target = row.intensity
     ? t('training.targetEffort', { reps, effort: row.intensity })
     : t('training.target', { reps });
   return [row.groupName, target].filter(Boolean).join(' · ');
 };
+
+/**
+ * A set group as a plan reads it: "Top set · 1 × 6 · Failure", "3 × 8–10 · RIR 2".
+ * `name` is the group's role, passed only when the prescription has several.
+ */
+export const setGroupLine = (g: SetGroup, name: string | null, t: TFunction): string =>
+  [name, `${g.sets} × ${repsRange(g)}`, groupIntensity(g, t)].filter(Boolean).join(' · ');
+
+/** "4 weeks · RM test week 4": a phase's length, and its test week when it has one. */
+export const phaseMeta = (
+  routine: { durationWeeks: number; rmTestWeek: number | null },
+  t: TFunction,
+): string =>
+  [
+    t('training.weeks', { count: routine.durationWeeks }),
+    routine.rmTestWeek ? t('program.rmTestWeek', { n: routine.rmTestWeek }) : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+/** "Monday · 18:00" — when a split is planned; null until it has a day and a time. */
+export const scheduleLabel = (
+  day: { weekday: number | null; startMinute: number | null },
+  t: TFunction,
+  clock: ClockFormat,
+): string | null =>
+  day.weekday != null && day.startMinute != null
+    ? `${t(WEEKDAY_KEY[day.weekday])} · ${formatClockTime(day.startMinute, clock)}`
+    : null;

@@ -32,6 +32,7 @@ import { advanceUserProgram, rewindUserProgram } from './enroll';
 import { defaultRestFor } from './exercise-rest';
 import { setVolumeKg } from './load';
 import { plannedSets } from './rest-summary';
+import { sessionBadges } from './session-badges';
 import { estimate1Rm, roundToPlate, weightForReps } from './progression';
 import { DEFAULT_REST } from './slot-draft';
 
@@ -191,25 +192,35 @@ export const completedDaysQuery = (userProgramId: string, weekNumber: number) =>
       ),
     );
 
+/** One exercise of a split as a session would open it that week. */
+export type SplitPreviewRow = {
+  exerciseId: string;
+  name: string;
+  /** The week's set groups, expanded the way `startWorkout` expands them. */
+  groups: SetGroup[];
+  /** The rest the session would run: the week's override, else the slot's. */
+  restSeconds: number | null;
+  /** The slot's cues as stored, retired ones dropped (render with `badgeLabel`). */
+  badges: string[];
+};
+
 /**
- * What a split holds this week, for the read-only preview on the Train tab
- * (splits unlock in order; the ones not up yet can be read, not started).
+ * What a split holds in a given week, to read — the Train tab's preview of a
+ * split not up yet, and a program's quick view (any phase, any week). The same
+ * expansion and rest rule as `startWorkout`, so what is read is what opens.
  */
 export const splitPreview = (
   workoutDayId: string,
   weekNumber: number,
   locale: Locale,
-): { exerciseId: string; name: string; sets: number; reps: string }[] =>
-  getSessionSlots(workoutDayId, weekNumber).map(({ exercise, config }) => {
-    const groups = expandPrescription(config);
-    const first = groups[0];
-    return {
-      exerciseId: exercise.id,
-      name: exerciseDisplayName(exercise, locale),
-      sets: groups.reduce((n, g) => n + g.sets, 0),
-      reps: first ? `${first.reps}${first.repsMax ? `–${first.repsMax}` : ''}` : '',
-    };
-  });
+): SplitPreviewRow[] =>
+  getSessionSlots(workoutDayId, weekNumber).map(({ slot, exercise, config }) => ({
+    exerciseId: exercise.id,
+    name: exerciseDisplayName(exercise, locale),
+    groups: expandPrescription(config),
+    restSeconds: resolveRest(slot, config),
+    badges: sessionBadges(slot.badges),
+  }));
 
 const deleteSetsOf = (workoutLogId: string): void => {
   const setIds = db
