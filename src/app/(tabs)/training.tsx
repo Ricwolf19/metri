@@ -25,15 +25,15 @@ import { presetProgramCopy } from '@/features/training/programs';
 import { SplitPreviewSheet } from '@/features/training/components/SplitPreviewSheet';
 import { SplitRow } from '@/features/training/components/SplitRow';
 import { abandonEnrollment, setEnrollmentPosition } from '@/features/training/enroll';
-import { WEEKDAY_KEY, dayDisplayName, routineDisplayName } from '@/features/training/labels';
+import {
+  WEEKDAY_KEY,
+  dayDisplayName,
+  routineDisplayName,
+  scheduleLabel,
+} from '@/features/training/labels';
 import { ownProgramsQuery, recommendedProgramsQuery } from '@/features/training/programs.repo';
 import { syncTrainingReminder } from '@/features/training/reminders';
-import {
-  formatClockTime,
-  nextPendingSplit,
-  weekdayOfDate,
-  type ScheduledDay,
-} from '@/features/training/schedule';
+import { nextPendingSplit, weekdayOfDate, type ScheduledDay } from '@/features/training/schedule';
 import {
   activeWorkoutQuery,
   completedDaysQuery,
@@ -100,11 +100,6 @@ const Training = () => {
   const activeProgramId = structure?.program?.id ?? null;
   const ownVisible = own.filter((p) => p.id !== activeProgramId);
   const recommendedVisible = recommended.filter((p) => p.id !== activeProgramId);
-
-  const scheduleLabel = (day: ScheduledDay) =>
-    day.weekday != null && day.startMinute != null
-      ? `${t(WEEKDAY_KEY[day.weekday])} · ${formatClockTime(day.startMinute, clock)}`
-      : null;
 
   const resolvedStatus = new Map<string, WorkoutStatus>(
     completedRows.map((r) => [r.dayId, r.status]),
@@ -216,7 +211,7 @@ const Training = () => {
                 </Text>
                 <SplitRow
                   name={dayDisplayName(pending, t)}
-                  label={scheduleLabel(pending)}
+                  label={scheduleLabel(pending, t, clock)}
                   note={carriedNote(pending)}
                   emphasis="next"
                   disabled={playDisabled}
@@ -239,7 +234,7 @@ const Training = () => {
                       <SplitRow
                         key={day.id}
                         name={dayDisplayName(day, t)}
-                        label={scheduleLabel(day)}
+                        label={scheduleLabel(day, t, clock)}
                         emphasis="other"
                         resolved={resolvedAs(day.id)}
                         onOpen={() => setPreview(day)}
@@ -344,7 +339,7 @@ const Training = () => {
                 day: preview,
                 weekNumber: enrollment.currentWeek,
                 title: dayDisplayName(preview, t),
-                subtitle: scheduleLabel(preview),
+                subtitle: scheduleLabel(preview, t, clock),
               }
             : null
         }
