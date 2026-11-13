@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.19.0](https://github.com/Ricwolf19/metri/compare/metri-v1.18.0...metri-v1.19.0) (2026-11-13)
+
+
+### Features
+
+* **metrics:** body map view cards and busy dim ([85b9efc](https://github.com/Ricwolf19/metri/commit/85b9efcde57d65bc5adb17c518e8b32a88b29109))
+* **training:** quick view of a program's phases ([d8d2339](https://github.com/Ricwolf19/metri/commit/d8d2339dd993a0fab38cc92989fa3a430bf271be))
+
+
+### Bug Fixes
+
+* **metrics:** re-read a changed focus read at once ([2000b0f](https://github.com/Ricwolf19/metri/commit/2000b0f3168bc466f7d8fd580d7bbae725b350cb))
+* **ui:** drive sheet rise and scrim from one value ([8170aff](https://github.com/Ricwolf19/metri/commit/8170affa979703a4867b803625c25458c7498a97))
+* **ui:** keep long text inside the screen ([2ae0fa0](https://github.com/Ricwolf19/metri/commit/2ae0fa0527ecf996f24c600d56e5c6d3720e1248))
+
 ## [1.18.0](https://github.com/Ricwolf19/metri/compare/metri-v1.17.0...metri-v1.18.0) (2026-11-10)
 
 
