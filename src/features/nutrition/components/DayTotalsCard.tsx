@@ -9,7 +9,10 @@ type Targets = { kcal: number; proteinG: number; carbsG: number; fatG: number } 
 
 const Bar = ({ label, value, target }: { label: string; value: number; target: number | null }) => (
   <View className="flex-1">
-    <View className="flex-row items-baseline justify-between">
+    {/* A third of the card is ~80 dp: "PROTEÍNA" beside "120 / 180 g" does not
+        fit, so the amount wraps under the label instead of running into the
+        next column (or off the card). */}
+    <View className="flex-row flex-wrap items-baseline justify-between gap-x-1">
       <Text className="font-mono-medium text-[10px] uppercase tracking-wider text-ink-400">
         {label}
       </Text>
@@ -46,7 +49,7 @@ export const DayTotalsCard = ({ totals, targets }: { totals: Totals; targets: Ta
           </Text>
         </View>
         {left != null ? (
-          <Text className="text-xs text-ink-400">
+          <Text className="ml-3 shrink text-right text-xs text-ink-400">
             {left >= 0 ? t('diary.left', { n: left }) : t('diary.over', { n: -left })}
           </Text>
         ) : null}

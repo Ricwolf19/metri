@@ -151,7 +151,7 @@ export const LoggedRow = ({
             onPress={onWeightPress}
             accessible={false}
           />
-          <Text className="text-sm font-sans-medium text-ink-100">
+          <Text className="shrink text-sm font-sans-medium text-ink-100">
             {' '}
             × {logged.reps}
             {logged.rir != null ? ` · RIR ${logged.rir}` : ''}

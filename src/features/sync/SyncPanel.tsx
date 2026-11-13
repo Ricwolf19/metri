@@ -42,7 +42,7 @@ export const SyncPanel = ({ visible, onClose }: { visible: boolean; onClose: () 
               {SYNC_LEGEND.map(({ state, key }) => (
                 <View key={key} className="flex-row items-center gap-2.5">
                   <SyncSwatch state={state} />
-                  <Text className="text-sm text-ink-300">{t(key)}</Text>
+                  <Text className="min-w-0 flex-1 text-sm text-ink-300">{t(key)}</Text>
                 </View>
               ))}
             </View>

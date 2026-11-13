@@ -344,10 +344,10 @@ export const WeightCalculatorSheet = ({
 
         <View className="mt-5 rounded-field bg-ink-800 px-4 py-3">
           <View className="flex-row items-baseline justify-between">
-            <Text className="text-sm text-ink-400">
+            <Text className="min-w-0 flex-1 pr-3 text-sm text-ink-400">
               {mode === 'dumbbell' ? t('load.totalBothHands') : t('training.total')}
             </Text>
-            <Text className="text-2xl font-sans-bold tabular-nums text-ink-50">
+            <Text className="shrink-0 text-2xl font-sans-bold tabular-nums text-ink-50">
               {total} {unit}
             </Text>
           </View>

@@ -360,9 +360,9 @@ const EditSlot = () => {
               return (
                 <View
                   key={altId}
-                  className="flex-row items-center gap-1.5 rounded-full bg-ink-800 px-3 py-1.5"
+                  className="max-w-full flex-row items-center gap-1.5 rounded-full bg-ink-800 px-3 py-1.5"
                 >
-                  <Text className="text-xs font-sans-medium text-ink-200">
+                  <Text numberOfLines={1} className="shrink text-xs font-sans-medium text-ink-200">
                     {exerciseDisplayName(alt, locale)}
                   </Text>
                   <Pressable

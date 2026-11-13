@@ -42,8 +42,8 @@ import { useTheme } from '@/theme/theme-context';
 const MetricRow = ({ label, value }: { label: string; value: string }) => {
   return (
     <View className="flex-row items-center justify-between py-2">
-      <Text className="text-sm text-ink-400">{label}</Text>
-      <Text className="text-sm font-sans-medium text-ink-100">{value}</Text>
+      <Text className="shrink pr-3 text-sm text-ink-400">{label}</Text>
+      <Text className="shrink text-right text-sm font-sans-medium text-ink-100">{value}</Text>
     </View>
   );
 };

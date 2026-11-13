@@ -135,7 +135,7 @@ export const TagPicker = ({ label, sections, value, onChange, placeholder, doneL
                   >
                     <Text
                       className={[
-                        'text-base',
+                        'flex-1 pr-3 text-base',
                         active ? 'font-sans-semibold text-ink-50' : 'text-ink-200',
                       ].join(' ')}
                     >

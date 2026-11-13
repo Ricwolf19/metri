@@ -37,9 +37,12 @@ export const BadgesEditor = ({
           {value.map((b, i) => (
             <View
               key={`${b}-${i}`}
-              className="flex-row items-center gap-1.5 rounded-full bg-ink-800 px-3 py-1.5"
+              className="max-w-full flex-row items-center gap-1.5 rounded-full bg-ink-800 px-3 py-1.5"
             >
-              <Text className="font-mono-medium text-[11px] tracking-wide text-ink-200">
+              <Text
+                numberOfLines={1}
+                className="shrink font-mono-medium text-[11px] tracking-wide text-ink-200"
+              >
                 {badgeLabel(b, locale)}
               </Text>
               <Pressable

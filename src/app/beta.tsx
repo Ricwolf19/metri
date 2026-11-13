@@ -117,7 +117,7 @@ const Beta = () => {
       <Card className="mt-7 bg-ink-850">
         <View className="flex-row items-center gap-2">
           <MailIcon color={brand} size={16} />
-          <Text className="font-mono-medium text-xs uppercase tracking-wider text-brand">
+          <Text className="shrink font-mono-medium text-xs uppercase tracking-wider text-brand">
             {t('beta.notifyTitle')}
           </Text>
         </View>

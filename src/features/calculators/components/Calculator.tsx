@@ -261,7 +261,9 @@ export const Calculator = ({ id, docId }: { id: CalcId; docId?: string }) => {
           {result.noteKey ? (
             <View className="mt-3 flex-row self-start items-center gap-1.5 rounded-full border border-brand/30 bg-brand/10 px-2.5 py-1">
               <View className="h-1.5 w-1.5 rounded-full bg-brand" />
-              <Text className="text-xs font-sans-semibold text-brand">{t(result.noteKey)}</Text>
+              <Text className="shrink text-xs font-sans-semibold text-brand">
+                {t(result.noteKey)}
+              </Text>
             </View>
           ) : null}
 
@@ -279,10 +281,10 @@ export const Calculator = ({ id, docId }: { id: CalcId; docId?: string }) => {
             <View className="mt-5 gap-2 border-t border-ink-700 pt-4">
               {result.rows.map((row, i) => (
                 <View key={i} className="flex-row items-center justify-between">
-                  <Text className="text-sm text-ink-300">
+                  <Text className="min-w-0 flex-1 pr-3 text-sm text-ink-300">
                     {row.labelKey ? t(row.labelKey) : row.label}
                   </Text>
-                  <Text className="font-mono text-sm text-ink-100">{row.value}</Text>
+                  <Text className="shrink-0 font-mono text-sm text-ink-100">{row.value}</Text>
                 </View>
               ))}
             </View>

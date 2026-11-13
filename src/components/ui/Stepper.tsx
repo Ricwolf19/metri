@@ -51,12 +51,15 @@ export const Stepper = ({
       {label ? (
         <Text
           maxFontSizeMultiplier={CONTROL_FONT_SCALE}
-          className="mb-1.5 font-mono-medium text-xs uppercase tracking-wider text-ink-300"
+          className="mb-1.5 text-center font-mono-medium text-xs uppercase tracking-wider text-ink-300"
         >
           {label}
         </Text>
       ) : null}
-      <View className="flex-row items-center justify-center gap-5">
+      {/* The gaps are spacers that give way: two steppers share a row in the slot
+          editor (~145 dp each on a 360 dp phone), and a fixed gap pushed the
+          buttons past their half and over the neighbour's. */}
+      <View className="max-w-full flex-row items-center justify-center">
         <Pressable
           onPress={() => onChange(Math.max(min, (value ?? seed) - step))}
           disabled={!canDec}
@@ -69,6 +72,7 @@ export const Stepper = ({
         >
           <MinusIcon color={brand} size={18} />
         </Pressable>
+        <View className="w-5 shrink" />
         <Text
           maxFontSizeMultiplier={CONTROL_FONT_SCALE}
           className="min-w-14 text-center text-xl font-sans-bold text-ink-50"
@@ -76,6 +80,7 @@ export const Stepper = ({
         >
           {shown}
         </Text>
+        <View className="w-5 shrink" />
         <Pressable
           onPress={() => onChange(value == null ? seed : Math.min(max, value + step))}
           disabled={!canInc}

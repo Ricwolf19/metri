@@ -23,8 +23,10 @@ export const MealBlock = ({ meal, entries, onAdd }: Props) => {
   return (
     <Card className="gap-0 py-3">
       <View className="flex-row items-center justify-between">
-        <Text className="text-base font-sans-semibold text-ink-50">{t(`diary.meal.${meal}`)}</Text>
-        <View className="flex-row items-center gap-3">
+        <Text className="min-w-0 flex-1 pr-3 text-base font-sans-semibold text-ink-50">
+          {t(`diary.meal.${meal}`)}
+        </Text>
+        <View className="shrink-0 flex-row items-center gap-3">
           {entries.length ? <Text className="text-xs text-ink-400">{kcal} kcal</Text> : null}
           <Pressable
             onPress={onAdd}

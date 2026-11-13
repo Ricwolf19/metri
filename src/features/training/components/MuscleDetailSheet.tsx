@@ -44,7 +44,9 @@ const HeadBlock = ({ head, detail }: { head: MuscleHead; detail: MuscleDetail })
           className="h-3 w-3 rounded-full"
           style={{ backgroundColor: balanceFill(theme, balance.status) }}
         />
-        <Text className="text-base font-sans-semibold text-ink-50">{t(muscleHeadKey(head))}</Text>
+        <Text className="shrink text-base font-sans-semibold text-ink-50">
+          {t(muscleHeadKey(head))}
+        </Text>
       </View>
 
       <Row label={t('stats.weeklySets')} value={String(balance.sets)} />

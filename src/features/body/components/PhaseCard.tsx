@@ -22,8 +22,10 @@ export const PhaseCard = ({ goal, currentWeek }: Props) => {
   return (
     <Card>
       <View className="flex-row items-center justify-between">
-        <Text className="text-lg font-sans-bold text-ink-50">{t(`goal.phase.${goal.phase}`)}</Text>
-        <Text className="font-mono-medium text-xs uppercase tracking-wider text-ink-400">
+        <Text className="min-w-0 flex-1 pr-3 text-lg font-sans-bold text-ink-50">
+          {t(`goal.phase.${goal.phase}`)}
+        </Text>
+        <Text className="shrink-0 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
           {t('goal.weekOf', { n: week, total: goal.durationWeeks })}
         </Text>
       </View>

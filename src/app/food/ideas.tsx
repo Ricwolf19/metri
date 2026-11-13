@@ -95,10 +95,12 @@ const FoodIdeas = () => {
             >
               <Card>
                 <View className="flex-row items-center justify-between">
-                  <Text className="text-base font-sans-semibold text-ink-50">
+                  <Text className="min-w-0 flex-1 pr-3 text-base font-sans-semibold text-ink-50">
                     {planName(plan, locale)}
                   </Text>
-                  <Text className="font-mono-medium text-xs text-ink-400">{totals.kcal} kcal</Text>
+                  <Text className="shrink-0 font-mono-medium text-xs text-ink-400">
+                    {totals.kcal} kcal
+                  </Text>
                 </View>
                 <Text className="mt-1 text-sm leading-6 text-ink-400" numberOfLines={3}>
                   {planDescription(plan, locale)}

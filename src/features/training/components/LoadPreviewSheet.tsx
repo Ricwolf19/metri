@@ -75,11 +75,11 @@ export const LoadPreviewSheet = ({ set, onClose, unit, equipment }: Props) => {
           {t('loadView.title')}
         </Text>
         <View className="mt-2 flex-row items-baseline justify-between">
-          <Text className="text-2xl font-sans-bold tabular-nums text-ink-50">
+          <Text className="min-w-0 flex-1 text-2xl font-sans-bold tabular-nums text-ink-50">
             {total} {unit}
             {set ? <Text className="text-base text-ink-400"> × {set.reps}</Text> : null}
           </Text>
-          <Text className="text-xs text-ink-500">
+          <Text className="ml-3 shrink-0 text-xs text-ink-500">
             {t('training.totalEquivalent', {
               value: equivalentIn(Number(total), unit),
               unit: other,

@@ -103,8 +103,12 @@ const SignIn = () => {
         className="mt-8 flex-row items-center justify-center"
         accessibilityRole="button"
       >
-        <Text className="text-sm text-ink-300">{t('auth.newHere')} </Text>
-        <Text className="text-sm font-sans-semibold text-brand">{t('auth.createAccount')}</Text>
+        {/* One Text with a nested run, so the pair wraps as a sentence instead of
+            two side-by-side boxes running past the edge at a large font scale. */}
+        <Text className="shrink text-center text-sm text-ink-300">
+          {t('auth.newHere')}{' '}
+          <Text className="font-sans-semibold text-brand">{t('auth.createAccount')}</Text>
+        </Text>
       </Pressable>
 
       {/* The open-source promise: the full app works with no account at all. */}

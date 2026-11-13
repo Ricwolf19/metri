@@ -141,8 +141,11 @@ const SignUp = () => {
         className="mt-8 flex-row items-center justify-center"
         accessibilityRole="button"
       >
-        <Text className="text-sm text-ink-300">{t('auth.alreadyHave')} </Text>
-        <Text className="text-sm font-sans-semibold text-brand">{t('auth.signIn')}</Text>
+        {/* One Text with a nested run: the pair wraps as a sentence (see sign-in). */}
+        <Text className="shrink text-center text-sm text-ink-300">
+          {t('auth.alreadyHave')}{' '}
+          <Text className="font-sans-semibold text-brand">{t('auth.signIn')}</Text>
+        </Text>
       </Pressable>
     </Screen>
   );

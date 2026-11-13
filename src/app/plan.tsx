@@ -39,9 +39,11 @@ const TierCard = ({ cardTier, current }: { cardTier: Tier; current: boolean }) =
   return (
     <Card className={current ? 'border-brand/40 bg-brand/10' : undefined}>
       <View className="flex-row items-center justify-between">
-        <Text className="text-base font-sans-semibold text-ink-50">{t(TIER_LABEL[cardTier])}</Text>
+        <Text className="min-w-0 flex-1 pr-3 text-base font-sans-semibold text-ink-50">
+          {t(TIER_LABEL[cardTier])}
+        </Text>
         {current ? (
-          <View className="rounded-full bg-brand/15 px-2.5 py-1">
+          <View className="shrink-0 rounded-full bg-brand/15 px-2.5 py-1">
             <Text className="font-mono-medium text-[10px] uppercase tracking-wider text-brand">
               {t('plan.currentBadge')}
             </Text>
@@ -128,7 +130,9 @@ const Plan = () => {
           <Card>
             <View className="mb-3 flex-row items-center gap-2">
               <StarIcon color={brand} size={16} />
-              <Text className="text-base font-sans-semibold text-ink-50">{t('premium.title')}</Text>
+              <Text className="shrink text-base font-sans-semibold text-ink-50">
+                {t('premium.title')}
+              </Text>
             </View>
             <Text className="text-sm leading-6 text-ink-300">{t('premium.howBody')}</Text>
             <View className="mt-4 gap-2">

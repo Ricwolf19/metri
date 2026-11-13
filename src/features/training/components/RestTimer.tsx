@@ -117,11 +117,11 @@ export const RestTimer = ({ endsAt, onExtend, onDone }: Props) => {
       ].join(' ')}
     >
       <View className="flex-row items-center justify-between">
-        <View className="flex-row items-center">
+        <View className="min-w-0 shrink flex-row items-center pr-2">
           <TimerIcon color={brand} size={24} />
           <Text
             maxFontSizeMultiplier={CONTROL_FONT_SCALE}
-            className="ml-2 text-base font-sans-semibold text-brand"
+            className="ml-2 shrink text-base font-sans-semibold text-brand"
           >
             {over ? t('training.restOver') : t('training.rest')}
           </Text>
