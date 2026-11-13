@@ -203,13 +203,17 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   position and effects only decorate. A Modal-hosted view whose visibility depended on an
   effect-started reanimated animation opened invisible (touches landed, nothing drew) once the
   React Compiler memoized it — verified on the emulator, so don't reintroduce that shape. The
-  ONE exception is `<Sheet>`, whose `offset` starts at the CLOSED position: `Animated.View`
-  paints its first frame from the shared value as it is at mount, so starting at 0 drew every
+  ONE exception is `<Sheet>`, whose `shown` (0 closed … 1 open) starts CLOSED: `Animated.View`
+  paints its first frame from the shared value as it is at mount, so starting open drew every
   first open fully shown for a frame, then dropped it below the edge to rise (the "double
   render" seen in the gym). Its rise is a `useLayoutEffect` keyed on an open counter that
   re-runs on every open and every close plays the fall before the Modal unmounts; the
   memoization bug was an effect that did not re-run, not this shape. If a sheet ever opens
-  invisible, that layout effect is the first suspect. Press
+  invisible, that layout effect is the first suspect. The slide travels the sheet's height CAP
+  (`sheetTranslate`: it can never be taller, so nothing waits on a measurement) and the scrim
+  follows `shown` alone (`scrimOpacity`) — dividing by the measured height, which lands a frame
+  late, dimmed, cleared and re-dimmed every first open. The handle is a static lime bar (the
+  sweep it played on open is gone, owner's call 2026-11-12). Press
   feedback is a 110ms timing. Bounded lists that may overflow use `<ScrollArea>` so the edge
   chevron hints there is more — inside a sheet use `<ScrollArea inSheet>` (fills the sheet,
   safe-area padded). A sheet with no `snapPoints` fits its WHOLE content up to 92% of the screen
@@ -358,7 +362,9 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   order** — the Train tab offers one Play, the first split by `orderIndex` without a session this
   week (`nextPendingSplit`), whatever the weekday says; a split whose day passed is "carried
   over" to the next session, and every other split of the week opens read-only
-  (`SplitPreviewSheet`). The plan is finished, never left with a hole, and only a completed
+  (`SplitPreviewSheet`; it and the program screen's quick view, `ProgramQuickView` — step
+  through phases, pick a split and a week — draw the same `splitPreview` read through
+  `SplitExercises`, so what is read is what a session opens). The plan is finished, never left with a hole, and only a completed
   session moves the cursor. `status: 'skipped'` on `workout_logs` is legacy wire format: older
   builds wrote it to resolve a week, `completedDaysQuery`/`isWeekComplete` still count those
   rows and deleting one is still their undo (`unskipDay`), but nothing writes it any more.
@@ -517,7 +523,13 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   expenditure lives at the top of Home, not here. **Synchronous reads a tab refreshes on return
   go through `useFocusRead`** (`lib/useFocusRead.ts`: once at mount, again after each focus
   transition has FINISHED) — reading them in the focus event, or on every render, re-ran the
-  muscle model and three queries while the tab animation was still drawing. Reads several
+  muscle model and three queries while the tab animation was still drawing. A CHANGED `read`
+  (a new window, a resolved user) re-reads in that same render: waiting for the transition
+  there meant its 450 ms fallback, and the body map drew the old window's sets against the new
+  window's target (the colour flash). The body map's window answers the tap at once and reads
+  in a `useTransition`; the map dims (after 120 ms, so a fast read never flickers) until every
+  number lands together. Its views are a `<ChoiceCarousel>` — cards with an icon and a caption,
+  for a few modes whose names alone don't say what they show. Reads several
   sections share (weekly volume) live once in `MetricsDataProvider`. Sections below the fold,
   the Explore topics past the second and a doc's markdown body mount through `<Deferred>`
   (staggered), so a push paints its header first. **"After the transition" means the
