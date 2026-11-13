@@ -30,6 +30,8 @@ export const ChipRow = <T extends string>({ items, value, onChange }: Props<T>) 
           onPress={() => onChange(item.value)}
           accessibilityRole="button"
           accessibilityState={{ selected: active }}
+          // A 36 dp pill; the slop brings the target to 44.
+          hitSlop={{ top: 4, bottom: 4 }}
           className={[
             'shrink-0 flex-row items-center rounded-full border px-4 py-2',
             active ? 'border-brand/40 bg-brand/15' : 'border-ink-700 bg-ink-800',

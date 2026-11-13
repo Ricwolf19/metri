@@ -1,12 +1,23 @@
-import { useCallback, useMemo, useState } from 'react';
-import { Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
+import { ActivityIndicator, Text, View } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from 'react-native-reanimated';
 
+import { ActivityIcon, FlameIcon, HistoryIcon } from '@/components/icons';
 import {
   Card,
+  ChipRow,
+  ChoiceCarousel,
   EmptyState,
   SectionLabel,
   SegmentedControl,
   Stat,
+  type ChipItem,
+  type ChoiceCard,
   type Segment,
 } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
@@ -56,6 +67,9 @@ import type { MetricsSectionProps } from '../sections';
 type Window = '7' | '30' | '90';
 
 const DAY_MS = 86_400_000;
+/** A read that lands within this never dims the map: a dim that flashes for a
+ * frame or two is the very flicker the busy state exists to replace. */
+const BUSY_DELAY_MS = 120;
 
 /**
  * Where the work is landing: the body map first, then the numbers behind it.
@@ -77,11 +91,30 @@ export const AnalyticsSection = ({ headerRight }: MetricsSectionProps) => {
 
   const [view, setView] = useState<MapView>('balance');
   const [side, setSide] = useState<'front' | 'back'>('front');
+  // The window the control shows answers the tap at once; the window the
+  // numbers are READ for follows in a transition. A three-month read takes
+  // long enough to feel, so the map dims meanwhile and then every number lands
+  // together, never the old sets against the new window's target.
   const [days, setDays] = useState<Window>('30');
+  const [readDays, setReadDays] = useState<Window>('30');
+  const [reading, startReading] = useTransition();
+  const pickWindow = (next: Window) => {
+    setDays(next);
+    startReading(() => setReadDays(next));
+  };
   const [openHeads, setOpenHeads] = useState<MuscleHead[]>([]);
 
+  const busy = useSharedValue(0);
+  useEffect(() => {
+    busy.value = reading
+      ? withDelay(BUSY_DELAY_MS, withTiming(1, { duration: 150 }))
+      : withTiming(0, { duration: 120 });
+  }, [reading, busy]);
+  const mapStyle = useAnimatedStyle(() => ({ opacity: 1 - 0.6 * busy.value }));
+  const spinnerStyle = useAnimatedStyle(() => ({ opacity: busy.value }));
+
   const userId = user?.id ?? '';
-  const windowDays = Number(days);
+  const windowDays = Number(readDays);
   // Day-anchored, so a window is the same object all day.
   const since = useMemo(
     () => new Date(dayStartMs(today) - windowDays * DAY_MS),
@@ -197,16 +230,31 @@ export const AnalyticsSection = ({ headerRight }: MetricsSectionProps) => {
     })),
   };
 
-  const viewSegments: Segment<MapView>[] = [
-    { value: 'balance', label: t('stats.balance') },
-    { value: 'fatigue', label: t('stats.fatigue') },
-    { value: 'strength', label: t('stats.strength') },
+  const viewCards: ChoiceCard<MapView>[] = [
+    {
+      value: 'balance',
+      label: t('stats.balance'),
+      caption: t('stats.balanceCaption'),
+      Icon: ActivityIcon,
+    },
+    {
+      value: 'fatigue',
+      label: t('stats.fatigue'),
+      caption: t('stats.fatigueCaption'),
+      Icon: FlameIcon,
+    },
+    {
+      value: 'strength',
+      label: t('stats.strength'),
+      caption: t('stats.strengthCaption'),
+      Icon: HistoryIcon,
+    },
   ];
   const sideSegments: Segment<'front' | 'back'>[] = [
     { value: 'front', label: t('stats.front') },
     { value: 'back', label: t('stats.back') },
   ];
-  const windowSegments: Segment<Window>[] = [
+  const windowChips: ChipItem<Window>[] = [
     { value: '7', label: t('stats.windowWeek') },
     { value: '30', label: t('stats.windowMonth') },
     { value: '90', label: t('stats.windowQuarter') },
@@ -216,17 +264,39 @@ export const AnalyticsSection = ({ headerRight }: MetricsSectionProps) => {
     <>
       <SectionLabel label={t('stats.bodyMap')} right={headerRight} className="mt-0" />
       <Card>
-        <SegmentedControl value={view} segments={viewSegments} onChange={setView} />
+        <ChoiceCarousel items={viewCards} value={view} onChange={setView} />
+        {/* What the chosen view reads, right under the choice. */}
+        <Text className="mt-3 text-xs leading-5 text-ink-400">
+          {view === 'balance'
+            ? t('stats.balanceHint', { min: WEEKLY_SET_TARGET.min, max: WEEKLY_SET_TARGET.max })
+            : view === 'fatigue'
+              ? t('stats.fatigueHint')
+              : t('stats.strengthHint')}
+        </Text>
         <View className="mt-3">
-          <SegmentedControl value={days} segments={windowSegments} onChange={setDays} />
+          <ChipRow items={windowChips} value={days} onChange={pickWindow} />
         </View>
 
-        <View className="mt-4">
-          <BodyMap fills={fills} side={side} sex={user.sex ?? null} onPressRegion={setOpenHeads} />
+        <View className="mt-4" accessibilityState={{ busy: reading }}>
+          <Animated.View style={mapStyle}>
+            <BodyMap
+              fills={fills}
+              side={side}
+              sex={user.sex ?? null}
+              onPressRegion={setOpenHeads}
+            />
+          </Animated.View>
+          <Animated.View
+            pointerEvents="none"
+            style={spinnerStyle}
+            className="absolute inset-0 items-center justify-center"
+          >
+            <ActivityIndicator color={theme.brand} />
+          </Animated.View>
         </View>
 
-        <View className="mt-3">
-          <SegmentedControl value={side} segments={sideSegments} onChange={setSide} />
+        <View className="mt-3 w-52 self-center">
+          <SegmentedControl size="sm" value={side} segments={sideSegments} onChange={setSide} />
         </View>
 
         <View className="mt-4">
@@ -235,14 +305,6 @@ export const AnalyticsSection = ({ headerRight }: MetricsSectionProps) => {
 
         {/* The map is tappable and nothing else says so. */}
         <Text className="mt-3 text-xs leading-5 text-accent">{t('stats.tapMuscle')}</Text>
-
-        <Text className="mt-2 text-xs leading-5 text-ink-500">
-          {view === 'balance'
-            ? t('stats.balanceHint', { min: WEEKLY_SET_TARGET.min, max: WEEKLY_SET_TARGET.max })
-            : view === 'fatigue'
-              ? t('stats.fatigueHint')
-              : t('stats.strengthHint')}
-        </Text>
 
         {hasSets ? null : (
           <View className="mt-3">

@@ -34,6 +34,7 @@ export { TimedModal } from './TimedModal';
 export { Skeleton } from './Skeleton';
 export { Stat } from './Stat';
 export { ChipRow, type ChipItem } from './ChipRow';
+export { ChoiceCarousel, type ChoiceCard } from './ChoiceCarousel';
 export { DurationPicker } from './DurationPicker';
 export { Stepper } from './Stepper';
 export { Switch } from './Switch';
