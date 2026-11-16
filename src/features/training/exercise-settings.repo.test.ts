@@ -56,6 +56,23 @@ describe('exercise settings', () => {
     expect(setting?.badges).toEqual(['CON PAUSA']);
   });
 
+  it('writes nothing when the patch matches what is stored', () => {
+    const load = { kind: 'barbell' as const, barKg: 20, platesKg: [20, 10] };
+    upsertExerciseSetting(U, 'deadlift', { restSeconds: 180, badges: null, load });
+    const stamp = new Date('2026-01-01T00:00:00Z');
+    db.update(exerciseSettings).set({ updatedAt: stamp }).run();
+
+    // The weight sheet re-applying the saved load, an emptied badge list over none.
+    upsertExerciseSetting(U, 'deadlift', { load: { ...load, platesKg: [20, 10] } });
+    upsertExerciseSetting(U, 'deadlift', { restSeconds: 180, badges: [] });
+    expect(getExerciseSetting(U, 'deadlift')?.updatedAt).toEqual(stamp);
+
+    upsertExerciseSetting(U, 'deadlift', { restSeconds: 150 });
+    const after = getExerciseSetting(U, 'deadlift');
+    expect(after?.restSeconds).toBe(150);
+    expect(after?.updatedAt).not.toEqual(stamp);
+  });
+
   it('stores the last load config without touching any slot', () => {
     db.insert(programs).values({ id: 'p', name: 'P', isCustom: true, userId: U }).run();
     db.insert(routines).values({ id: 'r', programId: 'p', name: '', orderIndex: 0 }).run();

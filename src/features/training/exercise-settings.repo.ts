@@ -67,6 +67,16 @@ export const upsertExerciseSetting = (
 ): void => {
   // Read before writing: propagation needs the default the slots were seeded with.
   const previous = getExerciseSetting(userId, exerciseId);
+  // Nothing to change (the weight sheet applied the load already saved, a wheel
+  // settled where it was): no write, so no fresh `updatedAt` for sync to push.
+  if (
+    previous &&
+    (Object.keys(patch) as (keyof SettingPatch)[]).every((key) =>
+      sameValue(patch[key], previous[key]),
+    )
+  ) {
+    return;
+  }
   db.insert(exerciseSettings)
     .values({ id: randomId(), userId, exerciseId, ...patch })
     .onConflictDoUpdate({
