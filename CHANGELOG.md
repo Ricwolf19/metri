@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.20.0](https://github.com/Ricwolf19/metri/compare/metri-v1.19.0...metri-v1.20.0) (2026-11-16)
+
+
+### Features
+
+* **body:** offer updated targets on a new TDEE ([95e879d](https://github.com/Ricwolf19/metri/commit/95e879d803009e132702e23dec5f2ce2b7f3d238))
+* **body:** plan a cut from its goal weight ([6e99281](https://github.com/Ricwolf19/metri/commit/6e9928177c792a4fc412a7c48fcd672dac21a8e8))
+* **docs:** add adaptation, insulin and somatotype guides ([8879fe3](https://github.com/Ricwolf19/metri/commit/8879fe30094101c07633a65e4b2367488173b416))
+* **docs:** align doc ids and sleep guide with web ([f06d02f](https://github.com/Ricwolf19/metri/commit/f06d02f5676ca5553892e2b62a491d1d2cf723ea))
+* **metrics:** lead with the body and photo sections ([6bc8360](https://github.com/Ricwolf19/metri/commit/6bc8360fc5b8ef64091a8a4907590f4c82302046))
+* **training:** open exercise guides from the quick view ([6d90d93](https://github.com/Ricwolf19/metri/commit/6d90d935178e2f66a4984b30f7662888955269c3))
+* **training:** plan training days, not split hours ([558e065](https://github.com/Ricwolf19/metri/commit/558e065292f8fd5fd6cd8da578a4256b0e7ea439))
+
 ## [1.19.0](https://github.com/Ricwolf19/metri/compare/metri-v1.18.0...metri-v1.19.0) (2026-11-13)
 
 
