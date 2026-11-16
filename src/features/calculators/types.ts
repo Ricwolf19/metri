@@ -20,7 +20,16 @@ export type CalcId =
 
 export type SelectOption = { value: string; labelKey: TranslationKey };
 
-export type CalcField =
+/** A field that only feeds the result while a sibling select holds one of
+ * `values` (body fat in TDEE is Katch-McArdle only). Otherwise it renders
+ * disabled, with `reasonKey` saying why. Mirrors metri.info's calculators. */
+export type FieldCondition = {
+  field: string;
+  values: string[];
+  reasonKey?: TranslationKey;
+};
+
+export type CalcField = (
   | {
       name: string;
       kind: 'number';
@@ -37,7 +46,12 @@ export type CalcField =
       labelKey: TranslationKey;
       options: SelectOption[];
       default: string;
-    };
+    }
+) & { usedWhen?: FieldCondition };
+
+/** Whether `field` feeds the result for these values (see `FieldCondition`). */
+export const fieldInUse = (field: { usedWhen?: FieldCondition }, values: CalcValues): boolean =>
+  !field.usedWhen || field.usedWhen.values.includes(String(values[field.usedWhen.field]));
 
 type ResultRow = {
   label?: string;

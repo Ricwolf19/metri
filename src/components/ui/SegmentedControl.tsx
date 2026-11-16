@@ -11,6 +11,8 @@ type Props<T extends string> = {
   onChange: (value: T) => void;
   /** `sm` for a toggle that shares a line with other controls (the session's kg/lb). */
   size?: 'md' | 'sm';
+  /** Shown but inert (a calculator input the chosen formula ignores). */
+  disabled?: boolean;
 };
 
 /** A pill-group selector — used for sex, activity level, units, formula, etc. */
@@ -20,12 +22,18 @@ export const SegmentedControl = <T extends string>({
   value,
   onChange,
   size = 'md',
+  disabled = false,
 }: Props<T>) => {
   const small = size === 'sm';
   return (
     <View className="w-full">
       {label ? (
-        <Text className="mb-1.5 font-mono-medium text-xs uppercase tracking-wider text-ink-300">
+        <Text
+          className={[
+            'mb-1.5 font-mono-medium text-xs uppercase tracking-wider',
+            disabled ? 'text-ink-500' : 'text-ink-300',
+          ].join(' ')}
+        >
           {label}
         </Text>
       ) : null}
@@ -33,6 +41,7 @@ export const SegmentedControl = <T extends string>({
         className={[
           'w-full flex-row rounded-field border border-ink-600 bg-ink-800',
           small ? 'p-0.5' : 'p-1',
+          disabled ? 'opacity-40' : '',
         ].join(' ')}
       >
         {segments.map((seg) => {
@@ -41,8 +50,9 @@ export const SegmentedControl = <T extends string>({
             <Pressable
               key={seg.value}
               onPress={() => onChange(seg.value)}
+              disabled={disabled}
               accessibilityRole="button"
-              accessibilityState={{ selected: active }}
+              accessibilityState={{ selected: active, disabled }}
               // `sm` stays compact to the eye (it shares a line with other
               // controls) but its target still reaches 44 dp.
               hitSlop={small ? { top: 10, bottom: 10 } : { top: 4, bottom: 4 }}

@@ -21,13 +21,36 @@ import {
   num,
   str,
 } from '../_shared';
-import type { CalcConfig } from '../types';
+import type { CalcConfig, FieldCondition } from '../types';
+
+/** Katch-McArdle works from lean mass alone, so sex and age drop out. */
+const KATCH_SKIPS: FieldCondition = {
+  field: 'formula',
+  values: ['mifflin', 'harris'],
+  reasonKey: 'calc.hint.katchSkips',
+};
 
 export const tdeeConfig: CalcConfig = {
   id: 'tdee',
   fields: [
-    { name: 'sex', kind: 'select', labelKey: 'calc.sex', default: 'male', options: SEX_OPTIONS },
-    { name: 'age', kind: 'number', labelKey: 'calc.age', min: 10, max: 120, step: 1, default: 30 },
+    {
+      name: 'sex',
+      kind: 'select',
+      labelKey: 'calc.sex',
+      default: 'male',
+      options: SEX_OPTIONS,
+      usedWhen: KATCH_SKIPS,
+    },
+    {
+      name: 'age',
+      kind: 'number',
+      labelKey: 'calc.age',
+      min: 10,
+      max: 120,
+      step: 1,
+      default: 30,
+      usedWhen: KATCH_SKIPS,
+    },
     {
       name: 'height',
       kind: 'number',
@@ -57,6 +80,7 @@ export const tdeeConfig: CalcConfig = {
       max: 70,
       step: 0.5,
       default: 18,
+      usedWhen: { field: 'formula', values: ['katch'], reasonKey: 'calc.hint.bodyFatKatch' },
     },
     {
       name: 'activity',

@@ -1157,6 +1157,10 @@ export const en = {
   'calc.formula.mifflin': 'Mifflin-St Jeor',
   'calc.formula.harris': 'Harris-Benedict',
   'calc.formula.katch': 'Katch-McArdle',
+  'calc.hint.bodyFatKatch':
+    'Only the Katch-McArdle formula uses body fat; Mifflin and Harris ignore it.',
+  'calc.hint.katchSkips': "Katch-McArdle works from lean mass, so it doesn't use this.",
+  'calc.hint.hipFemaleOnly': "Only the women's Navy formula uses hip circumference.",
   'calc.result.oneRm': 'Estimated 1RM',
   'calc.result.tdee': 'Maintenance (TDEE)',
   'calc.result.bmr': 'BMR',

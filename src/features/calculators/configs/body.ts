@@ -59,6 +59,8 @@ export const bodyfat: CalcConfig = {
       max: 200,
       step: 0.5,
       default: 95,
+      // The men's Navy formula has no hip term.
+      usedWhen: { field: 'sex', values: ['female'], reasonKey: 'calc.hint.hipFemaleOnly' },
     },
   ],
   compute: (v) => {

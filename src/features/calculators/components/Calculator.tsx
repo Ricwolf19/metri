@@ -16,7 +16,6 @@ import {
   useToast,
 } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
-import { latestTapeCm } from '@/features/body/body-measurements.repo';
 import { useI18n, useT } from '@/i18n';
 import { useDateFormat } from '@/lib/useDateFormat';
 import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
@@ -24,11 +23,18 @@ import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 import { CALC_CONTENT } from '../content';
 import { energySnapshot } from '../energy-snapshot';
 import { storeEnergySnapshot } from '../energy-snapshot.repo';
+import { readCalcFacts } from '../facts.repo';
 import { calculationHistoryQuery, keptValue, recordCalculation } from '../history.repo';
 import { initialCalcValues } from '../prefill';
 import { type ActivityLevel, type BmrFormula, type Sex, bodyFatNavy } from '../math';
 import { CALCULATORS } from '../registry';
-import type { CalcChart as ChartSpec, CalcField, CalcId, CalcValues } from '../types';
+import {
+  type CalcChart as ChartSpec,
+  type CalcField,
+  type CalcId,
+  type CalcValues,
+  fieldInUse,
+} from '../types';
 import { CalcChart } from './CalcChart';
 
 /** Reserved height per chart kind (size="lg") — the plate stack, bar rows or
@@ -43,14 +49,19 @@ const CHART_HEIGHT: Record<ChartSpec['kind'], number> = {
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
+const STEP_BUTTON =
+  'min-h-11 min-w-11 items-center justify-center rounded-field border border-ink-600 bg-ink-800 active:bg-ink-700';
+
 const NumberField = ({
   field,
   value,
   onChange,
+  disabled,
 }: {
   field: Extract<CalcField, { kind: 'number' }>;
   value: number | string;
   onChange: (v: number | string) => void;
+  disabled: boolean;
 }) => {
   const t = useT();
   const min = field.min ?? 0;
@@ -80,16 +91,23 @@ const NumberField = ({
 
   return (
     <View>
-      <Text className="mb-1.5 font-mono-medium text-xs uppercase tracking-wider text-ink-300">
+      <Text
+        className={[
+          'mb-1.5 font-mono-medium text-xs uppercase tracking-wider',
+          disabled ? 'text-ink-500' : 'text-ink-300',
+        ].join(' ')}
+      >
         {t(field.labelKey)}
         {field.unit ? <Text className="text-ink-500"> ({field.unit})</Text> : null}
       </Text>
       <View className="flex-row items-center gap-2">
         <Pressable
           onPress={() => nudge(-1)}
+          disabled={disabled}
           accessibilityRole="button"
           accessibilityLabel={t('common.decreaseNamed', { label: name })}
-          className="min-h-11 min-w-11 items-center justify-center rounded-field border border-ink-600 bg-ink-800 active:bg-ink-700"
+          accessibilityState={{ disabled }}
+          className={[STEP_BUTTON, disabled ? 'opacity-40' : ''].join(' ')}
         >
           <Text maxFontSizeMultiplier={CONTROL_FONT_SCALE} className="text-lg text-ink-100">
             −
@@ -105,13 +123,16 @@ const NumberField = ({
             className="text-center font-mono"
             maxLength={7}
             accessibilityLabel={name}
+            disabled={disabled}
           />
         </View>
         <Pressable
           onPress={() => nudge(1)}
+          disabled={disabled}
           accessibilityRole="button"
           accessibilityLabel={t('common.increaseNamed', { label: name })}
-          className="min-h-11 min-w-11 items-center justify-center rounded-field border border-ink-600 bg-ink-800 active:bg-ink-700"
+          accessibilityState={{ disabled }}
+          className={[STEP_BUTTON, disabled ? 'opacity-40' : ''].join(' ')}
         >
           <Text maxFontSizeMultiplier={CONTROL_FONT_SCALE} className="text-lg text-ink-100">
             +
@@ -122,18 +143,20 @@ const NumberField = ({
   );
 };
 
-const Field = ({
+const FieldControl = ({
   field,
   value,
   onChange,
+  disabled,
 }: {
   field: CalcField;
   value: number | string;
   onChange: (v: number | string) => void;
+  disabled: boolean;
 }) => {
   const t = useT();
   if (field.kind === 'number') {
-    return <NumberField field={field} value={value} onChange={onChange} />;
+    return <NumberField field={field} value={value} onChange={onChange} disabled={disabled} />;
   }
   const items = field.options.map((o) => ({ value: o.value, label: t(o.labelKey) }));
   // Few options fit a segmented control; more open a dropdown.
@@ -144,6 +167,7 @@ const Field = ({
         segments={items}
         value={String(value)}
         onChange={(val) => onChange(val)}
+        disabled={disabled}
       />
     );
   }
@@ -153,7 +177,37 @@ const Field = ({
       items={items}
       value={String(value)}
       onChange={(val) => onChange(val)}
+      disabled={disabled}
     />
+  );
+};
+
+/** One input. A field the current formula ignores (`usedWhen`) stays visible
+ * but disabled, with one line saying why, rather than disappearing: the form
+ * keeps its shape when the formula or sex changes. */
+const Field = ({
+  field,
+  values,
+  onChange,
+}: {
+  field: CalcField;
+  values: CalcValues;
+  onChange: (v: number | string) => void;
+}) => {
+  const t = useT();
+  const inUse = fieldInUse(field, values);
+  return (
+    <View>
+      <FieldControl
+        field={field}
+        value={values[field.name]}
+        onChange={onChange}
+        disabled={!inUse}
+      />
+      {!inUse && field.usedWhen?.reasonKey ? (
+        <Text className="mt-1.5 text-xs leading-5 text-ink-400">{t(field.usedWhen.reasonKey)}</Text>
+      ) : null}
+    </View>
   );
 };
 
@@ -184,8 +238,10 @@ export const Calculator = ({ id, docId }: { id: CalcId; docId?: string }) => {
   const config = CALCULATORS[id];
   const content = CALC_CONTENT[id][locale];
 
+  // Seeded once, on open, from what the phone knows (profile, latest logs,
+  // the active phase, kept runs); nothing re-seeds under the lifter's edits.
   const [values, setValues] = useState<CalcValues>(() =>
-    initialCalcValues(config, user ?? null, user ? latestTapeCm(user.id) : {}),
+    initialCalcValues(config, user ? readCalcFacts(user, CALCULATORS) : null),
   );
   const setValue = (name: string, v: number | string) =>
     setValues((prev) => ({ ...prev, [name]: v }));
@@ -201,7 +257,7 @@ export const Calculator = ({ id, docId }: { id: CalcId; docId?: string }) => {
   // prefills). Offer to persist their result.
   const num = (k: string) => Number(values[k]) || 0;
   const str = (k: string) => String(values[k] ?? '');
-  const canSave = !!user && !!result && (id === 'tdee' || id === 'bodyfat');
+  const savable = !!user && (id === 'tdee' || id === 'bodyfat');
   const onSave = () => {
     if (!user || !result) return;
     if (id === 'tdee') {
@@ -245,6 +301,24 @@ export const Calculator = ({ id, docId }: { id: CalcId; docId?: string }) => {
       header={<TopBar showBack showAvatar={false} docId={docId} />}
     >
       <ScreenTitle title={content.h1} subtitle={content.tagline} />
+
+      {/* Actions sit on top, ahead of everything whose height follows the
+          inputs (the result, its note and rows, the disabled-field reasons),
+          so they never move while the calculator is in use. Present for the
+          whole visit — disabled while there's no result — never appearing
+          and disappearing with the values. */}
+      {savable ? (
+        <View className="mb-5 flex-row">
+          <Button
+            label={t('calc.saveProfile')}
+            variant="brandSoft"
+            size="sm"
+            fullWidth={false}
+            disabled={!result}
+            onPress={onSave}
+          />
+        </View>
+      ) : null}
 
       {/* Live result */}
       {result ? (
@@ -302,17 +376,11 @@ export const Calculator = ({ id, docId }: { id: CalcId; docId?: string }) => {
           <Field
             key={field.name}
             field={field}
-            value={values[field.name]}
+            values={values}
             onChange={(v) => setValue(field.name, v)}
           />
         ))}
       </View>
-
-      {canSave ? (
-        <View className="mt-5">
-          <Button label={t('calc.saveProfile')} variant="brand" onPress={onSave} />
-        </View>
-      ) : null}
 
       {history?.length ? (
         <View className="mt-7">

@@ -15,6 +15,8 @@ type Props<T extends string> = {
   value: T | undefined;
   onChange: (value: T) => void;
   placeholder?: string;
+  /** Shown but inert (a calculator input the chosen formula ignores). */
+  disabled?: boolean;
 };
 
 /**
@@ -28,6 +30,7 @@ export const Select = <T extends string>({
   value,
   onChange,
   placeholder,
+  disabled = false,
 }: Props<T>) => {
   const [open, setOpen] = useState(false);
   const { muted } = useTheme();
@@ -38,7 +41,10 @@ export const Select = <T extends string>({
       {label ? (
         <Text
           maxFontSizeMultiplier={CONTROL_FONT_SCALE}
-          className="mb-1.5 font-mono-medium text-xs uppercase tracking-wider text-ink-300"
+          className={[
+            'mb-1.5 font-mono-medium text-xs uppercase tracking-wider',
+            disabled ? 'text-ink-500' : 'text-ink-300',
+          ].join(' ')}
         >
           {label}
         </Text>
@@ -46,16 +52,21 @@ export const Select = <T extends string>({
 
       <Pressable
         onPress={() => setOpen(true)}
+        disabled={disabled}
         accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
-        className="min-h-11 w-full flex-row items-center rounded-field border border-ink-500 bg-ink-900 px-4 py-2.5"
+        accessibilityState={{ expanded: open, disabled }}
+        className={[
+          'min-h-11 w-full flex-row items-center rounded-field border px-4 py-2.5',
+          disabled ? 'border-ink-700 bg-ink-850' : 'border-ink-500 bg-ink-900',
+        ].join(' ')}
       >
         <Text
           numberOfLines={1}
           maxFontSizeMultiplier={CONTROL_FONT_SCALE}
-          className={['min-w-0 flex-1 text-base', selected ? 'text-ink-50' : 'text-ink-400'].join(
-            ' ',
-          )}
+          className={[
+            'min-w-0 flex-1 text-base',
+            selected && !disabled ? 'text-ink-50' : 'text-ink-400',
+          ].join(' ')}
         >
           {selected?.label ?? placeholder ?? ''}
         </Text>

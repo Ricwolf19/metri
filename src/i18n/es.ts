@@ -1175,6 +1175,10 @@ export const es: Record<TranslationKey, string> = {
   'calc.formula.mifflin': 'Mifflin-St Jeor',
   'calc.formula.harris': 'Harris-Benedict',
   'calc.formula.katch': 'Katch-McArdle',
+  'calc.hint.bodyFatKatch':
+    'Solo la fórmula Katch-McArdle usa la grasa corporal; Mifflin y Harris la ignoran.',
+  'calc.hint.katchSkips': 'Katch-McArdle parte de la masa magra, así que no usa este dato.',
+  'calc.hint.hipFemaleOnly': 'Solo la fórmula Navy para mujeres usa la circunferencia de cadera.',
   'calc.result.oneRm': '1RM estimado',
   'calc.result.tdee': 'Mantenimiento (TDEE)',
   'calc.result.bmr': 'TMB',
