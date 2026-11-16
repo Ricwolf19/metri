@@ -440,7 +440,27 @@ export const es: Record<TranslationKey, string> = {
     'Guarda tu % de grasa en la calculadora de grasa corporal y metri podrá sugerirte una fase.',
   'goal.rateLabel': 'Ritmo',
   'goal.rateHint.cut':
-    'Lento conserva músculo y rendimiento. Quien pesa más puede perder un poco más rápido.',
+    'Lento conserva músculo y rendimiento. Cuanto más magro estés, más lenta debe ser la definición.',
+  'goal.goalLabel': 'Tu objetivo',
+  'goal.goalHint': 'Dónde termina la definición. metri calcula la duración a partir de él.',
+  'goal.goalWeight': 'Peso objetivo ({unit})',
+  'goal.recommendFat':
+    'Con tu grasa corporal, una definición que conserva tu músculo termina en torno a {min}–{max} {unit} (10–12 % de grasa en hombres, 18–20 % en mujeres). Desde ahí, mantén o empieza un volumen limpio.',
+  'goal.recommendBmi':
+    'Sin una medición de grasa corporal, metri usa el tope del rango de IMC saludable: unos {max} {unit}. Una medición de grasa lo afina mucho.',
+  'goal.alreadyLeanFat':
+    'Ya estás en el rango magro: definir más cuesta músculo para poco. Te conviene más mantener o un volumen limpio.',
+  'goal.alreadyLeanBmi':
+    'Estás dentro del rango de IMC saludable. Añade una medición de grasa corporal para ver si te conviene definir.',
+  'goal.goalNoData':
+    'Añade tu estatura o una medición de grasa corporal y metri te recomienda dónde parar.',
+  'goal.atFloor': 'Es lo más bajo que planea metri: por debajo es grasa esencial, no un objetivo.',
+  'goal.rateRange': 'Ritmo saludable para ti: {min}–{max} {unit} por semana.',
+  'goal.bulkEnd':
+    'Termina el volumen en torno al {pct} % de grasa corporal; luego define o mantén.',
+  'goal.toGoal': '{n} semanas de déficit hasta tu objetivo.',
+  'goal.blocks':
+    '{total} semanas de déficit hasta tu objetivo: {blocks} bloques de hasta {block} semanas con {rest} semanas de mantenimiento entre ellos, unas {calendar} semanas en total. Esta fase es el primer bloque; empieza el siguiente cuando termine.',
   'goal.rateHint.bulk':
     'Entre menos tiempo llevas entrenando, más rápido llega el músculo. Más rápido que esto es sobre todo grasa.',
   'goal.levelLabel': 'Experiencia entrenando',

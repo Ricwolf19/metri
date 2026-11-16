@@ -576,7 +576,13 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   derived from its start date/weight/rate, weeks anchor to `startDate` (never ISO weeks), "active"
   is the newest row with `endedAt` NULL (no unique index — `startGoal` ends the previous one in the
   same transaction), and a calorie adjustment moves CARBS ONLY and appends to `adjustments` without
-  resetting the start. Calories derive from the pace (`energyTarget`), floored near BMR — the floor
+  resetting the start. **A cut is planned from its goal** (`plan.ts`): the lifter names a goal
+  weight (opening on `cutGoal`'s recommended end, 10–12 % / 18–20 % body fat — `suggestPhase`'s bulk
+  edge — or the healthy-BMI top without a reading, never under the lean floor), the pace stays
+  inside the body-fat band (`suggestRate`: leaner = slower, 0.25–1 % a week), and the LENGTH follows
+  from both in blocks of `CUT_BLOCK_WEEKS` with `BREAK_WEEKS` at maintenance between them — the
+  phase saved is the first block; a length is never picked first for a cut. Calories derive from the
+  pace (`energyTarget`), floored near BMR — the floor
   raises a notice, it never silently changes the pace. Navy body fat from the tape is SAVED
   automatically with a full check-in (checkin.tsx) and the same sitting refreshes the TDEE snapshot
   when the profile is complete; weekly re-scaling of protein with tape noise is accepted and

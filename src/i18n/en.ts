@@ -435,7 +435,25 @@ export const en = {
     'Save your body fat % in the body-fat calculator and metri can suggest a phase.',
   'goal.rateLabel': 'Pace',
   'goal.rateHint.cut':
-    'Slow keeps muscle and gym performance. Heavier lifters can lose a little faster.',
+    'Slow keeps muscle and gym performance. The leaner you are, the slower a cut should go.',
+  'goal.goalLabel': 'Your goal',
+  'goal.goalHint': 'Where the cut ends. metri works out the length from it.',
+  'goal.goalWeight': 'Goal weight ({unit})',
+  'goal.recommendFat':
+    'For your body fat, a cut that keeps your muscle ends around {min}–{max} {unit} (10–12 % body fat for men, 18–20 % for women). From there, hold maintenance or start a lean bulk.',
+  'goal.recommendBmi':
+    'Without a body-fat reading metri uses the top of the healthy BMI range: about {max} {unit}. A body-fat reading makes this much sharper.',
+  'goal.alreadyLeanFat':
+    "You're already in the lean range: cutting further costs muscle for little. Maintenance or a lean bulk fits better.",
+  'goal.alreadyLeanBmi':
+    "You're inside the healthy BMI range. Add a body-fat reading to see whether a cut is worth it.",
+  'goal.goalNoData': 'Add your height or a body-fat reading and metri recommends where to stop.',
+  'goal.atFloor': 'This is as low as metri plans: below it is essential fat, not a goal.',
+  'goal.rateRange': 'Healthy pace for you: {min}–{max} {unit} a week.',
+  'goal.bulkEnd': 'Stop the bulk around {pct} % body fat, then cut or hold maintenance.',
+  'goal.toGoal': '{n} weeks of deficit to your goal.',
+  'goal.blocks':
+    '{total} weeks of deficit to your goal: {blocks} blocks of up to {block} weeks with {rest} weeks at maintenance between them, about {calendar} weeks in all. This phase is the first block; start the next one when it ends.',
   'goal.rateHint.bulk':
     'The newer you are to lifting, the faster muscle comes. Faster than this is mostly fat.',
   'goal.levelLabel': 'Training experience',

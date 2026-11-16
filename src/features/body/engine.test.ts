@@ -71,6 +71,32 @@ describe('suggestRate', () => {
     expect(suggestRate({ phase: 'cut', weightKg }).kgPerWeek).toBe(expected);
   });
 
+  // A leaner lifter cuts slower: the same 80 kg at 25 % fat and at 11 %.
+  it('slows a cut as body fat drops', () => {
+    const fatter = suggestRate({ phase: 'cut', weightKg: 80, sex: 'male', bodyFatPct: 25 });
+    const leaner = suggestRate({ phase: 'cut', weightKg: 80, sex: 'male', bodyFatPct: 11 });
+    expect(fatter).toEqual({ kgPerWeek: -0.6, minKg: 0.4, maxKg: 0.8 });
+    expect(leaner).toEqual({ kgPerWeek: -0.3, minKg: 0.2, maxKg: 0.4 });
+  });
+
+  it('keeps every cut band on the 0.05 kg grid the editor steps on', () => {
+    for (const bodyFatPct of [9, 14, 22, 33, 41]) {
+      for (const sex of ['male', 'female'] as const) {
+        const { minKg, maxKg, kgPerWeek } = suggestRate({
+          phase: 'cut',
+          weightKg: 73.4,
+          sex,
+          bodyFatPct,
+        });
+        for (const n of [minKg, maxKg, kgPerWeek]) expect(Math.round(n * 20) / 20).toBe(n);
+        // Never past the 1 % a week `clampRate` would cut it back to.
+        expect(maxKg).toBeLessThanOrEqual(clampRate(-9, 73.4) * -1);
+        expect(-kgPerWeek).toBeGreaterThanOrEqual(minKg);
+        expect(-kgPerWeek).toBeLessThanOrEqual(maxKg);
+      }
+    }
+  });
+
   it('bulks a beginner faster than an advanced lifter', () => {
     const beginner = suggestRate({ phase: 'bulk', weightKg: 80, level: 'beginner' }).kgPerWeek;
     const advanced = suggestRate({ phase: 'bulk', weightKg: 80, level: 'advanced' }).kgPerWeek;
