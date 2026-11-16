@@ -28,10 +28,9 @@ import {
   cutGoal,
 } from '@/features/body/plan';
 import { clampRate, suggestRate } from '@/features/body/rate';
-import { energyTarget } from '@/features/body/targets';
-import { useBodyLog } from '@/features/body/useBodyLog';
+import { phaseTargets } from '@/features/body/targets';
+import { bodyweightNow, useBodyLog } from '@/features/body/useBodyLog';
 import { syncWeighInReminder } from '@/features/body/weigh-in-reminder';
-import { macroTargets } from '@/features/calculators/math';
 import { DAY_ORDER, WEEKDAY_KEY } from '@/features/training/labels';
 import { fromKg } from '@/features/training/progression';
 import { useT } from '@/i18n';
@@ -64,7 +63,7 @@ const BodyGoalEditor = () => {
   const units = settings.getUnits();
   const log = useBodyLog(user?.id ?? '', user?.sex ?? null);
 
-  const weightKg = log.thisWeek?.avgKg ?? log.latestWeighIn?.weightKg ?? user?.weightKg ?? null;
+  const weightKg = bodyweightNow(log, user?.weightKg ?? null);
   const suggestion = useMemo(
     () => suggestPhase({ sex: user?.sex ?? null, bodyFatPct: user?.bodyFatPct ?? null }),
     [user?.sex, user?.bodyFatPct],
@@ -115,12 +114,18 @@ const BodyGoalEditor = () => {
   const inUnits = (kg: number) => String(fromKg(kg, units));
 
   const ready = weightKg != null && user.tdee != null;
-  const energy = ready
-    ? energyTarget({ tdee: user.tdee!, bmr: user.bmr, rateKgPerWeek: signedRate, sex: user.sex })
-    : null;
+  // The same computation a running phase refreshes through (`phaseTargets`).
   const macros =
-    energy && weightKg != null
-      ? macroTargets({ kcal: energy.kcal, weightKg, bodyFatPct: user.bodyFatPct, phase })
+    ready && weightKg != null
+      ? phaseTargets({
+          phase,
+          rateKgPerWeek: signedRate,
+          tdee: user.tdee!,
+          bmr: user.bmr,
+          sex: user.sex,
+          weightKg,
+          bodyFatPct: user.bodyFatPct,
+        })
       : null;
 
   const phaseSegments: Segment<BodyPhase>[] = PHASES.map((p) => ({
@@ -318,7 +323,7 @@ const BodyGoalEditor = () => {
         )}
       </Card>
 
-      {macros && energy ? (
+      {macros ? (
         <>
           <SectionLabel label={t('goal.targets')} />
           <Card>
@@ -333,9 +338,9 @@ const BodyGoalEditor = () => {
             <Text className="mt-4 text-xs leading-5 text-ink-500">
               {t(macros.basis === 'lean' ? 'goal.basisLean' : 'goal.basisBodyweight')}
             </Text>
-            {energy.floored ? (
+            {macros.floored ? (
               <Text className="mt-2 text-xs leading-5 text-amber-500">{t('goal.floored')}</Text>
-            ) : energy.outsideBand ? (
+            ) : macros.outsideBand ? (
               <Text className="mt-2 text-xs leading-5 text-amber-500">{t('goal.outsideBand')}</Text>
             ) : null}
           </Card>

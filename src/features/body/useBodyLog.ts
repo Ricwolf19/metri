@@ -78,3 +78,13 @@ export const useBodyLog = (userId: string, sex: Sex | null) => {
     };
   }, [metrics, tape, goal, anchor, today, sex]);
 };
+
+/**
+ * The bodyweight a phase plans on: this week's average, else the latest
+ * weigh-in, else the profile's — the goal editor and the targets refresh read
+ * the same number.
+ */
+export const bodyweightNow = (
+  log: Pick<ReturnType<typeof useBodyLog>, 'thisWeek' | 'latestWeighIn'>,
+  profileKg: number | null,
+): number | null => log.thisWeek?.avgKg ?? log.latestWeighIn?.weightKg ?? profileKg;

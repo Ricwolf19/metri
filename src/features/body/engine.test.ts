@@ -5,7 +5,7 @@ import { interpretWeek } from './interpret';
 import { suggestPhase } from './phase';
 import { clampRate, suggestRate } from './rate';
 import { enabledSites, keySiteFor } from './sites';
-import { adjustCarbs, energyTarget, suggestAdjustment } from './targets';
+import { adjustCarbs, energyTarget, refreshedTargets, suggestAdjustment } from './targets';
 import { fromCm, lengthUnitFor, toCm } from './units';
 import { addDays, daysBetween, isWaterJump, weekIndexOf, weeklyAverages } from './weekly';
 
@@ -321,5 +321,47 @@ describe('sites and units', () => {
     expect(toCm(33, 'lb')).toBe(83.8);
     expect(fromCm(83.8, 'lb')).toBe(33);
     expect(fromCm(84, 'kg')).toBe(84);
+  });
+});
+
+describe('refreshedTargets', () => {
+  // Planned on 2600 kcal of maintenance at -0.4 kg/week: 2600 - 440 = 2160.
+  const goal = {
+    phase: 'cut' as const,
+    rateKgPerWeek: -0.4,
+    tdeeAtStart: 2600,
+    targetKcal: 2160,
+    adjustments: [] as { date: string; kcalDelta: number }[],
+  };
+  const now = (tdee: number | null) => ({
+    tdee,
+    bmr: 1700,
+    sex: 'male' as const,
+    weightKg: 80,
+    bodyFatPct: 18,
+  });
+
+  it('offers nothing while the estimate it was planned on still holds', () => {
+    expect(refreshedTargets(goal, now(2600))).toBeNull();
+    expect(refreshedTargets(goal, now(null))).toBeNull();
+  });
+
+  it('offers nothing for less than one adjustment step', () => {
+    expect(refreshedTargets(goal, now(2550))).toBeNull();
+  });
+
+  // The "still 2500" report: a re-run TDEE never reached the running phase.
+  it('re-plans on a new estimate at the same pace', () => {
+    expect(refreshedTargets(goal, now(2400))?.kcal).toBe(1960);
+  });
+
+  it('keeps the carb steps already taken', () => {
+    const adjusted = {
+      ...goal,
+      targetKcal: 2060,
+      adjustments: [{ date: '2026-09-21', kcalDelta: -100 }],
+    };
+    expect(refreshedTargets(adjusted, now(2400))?.kcal).toBe(1860);
+    expect(refreshedTargets(adjusted, now(2600))).toBeNull();
   });
 });

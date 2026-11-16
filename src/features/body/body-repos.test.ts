@@ -10,7 +10,8 @@ vi.mock('@/lib/crypto', () => ({ randomId: () => crypto.randomUUID() }));
 const { db } = await import('@/db/client');
 const { saveMeasurements, measurementsQuery, latestPerSite, latestTapeCm } =
   await import('./body-measurements.repo');
-const { startGoal, endGoal, applyAdjustment, activeGoalQuery } = await import('./body-goals.repo');
+const { startGoal, endGoal, applyAdjustment, activeGoalQuery, refreshGoalTargets } =
+  await import('./body-goals.repo');
 
 const U = 'u-1';
 
@@ -126,6 +127,30 @@ describe('body goals', () => {
       fatG: 56,
       startDate: '2026-09-07',
       startWeightKg: 80,
+      adjustments: [{ date: '2026-09-21', kcalDelta: -100 }],
+    });
+  });
+
+  it('refreshes the targets and the inputs they came from, nothing else', () => {
+    const goal = startGoal(U, goalInput());
+    applyAdjustment(goal, '2026-09-21', -100);
+
+    refreshGoalTargets(
+      goal.id,
+      { kcal: 1860, proteinG: 140, fatG: 55, carbsG: 222 },
+      { tdee: 2400, bodyFatPct: 17 },
+    );
+
+    expect(active()[0]).toMatchObject({
+      targetKcal: 1860,
+      proteinG: 140,
+      fatG: 55,
+      carbsG: 222,
+      tdeeAtStart: 2400,
+      bodyFatPctAtStart: 17,
+      startDate: '2026-09-07',
+      startWeightKg: 80,
+      rateKgPerWeek: -0.4,
       adjustments: [{ date: '2026-09-21', kcalDelta: -100 }],
     });
   });

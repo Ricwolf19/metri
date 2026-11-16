@@ -74,3 +74,28 @@ export const applyAdjustment = (goal: BodyGoal, date: string, kcalDelta: number)
     .where(eq(bodyGoals.id, goal.id))
     .run();
 };
+
+/**
+ * Re-plan a running phase's targets on a new maintenance estimate
+ * (`refreshedTargets`). The start point, pace and calendar stay; the inputs
+ * the targets now come from replace the frozen ones, so the offer does not
+ * come back until they move again.
+ */
+export const refreshGoalTargets = (
+  goalId: string,
+  next: { kcal: number; proteinG: number; fatG: number; carbsG: number },
+  inputs: { tdee: number; bodyFatPct: number | null },
+): void => {
+  db.update(bodyGoals)
+    .set({
+      targetKcal: next.kcal,
+      proteinG: next.proteinG,
+      fatG: next.fatG,
+      carbsG: next.carbsG,
+      tdeeAtStart: inputs.tdee,
+      bodyFatPctAtStart: inputs.bodyFatPct,
+      updatedAt: new Date(),
+    })
+    .where(eq(bodyGoals.id, goalId))
+    .run();
+};

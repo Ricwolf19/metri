@@ -1,4 +1,5 @@
-import type { BodyPhase, Sex } from '@/db/schema';
+import type { BodyGoal, BodyPhase, Sex } from '@/db/schema';
+import { macroTargets } from '@/features/calculators/math';
 
 /**
  * The energy side of a phase: the calorie target a pace implies, its guardrails,
@@ -49,6 +50,90 @@ export const energyTarget = ({
     floored: raw < floor,
     outsideBand: Math.abs(kcal - tdee) / tdee > SANITY_BAND,
   };
+};
+
+export type PhaseTargets = {
+  kcal: number;
+  proteinG: number;
+  fatG: number;
+  carbsG: number;
+  /** What protein was scaled to — the copy says so. */
+  basis: 'lean' | 'bodyweight';
+  floored: boolean;
+  outsideBand: boolean;
+};
+
+/**
+ * Everything a phase eats from: the energy target its pace implies plus the
+ * macro split (`macroTargets`, the calculator's model). `adjustmentKcal` is the
+ * carb steps a running phase already took — they ride on top, through carbs.
+ */
+export const phaseTargets = ({
+  phase,
+  rateKgPerWeek,
+  tdee,
+  bmr,
+  sex,
+  weightKg,
+  bodyFatPct,
+  adjustmentKcal = 0,
+}: {
+  phase: BodyPhase;
+  rateKgPerWeek: number;
+  tdee: number;
+  bmr: number | null;
+  sex: Sex | null;
+  weightKg: number;
+  bodyFatPct: number | null;
+  adjustmentKcal?: number;
+}): PhaseTargets => {
+  const energy = energyTarget({ tdee, bmr, rateKgPerWeek, sex });
+  const macros = macroTargets({ kcal: energy.kcal + adjustmentKcal, weightKg, bodyFatPct, phase });
+  return {
+    kcal: macros.kcal,
+    proteinG: macros.proteinG,
+    fatG: macros.fatG,
+    carbsG: macros.carbsG,
+    basis: macros.basis,
+    floored: energy.floored,
+    outsideBand: energy.outsideBand,
+  };
+};
+
+/** A refresh worth offering moves the target at least this much — the size of one adjustment step. */
+const REFRESH_MIN_KCAL = 100;
+
+/**
+ * New targets for a RUNNING phase when the maintenance estimate it was
+ * planned on has moved (a re-run TDEE, a check-in that refreshed it), or null
+ * when the change is under one adjustment step. A phase freezes the inputs
+ * its targets came from, so this is only ever offered, never applied
+ * silently. The carb steps already taken are kept: they corrected the
+ * estimate, and a new estimate from the same formula carries the same error.
+ */
+export const refreshedTargets = (
+  goal: Pick<BodyGoal, 'phase' | 'rateKgPerWeek' | 'tdeeAtStart' | 'targetKcal' | 'adjustments'>,
+  now: {
+    tdee: number | null;
+    bmr: number | null;
+    sex: Sex | null;
+    weightKg: number | null;
+    bodyFatPct: number | null;
+  },
+): PhaseTargets | null => {
+  if (now.tdee == null || now.weightKg == null) return null;
+  if (goal.tdeeAtStart != null && Math.abs(now.tdee - goal.tdeeAtStart) < 1) return null;
+  const next = phaseTargets({
+    phase: goal.phase,
+    rateKgPerWeek: goal.rateKgPerWeek,
+    tdee: now.tdee,
+    bmr: now.bmr,
+    sex: now.sex,
+    weightKg: now.weightKg,
+    bodyFatPct: now.bodyFatPct,
+    adjustmentKcal: (goal.adjustments ?? []).reduce((sum, a) => sum + a.kcalDelta, 0),
+  });
+  return Math.abs(next.kcal - goal.targetKcal) >= REFRESH_MIN_KCAL ? next : null;
 };
 
 type Adjustable = { kcal: number; carbsG: number };

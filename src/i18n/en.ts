@@ -524,6 +524,14 @@ export const en = {
   'goal.adjustMore':
     'Raise your target by {n} kcal, all through carbs. Then give it two weeks before judging again.',
   'goal.adjustConfirm': 'Apply',
+  'goal.refreshTitle': 'Your maintenance estimate changed',
+  'goal.refreshBody':
+    'This phase was planned on {from} kcal of maintenance; your profile now says {to}. Today it targets {now} kcal a day — on the new estimate that becomes {kcal}. Your adjustments so far are kept.',
+  'goal.refreshBodyNew':
+    'Your profile now has a maintenance estimate of {to} kcal. On it, this phase targets {kcal} kcal a day.',
+  'goal.refreshDetail': '{kcal} kcal a day: protein {protein} g, carbs {carbs} g, fat {fat} g.',
+  'goal.refreshCta': 'Update targets',
+  'goal.refreshed': 'Targets updated',
   'goal.adjusted': 'Targets updated.',
   'metrics.exHistory': 'Exercise history',
   'metrics.exEmpty': 'Log a session and your movements show up here.',

@@ -582,8 +582,13 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   inside the body-fat band (`suggestRate`: leaner = slower, 0.25–1 % a week), and the LENGTH follows
   from both in blocks of `CUT_BLOCK_WEEKS` with `BREAK_WEEKS` at maintenance between them — the
   phase saved is the first block; a length is never picked first for a cut. Calories derive from the
-  pace (`energyTarget`), floored near BMR — the floor
-  raises a notice, it never silently changes the pace. Navy body fat from the tape is SAVED
+  pace (`energyTarget`), floored near BMR — the floor raises a notice, it never silently changes
+  the pace; the editor and a refresh share one computation (`phaseTargets`). **A running phase
+  never re-plans itself**: its `*AtStart` inputs are frozen, so a re-run TDEE (or a check-in that
+  refreshed it) is OFFERED on the Nutrition tab (`TargetsRefreshCard`, from `refreshedTargets`)
+  once the target would move at least one adjustment step — the carb steps already taken are
+  kept, since they corrected the same formula's error — and `refreshGoalTargets` replaces the
+  frozen inputs, so the offer only returns when they move again. Navy body fat from the tape is SAVED
   automatically with a full check-in (checkin.tsx) and the same sitting refreshes the TDEE snapshot
   when the profile is complete; weekly re-scaling of protein with tape noise is accepted and
   surfaced via the lean-basis notice. Calculator runs the user keeps are stored in the local-only

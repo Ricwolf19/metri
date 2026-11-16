@@ -534,6 +534,15 @@ export const es: Record<TranslationKey, string> = {
   'goal.adjustMore':
     'Sube tu objetivo {n} kcal, todo en carbos. Después dale dos semanas antes de volver a juzgar.',
   'goal.adjustConfirm': 'Aplicar',
+  'goal.refreshTitle': 'Tu estimación de mantenimiento cambió',
+  'goal.refreshBody':
+    'Esta fase se planificó con {from} kcal de mantenimiento; tu perfil ahora dice {to}. Hoy apunta a {now} kcal al día; con la nueva estimación pasa a {kcal}. Tus ajustes hasta ahora se conservan.',
+  'goal.refreshBodyNew':
+    'Tu perfil ahora tiene una estimación de mantenimiento de {to} kcal. Con ella, esta fase apunta a {kcal} kcal al día.',
+  'goal.refreshDetail':
+    '{kcal} kcal al día: proteína {protein} g, carbohidratos {carbs} g, grasa {fat} g.',
+  'goal.refreshCta': 'Actualizar objetivos',
+  'goal.refreshed': 'Objetivos actualizados',
   'goal.adjusted': 'Objetivos actualizados.',
   'metrics.exHistory': 'Historial por ejercicio',
   'metrics.exEmpty': 'Registra una sesión y tus movimientos aparecen aquí.',

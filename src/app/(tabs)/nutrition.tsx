@@ -16,8 +16,9 @@ import {
 } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { PhaseCard } from '@/features/body/components/PhaseCard';
+import { TargetsRefreshCard } from '@/features/body/components/TargetsRefreshCard';
 import { WeightVsTargetCard } from '@/features/body/components/WeightVsTargetCard';
-import { useBodyLog } from '@/features/body/useBodyLog';
+import { bodyweightNow, useBodyLog } from '@/features/body/useBodyLog';
 import { addDays } from '@/features/body/weekly';
 import { DayTotalsCard } from '@/features/nutrition/components/DayTotalsCard';
 import { MealBlock } from '@/features/nutrition/components/MealBlock';
@@ -138,7 +139,11 @@ const Nutrition = () => {
       <FadeInUp delay={120}>
         <SectionLabel label={t('goal.phaseLabel')} />
         {goal ? (
-          <PhaseCard goal={goal} currentWeek={log.currentWeek} />
+          <>
+            <PhaseCard goal={goal} currentWeek={log.currentWeek} />
+            {/* A re-run TDEE never rewrites a running phase silently: it is offered here. */}
+            <TargetsRefreshCard goal={goal} weightKg={bodyweightNow(log, user.weightKg)} />
+          </>
         ) : (
           <Card>
             <Text className="text-base font-sans-semibold text-ink-50">{t('goal.emptyTitle')}</Text>
