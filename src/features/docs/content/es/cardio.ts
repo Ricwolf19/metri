@@ -25,7 +25,7 @@ tienes: sube el gasto diario, favorece la sensibilidad a la insulina y casi no
 acumula fatiga, así que nunca compite con tus pesas. También es la parte del
 gasto que cae primero, y sin que lo notes, en una definición larga — por eso
 cuentas los pasos en lugar de fiarte de lo activo que te sientes
-([adaptación metabólica](/docs/metabolic-adaptation)).
+([termogénesis adaptativa](/docs/adaptive-thermogenesis)).
 
 | Objetivo               | Pasos diarios  |
 | ---------------------- | -------------- |

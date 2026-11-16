@@ -17,7 +17,7 @@ training — mostly walking. It is the cheapest tool you have: it raises daily
 expenditure, supports insulin sensitivity, and accumulates almost no fatigue, so
 it never competes with your lifting. It is also the part of your burn that
 falls first, and unnoticed, in a long cut — the reason to count steps rather
-than trust how active you feel ([metabolic adaptation](/docs/metabolic-adaptation)).
+than trust how active you feel ([adaptive thermogenesis](/docs/adaptive-thermogenesis)).
 
 | Goal                 | Daily steps  |
 | -------------------- | ------------ |

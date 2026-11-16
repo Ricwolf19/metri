@@ -188,7 +188,7 @@ yourself fasted, average the week, and compare after one to two weeks:
 
 Take any reduction from carbs or fat, never from protein. Your maintenance
 moves with your weight, so re-check it every ~5 kg lost or gained — the why is
-in [metabolic adaptation](/docs/metabolic-adaptation).
+in [adaptive thermogenesis](/docs/adaptive-thermogenesis).
 
 > **Note:** These are estimates built from population averages. Treat the result as a hypothesis and let three to four weeks of real weight data confirm or correct it.
 
@@ -199,7 +199,7 @@ in [metabolic adaptation](/docs/metabolic-adaptation).
 - [How to track macros](/docs/macros) — splitting the target into grams.
 - [Choosing your phase](/docs/choosing-your-phase) — whether to cut, bulk or hold.
 - [Breaking a plateau](/docs/breaking-a-plateau) — when the scale stops moving.
-- [Metabolic adaptation](/docs/metabolic-adaptation) — why maintenance falls as you lose.`,
+- [Adaptive thermogenesis](/docs/adaptive-thermogenesis) — why maintenance falls as you lose.`,
   },
   {
     id: 'hydration',
@@ -408,7 +408,7 @@ calories.
     tags: ['plateau', 'stall', 'neat', 'steps', 'cardio', 'fat loss', 'weighing', 'diet break'],
     body: `Stalls are normal. As you lose weight your body spends less, and the deficit
 that worked in week one quietly closes — the why is in
-[metabolic adaptation](/docs/metabolic-adaptation). The reflex is to eat less
+[adaptive thermogenesis](/docs/adaptive-thermogenesis). The reflex is to eat less
 again, but food is the last lever: every cut to intake also cuts the fuel you
 need to train and the protein that protects muscle. Spend more first.
 
@@ -466,14 +466,14 @@ train harder.
 A long cut that has stalled with hunger high and sessions sliding may need
 maintenance, not a deeper deficit: 1–2 weeks at maintenance, then resume. The
 scale will rise a little from glycogen and water; it is not fat. Details in
-[metabolic adaptation](/docs/metabolic-adaptation).
+[adaptive thermogenesis](/docs/adaptive-thermogenesis).
 
 > **Tip:** Daily weighing gives you seven chances a week to read the trend; weekly weighing gives you one, and it may land on a water day.
 
 ## Related
 
 - [Reading your numbers](/docs/reading-your-numbers) — water versus fat, and when a trend counts.
-- [Metabolic adaptation](/docs/metabolic-adaptation) — why the deficit shrinks.
+- [Adaptive thermogenesis](/docs/adaptive-thermogenesis) — why the deficit shrinks.
 - [Hydration & steps](/docs/hydration) — the step targets by phase.
 - [Sleep](/docs/sleep) — why lever four is not optional.
 - [Cardio, steps & NEAT](/docs/cardio-and-neat) — levers one and two in detail.
@@ -481,9 +481,9 @@ scale will rise a little from glycogen and water; it is not fat. Details in
 - [Personalizing your diet](/docs/personalizing-your-diet) — when food finally is the lever.`,
   },
   {
-    id: 'metabolic-adaptation',
+    id: 'adaptive-thermogenesis',
     category: 'nutrition',
-    title: 'Metabolic adaptation',
+    title: 'Adaptive thermogenesis: why maintenance moves',
     tags: [
       'metabolic adaptation',
       'adaptive thermogenesis',
@@ -938,7 +938,7 @@ brutal workout.
 - [Diet quality](/docs/diet-quality) — fiber, processing and meal timing.
 - [Sleep, deloads & recovery](/docs/sleep) — the lever most people skip.
 - [Cardio, steps & NEAT](/docs/cardio-and-neat) — movement outside the gym.
-- [Metabolic adaptation](/docs/metabolic-adaptation) — what else changes in a cut.`,
+- [Adaptive thermogenesis](/docs/adaptive-thermogenesis) — what else changes in a cut.`,
   },
   {
     id: 'fat-loss-myths',
@@ -994,7 +994,7 @@ smaller body, less movement, a thriftier metabolism — and a steep one costs
 more muscle, sleep and mood, but it never turns a deficit into fat gain. When
 the scale stalls on very little food, the usual causes are water hiding the
 loss or a food log that drifted. See
-[metabolic adaptation](/docs/metabolic-adaptation).
+[adaptive thermogenesis](/docs/adaptive-thermogenesis).
 
 ## No single nutrient causes obesity
 
@@ -1021,7 +1021,7 @@ single food is "bad". Fix the six together and carbs stop being a problem.
 - [Hydration & steps](/docs/hydration) — two of the six factors, made concrete.
 - [Sleep](/docs/sleep) — the recovery side of the same list.
 - [Breaking a plateau](/docs/breaking-a-plateau) — the levers that actually move the deficit.
-- [Metabolic adaptation](/docs/metabolic-adaptation) — what a long diet really does to your burn.
+- [Adaptive thermogenesis](/docs/adaptive-thermogenesis) — what a long diet really does to your burn.
 - [Diet quality](/docs/diet-quality) — what to do about ultra-processed food.`,
   },
 ];

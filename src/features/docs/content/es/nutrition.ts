@@ -190,7 +190,7 @@ Pésate en ayunas, promedia la semana y compara al cabo de una o dos semanas:
 
 Cualquier recorte sale de carbohidratos o grasa, nunca de la proteína. Tu
 mantenimiento se mueve con tu peso, así que revísalo cada ~5 kg perdidos o
-ganados — el porqué está en [adaptación metabólica](/docs/metabolic-adaptation).
+ganados — el porqué está en [termogénesis adaptativa](/docs/adaptive-thermogenesis).
 
 > **Nota:** Son estimaciones construidas sobre promedios poblacionales. Toma el resultado como hipótesis y deja que tres o cuatro semanas de datos reales de peso lo confirmen o lo corrijan.
 
@@ -201,7 +201,7 @@ ganados — el porqué está en [adaptación metabólica](/docs/metabolic-adapta
 - [Cómo contar macros](/docs/macros) — repartir el objetivo en gramos.
 - [¿Definir, volumen o mantener?](/docs/choosing-your-phase) — en qué dirección mover el número.
 - [Salir de un estancamiento](/docs/breaking-a-plateau) — cuando la báscula deja de moverse.
-- [Adaptación metabólica](/docs/metabolic-adaptation) — por qué el mantenimiento baja al perder peso.`,
+- [Termogénesis adaptativa](/docs/adaptive-thermogenesis) — por qué el mantenimiento baja al perder peso.`,
   },
   {
     id: 'hydration',
@@ -427,7 +427,7 @@ para subir calorías.
     ],
     body: `Los estancamientos son normales. A medida que bajas de peso tu cuerpo gasta
 menos, y el déficit que funcionaba la primera semana se va cerrando en silencio
-— el porqué está en [adaptación metabólica](/docs/metabolic-adaptation). El
+— el porqué está en [termogénesis adaptativa](/docs/adaptive-thermogenesis). El
 reflejo es volver a comer menos, pero la comida es la última palanca: cada
 recorte también quita el combustible para entrenar y la proteína que protege el
 músculo. Primero gasta más.
@@ -486,14 +486,14 @@ o entrenas más duro.
 Una definición larga que se ha estancado con mucha hambre y sesiones cada vez
 peores puede necesitar mantenimiento, no más déficit: 1–2 semanas en
 mantenimiento y luego retomas. La báscula subirá un poco por el glucógeno y el
-agua; no es grasa. Detalles en [adaptación metabólica](/docs/metabolic-adaptation).
+agua; no es grasa. Detalles en [termogénesis adaptativa](/docs/adaptive-thermogenesis).
 
 > **Consejo:** Pesarte a diario te da siete oportunidades por semana de leer la tendencia; pesarte una vez te da una, y puede caer en un día de retención.
 
 ## Relacionado
 
 - [Interpretar tus números](/docs/reading-your-numbers) — agua frente a grasa, y cuándo cuenta una tendencia.
-- [Adaptación metabólica](/docs/metabolic-adaptation) — por qué se encoge el déficit.
+- [Termogénesis adaptativa](/docs/adaptive-thermogenesis) — por qué se encoge el déficit.
 - [Hidratación y pasos](/docs/hydration) — los objetivos de pasos por fase.
 - [Sueño](/docs/sleep) — por qué la cuarta palanca no es opcional.
 - [Cardio, pasos y NEAT](/docs/cardio-and-neat) — las palancas uno y dos en detalle.
@@ -501,9 +501,9 @@ agua; no es grasa. Detalles en [adaptación metabólica](/docs/metabolic-adaptat
 - [Personaliza tu dieta](/docs/personalizing-your-diet) — cuando por fin la palanca es la comida.`,
   },
   {
-    id: 'metabolic-adaptation',
+    id: 'adaptive-thermogenesis',
     category: 'nutrition',
-    title: 'Adaptación metabólica',
+    title: 'Termogénesis adaptativa: por qué se mueve tu mantenimiento',
     tags: [
       'adaptación metabólica',
       'termogénesis adaptativa',
@@ -983,7 +983,7 @@ hacen más que un entreno brutal.
 - [Calidad de la dieta](/docs/diet-quality) — fibra, procesamiento y horario de las comidas.
 - [Sueño, descargas y recuperación](/docs/sleep) — la palanca que casi todos se saltan.
 - [Cardio, pasos y NEAT](/docs/cardio-and-neat) — el movimiento fuera del gimnasio.
-- [Adaptación metabólica](/docs/metabolic-adaptation) — qué más cambia en una definición.`,
+- [Termogénesis adaptativa](/docs/adaptive-thermogenesis) — qué más cambia en una definición.`,
   },
   {
     id: 'fat-loss-myths',
@@ -1041,7 +1041,7 @@ metabolismo más ahorrador — y uno agresivo cuesta más músculo, sueño y án
 pero nunca convierte un déficit en ganancia de grasa. Cuando la báscula se
 estanca comiendo muy poco, lo habitual es que el agua esconda la pérdida o que
 el registro de comida se haya desviado. Mira
-[adaptación metabólica](/docs/metabolic-adaptation).
+[termogénesis adaptativa](/docs/adaptive-thermogenesis).
 
 ## Ningún nutriente por sí solo causa obesidad
 
@@ -1069,7 +1069,7 @@ carbohidratos dejan de ser un problema.
 - [Hidratación y pasos](/docs/hydration) — dos de los seis factores, en concreto.
 - [Sueño](/docs/sleep) — el lado de la recuperación de la misma lista.
 - [Salir de un estancamiento](/docs/breaking-a-plateau) — las palancas que sí mueven el déficit.
-- [Adaptación metabólica](/docs/metabolic-adaptation) — lo que una dieta larga hace de verdad con tu gasto.
+- [Termogénesis adaptativa](/docs/adaptive-thermogenesis) — lo que una dieta larga hace de verdad con tu gasto.
 - [Calidad de la dieta](/docs/diet-quality) — qué hacer con los ultraprocesados.`,
   },
 ];

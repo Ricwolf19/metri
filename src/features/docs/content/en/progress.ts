@@ -133,7 +133,7 @@ Roughly **400 g/week (about 1.6 kg/month)** fits most people.
 ## Why not faster
 
 Losing 1 kg/week instead of 0.5 kg/week brings more hunger over time, a bigger
-drop in expenditure ([metabolic adaptation](/docs/metabolic-adaptation)), worse
+drop in expenditure ([adaptive thermogenesis](/docs/adaptive-thermogenesis)), worse
 sleep and worse sessions. Steep deficits are also linked to falling
 testosterone in men and disrupted cycles in women. Faster does not mean more
 fat lost either: the extra is mostly glycogen, water and some muscle.
@@ -321,7 +321,7 @@ the same evidence for free. How to take each measurement is in
 - [Measuring progress](/docs/measuring-progress)
 - [Weight tracking](/docs/weight-tracking)
 - [Breaking a plateau](/docs/breaking-a-plateau)
-- [Metabolic adaptation](/docs/metabolic-adaptation)
+- [Adaptive thermogenesis](/docs/adaptive-thermogenesis)
 - [Body fat guide](/docs/body-fat-guide)`,
   },
   {

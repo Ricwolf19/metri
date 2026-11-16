@@ -136,7 +136,7 @@ Unos **400 g/semana (cerca de 1,6 kg/mes)** le sirven a la mayoría.
 ## Por qué no más rápido
 
 Perder 1 kg/semana en lugar de 0,5 kg/semana trae más hambre con el tiempo,
-una bajada mayor del gasto ([adaptación metabólica](/docs/metabolic-adaptation)),
+una bajada mayor del gasto ([termogénesis adaptativa](/docs/adaptive-thermogenesis)),
 peor sueño y peores sesiones. Los déficits agresivos también se asocian con una
 caída de la testosterona en hombres y con alteraciones del ciclo en mujeres.
 Más rápido tampoco significa más grasa perdida: el extra es sobre todo
@@ -331,7 +331,7 @@ cintura es la misma prueba, gratis. Cómo tomar cada medida está en
 - [Medir tu progreso](/docs/measuring-progress)
 - [Seguimiento del peso](/docs/weight-tracking)
 - [Salir de un estancamiento](/docs/breaking-a-plateau)
-- [Adaptación metabólica](/docs/metabolic-adaptation)
+- [Termogénesis adaptativa](/docs/adaptive-thermogenesis)
 - [Guía de grasa corporal](/docs/body-fat-guide)`,
   },
   {
