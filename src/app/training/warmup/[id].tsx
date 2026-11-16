@@ -1,21 +1,20 @@
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useFieldArray, useWatch, type Control } from 'react-hook-form';
 import { Pressable, Text, View } from 'react-native';
 
+import { ControlledInput, ControlledSegmentedControl, useSaveForm } from '@/components/form';
 import { PlusIcon, XIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import {
   Button,
   Card,
   HoldButton,
-  Input,
   Screen,
   SectionLabel,
-  SegmentedControl,
   useToast,
   useUnsavedGuard,
 } from '@/components/ui';
-import type { WarmupStep } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
 import { WarmupStepDemo } from '@/features/training/components/WarmupStepDemo';
 import { warmupCopy } from '@/features/training/warmup-content';
@@ -28,7 +27,25 @@ import {
 import { useI18n, useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
-const EMPTY_STEP: WarmupStep = { name: '', detail: '' };
+type StepDraft = { name: string; detail: string };
+type WarmupDraft = {
+  kind: 'warmup' | 'mobility';
+  name: string;
+  description: string;
+  steps: StepDraft[];
+};
+
+const EMPTY_STEP: StepDraft = { name: '', detail: '' };
+
+/** As stored: trimmed, and a step without a name is no step. */
+const normalizeWarmup = (v: WarmupDraft): WarmupDraft => ({
+  kind: v.kind,
+  name: v.name.trim(),
+  description: v.description.trim(),
+  steps: v.steps
+    .map((s) => ({ name: s.name.trim(), detail: s.detail.trim() }))
+    .filter((s) => s.name),
+});
 
 /**
  * One warm-up routine. Shipped routines are read-only and offer a copy —
@@ -42,7 +59,7 @@ const WarmupDetail = () => {
   const { locale } = useI18n();
   const toast = useToast();
   const { user } = useAuth();
-  const { brand, muted } = useTheme();
+  const { brand } = useTheme();
 
   const isNew = id === 'new';
   const [routine] = useState(() => (id && !isNew ? getWarmup(id) : null));
@@ -50,60 +67,58 @@ const WarmupDetail = () => {
   const owned = !!routine?.isCustom && routine.userId === user?.id;
   const editable = isNew || owned;
 
-  const [kind, setKind] = useState<'warmup' | 'mobility'>(routine?.kind ?? 'warmup');
-  const [name, setName] = useState(isNew ? '' : (copy?.name ?? ''));
-  const [description, setDescription] = useState(isNew ? '' : (copy?.description ?? ''));
-  const [steps, setSteps] = useState<WarmupStep[]>(
-    isNew ? [{ ...EMPTY_STEP }] : (copy?.steps ?? []),
-  );
-  const [dirty, setDirty] = useState(false);
+  const [initial] = useState<WarmupDraft>(() => ({
+    kind: routine?.kind ?? 'warmup',
+    name: isNew ? '' : (copy?.name ?? ''),
+    description: isNew ? '' : (copy?.description ?? ''),
+    steps: (isNew ? [EMPTY_STEP] : (copy?.steps ?? [])).map((s) => ({
+      name: s.name,
+      detail: s.detail ?? '',
+    })),
+  }));
+  // A new routine is a `create` (one row however fast Save is tapped); an owned
+  // one saves only a real change — an added blank step is none.
+  const form = useSaveForm<WarmupDraft>({
+    kind: isNew ? 'create' : 'edit',
+    defaultValues: initial,
+    normalize: normalizeWarmup,
+    onInvalid: () =>
+      toast.error(t(form.getValues('name').trim() ? 'warmup.needStep' : 'warmup.needName')),
+    onSave: ({ kind, name, description, steps }) => {
+      if (!user) return false;
+      const clean = steps.map((s) => ({ name: s.name, detail: s.detail || undefined }));
+      if (isNew) {
+        createWarmup(user.id, {
+          kind,
+          name,
+          description: description || undefined,
+          steps: clean,
+        });
+      } else if (routine) {
+        updateWarmup(routine.id, { name, description: description || null, steps: clean });
+      }
+      toast.success(t('editor.savedToast'));
+    },
+  });
+  const steps = useFieldArray({
+    control: form.control,
+    name: 'steps',
+    rules: { validate: (all) => all.some((s) => s.name.trim().length > 0) },
+  });
+  const kind = useWatch({ control: form.control, name: 'kind' });
 
-  const patchStep = (index: number, patch: Partial<WarmupStep>) => {
-    setSteps((prev) => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)));
-    setDirty(true);
-  };
-
-  const save = () => {
-    if (!user) return false;
-    const clean = steps
-      .map((s) => ({ name: s.name.trim(), detail: s.detail?.trim() || undefined }))
-      .filter((s) => s.name);
-    if (!name.trim()) {
-      toast.error(t('warmup.needName'));
-      return false;
-    }
-    if (!clean.length) {
-      toast.error(t('warmup.needStep'));
-      return false;
-    }
-    if (isNew) {
-      createWarmup(user.id, {
-        kind,
-        name: name.trim(),
-        description: description.trim() || undefined,
-        steps: clean,
-      });
-    } else if (routine) {
-      updateWarmup(routine.id, {
-        name: name.trim(),
-        description: description.trim() || null,
-        steps: clean,
-      });
-    }
-    setDirty(false);
-    toast.success(t('editor.savedToast'));
-    return true;
-  };
-
-  const guard = useUnsavedGuard({ dirty: editable && dirty, onSave: save });
+  const guard = useUnsavedGuard({ dirty: editable && form.isDirty, onSave: form.saveNow });
   const saveAndClose = () => {
-    if (save()) guard.leave(() => router.back());
+    if (form.saveNow()) guard.leave(() => router.back());
   };
+  // One copy per press: the screen is replaced right after.
+  const duplicated = useRef(false);
 
   if (!user || (!routine && !isNew)) return <Redirect href="/training/warmups" />;
 
   const duplicate = () => {
-    if (!copy) return;
+    if (!copy || duplicated.current) return;
+    duplicated.current = true;
     const made = createWarmup(user.id, {
       kind: kind,
       name: t('warmup.copyName', { name: copy.name }),
@@ -116,7 +131,6 @@ const WarmupDetail = () => {
 
   const remove = () => {
     if (!routine) return;
-    setDirty(false);
     deleteWarmup(routine.id, user.id);
     toast.info(t('editor.deletedToast'));
     guard.leave(() => router.back());
@@ -140,7 +154,7 @@ const WarmupDetail = () => {
           <Button
             variant="brand"
             label={t('editor.save')}
-            disabled={!dirty}
+            disabled={!form.canSave}
             onPress={saveAndClose}
           />
         ) : (
@@ -151,33 +165,25 @@ const WarmupDetail = () => {
       {editable ? (
         <Card className="gap-4">
           {isNew ? (
-            <SegmentedControl
+            <ControlledSegmentedControl
+              control={form.control}
+              name="kind"
               segments={[
                 { value: 'warmup', label: t('warmup.sectionWarmup') },
                 { value: 'mobility', label: t('warmup.sectionMobility') },
               ]}
-              value={kind}
-              onChange={(value) => {
-                setKind(value);
-                setDirty(true);
-              }}
             />
           ) : null}
-          <Input
+          <ControlledInput
+            control={form.control}
+            name="name"
+            rules={{ validate: (v) => v.trim().length > 0 || t('warmup.needName') }}
             label={t('warmup.name')}
-            value={name}
-            onChangeText={(v) => {
-              setName(v);
-              setDirty(true);
-            }}
           />
-          <Input
+          <ControlledInput
+            control={form.control}
+            name="description"
             label={t('editor.description')}
-            value={description}
-            onChangeText={(v) => {
-              setDescription(v);
-              setDirty(true);
-            }}
             multiline
           />
         </Card>
@@ -191,48 +197,19 @@ const WarmupDetail = () => {
 
       {editable ? (
         <View className="gap-2">
-          {steps.map((step, i) => (
-            <Card key={i} className="gap-2">
-              <View className="flex-row items-center gap-2">
-                <View className="flex-1">
-                  <Input
-                    value={step.name}
-                    onChangeText={(v) => patchStep(i, { name: v })}
-                    placeholder={t('warmup.stepPh')}
-                  />
-                </View>
-                {steps.length > 1 ? (
-                  <Pressable
-                    onPress={() => {
-                      setSteps((prev) => prev.filter((_, j) => j !== i));
-                      setDirty(true);
-                    }}
-                    hitSlop={14}
-                    accessibilityRole="button"
-                    accessibilityLabel={t('common.removeNamed', {
-                      name: step.name.trim() || `${t('warmup.steps')} ${i + 1}`,
-                    })}
-                  >
-                    <XIcon color={muted} size={16} />
-                  </Pressable>
-                ) : null}
-              </View>
-              <Input
-                value={step.detail ?? ''}
-                onChangeText={(v) => patchStep(i, { detail: v })}
-                placeholder={t('warmup.detailPh')}
-              />
-              <WarmupStepDemo name={step.name} />
-            </Card>
+          {steps.fields.map((field, i) => (
+            <StepCard
+              key={field.id}
+              control={form.control}
+              index={i}
+              onRemove={steps.fields.length > 1 ? () => steps.remove(i) : undefined}
+            />
           ))}
           <Button
             label={t('warmup.addStep')}
             variant="secondary"
             leftIcon={<PlusIcon color={brand} size={18} />}
-            onPress={() => {
-              setSteps((prev) => [...prev, { ...EMPTY_STEP }]);
-              setDirty(true);
-            }}
+            onPress={() => steps.append({ ...EMPTY_STEP })}
           />
         </View>
       ) : (
@@ -260,6 +237,53 @@ const WarmupDetail = () => {
         </View>
       ) : null}
     </Screen>
+  );
+};
+
+/** One editable step: its name drives the demo under it. */
+const StepCard = ({
+  control,
+  index,
+  onRemove,
+}: {
+  control: Control<WarmupDraft>;
+  index: number;
+  /** Absent on the last step left: a routine keeps at least one. */
+  onRemove?: () => void;
+}) => {
+  const t = useT();
+  const { muted } = useTheme();
+  const name = useWatch({ control, name: `steps.${index}.name` });
+  return (
+    <Card className="gap-2">
+      <View className="flex-row items-center gap-2">
+        <View className="flex-1">
+          <ControlledInput
+            control={control}
+            name={`steps.${index}.name`}
+            placeholder={t('warmup.stepPh')}
+          />
+        </View>
+        {onRemove ? (
+          <Pressable
+            onPress={onRemove}
+            hitSlop={14}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.removeNamed', {
+              name: name.trim() || `${t('warmup.steps')} ${index + 1}`,
+            })}
+          >
+            <XIcon color={muted} size={16} />
+          </Pressable>
+        ) : null}
+      </View>
+      <ControlledInput
+        control={control}
+        name={`steps.${index}.detail`}
+        placeholder={t('warmup.detailPh')}
+      />
+      <WarmupStepDemo name={name} />
+    </Card>
   );
 };
 

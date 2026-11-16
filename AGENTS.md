@@ -157,6 +157,18 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   `Pressable.onLongPress`: Pressability drops its long-press timer when the finger drifts more
   than ten points while the press stays active, so a thumb that moved watched the fill reach
   100 % and nothing fire. Toasts only for save/delete/start/abandon.
+- **Forms are react-hook-form through `@/components/form`** — `useSaveForm` + `ControlledInput` /
+  `ControlledSegmentedControl` / `ControlledSelect` (a one-off control gets RHF's `Controller`). An
+  edit form takes the loaded row as `defaultValues` ONCE (a new day/row is a `reset(next)` from the
+  event that loads it, never an effect), Save is `disabled={!form.canSave}` (valid AND `isDirty`
+  against what was loaded, after `normalize` — a trailing space is no change) and the save resets
+  the baseline. `kind: 'create'` forms need only valid values and close after one success. Every
+  press goes through `submit`/`saveNow`, which stay shut until the render after a save: a double
+  tap or the keyboard's "go" beside the button wrote twice (two local users, two food entries). A
+  sheet's form is its own component keyed by `useOpenKey(visible)`. Nothing writes on keystroke;
+  the live set rows, the calculators and the searches are inputs, not forms, and stay outside
+  RHF. `ChipRow`, `OptionSheet` (so `Select`) and `ChoiceCarousel` never re-fire for the option
+  already chosen, and `upsertExerciseSetting` skips a patch equal to what is stored.
 - **`<BlockingOverlay>` is a SOLID surface** (`bg-ink-900`, the mark pulsing inside an orbiting
   arc, always centred): a translucent wait showed the screens behind it mid-render. Use it for
   every synchronous transition — start, finish, discard, a language switch, a bulk write — and

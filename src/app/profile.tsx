@@ -1,7 +1,9 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
+import { useWatch } from 'react-hook-form';
 import { Pressable, Text, View } from 'react-native';
 
+import { ControlledInput, useSaveForm } from '@/components/form';
 import { CameraIcon, ChevronRightIcon, LogOutIcon, StarIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import {
@@ -58,8 +60,18 @@ const Profile = () => {
   const dialog = useDialog();
   const router = useRouter();
 
-  const [name, setName] = useState(user?.displayName ?? '');
-  const [saving, setSaving] = useState(false);
+  const account = useSaveForm<{ name: string }>({
+    // Follows the stored name (a revalidation can rename the account), never
+    // over what is being typed.
+    values: { name: user?.displayName ?? '' },
+    resetOptions: { keepDirtyValues: true },
+    normalize: ({ name }) => ({ name: name.trim() }),
+    onSave: ({ name }) => {
+      updateMyProfile({ displayName: name });
+      toast.success(t('profile.accountUpdatedToast'));
+    },
+  });
+  const typedName = useWatch({ control: account.control, name: 'name' });
 
   const [clock, setClock] = useState<ClockFormat>(settings.getClockFormat());
   const { units, setUnits } = useUnits();
@@ -67,17 +79,6 @@ const Profile = () => {
   const dateFormat = useDateFormat();
   const [sampleDate] = useState(() => new Date());
   if (!user) return null;
-
-  const dirty = name.trim() !== (user.displayName ?? '');
-
-  const saveAccount = () => {
-    if (!user) return;
-    if (!name.trim()) return toast.error(t('profile.errNameEmpty'));
-    setSaving(true);
-    updateMyProfile({ displayName: name.trim() });
-    toast.success(t('profile.accountUpdatedToast'));
-    setSaving(false);
-  };
 
   const onSignOut = () => {
     signOut();
@@ -118,12 +119,15 @@ const Profile = () => {
     { value: '24', label: t('clock.24') },
     { value: '12', label: t('clock.12') },
   ];
+  // A tap on the segment already chosen changes nothing: no write, no profile push.
   const onClockChange = (next: ClockFormat) => {
+    if (next === clock) return;
     settings.setClockFormat(next);
     setClock(next);
     if (user) pushProfile(user);
   };
   const onLocaleChange = (next: Locale) => {
+    if (next === locale) return;
     setLocale(next);
     if (user) pushProfile(user);
   };
@@ -133,9 +137,13 @@ const Profile = () => {
     pushProfile(user);
   };
   const onUnitsChange = (next: Units) => {
+    if (next === units) return;
     setUnits(next);
     // Units ride the account profile (as the locale does) — no-op for local users.
     pushProfile(user);
+  };
+  const onEquipmentUnitsChange = (next: Units) => {
+    if (next !== equipment.units) equipment.setUnits(next);
   };
   const hasMetrics = typeof user.age === 'number';
   // Every preset shows today's date in that shape, so the choice is concrete;
@@ -169,7 +177,7 @@ const Profile = () => {
           </View>
         </Pressable>
         <Text className="mt-3 text-xl font-sans-bold text-ink-50">
-          {name || user.displayName || user.email || t('plan.tier.local')}
+          {typedName || user.displayName || user.email || t('plan.tier.local')}
         </Text>
         <Text className="mb-3 text-sm text-ink-400">{user.email ?? t('profile.localAccount')}</Text>
         <View className="flex-row items-center gap-2">
@@ -215,10 +223,11 @@ const Profile = () => {
       </Text>
       <Card>
         <View className="gap-4">
-          <Input
+          <ControlledInput
+            control={account.control}
+            name="name"
+            rules={{ validate: (v) => v.trim().length > 0 || t('profile.errNameEmpty') }}
             label={t('profile.displayName')}
-            value={name}
-            onChangeText={setName}
             autoCapitalize="words"
           />
           {/* Email is the cloud-account identity — managed on metri.info, read-only here. */}
@@ -236,9 +245,8 @@ const Profile = () => {
           <Button
             variant="brand"
             label={t('common.saveChanges')}
-            onPress={saveAccount}
-            loading={saving}
-            disabled={!dirty}
+            onPress={() => account.submit()}
+            disabled={!account.canSave}
           />
         </View>
       </Card>
@@ -340,7 +348,7 @@ const Profile = () => {
         <SegmentedControl
           segments={UNIT_SEGMENTS}
           value={equipment.units}
-          onChange={equipment.setUnits}
+          onChange={onEquipmentUnitsChange}
         />
         <Text className="mt-2 text-[11px] leading-4 text-ink-500">
           {t('profile.unitsEquipmentHint')}

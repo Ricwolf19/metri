@@ -1,16 +1,17 @@
 import { useLiveQuery } from '@/db/useLiveQuery';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
+import { Controller, useWatch } from 'react-hook-form';
 import { Text, View } from 'react-native';
 import ReorderableList, { reorderItems } from 'react-native-reorderable-list';
 
+import { ControlledInput, useSaveForm } from '@/components/form';
 import { PlusIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import {
   Button,
   Card,
   HoldButton,
-  Input,
   ReorderRow,
   moveActions,
   Screen,
@@ -42,6 +43,8 @@ import { useTheme } from '@/theme/theme-context';
 const MIN_WEEKS = 1;
 const MAX_WEEKS = 12;
 
+type PhaseDraft = { name: string; weeks: number; rmTest: number | null };
+
 /** Phase editor: name + weeks buffered until Save; splits reorder by drag. */
 const EditRoutine = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -57,33 +60,34 @@ const EditRoutine = () => {
   const { data: days } = useLiveQuery(daysQuery(routineId), [routineId]);
   const [items, setItems] = useReorderedList(days);
 
-  const [saved, setSaved] = useState({
-    name: routine?.name ?? '',
-    weeks: routine?.durationWeeks ?? 4,
-    rmTest: routine?.rmTestWeek ?? null,
-  });
-  const [name, setName] = useState(saved.name);
-  const [weeks, setWeeks] = useState(saved.weeks);
-  const [rmTest, setRmTest] = useState<number | null>(saved.rmTest);
-  // A test week past a shortened phase is dropped, never pointed past the end.
-  const rmTestShown = clampRmTestWeek(rmTest, weeks);
-  const dirty = name.trim() !== saved.name || weeks !== saved.weeks || rmTestShown !== saved.rmTest;
-
-  const save = () => {
-    if (!routineId) return false;
+  const draft = useSaveForm<PhaseDraft>({
+    defaultValues: {
+      name: routine?.name ?? '',
+      weeks: routine?.durationWeeks ?? 4,
+      rmTest: routine?.rmTestWeek ?? null,
+    },
     // Empty is a valid name; every renderer falls back to the "phase-N" slug.
-    const clean = name.trim();
-    updateRoutine(routineId, { name: clean, durationWeeks: weeks, rmTestWeek: rmTestShown });
-    setName(clean);
-    setRmTest(rmTestShown);
-    setSaved({ name: clean, weeks, rmTest: rmTestShown });
-    toast.success(t('editor.savedToast'));
-    return true;
-  };
+    // A test week past a shortened phase is dropped, never pointed past the end.
+    normalize: ({ name, weeks, rmTest }) => ({
+      name: name.trim(),
+      weeks,
+      rmTest: clampRmTestWeek(rmTest, weeks),
+    }),
+    onSave: ({ name, weeks, rmTest }) => {
+      if (!routineId) return false;
+      updateRoutine(routineId, { name, durationWeeks: weeks, rmTestWeek: rmTest });
+      toast.success(t('editor.savedToast'));
+    },
+  });
+  const [name, weeks, rmTest] = useWatch({
+    control: draft.control,
+    name: ['name', 'weeks', 'rmTest'],
+  });
+  const rmTestShown = clampRmTestWeek(rmTest, weeks);
 
-  const guard = useUnsavedGuard({ dirty, onSave: save });
+  const guard = useUnsavedGuard({ dirty: draft.isDirty, onSave: draft.saveNow });
   const saveAndClose = () => {
-    if (save()) guard.leave(() => router.back());
+    if (draft.saveNow()) guard.leave(() => router.back());
   };
   const [adding, addThen] = useBusyThen();
 
@@ -93,24 +97,26 @@ const EditRoutine = () => {
 
   // Shrinking below the saved length deletes prescriptions: warn once, on the
   // way down, rather than at Save time (which may run from the leave guard).
-  const setWeeksTo = (next: number) => {
-    if (next < saved.weeks && weeks >= saved.weeks) {
+  const setWeeksTo = (next: number, set: (weeks: number) => void) => {
+    const savedWeeks = draft.formState.defaultValues?.weeks ?? weeks;
+    if (next < savedWeeks && weeks >= savedWeeks) {
       dialog.confirm({
         title: t('editor.weeks'),
         message: t('editor.shrinkWeeks'),
         confirmLabel: t('common.continue'),
         destructive: true,
-        onConfirm: () => setWeeks(next),
+        onConfirm: () => set(next),
       });
       return;
     }
-    setWeeks(next);
+    set(next);
   };
 
-  const addSplit = () => {
-    const day = addDay(routineId, scope, { name: '' });
-    addThen(() => router.push({ pathname: '/training/edit/day/[id]', params: { id: day.id } }));
-  };
+  const addSplit = () =>
+    addThen(
+      (day) => router.push({ pathname: '/training/edit/day/[id]', params: { id: day.id } }),
+      () => addDay(routineId, scope, { name: '' }),
+    );
 
   const remove = () => {
     deleteRoutine(routineId);
@@ -121,30 +127,42 @@ const EditRoutine = () => {
   const header = (
     <View>
       <Card className="gap-4">
-        <Input
+        <ControlledInput
+          control={draft.control}
+          name="name"
           label={t('editor.phaseName')}
-          value={name}
-          onChangeText={setName}
           placeholder={t('editor.phaseFallback', { n: routine.orderIndex + 1 })}
         />
-        <Stepper
-          label={t('editor.weeks')}
-          value={weeks}
-          min={MIN_WEEKS}
-          max={MAX_WEEKS}
-          onChange={setWeeksTo}
+        <Controller
+          control={draft.control}
+          name="weeks"
+          render={({ field }) => (
+            <Stepper
+              label={t('editor.weeks')}
+              value={field.value}
+              min={MIN_WEEKS}
+              max={MAX_WEEKS}
+              onChange={(next) => setWeeksTo(next, field.onChange)}
+            />
+          )}
         />
-        <Select
-          label={t('editor.rmTestWeek')}
-          items={[
-            { value: 'none', label: t('editor.rmTestNone') },
-            ...Array.from({ length: weeks }, (_, i) => ({
-              value: String(i + 1),
-              label: t('training.weekN', { n: i + 1 }),
-            })),
-          ]}
-          value={rmTestShown == null ? 'none' : String(rmTestShown)}
-          onChange={(v) => setRmTest(v === 'none' ? null : Number(v))}
+        <Controller
+          control={draft.control}
+          name="rmTest"
+          render={({ field }) => (
+            <Select
+              label={t('editor.rmTestWeek')}
+              items={[
+                { value: 'none', label: t('editor.rmTestNone') },
+                ...Array.from({ length: weeks }, (_, i) => ({
+                  value: String(i + 1),
+                  label: t('training.weekN', { n: i + 1 }),
+                })),
+              ]}
+              value={rmTestShown == null ? 'none' : String(rmTestShown)}
+              onChange={(v) => field.onChange(v === 'none' ? null : Number(v))}
+            />
+          )}
         />
       </Card>
       <SectionLabel label={t('editor.splits')} hint={t('editor.splitsSub')} />
@@ -194,7 +212,12 @@ const EditRoutine = () => {
         />
       }
       footer={
-        <Button variant="brand" label={t('editor.save')} disabled={!dirty} onPress={saveAndClose} />
+        <Button
+          variant="brand"
+          label={t('editor.save')}
+          disabled={!draft.canSave}
+          onPress={saveAndClose}
+        />
       }
     >
       <ReorderableList

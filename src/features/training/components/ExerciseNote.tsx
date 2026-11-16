@@ -2,8 +2,9 @@ import { useLiveQuery } from '@/db/useLiveQuery';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
+import { ControlledInput, useSaveForm } from '@/components/form';
 import { EditIcon, TrashIcon } from '@/components/icons';
-import { Button, HoldButton, Input, TextLink, useToast } from '@/components/ui';
+import { Button, HoldButton, TextLink, useToast } from '@/components/ui';
 import { useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
@@ -34,8 +35,7 @@ export const ExerciseNote = ({
   onEditingChange?: (editing: boolean) => void;
 }) => {
   const t = useT();
-  const toast = useToast();
-  const { muted, danger } = useTheme();
+  const { muted } = useTheme();
   const { data } = useLiveQuery(exerciseNoteQuery(userId, exerciseId), [userId, exerciseId]);
   const note = data[0]?.note ?? null;
   const [own, setOwn] = useState(false);
@@ -44,57 +44,21 @@ export const ExerciseNote = ({
     setOwn(next);
     onEditingChange?.(next);
   };
-  const [draft, setDraft] = useState('');
-  // Opened from outside: start from the saved note, once per opening.
-  const [seeded, setSeeded] = useState(false);
-  if (editing && !seeded) {
-    setSeeded(true);
-    setDraft(note ?? '');
-  } else if (!editing && seeded) {
-    setSeeded(false);
+
+  // The editor mounts per opening, so it starts from the saved note each time.
+  if (editing) {
+    return (
+      <NoteEditor
+        userId={userId}
+        exerciseId={exerciseId}
+        note={note}
+        className={className}
+        onDone={() => setEditing(false)}
+      />
+    );
   }
 
   const startEdit = () => setEditing(true);
-  const save = () => {
-    saveExerciseNote(userId, exerciseId, draft);
-    setEditing(false);
-    toast.success(t('exNote.saved'));
-  };
-  const remove = () => {
-    saveExerciseNote(userId, exerciseId, '');
-    setEditing(false);
-    toast.info(t('exNote.deleted'));
-  };
-
-  if (editing) {
-    return (
-      <View className={`gap-2 ${className}`}>
-        <Input
-          value={draft}
-          onChangeText={setDraft}
-          placeholder={t('exNote.placeholder')}
-          multiline
-          autoFocus
-          maxLength={500}
-        />
-        <View className="flex-row items-center gap-2">
-          <View className="flex-1">
-            <Button label={t('common.cancel')} size="sm" onPress={() => setEditing(false)} />
-          </View>
-          <View className="flex-1">
-            <Button label={t('editor.save')} size="sm" variant="brand" onPress={save} />
-          </View>
-          {note ? (
-            <HoldButton
-              icon={<TrashIcon color={danger} size={16} />}
-              accessibilityLabel={t('exNote.delete')}
-              onComplete={remove}
-            />
-          ) : null}
-        </View>
-      </View>
-    );
-  }
 
   if (!note) {
     return compact ? null : (
@@ -112,5 +76,72 @@ export const ExerciseNote = ({
       <Text className="flex-1 text-xs leading-5 text-ink-300">{note}</Text>
       <EditIcon color={muted} size={14} />
     </Pressable>
+  );
+};
+
+const NoteEditor = ({
+  userId,
+  exerciseId,
+  note,
+  className,
+  onDone,
+}: {
+  userId: string;
+  exerciseId: string;
+  note: string | null;
+  className: string;
+  onDone: () => void;
+}) => {
+  const t = useT();
+  const toast = useToast();
+  const { danger } = useTheme();
+  // Save only a real change: the note is stored trimmed, so spaces alone are none.
+  const form = useSaveForm<{ note: string }>({
+    defaultValues: { note: note ?? '' },
+    normalize: (v) => ({ note: v.note.trim() }),
+    onSave: (v) => {
+      saveExerciseNote(userId, exerciseId, v.note);
+      onDone();
+      toast.success(t('exNote.saved'));
+    },
+  });
+  const remove = () => {
+    saveExerciseNote(userId, exerciseId, '');
+    onDone();
+    toast.info(t('exNote.deleted'));
+  };
+
+  return (
+    <View className={`gap-2 ${className}`}>
+      <ControlledInput
+        control={form.control}
+        name="note"
+        placeholder={t('exNote.placeholder')}
+        multiline
+        autoFocus
+        maxLength={500}
+      />
+      <View className="flex-row items-center gap-2">
+        <View className="flex-1">
+          <Button label={t('common.cancel')} size="sm" onPress={onDone} />
+        </View>
+        <View className="flex-1">
+          <Button
+            label={t('editor.save')}
+            size="sm"
+            variant="brand"
+            disabled={!form.canSave}
+            onPress={() => form.submit()}
+          />
+        </View>
+        {note ? (
+          <HoldButton
+            icon={<TrashIcon color={danger} size={16} />}
+            accessibilityLabel={t('exNote.delete')}
+            onComplete={remove}
+          />
+        ) : null}
+      </View>
+    </View>
   );
 };

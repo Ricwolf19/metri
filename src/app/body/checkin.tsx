@@ -1,15 +1,16 @@
 import { and, eq } from 'drizzle-orm';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
+import { useWatch } from 'react-hook-form';
 import { Pressable, Text, View } from 'react-native';
 
+import { ControlledInput, useSaveForm } from '@/components/form';
 import { TopBar } from '@/components/TopBar';
 import {
   Button,
   Card,
   DatePicker,
   HoldButton,
-  Input,
   Screen,
   SectionLabel,
   TextLink,
@@ -30,6 +31,12 @@ import { saveMeasurements } from '@/features/body/body-measurements.repo';
 import { fmt } from '@/features/calculators/_shared';
 import { keptValue, recordCalculation } from '@/features/calculators/history.repo';
 import { deleteBodyMetric, saveBodyMetric } from '@/features/body/body-metrics.repo';
+import {
+  checkinChanges,
+  normalizeCheckin,
+  parseReading,
+  type CheckinDraft,
+} from '@/features/body/checkin-draft';
 import { navyFromTape } from '@/features/body/navy';
 import { enabledSites, siteHintKey, siteLabelKey, type SiteId } from '@/features/body/sites';
 import { fromCm, lengthUnitFor, toCm } from '@/features/body/units';
@@ -39,14 +46,6 @@ import { useT } from '@/i18n';
 import { settings } from '@/lib/storage';
 import { useDateFormat } from '@/lib/useDateFormat';
 import { useTodayKey } from '@/lib/useTodayKey';
-
-type Draft = { weight: string; sites: Partial<Record<SiteId, string>> };
-
-const parse = (raw: string | undefined): number | null => {
-  if (!raw) return null;
-  const n = Number(raw.replace(',', '.'));
-  return Number.isFinite(n) && n > 0 ? n : null;
-};
 
 /** What is already saved for a day, as the strings the form edits. */
 const loadDraft = (userId: string, date: string, sites: SiteId[], units: 'kg' | 'lb') => {
@@ -60,7 +59,7 @@ const loadDraft = (userId: string, date: string, sites: SiteId[], units: 'kg' | 
     .from(bodyMeasurements)
     .where(and(eq(bodyMeasurements.userId, userId), eq(bodyMeasurements.date, date)))
     .all();
-  const draft: Draft = {
+  const draft: CheckinDraft = {
     weight: metric?.weightKg != null ? String(fromKg(metric.weightKg, units)) : '',
     sites: {},
   };
@@ -74,7 +73,7 @@ const loadDraft = (userId: string, date: string, sites: SiteId[], units: 'kg' | 
 /**
  * The weekly check-in: scale and tape in one sitting, for any day. Picking a
  * past date loads what was saved then, so this screen is also how a day is
- * corrected or removed.
+ * corrected or removed. Save writes only what changed against that day.
  */
 const BodyCheckin = () => {
   const t = useT();
@@ -90,26 +89,14 @@ const BodyCheckin = () => {
   const [date, setDate] = useState(today);
   const [pickingDate, setPickingDate] = useState(false);
   const [loaded, setLoaded] = useState(() => loadDraft(userId, today, sites, units));
-  const [draft, setDraft] = useState<Draft>(loaded.draft);
-  const [dirty, setDirty] = useState(false);
 
-  const changeDate = (next: Date) => {
-    // The future has no readings; clamp instead of refusing the wheel.
-    const key = localDateKey(next) > today ? today : localDateKey(next);
-    const fresh = loadDraft(userId, key, sites, units);
-    setDate(key);
-    setLoaded(fresh);
-    setDraft(fresh.draft);
-    setDirty(false);
-  };
-
-  // Body fat from what is typed right now (US Navy method). A complete tape is
-  // saved automatically with the day — the estimate and the calculator agree
-  // by construction (both run the same formula on the same values).
-  const navyPctNow = (): number | null => {
+  // Body fat from a tape (US Navy method). A complete tape is saved
+  // automatically with the day — the estimate and the calculator agree by
+  // construction (both run the same formula on the same values).
+  const navyPct = (draft: CheckinDraft): number | null => {
     const typedCm: Partial<Record<SiteId, number>> = {};
     for (const site of sites) {
-      const typed = parse(draft.sites[site]);
+      const typed = parseReading(draft.sites[site]);
       if (typed != null) typedCm[site] = toCm(typed, units);
     }
     const navy = navyFromTape({
@@ -121,7 +108,7 @@ const BodyCheckin = () => {
   };
 
   // What the kept body-fat entry lists as its inputs — the calculator's field names.
-  const tapeInputs = (): Record<string, number | string> => {
+  const tapeInputs = (draft: CheckinDraft): Record<string, number | string> => {
     const out: Record<string, number | string> = {};
     if (user?.sex) out.sex = user.sex;
     if (user?.heightCm) out.height = user.heightCm;
@@ -130,37 +117,48 @@ const BodyCheckin = () => {
       ['waist', 'waist'],
       ['hips', 'hip'],
     ] as const) {
-      const typed = parse(draft.sites[site]);
+      const typed = parseReading(draft.sites[site]);
       if (typed != null) out[field] = toCm(typed, units);
     }
     return out;
   };
 
-  const save = () => {
-    const weight = parse(draft.weight);
-    const kg = weight != null ? (units === 'lb' ? lbToKg(weight) : weight) : null;
-    if (kg != null) {
-      saveBodyMetric(userId, date, { weightKg: Math.round(kg * 100) / 100 });
+  const save = (draft: CheckinDraft) => {
+    const changes = checkinChanges(loaded.draft, draft, sites);
+    const toKg = (n: number) => (units === 'lb' ? lbToKg(n) : n);
+    if (changes.weight != null) {
+      saveBodyMetric(userId, date, { weightKg: Math.round(toKg(changes.weight) * 100) / 100 });
     }
-    const values: Partial<Record<SiteId, number | null>> = {};
-    for (const site of sites) {
-      const typed = parse(draft.sites[site]);
-      // An emptied field clears a reading that existed; an untouched blank is skipped.
-      if (typed != null) values[site] = toCm(typed, units);
-      else if (loaded.draft.sites[site]) values[site] = null;
+    const tapeChanged = Object.keys(changes.tape).length > 0;
+    if (tapeChanged) {
+      saveMeasurements(
+        userId,
+        date,
+        Object.fromEntries(
+          Object.entries(changes.tape).map(([site, n]) => [
+            site,
+            n == null ? null : toCm(n, units),
+          ]),
+        ),
+      );
     }
-    saveMeasurements(userId, date, values);
 
     // A complete tape auto-fills body fat (Navy) and, with a complete profile,
-    // the TDEE snapshot — no manual calculator round-trip. The profile only
-    // follows a reading dated today: correcting a past day must not roll the
-    // current weight and body fat back.
-    const pct = navyPctNow();
+    // the TDEE snapshot — no manual calculator round-trip. Body fat is recorded
+    // only when the tape changed (the same tape is the same estimate); the TDEE
+    // follows a changed weight too. The profile only follows a reading dated
+    // today: correcting a past day must not roll the current weight and body
+    // fat back.
+    const pct = navyPct(draft);
     const current = readingUpdatesProfile(date, today);
     if (pct != null) {
-      saveBodyMetric(userId, date, { bodyFatPct: pct });
-      recordCalculation(userId, 'bodyfat', tapeInputs(), keptValue(fmt(pct), '%'));
-      if (current) updateMyProfile({ bodyFatPct: pct });
+      if (tapeChanged) {
+        saveBodyMetric(userId, date, { bodyFatPct: pct });
+        recordCalculation(userId, 'bodyfat', tapeInputs(draft), keptValue(fmt(pct), '%'));
+        if (current) updateMyProfile({ bodyFatPct: pct });
+      }
+      const typedWeight = parseReading(draft.weight);
+      const kg = typedWeight != null ? toKg(typedWeight) : null;
       const snap =
         current && user ? profileEnergySnapshot(user, { weightKg: kg, bodyFatPct: pct }) : null;
       if (snap) {
@@ -180,13 +178,30 @@ const BodyCheckin = () => {
         reload();
       }
     }
-    setDirty(false);
+    // What the day holds now is the baseline for the next change.
+    setLoaded(loadDraft(userId, date, sites, units));
     toast.success(t('body.checkinSaved'));
   };
 
-  const guard = useUnsavedGuard({ dirty, onSave: save, onDiscard: () => setDirty(false) });
+  const form = useSaveForm<CheckinDraft>({
+    defaultValues: loaded.draft,
+    normalize: (draft) => normalizeCheckin(draft, sites),
+    onSave: save,
+  });
+  const draft = useWatch({ control: form.control }) as CheckinDraft;
+
+  const guard = useUnsavedGuard({ dirty: form.isDirty, onSave: form.saveNow });
 
   if (!user) return null;
+
+  const changeDate = (next: Date) => {
+    // The future has no readings; clamp instead of refusing the wheel.
+    const key = localDateKey(next) > today ? today : localDateKey(next);
+    const fresh = loadDraft(userId, key, sites, units);
+    setDate(key);
+    setLoaded(fresh);
+    form.reset(fresh.draft);
+  };
 
   const removeDay = () => {
     if (loaded.metricId) deleteBodyMetric(loaded.metricId);
@@ -201,7 +216,7 @@ const BodyCheckin = () => {
 
   const hasSaved = loaded.metricId != null || Object.keys(loaded.draft.sites).length > 0;
 
-  const navyPct = navyPctNow();
+  const navyNow = navyPct(draft);
   const lengthUnit = lengthUnitFor(units);
 
   return (
@@ -221,9 +236,9 @@ const BodyCheckin = () => {
           label={t('editor.save')}
           variant="brand"
           fullWidth
+          disabled={!form.canSave}
           onPress={() => {
-            save();
-            guard.leave(() => router.back());
+            if (form.saveNow()) guard.leave(() => router.back());
           }}
         />
       }
@@ -249,12 +264,9 @@ const BodyCheckin = () => {
 
       <SectionLabel label={t('body.weight')} hint={t('body.weighInHint')} />
       <Card>
-        <Input
-          value={draft.weight}
-          onChangeText={(weight) => {
-            setDraft((d) => ({ ...d, weight }));
-            setDirty(true);
-          }}
+        <ControlledInput
+          control={form.control}
+          name="weight"
           keyboardType="decimal-pad"
           placeholder={units}
           maxLength={6}
@@ -265,13 +277,10 @@ const BodyCheckin = () => {
       <Card className="gap-4">
         {sites.map((site) => (
           <View key={site}>
-            <Input
+            <ControlledInput
+              control={form.control}
+              name={`sites.${site}`}
               label={`${t(siteLabelKey(site))} · ${lengthUnit}`}
-              value={draft.sites[site] ?? ''}
-              onChangeText={(value) => {
-                setDraft((d) => ({ ...d, sites: { ...d.sites, [site]: value } }));
-                setDirty(true);
-              }}
               keyboardType="decimal-pad"
               maxLength={6}
             />
@@ -281,10 +290,10 @@ const BodyCheckin = () => {
         <TextLink label={t('body.manageSites')} onPress={() => router.push('/body/sites')} />
       </Card>
 
-      {navyPct != null ? (
+      {navyNow != null ? (
         <Card className="mt-3">
           <Text className="text-sm leading-6 text-ink-200">
-            {t('body.navyEstimate', { n: navyPct })}
+            {t('body.navyEstimate', { n: navyNow })}
           </Text>
           <Text className="mt-1 text-xs leading-5 text-ink-500">{t('body.navyAutoSaved')}</Text>
         </Card>

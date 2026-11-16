@@ -2,7 +2,8 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { BrandMark, Button, Input, Screen, useToast } from '@/components/ui';
+import { ControlledInput, useSaveForm } from '@/components/form';
+import { BrandMark, Button, Screen, useToast } from '@/components/ui';
 import { TopBar } from '@/components/TopBar';
 import { AuthRejectedError, useAuth } from '@/features/auth/auth-context';
 import { useT } from '@/i18n';
@@ -15,32 +16,34 @@ const SignIn = () => {
   const router = useRouter();
   const t = useT();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const onSubmit = async () => {
-    if (!email.trim() || !password) {
-      setError(t('auth.errEnterCreds'));
-      return;
-    }
-    setError(null);
-    setLoading(true);
-    try {
-      const { restored } = await signInRemote(email, password);
-      toast.success(t(restored ? 'auth.profileRestored' : 'auth.welcomeToast'));
-      router.replace('/(tabs)');
-      router.push('/beta');
-    } catch (e) {
-      // A rejected credential is the expected answer, not a defect — only a
-      // surprise is worth reporting, and never in the server's own words.
-      if (!(e instanceof AuthRejectedError)) captureError(e);
-      setError(t('auth.errSignIn'));
-    } finally {
-      setLoading(false);
-    }
-  };
+  // `create`: one request per attempt — the keyboard's "go" and the button used
+  // to race each other into two sign-ins. A refusal reopens the form.
+  const form = useSaveForm<{ email: string; password: string }>({
+    kind: 'create',
+    defaultValues: { email: '', password: '' },
+    onSave: async ({ email, password }) => {
+      if (!email.trim() || !password) {
+        setError(t('auth.errEnterCreds'));
+        return false;
+      }
+      setError(null);
+      try {
+        const { restored } = await signInRemote(email, password);
+        toast.success(t(restored ? 'auth.profileRestored' : 'auth.welcomeToast'));
+        router.replace('/(tabs)');
+        router.push('/beta');
+      } catch (e) {
+        // A rejected credential is the expected answer, not a defect — only a
+        // surprise is worth reporting, and never in the server's own words.
+        if (!(e instanceof AuthRejectedError)) captureError(e);
+        setError(t('auth.errSignIn'));
+        return false;
+      }
+    },
+  });
+  const onSubmit = () => form.submit();
 
   return (
     <Screen
@@ -68,10 +71,10 @@ const SignIn = () => {
       <Text className="mb-6 mt-1 text-center text-sm text-ink-400">{t('auth.signInSubtitle')}</Text>
 
       <View className="gap-4">
-        <Input
+        <ControlledInput
+          control={form.control}
+          name="email"
           label={t('auth.email')}
-          value={email}
-          onChangeText={setEmail}
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="email-address"
@@ -80,10 +83,10 @@ const SignIn = () => {
           placeholder="you@email.com"
           returnKeyType="next"
         />
-        <Input
+        <ControlledInput
+          control={form.control}
+          name="password"
           label={t('auth.password')}
-          value={password}
-          onChangeText={setPassword}
           secureTextEntry
           textContentType="password"
           autoComplete="current-password"
@@ -95,7 +98,7 @@ const SignIn = () => {
 
         <Text className="text-xs text-ink-500">{t('auth.cloudNote')}</Text>
 
-        <Button variant="brand" label={t('auth.signIn')} onPress={onSubmit} loading={loading} />
+        <Button variant="brand" label={t('auth.signIn')} onPress={onSubmit} loading={form.saving} />
       </View>
 
       <Pressable

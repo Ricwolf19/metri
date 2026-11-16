@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useWatch } from 'react-hook-form';
 import { Text, View } from 'react-native';
 
-import { Button, Input, ScrollArea, Sheet, useToast } from '@/components/ui';
+import { ControlledInput, useOpenKey, useSaveForm } from '@/components/form';
+import { Button, ScrollArea, Sheet, useToast } from '@/components/ui';
 import { lbToKg } from '@/features/bmr/calc';
 import { fromKg } from '@/features/training/progression';
 import { useT } from '@/i18n';
@@ -19,47 +20,69 @@ type Props = {
   previousKg: number | null;
 };
 
+const parseWeight = (raw: string): number | null => {
+  const n = Number(raw.replace(',', '.'));
+  return raw !== '' && Number.isFinite(n) && n > 0 ? n : null;
+};
+
 /** Today's weigh-in: one number, saved. The quick path the daily habit needs. */
-export const WeighInSheet = ({ visible, onClose, userId, date, previousKg }: Props) => {
+export const WeighInSheet = ({ visible, ...props }: Props) => {
+  const openKey = useOpenKey(visible);
+  return (
+    <Sheet visible={visible} onClose={props.onClose}>
+      <WeighInForm key={openKey} {...props} />
+    </Sheet>
+  );
+};
+
+const WeighInForm = ({ onClose, userId, date, previousKg }: Omit<Props, 'visible'>) => {
   const t = useT();
   const toast = useToast();
   const units = settings.getUnits();
-  const [value, setValue] = useState('');
+  const toKg = (typed: number) => (units === 'lb' ? lbToKg(typed) : typed);
 
-  const typed = Number(value.replace(',', '.'));
-  const valid = value !== '' && Number.isFinite(typed) && typed > 0;
-  const kg = valid ? (units === 'lb' ? lbToKg(typed) : typed) : null;
-
-  const save = () => {
-    if (kg == null) return;
-    saveBodyMetric(userId, date, { weightKg: Math.round(kg * 100) / 100 });
-    toast.success(t('body.weighInSaved'));
-    setValue('');
-    onClose();
-  };
+  // `create`: one reading per opening, however fast Save is tapped.
+  const form = useSaveForm<{ weight: string }>({
+    kind: 'create',
+    defaultValues: { weight: '' },
+    onSave: ({ weight }) => {
+      const typed = parseWeight(weight);
+      if (typed == null) return false;
+      saveBodyMetric(userId, date, { weightKg: Math.round(toKg(typed) * 100) / 100 });
+      toast.success(t('body.weighInSaved'));
+      onClose();
+    },
+  });
+  const typed = parseWeight(useWatch({ control: form.control, name: 'weight' }));
+  const kg = typed != null ? toKg(typed) : null;
 
   return (
-    <Sheet visible={visible} onClose={onClose}>
-      <ScrollArea inSheet keyboardShouldPersistTaps="handled">
-        <Text className="mb-1 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
-          {t('body.weighIn')}
-        </Text>
-        <Text className="mb-4 text-xs leading-5 text-ink-500">{t('body.weighInHint')}</Text>
-        <Input
-          value={value}
-          onChangeText={setValue}
-          keyboardType="decimal-pad"
-          placeholder={previousKg != null ? String(fromKg(previousKg, units)) : units}
-          maxLength={6}
-          autoFocus
+    <ScrollArea inSheet keyboardShouldPersistTaps="handled">
+      <Text className="mb-1 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
+        {t('body.weighIn')}
+      </Text>
+      <Text className="mb-4 text-xs leading-5 text-ink-500">{t('body.weighInHint')}</Text>
+      <ControlledInput
+        control={form.control}
+        name="weight"
+        rules={{ validate: (v) => parseWeight(v) != null }}
+        keyboardType="decimal-pad"
+        placeholder={previousKg != null ? String(fromKg(previousKg, units)) : units}
+        maxLength={6}
+        autoFocus
+      />
+      {kg != null && isWaterJump(previousKg, kg) ? (
+        <Text className="mt-3 text-xs leading-5 text-ink-300">{t('body.waterNote')}</Text>
+      ) : null}
+      <View className="mt-4">
+        <Button
+          label={t('editor.save')}
+          variant="brand"
+          fullWidth
+          disabled={!form.canSave}
+          onPress={() => form.submit()}
         />
-        {kg != null && isWaterJump(previousKg, kg) ? (
-          <Text className="mt-3 text-xs leading-5 text-ink-300">{t('body.waterNote')}</Text>
-        ) : null}
-        <View className="mt-4">
-          <Button label={t('editor.save')} variant="brand" fullWidth onPress={save} />
-        </View>
-      </ScrollArea>
-    </Sheet>
+      </View>
+    </ScrollArea>
   );
 };

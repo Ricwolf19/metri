@@ -2,10 +2,10 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 
+import { ControlledInput, ControlledSegmentedControl, useSaveForm } from '@/components/form';
 import {
   BrandLogo,
   Button,
-  Input,
   Screen,
   SegmentedControl,
   useToast,
@@ -22,6 +22,14 @@ import { openExternal } from '@/lib/open-external';
 /** Preferences → about you → the optional knowledge check. */
 const STEPS = 3;
 
+type AboutYou = {
+  sex: Sex;
+  age: string;
+  heightCm: string;
+  weight: string;
+  activity: ActivityLevel;
+};
+
 const Onboarding = () => {
   const { t, locale, setLocale } = useI18n();
   const { finishOnboarding } = useAuth();
@@ -29,11 +37,6 @@ const Onboarding = () => {
   const router = useRouter();
 
   const [units, setUnits] = useState<Units>(settings.getUnits());
-  const [sex, setSex] = useState<Sex>('male');
-  const [age, setAge] = useState('');
-  const [heightCm, setHeightCm] = useState('');
-  const [weight, setWeight] = useState('');
-  const [activity, setActivity] = useState<ActivityLevel>('moderate');
   const [step, setStep] = useState(0);
 
   const localeSegments: Segment<'en' | 'es'>[] = LOCALES.map((l) => ({
@@ -55,28 +58,34 @@ const Onboarding = () => {
 
   // Saved when "about you" is left, so the quiz step runs as an onboarded user
   // and quitting the app there never replays the form.
-  const persist = (withMetrics: boolean) => {
+  const persist = (about: AboutYou, withMetrics: boolean) => {
     settings.setUnits(units);
-    const ageN = Number(age);
-    const heightN = Number(heightCm);
-    const weightN = Number(weight);
+    const ageN = Number(about.age);
+    const heightN = Number(about.heightCm);
+    const weightN = Number(about.weight);
     const hasMetrics =
       withMetrics && ageN > 0 && heightN > 0 && weightN > 0 && Number.isFinite(weightN);
 
     finishOnboarding(
       hasMetrics
         ? {
-            sex,
+            sex: about.sex,
             age: ageN,
             heightCm: heightN,
             weightKg: units === 'lb' ? Math.round(lbToKg(weightN) * 10) / 10 : weightN,
-            activityLevel: activity,
+            activityLevel: about.activity,
           }
         : {},
     );
     toast.success(t('onb.savedToast'));
     setStep(2);
   };
+  // `create`: Finish and Skip share one gate, so the profile is written once.
+  const about = useSaveForm<AboutYou>({
+    kind: 'create',
+    defaultValues: { sex: 'male', age: '', heightCm: '', weight: '', activity: 'moderate' },
+    onSave: (values) => persist(values, true),
+  });
 
   return (
     <Screen scroll contentClassName="grow px-6 py-10">
@@ -98,7 +107,9 @@ const Onboarding = () => {
             label={t('onb.language')}
             segments={localeSegments}
             value={locale}
-            onChange={setLocale}
+            onChange={(next) => {
+              if (next !== locale) setLocale(next);
+            }}
           />
           <SegmentedControl
             label={t('onb.units')}
@@ -115,29 +126,29 @@ const Onboarding = () => {
             <Text className="mt-0.5 text-xs text-ink-400">{t('onb.aboutYouHint')}</Text>
           </View>
 
-          <SegmentedControl
+          <ControlledSegmentedControl
+            control={about.control}
+            name="sex"
             label={t('bmr.sex')}
             segments={sexSegments}
-            value={sex}
-            onChange={setSex}
           />
 
           <View className="flex-row gap-3">
             <View className="flex-1">
-              <Input
+              <ControlledInput
+                control={about.control}
+                name="age"
                 label={t('bmr.age')}
-                value={age}
-                onChangeText={setAge}
                 keyboardType="number-pad"
                 placeholder="28"
                 maxLength={3}
               />
             </View>
             <View className="flex-1">
-              <Input
+              <ControlledInput
+                control={about.control}
+                name="heightCm"
                 label={t('bmr.heightCm')}
-                value={heightCm}
-                onChangeText={setHeightCm}
                 keyboardType="decimal-pad"
                 placeholder="175"
                 maxLength={5}
@@ -145,25 +156,29 @@ const Onboarding = () => {
             </View>
           </View>
 
-          <Input
+          <ControlledInput
+            control={about.control}
+            name="weight"
             label={`${t('bmr.weight')} (${units})`}
-            value={weight}
-            onChangeText={setWeight}
             keyboardType="decimal-pad"
             placeholder={units === 'kg' ? '72' : '160'}
             maxLength={6}
           />
 
-          <SegmentedControl
+          <ControlledSegmentedControl
+            control={about.control}
+            name="activity"
             label={t('bmr.activity')}
             segments={activitySegments}
-            value={activity}
-            onChange={setActivity}
           />
 
           <View className="mt-2 gap-3">
-            <Button variant="brand" label={t('onb.finish')} onPress={() => persist(true)} />
-            <Button label={t('common.skip')} variant="ghost" onPress={() => persist(false)} />
+            <Button variant="brand" label={t('onb.finish')} onPress={() => about.submit()} />
+            <Button
+              label={t('common.skip')}
+              variant="ghost"
+              onPress={() => about.submit((values) => persist(values, false))}
+            />
             <Button label={t('onb.back')} variant="ghost" onPress={() => setStep(0)} />
           </View>
         </View>

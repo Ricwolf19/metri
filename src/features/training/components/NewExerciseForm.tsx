@@ -1,17 +1,8 @@
-import { useState } from 'react';
+import { Controller } from 'react-hook-form';
 import { Text, View } from 'react-native';
 
-import {
-  Button,
-  Card,
-  Input,
-  Select,
-  Switch,
-  TagPicker,
-  type SelectItem,
-  type TagSection,
-  useToast,
-} from '@/components/ui';
+import { ControlledInput, ControlledSelect, useSaveForm } from '@/components/form';
+import { Button, Card, Switch, TagPicker, type SelectItem, type TagSection } from '@/components/ui';
 import type { Equipment, Exercise } from '@/db/schema';
 import { createCustomExercise } from '@/features/training/exercises.repo';
 import { EQUIPMENT_KEY } from '@/features/training/labels';
@@ -24,6 +15,13 @@ import {
 import { useT } from '@/i18n';
 
 const isHead = (v: string): v is MuscleHead => (MUSCLE_HEADS as readonly string[]).includes(v);
+
+type ExerciseDraft = {
+  name: string;
+  muscles: string[];
+  equipment: Equipment | undefined;
+  unilateral: boolean;
+};
 
 /**
  * The essentials of a custom exercise: name, the muscles it trains (required —
@@ -42,26 +40,24 @@ export const NewExerciseForm = ({
   submitLabel: string;
 }) => {
   const t = useT();
-  const toast = useToast();
-  const [name, setName] = useState('');
-  const [muscles, setMuscles] = useState<string[]>([]);
-  const [equipment, setEquipment] = useState<Equipment>();
-  const [unilateral, setUnilateral] = useState(false);
-
-  const submit = () => {
-    if (name.trim().length < 2) return toast.error(t('editor.exerciseName'));
-    const heads = muscles.filter(isHead);
-    if (!heads.length) return toast.error(t('editor.musclesRequired'));
-    onCreated(
-      createCustomExercise(userId, {
-        name: name.trim(),
-        category: HEAD_CATEGORY[heads[0]],
-        primaryMuscles: heads,
-        equipment: equipment ?? null,
-        unilateral,
-      }),
-    );
-  };
+  // `create`: one exercise per form — a double tap used to store two.
+  const form = useSaveForm<ExerciseDraft>({
+    kind: 'create',
+    defaultValues: { name: '', muscles: [], equipment: undefined, unilateral: false },
+    onSave: ({ name, muscles, equipment, unilateral }) => {
+      const heads = muscles.filter(isHead);
+      if (!heads.length) return false;
+      onCreated(
+        createCustomExercise(userId, {
+          name: name.trim(),
+          category: HEAD_CATEGORY[heads[0]],
+          primaryMuscles: heads,
+          equipment: equipment ?? null,
+          unilateral,
+        }),
+      );
+    },
+  });
 
   const muscleSections: TagSection[] = [
     {
@@ -75,25 +71,33 @@ export const NewExerciseForm = ({
 
   return (
     <Card className="gap-4">
-      <Input
+      <ControlledInput
+        control={form.control}
+        name="name"
+        rules={{ validate: (v) => v.trim().length >= 2 }}
         label={t('editor.exerciseName')}
-        value={name}
-        onChangeText={setName}
         autoCapitalize="words"
       />
-      <TagPicker
-        label={t('editor.muscles')}
-        sections={muscleSections}
-        value={muscles}
-        onChange={setMuscles}
-        placeholder={t('editor.musclesRequired')}
-        doneLabel={t('common.done')}
+      <Controller
+        control={form.control}
+        name="muscles"
+        rules={{ validate: (v) => v.some(isHead) }}
+        render={({ field }) => (
+          <TagPicker
+            label={t('editor.muscles')}
+            sections={muscleSections}
+            value={field.value}
+            onChange={field.onChange}
+            placeholder={t('editor.musclesRequired')}
+            doneLabel={t('common.done')}
+          />
+        )}
       />
-      <Select
+      <ControlledSelect
+        control={form.control}
+        name="equipment"
         label={t('editor.equipment')}
         items={equipmentItems}
-        value={equipment}
-        onChange={setEquipment}
         placeholder="—"
       />
       <View className="flex-row items-center gap-4">
@@ -103,10 +107,16 @@ export const NewExerciseForm = ({
             {t('editor.unilateralHint')}
           </Text>
         </View>
-        <Switch
-          value={unilateral}
-          onValueChange={setUnilateral}
-          accessibilityLabel={t('editor.unilateral')}
+        <Controller
+          control={form.control}
+          name="unilateral"
+          render={({ field }) => (
+            <Switch
+              value={field.value}
+              onValueChange={field.onChange}
+              accessibilityLabel={t('editor.unilateral')}
+            />
+          )}
         />
       </View>
       <View className="flex-row gap-2">
@@ -114,7 +124,7 @@ export const NewExerciseForm = ({
           <Button label={t('common.cancel')} variant="secondary" onPress={onCancel} />
         </View>
         <View className="flex-1">
-          <Button label={submitLabel} onPress={submit} />
+          <Button label={submitLabel} disabled={!form.canSave} onPress={() => form.submit()} />
         </View>
       </View>
     </Card>

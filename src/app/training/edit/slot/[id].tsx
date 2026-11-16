@@ -1,7 +1,9 @@
 import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
+import { Controller, useController } from 'react-hook-form';
 import { Pressable, Text, View } from 'react-native';
 
+import { ControlledInput, useSaveForm } from '@/components/form';
 import { XIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import {
@@ -10,7 +12,6 @@ import {
   ChipRow,
   DurationPicker,
   HoldButton,
-  Input,
   Screen,
   SectionLabel,
   Stepper,
@@ -44,6 +45,8 @@ import { useI18n, useT } from '@/i18n';
 import { mmss } from '@/lib/duration';
 import { useTheme } from '@/theme/theme-context';
 
+type SlotDraft = { weeks: WeekDraft[]; badges: string[]; notes: string };
+
 /** Slot editor: draft written in one Save. A fresh slot (`fresh=1`) is deleted if the user leaves
  * unsaved, so no half-configured exercise reaches a workout. */
 const EditSlot = () => {
@@ -63,73 +66,80 @@ const EditSlot = () => {
 
   const [week, setWeek] = useState(1);
   const [restOpen, setRestOpen] = useState(false);
-  const [badges, setBadges] = useState<string[]>(slot?.badges ?? []);
-  const [weeks, setWeeks] = useState<WeekDraft[]>(() => {
-    if (!slotId) return [];
-    const fallback = slot?.defaultRestSeconds ?? DEFAULT_REST;
-    return getSlotConfigs(slotId).map((c) =>
-      isFresh ? toFreshDraft(c, fallback) : toWeekDraft(c, fallback),
-    );
-  });
   const [alternatives, setAlternatives] = useState<string[]>(slot?.alternativeExerciseIds ?? []);
-  const [notes, setNotes] = useState<string>(slot?.notes ?? '');
   // The picker appends alternatives and comes back; re-read them on focus.
   useFocusEffect(
     useCallback(() => {
       if (slotId) setAlternatives(getSlot(slotId)?.alternativeExerciseIds ?? []);
     }, [slotId]),
   );
-  const [dirty, setDirty] = useState(isFresh);
 
+  // A fresh slot is a `create`: its seeded draft is worth saving untouched (and
+  // leaving it unsaved deletes it); an existing one saves only a real change.
+  // Read once: the form takes its defaults at creation only.
+  const [initial] = useState<SlotDraft>(() => {
+    const fallback = slot?.defaultRestSeconds ?? DEFAULT_REST;
+    return {
+      weeks: slotId
+        ? getSlotConfigs(slotId).map((c) =>
+            isFresh ? toFreshDraft(c, fallback) : toWeekDraft(c, fallback),
+          )
+        : [],
+      badges: slot?.badges ?? [],
+      notes: slot?.notes ?? '',
+    };
+  });
+  const draft = useSaveForm<SlotDraft>({
+    kind: isFresh ? 'create' : 'edit',
+    defaultValues: initial,
+    onInvalid: () => toast.error(t('editor.completeWeeksHint')),
+    onSave: ({ weeks, badges, notes }) => {
+      if (!slot) return false;
+      saveSlotDraft(slot.id, {
+        defaultRestSeconds: slot.defaultRestSeconds ?? DEFAULT_REST,
+        badges,
+        notes,
+        weeks: weeks.map((w) => ({
+          weekNumber: w.weekNumber,
+          values: toValues(w),
+          setGroups: w.setGroups,
+        })),
+      });
+      toast.success(t('editor.savedToast'));
+    },
+  });
+  const { field: weeksField } = useController({
+    control: draft.control,
+    name: 'weeks',
+    rules: { validate: (all) => all.every(isComplete) },
+  });
+  const weeks = weeksField.value;
   const allComplete = weeks.every(isComplete);
-
-  const save = () => {
-    if (!slot) return false;
-    if (!allComplete) {
-      toast.error(t('editor.completeWeeksHint'));
-      return false;
-    }
-    saveSlotDraft(slot.id, {
-      defaultRestSeconds: slot.defaultRestSeconds ?? DEFAULT_REST,
-      badges,
-      notes,
-      weeks: weeks.map((w) => ({
-        weekNumber: w.weekNumber,
-        values: toValues(w),
-        setGroups: w.setGroups,
-      })),
-    });
-    setDirty(false);
-    toast.success(t('editor.savedToast'));
-    return true;
-  };
+  const unsaved = (isFresh && !draft.saved) || draft.isDirty;
 
   const guard = useUnsavedGuard({
-    dirty,
-    onSave: save,
+    dirty: unsaved,
+    onSave: draft.saveNow,
     onDiscard: () => {
       if (isFresh && slot) deleteSlot(slot.id);
     },
   });
   const saveAndClose = () => {
-    if (save()) guard.leave(() => router.back());
+    if (draft.saveNow()) guard.leave(() => router.back());
   };
 
   if (!user || !slot || !exercise || !slotId) return <Redirect href="/training" />;
 
   const cfg = weeks.find((w) => w.weekNumber === week) ?? weeks[0] ?? null;
 
-  const patchWeek = (weekNumber: number, patch: Partial<WeekDraft>) => {
-    setWeeks((prev) => prev.map((w) => (w.weekNumber === weekNumber ? { ...w, ...patch } : w)));
-    setDirty(true);
-  };
+  const patchWeek = (weekNumber: number, patch: Partial<WeekDraft>) =>
+    weeksField.onChange(weeks.map((w) => (w.weekNumber === weekNumber ? { ...w, ...patch } : w)));
   const patch = (p: Partial<WeekDraft>) => {
     if (cfg) patchWeek(cfg.weekNumber, p);
   };
   const applyToAll = () => {
     if (!cfg) return;
-    setWeeks((prev) => prev.map((w) => ({ ...cfg, weekNumber: w.weekNumber })));
-    setDirty(true);
+    weeksField.onChange(weeks.map((w) => ({ ...cfg, weekNumber: w.weekNumber })));
     toast.success(t('editor.applyToAll'));
   };
 
@@ -141,7 +151,6 @@ const EditSlot = () => {
   };
 
   const remove = () => {
-    setDirty(false);
     deleteSlot(slot.id);
     toast.info(t('editor.deletedToast'));
     guard.leave(() => router.back());
@@ -178,7 +187,7 @@ const EditSlot = () => {
       }
       footer={
         <View>
-          {dirty && !allComplete ? (
+          {unsaved && !allComplete ? (
             <Text className="mb-2 text-center text-xs text-ink-400">
               {t('editor.completeWeeksHint')}
             </Text>
@@ -186,7 +195,7 @@ const EditSlot = () => {
           <Button
             variant="brand"
             label={t('editor.save')}
-            disabled={!dirty || !allComplete}
+            disabled={!draft.canSave}
             onPress={saveAndClose}
           />
         </View>
@@ -398,24 +407,19 @@ const EditSlot = () => {
       <SectionLabel label={t('editor.badges')} className="mb-1 mt-7" />
       <Text className="mb-2 text-[11px] text-ink-500">{t('editor.badgesHint')}</Text>
       <Card>
-        <BadgesEditor
-          value={badges}
-          onChange={(next) => {
-            setBadges(next);
-            setDirty(true);
-          }}
+        <Controller
+          control={draft.control}
+          name="badges"
+          render={({ field }) => <BadgesEditor value={field.value} onChange={field.onChange} />}
         />
       </Card>
 
       <SectionLabel label={t('editor.notes')} className="mb-1 mt-7" />
       <Text className="mb-2 text-[11px] text-ink-500">{t('editor.notesHint')}</Text>
       <Card>
-        <Input
-          value={notes}
-          onChangeText={(v) => {
-            setNotes(v);
-            setDirty(true);
-          }}
+        <ControlledInput
+          control={draft.control}
+          name="notes"
           placeholder={t('editor.notesPh')}
           multiline
         />

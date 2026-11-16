@@ -1,16 +1,17 @@
 import { useLiveQuery } from '@/db/useLiveQuery';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
+import { useWatch } from 'react-hook-form';
 import { Text, View } from 'react-native';
 import ReorderableList, { reorderItems } from 'react-native-reorderable-list';
 
+import { ControlledInput, useSaveForm } from '@/components/form';
 import { PlusIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import {
   Button,
   Card,
   HoldButton,
-  Input,
   ReorderRow,
   moveActions,
   Screen,
@@ -36,6 +37,8 @@ import { useTheme } from '@/theme/theme-context';
 
 const MIN_NAME = 3;
 
+type ProgramDraft = { name: string; description: string };
+
 /** Program editor (template): name + description buffered; phases reorder by drag. */
 const EditProgram = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -51,44 +54,33 @@ const EditProgram = () => {
   const { data: phases } = useLiveQuery(routinesQuery(programId, null), [programId]);
   const [items, setItems] = useReorderedList(phases);
 
-  const [saved, setSaved] = useState({
-    name: program?.name ?? '',
-    description: program?.description ?? '',
+  const draft = useSaveForm<ProgramDraft>({
+    defaultValues: { name: program?.name ?? '', description: program?.description ?? '' },
+    normalize: ({ name, description }) => ({ name: name.trim(), description: description.trim() }),
+    onInvalid: () => toast.error(t('editor.nameRequired')),
+    onSave: ({ name, description }) => {
+      if (!programId) return false;
+      updateProgram(programId, { name, description: description || null });
+      toast.success(t('editor.savedToast'));
+    },
   });
-  const [name, setName] = useState(saved.name);
-  const [description, setDescription] = useState(saved.description);
-  const dirty = name.trim() !== saved.name || description.trim() !== saved.description;
+  const name = useWatch({ control: draft.control, name: 'name' });
 
-  const save = () => {
-    const clean = name.trim();
-    const desc = description.trim();
-    if (clean.length < MIN_NAME || !programId) {
-      toast.error(t('editor.nameRequired'));
-      return false;
-    }
-    updateProgram(programId, { name: clean, description: desc || null });
-    setName(clean);
-    setDescription(desc);
-    setSaved({ name: clean, description: desc });
-    toast.success(t('editor.savedToast'));
-    return true;
-  };
-
-  const guard = useUnsavedGuard({ dirty, onSave: save });
+  const guard = useUnsavedGuard({ dirty: draft.isDirty, onSave: draft.saveNow });
   const saveAndClose = () => {
-    if (save()) guard.leave(() => router.back());
+    if (draft.saveNow()) guard.leave(() => router.back());
   };
   const [adding, addThen] = useBusyThen();
 
   if (!user || !program || !programId) return <Redirect href="/training" />;
 
-  const addPhase = () => {
-    // Created unnamed on purpose: the editor shows a "phase-N" fallback until the user names it.
-    const routine = addRoutine(programId, null, { name: '' });
-    addThen(() =>
-      router.push({ pathname: '/training/edit/routine/[id]', params: { id: routine.id } }),
+  const addPhase = () =>
+    addThen(
+      (routine) =>
+        router.push({ pathname: '/training/edit/routine/[id]', params: { id: routine.id } }),
+      // Created unnamed on purpose: the editor shows a "phase-N" fallback until the user names it.
+      () => addRoutine(programId, null, { name: '' }),
     );
-  };
 
   const remove = () => {
     if (!deleteProgramTree(programId)) {
@@ -105,11 +97,16 @@ const EditProgram = () => {
   const header = (
     <View>
       <Card className="gap-4">
-        <Input label={t('editor.programName')} value={name} onChangeText={setName} />
-        <Input
+        <ControlledInput
+          control={draft.control}
+          name="name"
+          rules={{ validate: (v) => v.trim().length >= MIN_NAME || t('editor.nameRequired') }}
+          label={t('editor.programName')}
+        />
+        <ControlledInput
+          control={draft.control}
+          name="description"
           label={t('editor.description')}
-          value={description}
-          onChangeText={setDescription}
           placeholder={t('editor.descriptionPh')}
           multiline
         />
@@ -162,7 +159,12 @@ const EditProgram = () => {
         />
       }
       footer={
-        <Button variant="brand" label={t('editor.save')} disabled={!dirty} onPress={saveAndClose} />
+        <Button
+          variant="brand"
+          label={t('editor.save')}
+          disabled={!draft.canSave}
+          onPress={saveAndClose}
+        />
       }
     >
       <ReorderableList
