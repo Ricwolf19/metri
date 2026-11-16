@@ -98,11 +98,8 @@ describe('plan read-outs', () => {
     );
   });
 
-  it('scheduleLabel needs both a weekday and a time', () => {
-    expect(scheduleLabel({ weekday: 2, startMinute: 18 * 60 }, tt, '24')).toBe(
-      'weekday.mon · 18:00',
-    );
-    expect(scheduleLabel({ weekday: 2, startMinute: null }, tt, '24')).toBeNull();
-    expect(scheduleLabel({ weekday: null, startMinute: 600 }, tt, '24')).toBeNull();
+  it('scheduleLabel names the day only, null while there is none', () => {
+    expect(scheduleLabel({ weekday: 2 }, tt)).toBe('weekday.mon');
+    expect(scheduleLabel({ weekday: null }, tt)).toBeNull();
   });
 });

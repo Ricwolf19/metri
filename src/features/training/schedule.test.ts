@@ -3,13 +3,13 @@ import { describe, expect, it } from 'vitest';
 import {
   deriveTrainingWeekdays,
   formatClockTime,
+  isPickComplete,
   isScheduleComplete,
   nextPendingSplit,
-  nextScheduledSplit,
   plannedSplitForDate,
-  prefillSchedule,
   reminderEntries,
-  splitsForWeekday,
+  scheduleFromPicks,
+  splitCounts,
   suggestWeekdays,
   validateProgramForStart,
   type ProgramTree,
@@ -37,9 +37,6 @@ const scheduled = (
   weekday,
   startMinute,
 });
-
-// 2026-09-16 is a Wednesday (expo weekday 4), matching streak.test.ts.
-const WED_18_00 = new Date(2026, 8, 16, 18, 0);
 
 describe('validateProgramForStart', () => {
   it.each<[string, ProgramTree, string[]]>([
@@ -74,48 +71,55 @@ describe('validateProgramForStart', () => {
   });
 });
 
-describe('prefillSchedule + isScheduleComplete', () => {
-  const twoPhases = tree([
+describe('scheduleFromPicks + isScheduleComplete', () => {
+  // Phase 1 and 3 train three splits a week, phase 2 four.
+  const program = tree([
     routine('r1', [day('a1', 'r1', 1, 0), day('a2', 'r1', 1, 1), day('a3', 'r1', 1, 2)]),
-    routine('r2', [day('b1', 'r2', 1, 0), day('b2', 'r2', 1, 1), day('b3', 'r2', 1, 2)]),
+    routine('r2', [
+      day('b1', 'r2', 1, 0),
+      day('b2', 'r2', 1, 1),
+      day('b3', 'r2', 1, 2),
+      day('b4', 'r2', 1, 3),
+    ]),
+    // Out of order on purpose: the split ORDER, not the row order, takes the days.
+    routine('r3', [day('c2', 'r3', 1, 1), day('c1', 'r3', 1, 0), day('c3', 'r3', 1, 2)]),
   ]);
-  const phaseOne = [
-    { dayId: 'a1', weekday: 2, startMinute: 1080 },
-    { dayId: 'a2', weekday: 4, startMinute: 1080 },
-    { dayId: 'a3', weekday: 6, startMinute: 1080 },
-  ];
 
-  it('mirrors phase 1 onto phase 2 by split position', () => {
-    const filled = prefillSchedule(twoPhases, phaseOne);
-    expect(filled.find((e) => e.dayId === 'b2')).toEqual({
-      dayId: 'b2',
-      weekday: 4,
-      startMinute: 1080,
-    });
-    expect(isScheduleComplete(twoPhases, filled)).toBe(true);
+  it('asks once per splits-a-week count', () => {
+    expect(splitCounts(program)).toEqual([3, 4]);
   });
 
-  it('leaves touched splits and extra splits alone', () => {
-    const longer = tree([
-      twoPhases.routines[0],
-      routine('r2', [...twoPhases.routines[1].days, day('b4', 'r2', 1, 3)]),
-    ]);
-    const custom = { dayId: 'b1', weekday: 1, startMinute: 600 };
-    const filled = prefillSchedule(longer, [...phaseOne, custom], new Set(['b1']));
-    expect(filled.find((e) => e.dayId === 'b1')).toEqual(custom);
-    expect(filled.find((e) => e.dayId === 'b4')).toBeUndefined();
-    expect(isScheduleComplete(longer, filled)).toBe(false);
+  it('gives every phase with that count the same days, in week order', () => {
+    // Picked Friday first and Sunday among them: the week still runs Monday → Sunday.
+    const entries = scheduleFromPicks(program, { 3: [6, 2, 1], 4: [2, 3, 5, 6] });
+    const at = (id: string) => entries.find((e) => e.dayId === id)?.weekday;
+    expect([at('a1'), at('a2'), at('a3')]).toEqual([2, 6, 1]);
+    expect([at('c1'), at('c2'), at('c3')]).toEqual([2, 6, 1]);
+    expect([at('b1'), at('b2'), at('b3'), at('b4')]).toEqual([2, 3, 5, 6]);
+    expect(isScheduleComplete(program, entries)).toBe(true);
   });
 
-  it('rejects out-of-range values', () => {
+  it('leaves a count without a pick unscheduled, so the start stays blocked', () => {
+    const entries = scheduleFromPicks(program, { 3: [2, 4, 6] });
+    expect(entries.some((e) => e.dayId.startsWith('b'))).toBe(false);
+    expect(isScheduleComplete(program, entries)).toBe(false);
+  });
+
+  it('wants one distinct day per split, at most seven', () => {
+    expect(isPickComplete(3, [2, 4, 6])).toBe(true);
+    expect(isPickComplete(3, [2, 4])).toBe(false);
+    expect(isPickComplete(3, [2, 2, 4])).toBe(false);
+    expect(isPickComplete(9, [1, 2, 3, 4, 5, 6, 7])).toBe(true);
+  });
+
+  it('rejects an out-of-range weekday', () => {
     const one = tree([routine('r1', [day('a1', 'r1', 1)])]);
-    expect(isScheduleComplete(one, [{ dayId: 'a1', weekday: 8, startMinute: 0 }])).toBe(false);
-    expect(isScheduleComplete(one, [{ dayId: 'a1', weekday: 1, startMinute: 1440 }])).toBe(false);
-    expect(isScheduleComplete(one, [{ dayId: 'a1', weekday: 7, startMinute: 1439 }])).toBe(true);
+    expect(isScheduleComplete(one, [{ dayId: 'a1', weekday: 8 }])).toBe(false);
+    expect(isScheduleComplete(one, [{ dayId: 'a1', weekday: 7 }])).toBe(true);
   });
 });
 
-describe('deriveTrainingWeekdays / splitsForWeekday', () => {
+describe('deriveTrainingWeekdays', () => {
   const days = [
     scheduled('pm', 4, 1080),
     scheduled('am', 4, 420),
@@ -126,40 +130,20 @@ describe('deriveTrainingWeekdays / splitsForWeekday', () => {
   it('dedupes same-weekday splits, sorts, skips unscheduled', () => {
     expect(deriveTrainingWeekdays(days)).toEqual([4, 6]);
   });
-
-  it('orders a weekday AM before PM and returns empty when none', () => {
-    expect(splitsForWeekday(days, 4).map((d) => d.id)).toEqual(['am', 'pm']);
-    expect(splitsForWeekday(days, 1)).toEqual([]);
-  });
-});
-
-describe('nextScheduledSplit', () => {
-  it.each<[string, ScheduledDay[], string | null, number]>([
-    ['later today', [scheduled('pm', 4, 1140), scheduled('sat', 7, 600)], 'pm', 60],
-    [
-      'tomorrow when today is past',
-      [scheduled('early', 4, 600), scheduled('thu', 5, 600)],
-      'thu',
-      960,
-    ],
-    ['wraps the week', [scheduled('mon', 2, 1080)], 'mon', 5 * 1440],
-    ['exactly now counts', [scheduled('now', 4, 1080)], 'now', 0],
-    ['nothing scheduled', [scheduled('x', null, null)], null, 0],
-  ])('%s', (_, days, expectedId, minutes) => {
-    const next = nextScheduledSplit(days, WED_18_00);
-    expect(next?.day.id ?? null).toBe(expectedId);
-    if (expectedId) expect(next?.minutesUntil).toBe(minutes);
-  });
 });
 
 describe('reminderEntries', () => {
-  it('dedupes identical tuples across splits and sorts', () => {
+  it('one per training weekday at the reminder time, whatever a split stored', () => {
     expect(
-      reminderEntries([scheduled('b', 6, 1080), scheduled('a', 2, 1110), scheduled('a2', 2, 1110)]),
+      reminderEntries(
+        [scheduled('b', 6, 1080), scheduled('a', 2, 600), scheduled('a2', 2, null)],
+        18 * 60 + 30,
+      ),
     ).toEqual([
       { weekday: 2, hour: 18, minute: 30 },
-      { weekday: 6, hour: 18, minute: 0 },
+      { weekday: 6, hour: 18, minute: 30 },
     ]);
+    expect(reminderEntries([scheduled('x', null, null)], 600)).toEqual([]);
   });
 });
 

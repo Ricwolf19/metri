@@ -29,10 +29,6 @@ import {
   updateDay,
 } from '@/features/training/authoring.repo';
 import { ExerciseDocButton } from '@/features/training/components/ExerciseDocButton';
-import {
-  DEFAULT_START_MINUTE,
-  StartTimeField,
-} from '@/features/training/components/StartTimeField';
 import { WeekdayChips } from '@/features/training/components/WeekdayChips';
 import { exerciseHeads, muscleHeadKey, type MuscleHead } from '@/features/training/muscles';
 import { syncTrainingReminder } from '@/features/training/reminders';
@@ -46,10 +42,11 @@ import { useReorderedList } from '@/lib/useReorderedList';
 import { useBusyThen } from '@/lib/useBusyThen';
 import { useTheme } from '@/theme/theme-context';
 
+/** The live copy's schedule is its weekday only: when in the day is the lifter's
+ * call, and the reminder's own setting (notifications). */
 type Draft = {
   name: string;
   weekday: number | null;
-  startMinute: number | null;
 };
 
 /** Split editor: name + tags (+ schedule on the live copy) buffered until Save; exercise order persists on drop. */
@@ -72,11 +69,9 @@ const EditDay = () => {
   const initial: Draft = {
     name: day?.name ?? '',
     weekday: day?.weekday ?? null,
-    startMinute: day?.startMinute ?? null,
   };
   const [saved, setSaved] = useState<Draft>(initial);
   const [draft, setDraft] = useState<Draft>(initial);
-  const [timeOpen, setTimeOpen] = useState(false);
   const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
 
   const patch = (p: Partial<Draft>) => setDraft((prev) => ({ ...prev, ...p }));
@@ -87,7 +82,7 @@ const EditDay = () => {
     const name = draft.name.trim();
     updateDay(dayId, {
       name,
-      ...(live ? { weekday: draft.weekday, startMinute: draft.startMinute } : {}),
+      ...(live ? { weekday: draft.weekday } : {}),
     });
     if (live && user) void syncTrainingReminder(user.id);
     const next = { ...draft, name };
@@ -144,15 +139,6 @@ const EditDay = () => {
             <WeekdayChips
               selected={draft.weekday == null ? [] : [draft.weekday]}
               onPress={(weekday) => patch({ weekday })}
-            />
-            <StartTimeField
-              value={draft.startMinute}
-              open={timeOpen}
-              onToggle={() => {
-                if (draft.startMinute == null) patch({ startMinute: DEFAULT_START_MINUTE });
-                setTimeOpen((v) => !v);
-              }}
-              onChange={(startMinute) => patch({ startMinute })}
             />
           </View>
         ) : null}

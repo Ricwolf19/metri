@@ -1,23 +1,11 @@
 import { useLiveQuery } from '@/db/useLiveQuery';
 import { Redirect, useFocusEffect, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { TopBar } from '@/components/TopBar';
-import {
-  BlockingOverlay,
-  Button,
-  Card,
-  Screen,
-  SectionLabel,
-  useDialog,
-  useToast,
-} from '@/components/ui';
+import { BlockingOverlay, Button, Card, Screen, useDialog, useToast } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
-import {
-  DEFAULT_START_MINUTE,
-  StartTimeField,
-} from '@/features/training/components/StartTimeField';
 import { WeekdayChips } from '@/features/training/components/WeekdayChips';
 import {
   StartValidationError,
@@ -26,27 +14,21 @@ import {
   enrollInProgram,
 } from '@/features/training/enroll';
 import { db } from '@/db/client';
-import { dayDisplayName, routineDisplayName } from '@/features/training/labels';
+import { WEEKDAY_KEY, dayDisplayName, routineDisplayName } from '@/features/training/labels';
 import { getProgram, getProgramTree } from '@/features/training/programs.repo';
 import { syncTrainingReminder } from '@/features/training/reminders';
 import {
-  formatClockTime,
+  isPickComplete,
   isScheduleComplete,
-  prefillSchedule,
+  scheduleFromPicks,
+  splitCounts,
   suggestWeekdays,
   validateProgramForStart,
-  type ScheduleEntry,
   type StartProblem,
 } from '@/features/training/schedule';
 import { useI18n, useT, type TFunction } from '@/i18n';
 import { captureError } from '@/lib/telemetry';
 import { useBlockingTask } from '@/lib/useBlockingTask';
-import { useClockFormat } from '@/lib/useClockFormat';
-
-/** Common gym slots, in minutes from midnight. */
-const QUICK_TIMES = [7 * 60, 12 * 60, 18 * 60, 20 * 60];
-
-type DraftEntry = { weekday?: number; startMinute?: number };
 
 const problemText = (t: TFunction, p: StartProblem): string => {
   switch (p.kind) {
@@ -77,8 +59,11 @@ const problemHref = (programId: string, p: StartProblem): Href => {
 
 /**
  * Start flow: first the structural check (with deep links to fix each
- * problem), then a weekday + time for every split of every phase. Later
- * phases mirror phase 1 until the user touches them.
+ * problem), then the training DAYS — one pick per splits-a-week count the
+ * phases use (three days, four…), never a day and an hour for every split of
+ * every phase. Each pick opens on the conventional pattern (`suggestWeekdays`),
+ * so a lifter can start on one tap; every phase with that count takes those
+ * days in split order (`scheduleFromPicks`). The hour is not part of the plan.
  */
 const StartProgram = () => {
   const { id, switch: switching } = useLocalSearchParams<{ id: string; switch?: string }>();
@@ -88,15 +73,14 @@ const StartProgram = () => {
   const toast = useToast();
   const dialog = useDialog();
   const { user } = useAuth();
-  const clock = useClockFormat();
   const programId = typeof id === 'string' ? id : '';
 
   const [program] = useState(() => (programId ? getProgram(programId) : null));
   const [tree, setTree] = useState(() => getProgramTree(programId));
   const [problems, setProblems] = useState<StartProblem[]>(() => validateProgramForStart(tree));
-  const [partial, setDraftEntry] = useState<Record<string, DraftEntry>>({});
-  const [touched, setTouched] = useState<Set<string>>(() => new Set());
-  const [openTime, setOpenTime] = useState<string | null>(null);
+  // Only the counts the lifter changed; the rest stay on the suggestion, which
+  // also covers a count a "Fix" round trip just added.
+  const [picked, setPicked] = useState<Record<number, number[]>>({});
   const blocking = useBlockingTask<'starting'>();
 
   const { data: enrollments } = useLiveQuery(activeEnrollmentQuery(user?.id ?? ''), [user?.id]);
@@ -113,61 +97,23 @@ const StartProgram = () => {
 
   if (!user || !program || !programId) return <Redirect href="/training" />;
 
-  const direct: ScheduleEntry[] = Object.entries(partial).flatMap(([dayId, p]) =>
-    p.weekday != null && p.startMinute != null
-      ? [{ dayId, weekday: p.weekday, startMinute: p.startMinute }]
-      : [],
-  );
-  const entries = prefillSchedule(tree, direct, touched);
-  const byDay = new Map(entries.map((e) => [e.dayId, e]));
-  const complete = isScheduleComplete(tree, entries);
+  const counts = splitCounts(tree);
+  const pickFor = (count: number): number[] => picked[count] ?? suggestWeekdays(count);
+  const picks = Object.fromEntries(counts.map((n) => [n, pickFor(n)]));
+  const entries = scheduleFromPicks(tree, picks);
+  const weekdayOf = new Map(entries.map((e) => [e.dayId, e.weekday]));
+  const complete =
+    counts.every((n) => isPickComplete(n, pickFor(n))) && isScheduleComplete(tree, entries);
 
-  const valueOf = (dayId: string): DraftEntry => {
-    const mirrored = byDay.get(dayId);
-    return { ...(mirrored ?? {}), ...(partial[dayId] ?? {}) };
-  };
-  const edit = (dayId: string, patch: DraftEntry) => {
-    setDraftEntry((prev) => {
-      const next = { ...prev, [dayId]: { ...valueOf(dayId), ...patch } };
-      // A time usually applies to the whole program; spread it to the splits
-      // the user has not set by hand, and let them override any of them.
-      if (patch.startMinute != null) {
-        for (const routine of tree.routines) {
-          for (const day of routine.days) {
-            if (day.id === dayId || touched.has(day.id)) continue;
-            next[day.id] = { ...next[day.id], startMinute: patch.startMinute };
-          }
-        }
-      }
-      return next;
-    });
-    setTouched((prev) => new Set(prev).add(dayId));
-  };
-  /** One tap for the whole program: the conventional pattern for this many
-   * splits, at one time. Every field stays editable afterwards. */
-  const quickFill = (startMinute: number) => {
-    const next: Record<string, DraftEntry> = {};
-    const all = new Set<string>();
-    for (const routine of tree.routines) {
-      const weekdays = suggestWeekdays(routine.days.length);
-      routine.days.forEach((day, i) => {
-        const weekday = weekdays[i % weekdays.length];
-        if (weekday == null) return;
-        next[day.id] = { weekday, startMinute };
-        all.add(day.id);
-      });
-    }
-    setDraftEntry(next);
-    setTouched(all);
-  };
-
-  const toggleTime = (dayId: string) => {
-    if (openTime === dayId) {
-      setOpenTime(null);
-      return;
-    }
-    if (valueOf(dayId).startMinute == null) edit(dayId, { startMinute: DEFAULT_START_MINUTE });
-    setOpenTime(dayId);
+  /** Toggle a day; a full pick takes no more until one is dropped. */
+  const toggleDay = (count: number, weekday: number) => {
+    const current = pickFor(count);
+    const next = current.includes(weekday)
+      ? current.filter((w) => w !== weekday)
+      : current.length < Math.min(count, 7)
+        ? [...current, weekday]
+        : current;
+    setPicked((prev) => ({ ...prev, [count]: next }));
   };
 
   // One transaction: switching must never leave the user with no program. The
@@ -247,60 +193,51 @@ const StartProgram = () => {
     >
       <Text className="mb-3 text-sm leading-6 text-ink-300">{t('start.scheduleBody')}</Text>
 
-      {/* One tap sets the whole program; everything below stays editable. */}
-      <Card className="mb-5">
-        <Text className="font-mono-medium text-xs uppercase tracking-wider text-ink-400">
-          {t('start.quickFill')}
-        </Text>
-        <Text className="mt-1 text-xs leading-5 text-ink-500">{t('start.quickFillHint')}</Text>
-        <View className="mt-3 flex-row flex-wrap gap-2">
-          {QUICK_TIMES.map((minutes) => (
-            <Pressable
-              key={minutes}
-              onPress={() => quickFill(minutes)}
-              accessibilityRole="button"
-              className="rounded-full border border-brand/30 bg-brand/10 px-3.5 py-2"
-            >
-              <Text className="font-mono-medium text-xs text-brand">
-                {formatClockTime(minutes, clock)}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </Card>
-
-      {tree.routines.map((routine) => (
-        <View key={routine.id} className="mb-6">
-          <SectionLabel
-            className="mt-0"
-            label={routineDisplayName(routine, t)}
-            hint={t('training.weeks', { count: routine.durationWeeks })}
-          />
-          <View className="gap-3">
-            {routine.days.map((day) => {
-              const v = valueOf(day.id);
-              const open = openTime === day.id;
-              return (
-                <Card key={day.id}>
-                  <Text className="mb-3 text-base font-sans-semibold text-ink-50">
-                    {dayDisplayName(day, t)}
-                  </Text>
-                  <WeekdayChips
-                    selected={v.weekday == null ? [] : [v.weekday]}
-                    onPress={(weekday) => edit(day.id, { weekday })}
-                  />
-                  <StartTimeField
-                    value={v.startMinute ?? null}
-                    open={open}
-                    onToggle={() => toggleTime(day.id)}
-                    onChange={(startMinute) => edit(day.id, { startMinute })}
-                  />
-                </Card>
-              );
-            })}
-          </View>
-        </View>
-      ))}
+      {counts.map((count) => {
+        const phases = tree.routines.filter((r) => r.days.length === count);
+        const days = pickFor(count);
+        // What the pick means, on the first phase that uses it.
+        const sample = [...(phases[0]?.days ?? [])].sort((a, b) => a.orderIndex - b.orderIndex);
+        return (
+          <Card key={count} className="mb-4">
+            <Text className="text-base font-sans-semibold text-ink-50">
+              {t('start.daysPerWeek', { count })}
+            </Text>
+            <Text className="mt-0.5 text-xs leading-5 text-ink-400">
+              {phases.length === tree.routines.length
+                ? t('start.everyPhase')
+                : phases.map((r) => routineDisplayName(r, t)).join(' · ')}
+            </Text>
+            <View className="mt-3">
+              <WeekdayChips selected={days} onPress={(weekday) => toggleDay(count, weekday)} />
+            </View>
+            <Text className="mt-2 text-xs text-ink-400">
+              {t('start.daysPicked', { n: days.length, total: Math.min(count, 7) })}
+            </Text>
+            {isPickComplete(count, days) ? (
+              <View className="mt-3 gap-1.5 border-t border-ink-700 pt-3">
+                {sample.map((day) => {
+                  const weekday = weekdayOf.get(day.id);
+                  return (
+                    <View key={day.id} className="flex-row items-center">
+                      <Text
+                        numberOfLines={1}
+                        className="w-28 shrink-0 font-mono-medium text-xs uppercase tracking-wider text-brand"
+                      >
+                        {weekday == null ? '—' : t(WEEKDAY_KEY[weekday])}
+                      </Text>
+                      <Text className="min-w-0 flex-1 text-sm text-ink-100" numberOfLines={1}>
+                        {dayDisplayName(day, t)}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : null}
+          </Card>
+        );
+      })}
+      <Text className="mt-1 text-xs leading-5 text-ink-500">{t('start.timeHint')}</Text>
       <BlockingOverlay
         visible={blocking.busy !== null}
         onShow={blocking.onShow}

@@ -31,7 +31,6 @@ import {
 } from '@/features/training/labels';
 import { getProgram, getProgramTree } from '@/features/training/programs.repo';
 import { useI18n, useT } from '@/i18n';
-import { useClockFormat } from '@/lib/useClockFormat';
 import { useTheme } from '@/theme/theme-context';
 
 /** Program detail: phases/splits (schedule shown when active), a quick view of any phase or split, Start / Continue / Switch, Edit + hold-to-delete for the owner. */
@@ -45,7 +44,6 @@ const ProgramDetail = () => {
   const dialog = useDialog();
   const { user } = useAuth();
   const programId = typeof id === 'string' ? id : '';
-  const clock = useClockFormat();
 
   const { data: enrollments } = useLiveQuery(activeEnrollmentQuery(user?.id ?? ''), [user?.id]);
   const enrollment = enrollments[0] ?? null;
@@ -154,7 +152,7 @@ const ProgramDetail = () => {
               </Pressable>
               <View className="mt-3 gap-2">
                 {routine.days.map((day) => {
-                  const schedule = scheduleLabel(day, t, clock);
+                  const schedule = scheduleLabel(day, t);
                   // Every split opens the quick view on itself; on the active copy
                   // the quick view links on to the split's editor (the schedule
                   // lives there).

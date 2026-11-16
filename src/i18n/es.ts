@@ -184,9 +184,10 @@ export const es: Record<TranslationKey, string> = {
   'notifGroup.reminders': 'Recordatorios',
   'notifEvent.checkinTitle': 'Check-in de sesión',
   'notifEvent.checkinDesc':
-    'Después de cada sesión planificada, te pide marcar el día como entrenado, descanso o perdido.',
+    'Después de cada día de entrenamiento, te pide marcar el día como entrenado, descanso o perdido.',
   'notifEvent.trainingTitle': 'Hora de entrenar',
-  'notifEvent.trainingDesc': 'Te avisa cuando toca sesión, siguiendo tu programa.',
+  'notifEvent.trainingDesc':
+    'Te avisa los días de entrenamiento de tu programa, a la hora que elijas.',
   'notifEvent.weighTitle': 'Pesaje',
   'notifEvent.weighDesc': 'Registra tu peso corporal en las mismas condiciones cada semana.',
   'notifEvent.caloriesTitle': 'Calorías',
@@ -629,7 +630,7 @@ export const es: Record<TranslationKey, string> = {
   'widget.today.active': 'Hoy: otra actividad',
   'widget.mark': 'Marcar hoy',
   'widget.live': 'Entrenando',
-  'widget.today': 'Hoy {time}',
+  'widget.today': 'Hoy',
   'widget.weekDone': 'Semana completa',
   'widget.streak': 'Racha: {n} días',
   'widget.streakOne': 'Racha: 1 día',
@@ -1326,11 +1327,13 @@ export const es: Record<TranslationKey, string> = {
   'start.problem.splitNoExercises': 'El split "{split}" de "{phase}" no tiene ejercicios.',
   'start.scheduleTitle': 'Programa tus splits',
   'start.scheduleBody':
-    'Elige el día y la hora de cada split. Las fases siguientes copian la primera hasta que las cambies.',
+    'Elige los días que entrenas. Cada fase con el mismo número de splits entrena esos días, en el orden de sus splits; la hora la decides tú cada día.',
+  'start.daysPerWeek': '{count} días de entrenamiento a la semana',
+  'start.everyPhase': 'Todas las fases',
+  'start.daysPicked': '{n} de {total} días elegidos',
+  'start.timeHint':
+    '¿Quieres un aviso? Elige una hora de entrenamiento en Notificaciones, en el menú: un recordatorio en cada uno de estos días.',
   'start.pickTime': 'Elegir hora',
-  'start.quickFill': 'Llenado rápido',
-  'start.quickFillHint':
-    'Elige una hora y metri reparte los splits en la semana, descansando tras dos días de entrenamiento.',
   'start.starting': 'Preparando tu programa…',
   'start.confirm': 'Iniciar programa',
   'editor.unsavedTitle': 'Cambios sin guardar',
@@ -1365,15 +1368,17 @@ export const es: Record<TranslationKey, string> = {
   'notifEvent.tipsWhen': 'Cuándo llegan',
   'notifEvent.tipSlot': 'Consejo {n}',
   'notifEvent.time': 'Hora',
-  'notifEvent.checkinDelay': 'Después de empezar la sesión',
-  'notifEvent.checkinFollowsProgram': 'Uno por sesión programada, {delay} después de empezar.',
+  'notifEvent.checkinDelay': 'Después de la hora de entrenamiento',
+  'notifEvent.checkinFollowsProgram':
+    'Uno por día de entrenamiento, {delay} después de la hora de entrenamiento.',
+  'notifEvent.trainingAt': 'Hora de entrenamiento',
   'notifEvent.hours': '{n} h',
   'notifEvent.soonTitle': 'Más en camino',
   'notifEvent.soonBody':
     'Nutrición y métricas tendrán sus propios recordatorios cuando lleguen esos módulos.',
   'notifEvent.trainingNoProgram': 'Empieza cuando inicies un programa con horario.',
   'notifEvent.trainingFollowsProgram':
-    'Sigue tu programa activo: un recordatorio por cada split programado.',
+    'Sigue los días de tu programa activo: un recordatorio en cada uno, a esta hora.',
 
   'common.applying': 'Aplicando…',
   'dateFormat.title': 'Formato de fecha',

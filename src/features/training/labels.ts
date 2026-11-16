@@ -1,10 +1,8 @@
 import type { Equipment, IntensityType, SetGroup } from '@/db/schema';
 import type { Locale, TFunction } from '@/i18n';
 import type { TranslationKey } from '@/i18n/en';
-import type { ClockFormat } from '@/lib/storage';
 
 import { EXERCISE_NAMES } from './exercise-content';
-import { formatClockTime } from './schedule';
 
 export const EQUIPMENT_KEY: Record<Equipment, TranslationKey> = {
   barbell: 'equipment.barbell',
@@ -118,12 +116,7 @@ export const phaseMeta = (
     .filter(Boolean)
     .join(' · ');
 
-/** "Monday · 18:00" — when a split is planned; null until it has a day and a time. */
-export const scheduleLabel = (
-  day: { weekday: number | null; startMinute: number | null },
-  t: TFunction,
-  clock: ClockFormat,
-): string | null =>
-  day.weekday != null && day.startMinute != null
-    ? `${t(WEEKDAY_KEY[day.weekday])} · ${formatClockTime(day.startMinute, clock)}`
-    : null;
+/** "Monday" — the day a split is planned on, or null while it has none. Days
+ * only: a time an older build stored is not part of the plan any more. */
+export const scheduleLabel = (day: { weekday: number | null }, t: TFunction): string | null =>
+  day.weekday != null ? t(WEEKDAY_KEY[day.weekday]) : null;

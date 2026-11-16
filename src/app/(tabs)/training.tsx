@@ -42,7 +42,6 @@ import {
 import { useEnrollment } from '@/features/training/useEnrollment';
 import { useI18n, useT } from '@/i18n';
 import { useBlockingTask } from '@/lib/useBlockingTask';
-import { useClockFormat } from '@/lib/useClockFormat';
 import { useSpotlight } from '@/features/spotlight/SpotlightProvider';
 import { useTheme } from '@/theme/theme-context';
 
@@ -60,7 +59,6 @@ const Training = () => {
   const toast = useToast();
   const { user } = useAuth();
   const { brand, muted } = useTheme();
-  const clock = useClockFormat();
   const userId = user?.id ?? '';
 
   // Arriving from a finished session: hold the wait the workout screen was
@@ -211,7 +209,7 @@ const Training = () => {
                 </Text>
                 <SplitRow
                   name={dayDisplayName(pending, t)}
-                  label={scheduleLabel(pending, t, clock)}
+                  label={scheduleLabel(pending, t)}
                   note={carriedNote(pending)}
                   emphasis="next"
                   disabled={playDisabled}
@@ -234,7 +232,7 @@ const Training = () => {
                       <SplitRow
                         key={day.id}
                         name={dayDisplayName(day, t)}
-                        label={scheduleLabel(day, t, clock)}
+                        label={scheduleLabel(day, t)}
                         emphasis="other"
                         resolved={resolvedAs(day.id)}
                         onOpen={() => setPreview(day)}
@@ -339,7 +337,7 @@ const Training = () => {
                 day: preview,
                 weekNumber: enrollment.currentWeek,
                 title: dayDisplayName(preview, t),
-                subtitle: scheduleLabel(preview, t, clock),
+                subtitle: scheduleLabel(preview, t),
               }
             : null
         }

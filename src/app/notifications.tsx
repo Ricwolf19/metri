@@ -20,9 +20,11 @@ import {
   type EventConfig,
   type NotificationEvent,
 } from '@/features/notifications/events';
+import { useAuth } from '@/features/auth/auth-context';
 import { getEventConfig, syncNotificationEvents } from '@/features/notifications/policies';
 import { TIP_FREQUENCIES, tipSlotsFor } from '@/features/notifications/tips';
 import { StartTimeField } from '@/features/training/components/StartTimeField';
+import { syncTrainingReminder } from '@/features/training/reminders';
 import { fromHourMinute, toHourMinute } from '@/features/training/schedule';
 import { useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
@@ -33,14 +35,28 @@ type OpenPicker = number | null;
 
 const EventCard = ({ event }: { event: NotificationEvent }) => {
   const t = useT();
+  const { user } = useAuth();
   const [cfg, setCfg] = useState<EventConfig>(() => getEventConfig(event));
   const [openPicker, setOpenPicker] = useState<OpenPicker>(null);
 
-  const update = (patch: Partial<EventConfig>) => {
-    const next = { ...cfg, ...patch };
+  // Patch the STORED config, never this card's copy: the training time rewrites
+  // both program events' schedules underneath, and writing a stale copy back
+  // would put the old times back.
+  const write = (patch: Partial<EventConfig>) => {
+    const next = { ...getEventConfig(event), ...patch };
     setCfg(next);
     settings.setEventConfig(event.id, next);
+  };
+  const update = (patch: Partial<EventConfig>) => {
+    write(patch);
     void syncNotificationEvents();
+  };
+  /** The plan holds days only, so this is the hour both program events land at. */
+  const setTrainingTime = (startMinute: number) => {
+    write({ ...toHourMinute(startMinute), timeSet: true });
+    void (user ? syncTrainingReminder(user.id) : syncNotificationEvents()).then(() =>
+      setCfg(getEventConfig(event)),
+    );
   };
 
   const times = cfg.timesPerDay ?? 2;
@@ -57,11 +73,20 @@ const EventCard = ({ event }: { event: NotificationEvent }) => {
     switch (event.tuning) {
       case 'program':
         return (
-          <Text className="text-xs leading-5 text-ink-400">
-            {cfg.schedule?.length
-              ? t('notifEvent.trainingFollowsProgram')
-              : t('notifEvent.trainingNoProgram')}
-          </Text>
+          <>
+            <Text className="text-xs leading-5 text-ink-400">
+              {cfg.schedule?.length
+                ? t('notifEvent.trainingFollowsProgram')
+                : t('notifEvent.trainingNoProgram')}
+            </Text>
+            <SectionLabel label={t('notifEvent.trainingAt')} className="mt-4" />
+            <StartTimeField
+              value={fromHourMinute(cfg.hour, cfg.minute)}
+              open={openPicker === 0}
+              onToggle={() => setOpenPicker(openPicker === 0 ? null : 0)}
+              onChange={setTrainingTime}
+            />
+          </>
         );
       case 'offset':
         return (

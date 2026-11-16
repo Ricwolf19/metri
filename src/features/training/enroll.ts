@@ -48,7 +48,8 @@ export class StartValidationError extends Error {
  * Deep-copy TEMPLATE routines — their days, slots and week rows — into an
  * enrollment, every row tagged with `userProgramId` and re-pointed at its new
  * parent. Preset copy lands in `locale` (raw, the lifter's to edit from then
- * on); a day takes its weekday and start from `scheduleFor`. Returns template
+ * on); a day takes its weekday from `scheduleFor` (and a start time only where an
+ * older build stored one — a plan holds days now). Returns template
  * id → copy id. Enrolling uses it for the whole tree; the seed for a phase a
  * preset restructured before the lifter reached it.
  */
@@ -58,7 +59,7 @@ export const copyTemplateRoutines = (input: {
   userProgramId: string;
   scheduleFor: (
     templateDayId: string,
-  ) => { weekday: number | null; startMinute: number | null } | undefined;
+  ) => { weekday: number | null; startMinute?: number | null } | undefined;
   locale: Locale;
   /**
    * The copy's id for a template row; random by default. The seed passes a
@@ -202,7 +203,8 @@ export const copyTemplateRoutines = (input: {
  * mid-copy leaves only orphan rows that are never queried.
  *
  * `schedule` is keyed by TEMPLATE day id and must cover every split; the
- * weekday + time land on the copied days (templates stay schedule-free).
+ * weekdays land on the copied days (templates stay schedule-free). No start
+ * time: when in the day is the lifter's call, and the reminder's own setting.
  */
 export const enrollInProgram = (
   userId: string,
@@ -283,7 +285,7 @@ export const enrollInProgram = (
         tree.routines[0].days.map((d) => ({
           ...d,
           weekday: scheduleByDay.get(d.id)?.weekday ?? null,
-          startMinute: scheduleByDay.get(d.id)?.startMinute ?? null,
+          startMinute: null,
         })),
       ),
     })

@@ -329,12 +329,14 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   add the old id to `RETIRED_CHANNELS` or the change only reaches fresh installs.
 - **Notification events** (`features/notifications/events.ts`) are a fixed catalogue the user tunes
   but never extends. Each carries a `group` (`events` | `knowledge` | `reminders`, the settings
-  sections) and a `tuning` that decides its controls: `program` (read-only, follows the schedule),
-  `offset` (schedule + how long after the session it lands), `frequency` (how many a day and when
-  each lands), `time` (one time of day). Schedule-driven events store the RAW session times —
-  `syncTrainingReminder` writes the same `schedule` to `training-time` and `session-checkin`, and
-  the check-in applies its own delay at schedule time (`shiftEntries`, which rolls past midnight
-  into the next weekday), so changing the delay never re-reads the program. `frequency` events
+  sections) and a `tuning` that decides its controls: `program` (the program's days, at a time
+  of its own), `offset` (schedule + how long after the training time it lands), `frequency` (how
+  many a day and when each lands), `time` (one time of day). Schedule-driven events store the RAW
+  training time — one entry per training weekday at `training-time`'s own hour/minute
+  (`reminderEntries`); `syncTrainingReminder` writes the same `schedule` to `training-time` and
+  `session-checkin`, the notifications screen patches the STORED config (a card's copy would write
+  the old schedule back), and the check-in applies its own delay at schedule time (`shiftEntries`,
+  which rolls past midnight into the next weekday), so changing the delay never re-reads the program. `frequency` events
   schedule one entry per (slot, weekday) from the rotating pool in `tips.ts`, so both locale pools
   must hold at least `max(TIP_FREQUENCIES) × 7` entries or a week repeats itself (`tips.test.ts`
   enforces it). The reconciler **records each OS id as it is created** (an id it forgets can
@@ -342,9 +344,17 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   the other has not stored yet. **Removing an event means adding its id to `RETIRED_EVENT_IDS`** — the OS keeps
   firing notifications the catalogue no longer knows how to cancel. Budget matters: iOS caps a
   process at 64 pending requests, and tips alone take `timesPerDay × 7`.
-- **Program schedule** (weekday + start minute) lives on `workout_days` of the ENROLLED copy only;
-  templates stay NULL. It is assigned in `/training/start/[id]` and `enrollInProgram` refuses an
-  incomplete schedule or a tree that fails `validateProgramForStart`.
+- **Program schedule is DAYS only** (`workout_days.weekday`, on the ENROLLED copy only; templates
+  stay NULL). When in the day is the lifter's call — owner's call, 2026-11-16: an exact hour per
+  split was more than anyone plans. The start flow (`/training/start/[id]`) asks ONE pick of
+  training days per splits-a-week count the phases use (`splitCounts`; it opens on
+  `suggestWeekdays`), and every phase with that count takes those days in split order
+  (`scheduleFromPicks`); the split editor still moves one split's day. `enrollInProgram` refuses an
+  incomplete schedule or a tree that fails `validateProgramForStart`. `start_minute` stays as wire
+  format: the start flow and the editors never write it (the seed's phase rebuild only carries an
+  existing value over), and nothing reads it but the reminder's one-time seed — a plan an older
+  build scheduled hands its most common start to `training-time` once (`timeSet`), so an upgrade
+  never moved a 7 am reminder to the 18:00 default.
 - **Weekdays are expo-numbered (1=Sun…7=Sat)** in every column and API (`workout_days.weekday`,
   `user_programs.training_weekdays`, notification schedules, `WeekdayChips`); Monday-first display
   order comes only from `DAY_ORDER` in `features/training/labels.ts`.
@@ -355,7 +365,7 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   unlogged unplanned days are neutral, and with no schedule every unlogged day breaks. **The calendar fills itself** (`planAutoMarks` / `reconcileAutoAdherence`, run by `useAutoAdherence` on mount and foreground and by `closeSession` on finish): a planned day of the active enrollment that has PASSED with nothing marked is written missed with no reason (`skipPlannedDay`), never today and nothing before the enrollment started; a session finished on an unplanned day within `MOVED_GRACE_DAYS` (2) makes up the nearest open planned day before it, which becomes `rest` + reason `moved`, so the streak holds; each session makes up one day. Only empty days and automatic misses (`isAutoMissed`: skipped, no reason, no legacy log) are ever written: a reason the lifter chose is their word. An empty day is judged ONCE (an `app_meta` bookmark; the first run looks back at most `CATCHUP_DAYS_BACK`), so a schedule change never rewrites settled weeks, and every automatic mark is stamped at the START of its own day (`stampedAt`): sync never pushes it and any real answer, from any device, wins under last-write-wins. A red day changes only with a reason (the day sheet asks), and `skip_reason` may ride any status. The schedule read is the CURRENT phase's weekdays. Finishing a
   workout marks the day; manual marking in the Day Detail sheet is the fallback for any past date.
   The Home catch-up asks about unresolved planned days up to 30 back (trained / rest / missed, plus
-  a bulk "all missed"), and about TODAY only once its scheduled session plus the check-in delay has
+  a bulk "all missed"), and about TODAY only once its training time plus the check-in delay has
   passed — otherwise the check-in notification would ask a question the app offers nowhere to answer.
   **Marking a day missed is an adherence mark only** (`skipPlannedDay`, the one writer, from the
   day sheet and the catch-up banner): the planned split is NOT resolved. **Splits unlock in

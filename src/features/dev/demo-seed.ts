@@ -97,7 +97,7 @@ export const seedDemoData = (userId: string, locale: Locale): DemoSeedSummary | 
   const enrollment = enrollInProgram(
     userId,
     PROGRAM_ID,
-    tplDays.map((d) => ({ dayId: d.id, weekday: weekdayFor(d.orderIndex), startMinute: 1080 })),
+    tplDays.map((d) => ({ dayId: d.id, weekday: weekdayFor(d.orderIndex) })),
     locale,
   );
   const owned = db

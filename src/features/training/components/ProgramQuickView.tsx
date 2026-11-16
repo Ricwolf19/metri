@@ -4,7 +4,6 @@ import { Text, View, useWindowDimensions } from 'react-native';
 import { ChevronLeftIcon, ChevronRightIcon } from '@/components/icons';
 import { Button, ChipRow, IconButton, ScrollArea, Sheet } from '@/components/ui';
 import { useI18n, useT } from '@/i18n';
-import { useClockFormat } from '@/lib/useClockFormat';
 import { useTheme } from '@/theme/theme-context';
 
 import { dayDisplayName, phaseMeta, routineDisplayName, scheduleLabel } from '../labels';
@@ -66,7 +65,6 @@ export const ProgramQuickView = ({
 }: Props) => {
   const t = useT();
   const { locale } = useI18n();
-  const clock = useClockFormat();
   const { brand } = useTheme();
   const { height } = useWindowDimensions();
 
@@ -107,7 +105,7 @@ export const ProgramQuickView = ({
       )
     : '';
   const meta = routine ? phaseMeta(routine, t) : '';
-  const schedule = day ? scheduleLabel(day, t, clock) : null;
+  const schedule = day ? scheduleLabel(day, t) : null;
 
   return (
     <Sheet visible={target !== null} onClose={onClose} snapPoints={STOPS} expandable={false}>

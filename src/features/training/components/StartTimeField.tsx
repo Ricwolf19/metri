@@ -9,7 +9,7 @@ import { useTheme } from '@/theme/theme-context';
 import { formatClockTime, fromHourMinute, toHourMinute } from '../schedule';
 
 /** Sensible first suggestion when a split has no time yet. */
-export const DEFAULT_START_MINUTE = 18 * 60;
+const DEFAULT_START_MINUTE = 18 * 60;
 
 type Props = {
   /** Minutes after midnight, null when unset. */

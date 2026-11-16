@@ -33,10 +33,13 @@ export type EventConfig = {
   minute: number;
   /** Days it fires, expo-numbered (1 = Sun … 7 = Sat); all 7 = daily. */
   weekdays: number[];
-  /** Program-driven events: one explicit (weekday, time) per scheduled split.
+  /** Program-driven events: one explicit (weekday, time) per training weekday.
    * When present it replaces `hour`/`minute` × `weekdays`. */
   schedule?: { weekday: number; hour: number; minute: number }[];
-  /** `offset` events only: minutes after the session start that it lands. */
+  /** `program` events: `hour`/`minute` is the lifter's own (picked, or seeded
+   * once from the per-split times older builds stored) — never seeded again. */
+  timeSet?: boolean;
+  /** `offset` events only: minutes after the training time that it lands. */
   offsetMinutes?: number;
   /** `frequency` events only: how many times a day they fire. */
   timesPerDay?: number;
@@ -69,8 +72,8 @@ export const NOTIFICATION_EVENTS: NotificationEvent[] = [
     notifTitleKey: 'notif.trainingTitle',
     notifBodyKey: 'notif.trainingBody',
     tuning: 'program',
-    // Time and days come from the enrolled program; the defaults only matter
-    // until `syncTrainingReminder` writes the real schedule.
+    // The days come from the enrolled program (a plan holds days only); the
+    // time is this event's own `hour`/`minute`, set on the notifications screen.
     defaults: { enabled: true, hour: 18, minute: 0, weekdays: [] },
   },
   {
@@ -82,7 +85,7 @@ export const NOTIFICATION_EVENTS: NotificationEvent[] = [
     notifBodyKey: 'notif.checkinBody',
     tuning: 'offset',
     // Rides the training schedule rather than a fixed hour: a day is only worth
-    // asking about once the session it was planned for has been and gone.
+    // asking about once its training time has been and gone (plus the offset).
     defaults: {
       enabled: true,
       hour: 21,

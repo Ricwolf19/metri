@@ -28,9 +28,9 @@ describe('start validation + enrollment copy', () => {
 
   it('refuses a split with no exercises', () => {
     const { program, push } = buildProgram();
-    expect(() =>
-      enrollInProgram(USER, program.id, [{ dayId: push.id, weekday: 2, startMinute: 1080 }]),
-    ).toThrow(StartValidationError);
+    expect(() => enrollInProgram(USER, program.id, [{ dayId: push.id, weekday: 2 }])).toThrow(
+      StartValidationError,
+    );
   });
 
   it('refuses an incomplete schedule', () => {
@@ -43,9 +43,7 @@ describe('start validation + enrollment copy', () => {
     const { program, push } = buildProgram();
     addSlot(push.id, null, 'ex-1');
 
-    const enrollment = enrollInProgram(USER, program.id, [
-      { dayId: push.id, weekday: 2, startMinute: 1080 },
-    ]);
+    const enrollment = enrollInProgram(USER, program.id, [{ dayId: push.id, weekday: 2 }]);
 
     const copied = db
       .select()
@@ -54,7 +52,8 @@ describe('start validation + enrollment copy', () => {
       .all();
     expect(copied).toHaveLength(1);
     expect(copied[0].weekday).toBe(2);
-    expect(copied[0].startMinute).toBe(1080);
+    // A plan holds days only: the hour is the reminder's own setting.
+    expect(copied[0].startMinute).toBeNull();
     const template = db.select().from(workoutDays).where(eq(workoutDays.id, push.id)).all()[0];
     expect(template.weekday).toBeNull();
     expect(enrollment.trainingWeekdays).toEqual([2]);
@@ -63,9 +62,7 @@ describe('start validation + enrollment copy', () => {
   it('blocks deleting a template while an enrollment is active, and never touches the copy', () => {
     const { program, push } = buildProgram();
     addSlot(push.id, null, 'ex-1');
-    const enrollment = enrollInProgram(USER, program.id, [
-      { dayId: push.id, weekday: 2, startMinute: 1080 },
-    ]);
+    const enrollment = enrollInProgram(USER, program.id, [{ dayId: push.id, weekday: 2 }]);
 
     expect(deleteProgramTree(program.id)).toBe(false);
 

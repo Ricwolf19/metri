@@ -13,12 +13,12 @@ import {
 import { daysQuery } from '@/features/training/authoring.repo';
 import { activeEnrollmentQuery } from '@/features/training/enroll';
 import { dayDisplayName, WEEKDAY_KEY } from '@/features/training/labels';
-import { formatClockTime, nextPendingSplit, weekdayOfDate } from '@/features/training/schedule';
+import { nextPendingSplit, weekdayOfDate } from '@/features/training/schedule';
 import { completedDaysQuery } from '@/features/training/session.repo';
 import { sessionState } from '@/features/training/session-state';
 import { monthlyWorkouts } from '@/features/training/stats.repo';
 import { resolveLocale, tFor, type TFunction, type TranslationKey } from '@/i18n';
-import { session, settings } from '@/lib/storage';
+import { session } from '@/lib/storage';
 
 import { currentWeekKeys, weekA11yLabel, type WeekDay, type WidgetSnapshot } from './snapshot';
 
@@ -59,16 +59,13 @@ const nextSplit = (userId: string, t: TFunction, now: Date): WidgetSnapshot['nex
   );
   const pending = nextPendingSplit(days, resolved);
   if (!pending) return { name: t('widget.weekDone'), when: null };
-  const time =
-    pending.startMinute != null
-      ? formatClockTime(pending.startMinute, settings.getClockFormat())
-      : null;
+  // Days only: when in the day is the lifter's call, never part of the plan.
   const when =
     pending.weekday == null
-      ? time
+      ? null
       : pending.weekday === weekdayOfDate(now)
-        ? t('widget.today', { time: time ?? '' }).trim()
-        : [t(WEEKDAY_KEY[pending.weekday]), time].filter(Boolean).join(' · ');
+        ? t('widget.today')
+        : t(WEEKDAY_KEY[pending.weekday]);
   return { name: dayDisplayName(pending, t), when };
 };
 

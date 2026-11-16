@@ -6,15 +6,28 @@ import { NOTIFICATION_EVENTS } from '@/features/notifications/events';
 import { getEventConfig, syncNotificationEvents } from '@/features/notifications/policies';
 import { settings } from '@/lib/storage';
 
-import { reminderEntries } from './schedule';
+import { fromHourMinute, reminderEntries, toHourMinute, type ScheduledDay } from './schedule';
 
 const TRAINING_EVENT = NOTIFICATION_EVENTS.find((e) => e.id === 'training-time')!;
 const CHECKIN_EVENT = NOTIFICATION_EVENTS.find((e) => e.id === 'session-checkin')!;
 
-/** Point the schedule-driven reminders at the active phase (one entry per scheduled split); no
- * enrollment/schedule → off. Both events store the RAW session times: the check-in applies its own
- * delay when scheduling, so changing that delay never needs the program re-read. `enable` switches
- * training time on (start flow); otherwise the user's toggle is kept. */
+/** The time an older build's plan trained at — the most common split start — or null. Seeds the
+ * reminder time once, so an upgrade never moves a 7 am reminder to the 18:00 default. */
+const legacyStartMinute = (days: readonly ScheduledDay[]): number | null => {
+  const counts = new Map<number, number>();
+  for (const d of days) {
+    if (d.startMinute != null) counts.set(d.startMinute, (counts.get(d.startMinute) ?? 0) + 1);
+  }
+  let best: number | null = null;
+  for (const [minute, n] of counts) if (best == null || n > counts.get(best)!) best = minute;
+  return best;
+};
+
+/** Point the schedule-driven reminders at the active phase (one entry per training weekday, at the
+ * training-time event's own hour); no enrollment/schedule → off. Both events store the RAW training
+ * time: the check-in applies its own delay when scheduling, so changing that delay never needs the
+ * program re-read. `enable` switches training time on (start flow); otherwise the user's toggle is
+ * kept. Changing the time = write the event's hour/minute, then call this again. */
 export const syncTrainingReminder = async (
   userId: string,
   { enable = false }: { enable?: boolean } = {},
@@ -33,8 +46,10 @@ export const syncTrainingReminder = async (
         .where(eq(workoutDays.routineId, enrollment.currentRoutineId))
         .all()
     : [];
-  const schedule = reminderEntries(days);
-  const current = getEventConfig(TRAINING_EVENT);
+  const stored = getEventConfig(TRAINING_EVENT);
+  const legacy = stored.timeSet ? null : legacyStartMinute(days);
+  const current = legacy == null ? stored : { ...stored, ...toHourMinute(legacy), timeSet: true };
+  const schedule = reminderEntries(days, fromHourMinute(current.hour, current.minute));
   settings.setEventConfig(TRAINING_EVENT.id, {
     ...current,
     // Only a user-initiated start switches the reminder on; a saved split or a

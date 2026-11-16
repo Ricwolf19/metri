@@ -23,8 +23,8 @@ const enrollTwoPhases = () => {
   const peakDay = addDay(peak.id, null, { name: 'Full' });
   addSlot(peakDay.id, null, 'ex-1');
   const enrollment = enrollInProgram(USER, program.id, [
-    { dayId: baseDay.id, weekday: 2, startMinute: 600 },
-    { dayId: peakDay.id, weekday: 6, startMinute: 600 },
+    { dayId: baseDay.id, weekday: 2 },
+    { dayId: peakDay.id, weekday: 6 },
   ]);
   return enrollment;
 };
@@ -105,8 +105,8 @@ describe('advanceUserProgram with skipped splits', () => {
     const pull = addDay(phase.id, null, { name: 'Pull' });
     addSlot(pull.id, null, 'ex-1');
     return enrollInProgram(USER, program.id, [
-      { dayId: push.id, weekday: 2, startMinute: 600 },
-      { dayId: pull.id, weekday: 5, startMinute: 600 },
+      { dayId: push.id, weekday: 2 },
+      { dayId: pull.id, weekday: 5 },
     ]);
   };
 
@@ -159,7 +159,7 @@ describe('enrollInProgram copies the RM-test week', () => {
     addSlot(day.id, null, 'ex-1');
     db.update(routines).set({ rmTestWeek: 4 }).where(eq(routines.id, phase.id)).run();
 
-    const e = enrollInProgram(USER, program.id, [{ dayId: day.id, weekday: 2, startMinute: 600 }]);
+    const e = enrollInProgram(USER, program.id, [{ dayId: day.id, weekday: 2 }]);
     const [copy] = db.select().from(routines).where(eq(routines.id, e.currentRoutineId!)).all();
     expect(copy.rmTestWeek).toBe(4);
   });

@@ -125,9 +125,7 @@ describe('authoring write paths', () => {
 
   it('rescheduling a live-copy split re-derives the enrollment weekdays', () => {
     const { program, day } = build(1);
-    const enrollment = enrollInProgram(USER, program.id, [
-      { dayId: day.id, weekday: 2, startMinute: 600 },
-    ]);
+    const enrollment = enrollInProgram(USER, program.id, [{ dayId: day.id, weekday: 2 }]);
     const [copy] = db
       .select()
       .from(workoutDays)

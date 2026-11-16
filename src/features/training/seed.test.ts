@@ -312,7 +312,7 @@ describe('seedTraining v4', () => {
     const enrollment = enrollInProgram(
       'u-1',
       'metri-foundations',
-      tplDays.map((d) => ({ dayId: d.id, weekday: 2, startMinute: 600 })),
+      tplDays.map((d) => ({ dayId: d.id, weekday: 2 })),
     );
     const [tplSlot] = db
       .select()
@@ -386,7 +386,7 @@ describe('seedTraining v4', () => {
     const enrollment = enrollInProgram(
       'u-1',
       'metri-foundations',
-      tplDays.map((d) => ({ dayId: d.id, weekday: 2, startMinute: 600 })),
+      tplDays.map((d) => ({ dayId: d.id, weekday: 2 })),
     );
     const enrolledPress = () =>
       db
@@ -439,7 +439,7 @@ describe('seedTraining v4', () => {
     return enrollInProgram(
       'u-1',
       'metri-foundations',
-      tplDays.map((d) => ({ dayId: d.id, weekday: 2, startMinute: 600 })),
+      tplDays.map((d) => ({ dayId: d.id, weekday: 2 })),
     );
   };
   const enrolledDay = (userProgramId: string, routineOrder: number, dayOrder: number) =>
