@@ -132,9 +132,10 @@ Roughly **400 g/week (about 1.6 kg/month)** fits most people.
 
 ## Why not faster
 
-Losing 1 kg/week instead of 0.5 kg/week brings more hunger over time, a slower
-metabolism, worse sleep and worse sessions. In men, four weeks at 1 kg/week has
-been linked to **around 30% lower testosterone**. Faster does not mean more
+Losing 1 kg/week instead of 0.5 kg/week brings more hunger over time, a bigger
+drop in expenditure ([metabolic adaptation](/docs/metabolic-adaptation)), worse
+sleep and worse sessions. Steep deficits are also linked to falling
+testosterone in men and disrupted cycles in women. Faster does not mean more
 fat lost either: the extra is mostly glycogen, water and some muscle.
 
 ## Adjusting intake
@@ -173,25 +174,86 @@ weight) and the rest as carbs — around 300 g, about 1,200 kcal.
     id: 'reading-your-numbers',
     category: 'progress',
     title: 'Reading your numbers',
-    tags: ['progress', 'weight', 'measures', 'recomposition', 'muscle loss', 'interpretation'],
+    tags: [
+      'progress',
+      'weight',
+      'measures',
+      'recomposition',
+      'muscle loss',
+      'interpretation',
+      'water weight',
+      'weekly average',
+    ],
     body: `Weight, tape and mirror rarely agree in the same week, and that is fine: each
-answers a different question. Read them together and you know whether to keep
-going or to adjust.
+answers a different question. Read them together, over the right stretch of
+time, and you know whether to keep going or to adjust.
+
+## Read the weekly average, not the day
+
+A single morning tells you about yesterday's salt, sleep and dinner. Weigh in
+on waking, fasted, after the bathroom, and average the week:
+
+\`\`\`
+weekly_avg = sum of the week's weigh-ins ÷ number of weigh-ins
+\`\`\`
+
+Three weigh-ins a week is the minimum for an average worth reading; seven is
+better. Compare this week's average with last week's, never one Monday with the
+next. metri works the same way: a week with fewer than three weigh-ins is shown
+but never judged.
+
+## Water moves faster than fat
+
+A kilo of body-fat tissue holds roughly **7,000–7,700 kcal** — fat itself
+carries 9 kcal per gram, and the tissue also holds some water and protein. That
+puts a hard ceiling on how much fat one day can add:
+
+\`\`\`
+1 kg body fat ≈ 7,000–7,700 kcal
+1,000 kcal over maintenance ≈ 0.13 kg of fat at most
+\`\`\`
+
+So a jump of 1–2 kg overnight is not fat. It is water, glycogen and food still
+in the gut, and it leaves the way it came.
+
+| Cause                       | What is happening                                                  |
+| --------------------------- | ------------------------------------------------------------------ |
+| Big, salty or late meal     | Sodium holds water and the food itself still weighs; gone in 2–3 days |
+| More carbs than usual       | Glycogen refills, and each gram stores ~3 g of water with it       |
+| Cutting carbs hard          | The same glycogen and water leaving: a fast 1–2 kg that is not fat |
+| Menstrual cycle             | Fluid rises in the days around a period                            |
+| New program or a hard block | Sore muscles hold water while they repair                          |
+| Starting creatine           | Muscle draws in water over the first weeks; about 1 kg is common   |
+| Travel, poor sleep, stress  | Fluid retention and irregular digestion                            |
+
+## How long before a trend counts
+
+| Signal                | Judge after | Noise to ignore             |
+| --------------------- | ----------- | --------------------------- |
+| Weekly average weight | 2–3 weeks   | ±0.5 kg week to week        |
+| Tape (waist, hips)    | 3–4 weeks   | ±0.5–1 cm between readings  |
+| Photos                | 4–8 weeks   | Light, pump, posture        |
+| Lifts                 | 3–4 weeks   | One bad session             |
+
+If you menstruate, compare the same week of each cycle, or judge across a whole
+cycle. A change that shows on one signal for one week is not a trend yet.
 
 ## The four situations
 
-| Scale     | Tape | What is happening                   |
-| --------- | ---- | ----------------------------------- |
-| Up        | Down | Recomposition — muscle up, fat down |
-| Down      | Flat | Probably losing muscle              |
-| Flat      | Up   | Overeating; fat gain                |
-| Down fast | Flat | Water and glycogen, or muscle loss  |
+| Scale     | Tape | What is happening                     |
+| --------- | ---- | ------------------------------------- |
+| Up        | Down | Recomposition — muscle up, fat down   |
+| Down      | Flat | Water early on; muscle if it persists |
+| Flat      | Up   | Overeating; fat gain                  |
+| Down fast | Flat | Water and glycogen, or muscle loss    |
 
 ## 1. Weight up, measurements down
 
 Common in the first one or two months for someone new to lifting, or who just
-started training properly. Waist and hips shrink while the scale climbs: a few
-kilos of fat left, and more than that came in as muscle and glycogen.
+started training properly. Waist and hips shrink while the scale climbs: fat is
+leaving while newly trained muscle fills with glycogen and water and starts to
+grow. Most of that early gain is fuel and water rather than kilos of new muscle,
+but the direction is exactly right.
 
 **What to do:** nothing. Keep the plan. Expect it to fade after the second
 month, when total weight should start moving down in a cut.
@@ -199,7 +261,8 @@ month, when total weight should start moving down in a cut.
 ## 2. Weight down, measurements flat
 
 The scale drops, but waist, arms and legs stay put and the mirror looks the
-same. The loss is coming from muscle, not fat.
+same. For a week or two that is usually water, and the tape catches up. If it
+goes on for a month while your lifts fall, the loss is coming from muscle.
 
 **What to do:** check the basics — protein at [target](/docs/macros), sleep,
 effort in the gym. Slow the deficit (see [weight tracking](/docs/weight-tracking))
@@ -208,9 +271,9 @@ and give it two weeks.
 ## 3. Weight flat, measurements up
 
 Typical in someone trying to gain who overshoots: the waist grows while weight
-does not. The surplus is going to fat, and chronic overeating worsens insulin
-sensitivity — muscle stops absorbing nutrients well, which also caps muscle
-gain.
+barely moves. The surplus is going to fat, and a growing waist goes hand in hand
+with worsening [insulin sensitivity](/docs/insulin-sensitivity). Past a modest
+surplus, extra food adds fat, not muscle.
 
 **What to do:** bring calories back to maintenance, review
 [diet quality](/docs/diet-quality), keep steps up. Re-check the body-fat
@@ -223,9 +286,9 @@ Two very different causes:
 - **You just cut carbs.** A low-carb or ketogenic start empties muscle
   glycogen and the water bound to it: 1–2 kg vanish in a week with nothing to
   show in the mirror. Expected, not a problem.
-- **Normal diet, drops for weeks or months, same look.** Muscle is going. This
-  usually ends in a rebound, because the tissue that kept your expenditure up
-  is gone too.
+- **Normal diet, drops for weeks or months, same look.** Muscle may be going,
+  especially if your lifts are falling too. Muscle lost in a diet is slow to
+  rebuild, and the expenditure it carried goes with it.
 
 **What to do:** in the first case, wait. In the second, treat it as situation 2.
 
@@ -235,6 +298,22 @@ Two very different causes:
 and the tape is down." That is muscle gained and fat lost. Of the three signals
 the scale is the least informative; trust the tape and the photos.
 
+## The tape site that matters most
+
+Fat does not leave or arrive evenly. For most men the waist moves first and
+most; for many women the hips and thighs show it best. Read your weekly average
+against that site — it is the one metri pairs with the weight trend — and keep
+the others as context. The waist also matters for health on its own: under half
+your height is the usual target, and the
+[waist-to-height calculator](/tools/waist-to-height-ratio-calculator) does the
+arithmetic.
+
+The mirror is the least reliable judge day to day, because you see yourself
+every day. Photos taken four or more weeks apart, in the same light and pose,
+are not: put them side by side. Clothes that fit differently at the waist are
+the same evidence for free. How to take each measurement is in
+[measuring progress](/docs/measuring-progress).
+
 > **Tip:** A single week never decides. Compare 4-week averages of weight and tape before changing anything.
 
 ## Related
@@ -242,6 +321,106 @@ the scale is the least informative; trust the tape and the photos.
 - [Measuring progress](/docs/measuring-progress)
 - [Weight tracking](/docs/weight-tracking)
 - [Breaking a plateau](/docs/breaking-a-plateau)
+- [Metabolic adaptation](/docs/metabolic-adaptation)
 - [Body fat guide](/docs/body-fat-guide)`,
+  },
+  {
+    id: 'somatotypes',
+    category: 'progress',
+    title: 'Body types (somatotypes)',
+    tags: [
+      'somatotypes',
+      'body type',
+      'ectomorph',
+      'mesomorph',
+      'endomorph',
+      'genetics',
+      'hardgainer',
+    ],
+    body: `Ectomorph, mesomorph, endomorph: three labels that promise to tell you how to
+train and what to eat. They can't. A body type describes how you look today —
+how much fat and how much muscle sit on your frame — and both of those change
+with training and food. Plan around the numbers underneath the label, not the
+label.
+
+## Where the labels come from
+
+The scheme was invented in the 1940s to link physique to personality, an idea
+science dropped long ago. Sports science kept a measured version that rates
+three components from skinfolds, girths, bone widths, height and weight:
+
+| Component  | What it rates                      | Changes with          |
+| ---------- | ---------------------------------- | --------------------- |
+| Endomorphy | Relative fatness                   | Diet and activity     |
+| Mesomorphy | Muscle and bone relative to height | Training and protein  |
+| Ectomorphy | Linearity: height against mass     | Weight gained or lost |
+
+Fat and muscle drive two of the three ratings, so the result moves when they
+do. It describes a physique at one moment — useful for comparing athletes — not
+what that body can become.
+
+## The same person, three labels
+
+An overweight beginner gets called an endomorph. A few years of lifting and a
+cut later, the same person reads as a mesomorph. The genes did not change; the
+fat and the muscle did. Planning around a somatotype is planning around a photo
+of yourself from last year.
+
+## What genetics does decide
+
+Genes matter, just not in three boxes.
+
+| Largely inherited                     | Yours to change               |
+| ------------------------------------- | ----------------------------- |
+| Height, bone structure, limb lengths  | Body-fat percentage           |
+| Where you tend to store fat first     | How much muscle you carry     |
+| Muscle shape and where tendons attach | Strength                      |
+| How fast you respond to training      | Steps, sleep, appetite habits |
+
+Response varies more than any label suggests. When several hundred untrained
+people followed the same 12-week arm program, muscle-size gains ranged from
+almost none to more than 50%. A slow responder still responds; it usually takes
+more time, and sometimes more volume.
+
+## Diets "for your type" don't hold up
+
+In a year-long trial of more than 600 adults, neither a genetic pattern thought
+to predict the right diet nor how much insulin people secreted told anyone
+whether they would lose more on low-fat or low-carb. The spread of results
+inside each diet was far larger than the difference between them. Your
+tolerance for carbs or fat is real, but you read it from your sessions, your
+hunger and your weekly average, not from a body type.
+
+## Hardgainers and easy gainers
+
+- **"I'm an ectomorph, I can't gain."** Usually a small appetite, a lot of
+  daily movement and an intake lower than it feels. Log two weeks, add ~10%
+  ([personalizing your diet](/docs/personalizing-your-diet)) and lean on
+  calorie-dense food — fat at 1.2–1.5 g/kg makes it easier
+  ([macros](/docs/macros)).
+- **"I'm an endomorph, I gain just by looking at food."** Usually more body fat
+  to lose, little muscle yet and a mostly seated day. Start with a deficit and
+  lifting ([choosing your phase](/docs/choosing-your-phase)); the "tendency"
+  fades as fat comes down and muscle goes up.
+- **"I'm a mesomorph."** Usually years of training, or a good start. Progress
+  still slows with experience ([progressive overload](/docs/progressive-overload)).
+
+## What to plan around instead
+
+| Instead of the label        | Use                                               |
+| --------------------------- | ------------------------------------------------- |
+| Which type you are          | Body-fat % → which phase you need                 |
+| "Fast" or "slow" metabolism | Your weekly average → whether intake is right     |
+| "Built for it" or not       | Training experience → how fast to expect progress |
+| A diet for your type        | The foods and schedule you can keep               |
+
+> **Tip:** If a label motivates you, keep it for fun. Just don't let it pick your calories or your program.
+
+## Related
+
+- [Fat-loss myths](/docs/fat-loss-myths) — other rules that don't survive a closer look.
+- [Cut, bulk or maintain?](/docs/choosing-your-phase) — the phase body fat points to.
+- [Body-fat calculator guide](/docs/body-fat-guide) — estimating the number that matters.
+- [Reading your numbers](/docs/reading-your-numbers) — what weight, tape and mirror say together.`,
   },
 ];

@@ -61,6 +61,12 @@ Fat supports hormones and vitamin absorption. Set it in g/kg, not as a percentag
 | 1.5–2     | Low-carb diets                          |
 | 0.3 g/kg  | Contest prep only, briefly              |
 
+With a lot of body fat, read the table per kg of **lean mass**, as you did for
+protein: about **0.5–0.7 g** per kg of lean mass in a cut and **0.7–1 g** in a
+bulk (the worked example below uses 0.7). Whichever basis you use, a result
+between roughly 20% and 35% of calories is the usual healthy range; staying
+well under 20% for long has been linked to lower testosterone in men.
+
 ## Then carbs fill the rest
 
 Whatever calories remain after protein and fat become carbohydrate. Keep fat
@@ -180,7 +186,9 @@ yourself fasted, average the week, and compare after one to two weeks:
 | Weight rises and you did not want it | Cut by 15–20%          |
 | Moving in the planned direction      | Change nothing         |
 
-Take any reduction from carbs or fat, never from protein.
+Take any reduction from carbs or fat, never from protein. Your maintenance
+moves with your weight, so re-check it every ~5 kg lost or gained — the why is
+in [metabolic adaptation](/docs/metabolic-adaptation).
 
 > **Note:** These are estimates built from population averages. Treat the result as a hypothesis and let three to four weeks of real weight data confirm or correct it.
 
@@ -190,7 +198,8 @@ Take any reduction from carbs or fat, never from protein.
 
 - [How to track macros](/docs/macros) — splitting the target into grams.
 - [Choosing your phase](/docs/choosing-your-phase) — whether to cut, bulk or hold.
-- [Breaking a plateau](/docs/breaking-a-plateau) — when the scale stops moving.`,
+- [Breaking a plateau](/docs/breaking-a-plateau) — when the scale stops moving.
+- [Metabolic adaptation](/docs/metabolic-adaptation) — why maintenance falls as you lose.`,
   },
   {
     id: 'hydration',
@@ -229,8 +238,9 @@ way cardio does, so it is hard to overdo and easy to keep constant week to week.
 | Cut or recomposition  | 8,000–10,000                         |
 | Stalled cut           | Raise gradually, up to ~13,000       |
 
-Reaching 7,500+ steps a day is associated with roughly 32% lower all-cause
-mortality — the health return arrives well before the fat-loss one.
+In large studies, the risk of dying early keeps falling as daily steps rise,
+then levels off — at around 8,000–10,000 steps for adults under 60 and
+6,000–8,000 above that. The health return arrives well before the fat-loss one.
 
 ## Related
 
@@ -295,8 +305,8 @@ If you are hungry all the time, the approach is wrong. A sustainable deficit
 leaves you performing in the gym, sleeping well and not thinking about food
 constantly. Persistent hunger usually means the deficit is too steep, protein
 is too low, or the plate has too little volume (vegetables, fruit, legumes).
-Fix the setup rather than white-knuckle it — a starving body holds on to fat
-and sheds muscle.
+Fix the setup rather than white-knuckle it — a deficit that steep costs more
+muscle, sleep and training than it buys in fat.
 
 > **Tip:** Bulking and nothing happens after 2 weeks? Add ~10% to every portion and hold again. Repeat until the weekly average creeps up slowly, then stay there.
 
@@ -395,21 +405,37 @@ calories.
     id: 'breaking-a-plateau',
     category: 'nutrition',
     title: 'Breaking a plateau',
-    tags: ['plateau', 'stall', 'neat', 'steps', 'cardio', 'fat loss', 'weighing'],
+    tags: ['plateau', 'stall', 'neat', 'steps', 'cardio', 'fat loss', 'weighing', 'diet break'],
     body: `Stalls are normal. As you lose weight your body spends less, and the deficit
-that worked in week one quietly closes. The reflex is to eat less again — but
-food is the last lever, because every cut to intake also cuts the fuel you
+that worked in week one quietly closes — the why is in
+[metabolic adaptation](/docs/metabolic-adaptation). The reflex is to eat less
+again, but food is the last lever: every cut to intake also cuts the fuel you
 need to train and the protein that protects muscle. Spend more first.
+
+## Is it a real plateau?
+
+Check these before you change anything:
+
+| Check                 | A real plateau when…                                      |
+| --------------------- | --------------------------------------------------------- |
+| Weekly average weight | Flat for 2–3 weeks, from 3+ weigh-ins a week              |
+| Waist (or hips)       | Flat over the same weeks                                  |
+| The food log          | Oils, drinks, bites and weekends are all in it            |
+| Water                 | No new program, creatine, salty week or period in the window |
+
+A jump of 1–2 kg from one day to the next is water, not fat; the arithmetic is
+in [reading your numbers](/docs/reading-your-numbers). Only when all four line
+up is it time to pull a lever.
 
 ## The five levers, in order
 
-| Lever                    | First move                                             |
-| ------------------------ | ------------------------------------------------------ |
-| 1. NEAT (daily steps)    | Count them, then add a little                          |
-| 2. Cardio                | Add a session, or start with 2 × 40 min a week         |
-| 3. Progress in the weights | Better technique → more load → more energy spent     |
-| 4. Sleep 7–9 h           | Deep and continuous; waking 3–4 times does not count   |
-| 5. Stress                | Chronic stress blunts fat loss and sleep               |
+| Lever                      | First move                                            |
+| -------------------------- | ----------------------------------------------------- |
+| 1. NEAT (daily steps)      | Count them, then add a little                         |
+| 2. Cardio                  | Add a session, or start with 2 × 40 min a week        |
+| 3. Progress in the weights | Keep adding load or reps; it is what keeps the muscle |
+| 4. Sleep 7–9 h             | Regular hours, few long wake-ups                      |
+| 5. Stress                  | Chronic stress erodes sleep, appetite and consistency |
 
 **NEAT** is everything you move outside of training. Your phone already
 counts steps; when you stall, you will know exactly where you are and can raise
@@ -422,50 +448,169 @@ constant, your movement must be too — otherwise you are changing two variables
 at once.
 
 **Lifting** matters more than it looks: a body that keeps getting stronger
-holds a higher expenditure and better insulin sensitivity, so muscle absorbs
-nutrients instead of fat.
+keeps its muscle in a deficit, and the muscle you keep is expenditure and
+insulin sensitivity you keep. The calories a session burns are a bonus, not the
+point.
 
-**Sleep and stress** are metabolic, not just mood. Poor sleep raises insulin
-resistance and hunger; chronic stress makes you lose less fat and more muscle.
+**Sleep and stress** are metabolic, not just mood. Short sleep raises hunger,
+lowers insulin sensitivity and, in a diet, shifts what you lose from fat toward
+muscle. Chronic stress works through the same channels: worse sleep, more
+appetite, a plan that slips.
 
 Only when steps are already at 10,000–12,000 and you do 1.5–2 hours of easy
-cardio per week do you trim intake — a little — or train harder.
+cardio per week do you trim intake — a little, 5–10% from carbs or fat — or
+train harder.
 
-## Overnight jumps are water, not fat
+## Or take a break
 
-One kilogram of body fat stores roughly **7,000 kcal**. If your maintenance
-is 2,000 kcal, gaining a real kilo of fat in one day would take ~9,000 kcal —
-and your gut could not absorb that anyway. A ±1–2 kg swing after a big meal,
-a salty dinner or a weekend away is water, glycogen and gut content, and it
-leaves the same way it arrived.
-
-\`\`\`
-1 kg fat ≈ 7,000 kcal
-2,000 maintenance + 7,000 = 9,000 kcal in one day
-\`\`\`
-
-## Weigh like a statistician
-
-Weigh yourself every morning, fasted, and average the seven days. Compare
-averages week over week, not one Monday against the next.
-
-\`\`\`
-weekly_avg = (d1 + d2 + d3 + d4 + d5 + d6 + d7) ÷ 7
-\`\`\`
-
-Pair the scale with a waist measurement, photos and how clothes fit — on a
-recomposition the scale can sit still while everything else changes.
+A long cut that has stalled with hunger high and sessions sliding may need
+maintenance, not a deeper deficit: 1–2 weeks at maintenance, then resume. The
+scale will rise a little from glycogen and water; it is not fat. Details in
+[metabolic adaptation](/docs/metabolic-adaptation).
 
 > **Tip:** Daily weighing gives you seven chances a week to read the trend; weekly weighing gives you one, and it may land on a water day.
 
 ## Related
 
+- [Reading your numbers](/docs/reading-your-numbers) — water versus fat, and when a trend counts.
+- [Metabolic adaptation](/docs/metabolic-adaptation) — why the deficit shrinks.
 - [Hydration & steps](/docs/hydration) — the step targets by phase.
 - [Sleep](/docs/sleep) — why lever four is not optional.
 - [Cardio, steps & NEAT](/docs/cardio-and-neat) — levers one and two in detail.
 - [Control your bodyweight](/docs/weight-tracking) — reading the weekly average before you touch anything.
-- [Measuring progress](/docs/measuring-progress) — tape, photos and the fasted routine.
 - [Personalizing your diet](/docs/personalizing-your-diet) — when food finally is the lever.`,
+  },
+  {
+    id: 'metabolic-adaptation',
+    category: 'nutrition',
+    title: 'Metabolic adaptation',
+    tags: [
+      'metabolic adaptation',
+      'adaptive thermogenesis',
+      'metabolism',
+      'neat',
+      'diet break',
+      'plateau',
+      'starvation mode',
+    ],
+    body: `A cut that lost half a kilo a week in the first month often loses half that by
+the third, on the same food. Nothing broke. Your body got smaller, you started
+moving a little less without noticing, and the deficit you began with quietly
+shrank. That is **metabolic adaptation**, also called adaptive thermogenesis:
+real, measurable, usually modest, and manageable.
+
+## Where your daily burn goes
+
+| Part of the day's burn         | Share            | In a long cut              |
+| ------------------------------ | ---------------- | -------------------------- |
+| Resting metabolism (BMR)       | ~60–70%          | Dips as you get smaller    |
+| Digesting food                 | ~10%             | Dips with what you eat     |
+| Training                       | ~5–10%           | Holds if you keep training |
+| NEAT: steps, fidgeting, chores | Most of the rest | Drops most, unnoticed      |
+
+## Why a cut slows
+
+**1. A smaller body costs less.** This is expected, and it is the largest part.
+With the bodyweight × 22 rule from the [TDEE guide](/docs/tdee), at moderate
+activity:
+
+\`\`\`
+10 kg lost × 22 × 1.55 ≈ 340 kcal less per day
+\`\`\`
+
+A 500 kcal deficit set at the start is now closer to 160 kcal.
+
+**2. You move less without deciding to.** Fewer steps, less fidgeting, more
+sitting, flatter sessions. NEAT is the most variable part of expenditure and
+the first to fall when food is low, which is why you count steps rather than
+trust how active you feel.
+
+**3. The body gets thriftier.** As fat falls, so do the hormones that report
+it, leptin among them; thyroid output and the drive to move dip, muscle does
+the same work for slightly less energy, and hunger rises. Studies of people who
+lost a lot of weight find expenditure below what their new size predicts. In
+resting metabolism the gap is usually small — tens to a couple of hundred kcal
+a day — largest while you are in the deficit, and it shrinks once you eat at
+maintenance again.
+
+**4. The log drifts.** Not adaptation, but it looks the same: portions creep,
+oils and drinks go unlogged, weekends grow. In one classic study of people who
+said they could not lose weight on very little food, measured intake was close
+to double what they had logged.
+
+## What it is not
+
+| Claim                                     | What actually happens                                                       |
+| ----------------------------------------- | --------------------------------------------------------------------------- |
+| "Starvation mode stops fat loss"          | A real deficit always draws on stored energy; adaptation shrinks it, never reverses it |
+| "Eat too little and you store fat"        | Fat is stored when intake beats expenditure, not because intake is low     |
+| "Dieting breaks your metabolism for good" | Most of the drop is a smaller body; the extra part fades at maintenance    |
+| "Eat more to lose more"                   | More food can buy better sessions and adherence, not a bigger deficit      |
+
+In the classic semi-starvation experiments, volunteers on roughly half their
+usual food kept losing weight for six months. What a hard diet does cost is
+muscle, sleep and mood — the real reasons not to diet hard.
+
+> **Note:** A scale that has not moved for a week or two can still be hiding fat loss behind water: a hard training block, stress or the menstrual cycle hold water for days. Judge three weeks of weekly averages, not one.
+
+## What to do about it
+
+- **Count steps and keep a floor.** The movement you lose without noticing is
+  the movement a step count catches. Targets are in
+  [hydration & steps](/docs/hydration).
+- **Keep lifting heavy and keep protein high.** The muscle you keep is
+  expenditure you keep — see [macros](/docs/macros).
+- **Lose at a moderate pace.** Roughly 0.5–1% of bodyweight a week; steeper
+  deficits bring more adaptation, more hunger and more muscle loss
+  ([choosing your phase](/docs/choosing-your-phase)).
+- **Re-check maintenance as you go.** Every ~5 kg lost, or after 2–3 flat
+  weeks, adjust by 5–10% ([personalizing your diet](/docs/personalizing-your-diet)).
+- **Protect sleep.** Short nights shift what you lose from fat toward muscle
+  ([sleep](/docs/sleep)).
+- **Pull the levers in order** before cutting food again
+  ([breaking a plateau](/docs/breaking-a-plateau)).
+
+## Diet breaks and maintenance phases
+
+| Option            | How                                   | When                                                       |
+| ----------------- | ------------------------------------- | ---------------------------------------------------------- |
+| Diet break        | 1–2 weeks at maintenance, extra carbs | Every 6–12 weeks of a long cut, or when sleep, hunger and sessions slide |
+| Maintenance phase | 4+ weeks at your new maintenance      | After a long cut, or between two cuts                      |
+| Refeed            | 1–2 days of extra carbs               | Optional; a better session and a mental break              |
+
+The evidence is promising but mixed. In one trial, alternating two weeks of
+dieting with two weeks at maintenance lost more fat per week of dieting than
+dieting straight through, at the cost of more calendar time. In trained lifters,
+diet breaks have matched continuous dieting for fat and muscle while leaving
+people less hungry. Treat a break as an adherence tool, not a metabolic reset.
+
+Expect the scale to rise 0.5–1.5 kg in the first days of a break or at the end
+of a cut: glycogen, the water it binds and more food in the gut. It is not fat,
+and it settles within the week.
+
+## Ending a cut
+
+Move to your new maintenance in one or two steps, estimated from where your
+weekly average actually held — not from your pre-diet number. Slow "reverse
+diets" have little evidence of protecting metabolism; their real use is
+finding the new maintenance without overshooting.
+
+## The same thing on the way up
+
+In a surplus, expenditure rises too: a bigger body costs more, and many people
+move more without noticing. In one overfeeding study, the extra daily movement
+ranged from almost nothing to nearly 700 kcal a day between people. A bulk's
+surplus shrinks the same way — if the weekly average stalls for 2–3 weeks and
+the waist holds, add ~10% ([personalizing your diet](/docs/personalizing-your-diet)).
+
+> **Note:** A lost or irregular period, dizziness, feeling cold all the time or exhaustion during a diet are not a plateau to push through. Stop the cut, eat at maintenance and see a clinician.
+
+## Related
+
+- [Breaking a plateau](/docs/breaking-a-plateau) — the levers, in order.
+- [BMR & TDEE explained](/docs/tdee) — where maintenance comes from.
+- [Reading your numbers](/docs/reading-your-numbers) — water versus fat on the scale.
+- [Cardio, steps & NEAT](/docs/cardio-and-neat) — keeping movement constant.`,
   },
   {
     id: 'tracking-food',
@@ -678,18 +823,20 @@ fasting hours.
 
 - Put more of your calories earlier in the day; make the last meal the
   lightest and finish it 2–3 h before sleep.
-- Concentrate carbohydrate around training. After a hard session, insulin
-  sensitivity stays elevated for **up to ~6 h** — carbs eaten then go to muscle
-  first.
+- Concentrate carbohydrate around training. After a hard session muscle is
+  first in line for it, and insulin sensitivity stays raised for hours — up to
+  a day or two — so the window is wide, not a race against the clock
+  ([insulin sensitivity](/docs/insulin-sensitivity)).
 - If your big meal is late, train in the evening so the window lines up.
 
 ## Dirty bulk
 
 A surplus built on fast food and desserts gains weight quickly, but it gains
-fat quickly too — and fat cells compete with muscle for nutrients while
-worsening insulin sensitivity, so a dirty bulk can mean **less** muscle. It
-also drags you past the bulk ceilings (18–20% men, 28–30% women) and into a
-long cut. A surplus should still be mostly whole food.
+fat quickly too. Past a modest surplus the extra calories add fat, not muscle,
+and the extra fat — with the processed food that brought it — erodes
+[insulin sensitivity](/docs/insulin-sensitivity). A dirty bulk also drags you
+past the bulk ceilings (18–20% men, 28–30% women) and into a long cut. A
+surplus should still be mostly whole food.
 
 > **Tip:** If only your belly grows during a bulk, you are over on calories and over on body fat at the same time.
 
@@ -697,13 +844,115 @@ long cut. A surplus should still be mostly whole food.
 
 - [Food swaps](/docs/food-swaps) — variety without breaking the plan.
 - [Choosing your phase](/docs/choosing-your-phase) — the body-fat ceilings.
-- [Supplements](/docs/supplements) — what is worth adding, and what is not.`,
+- [Supplements](/docs/supplements) — what is worth adding, and what is not.
+- [Insulin sensitivity](/docs/insulin-sensitivity) — why training, sleep and the waist matter for carbs.`,
+  },
+  {
+    id: 'insulin-sensitivity',
+    category: 'nutrition',
+    title: 'Insulin sensitivity',
+    tags: [
+      'insulin',
+      'insulin sensitivity',
+      'insulin resistance',
+      'blood sugar',
+      'carbs',
+      'metabolism',
+    ],
+    body: `Insulin is the hormone that announces a meal. Blood sugar rises, the pancreas
+releases insulin, and muscle, liver and fat take up glucose and store it; while
+insulin is high, fat breakdown slows. **Insulin sensitivity** is how strongly
+your tissues answer that signal. Sensitive tissues clear a meal with little
+insulin; resistant ones need more for the same job, and when the pancreas can
+no longer keep up, blood sugar climbs — the road to type 2 diabetes.
+
+Muscle handles most of the glucose cleared under insulin's action, which is why
+the habits that raise sensitivity are the ones a lifter already practises.
+
+> **Note:** General information, not medical advice. If you have diabetes, prediabetes or another medical condition, or take medication that lowers blood sugar, plan changes to diet and training with your clinician: both can lower blood sugar enough to need a dose change.
+
+## What raises it
+
+| Lever             | What it does                                                          |
+| ----------------- | --------------------------------------------------------------------- |
+| Training          | Working muscle pulls in glucose without needing insulin, and sensitivity stays higher for a day or two |
+| More muscle       | More room to store carbohydrate as glycogen                           |
+| Daily steps       | Keeps glucose uptake going between sessions                           |
+| Losing excess fat | Fat around the waist and in the liver matters most                    |
+| Sleep             | Enough of it; a single short night lowers sensitivity the next day    |
+| Energy balance    | A deficit raises it; a long, large surplus lowers it                  |
+
+Each lever has been tested on its own:
+
+- **Steps.** Healthy young men who cut their daily steps to under 1,500 for
+  two weeks lost insulin sensitivity and gained fat around the organs.
+- **Fat loss and activity.** In people at high risk of type 2 diabetes, losing
+  ~7% of bodyweight and walking ~150 minutes a week cut new cases by more than
+  half over about three years.
+- **Sleep.** One night of four hours was enough to make healthy adults
+  measurably more insulin resistant the next morning.
+
+The effect of a session fades within one to three days, so frequency beats
+heroics: three or four sessions a week plus daily walking does more than one
+brutal workout.
+
+## Carbs and insulin: what it is not
+
+- **"Carbs make you fat because they spike insulin."** A rise after a meal is
+  normal and temporary. Fat is gained when you eat more energy than you use,
+  whatever the macro split; in tightly controlled feeding studies with calories
+  matched, cutting carbs did not beat cutting fat for fat loss.
+- **"Carbs after training waste the session."** The opposite: muscle is first in
+  line after a workout and refills its glycogen, and the window lasts hours, not
+  minutes — see [diet quality](/docs/diet-quality).
+- **"You can feel insulin resistance."** Sleepiness after meals, cravings or a
+  belly are not a diagnosis. It is measured with blood tests — fasting glucose,
+  HbA1c, sometimes fasting insulin — and read by a clinician.
+- **"A supplement fixes it."** Nothing in a bottle comes close to training,
+  walking, sleep and losing excess fat.
+
+## Why lifters care
+
+- **Better-fuelled sessions.** Sensitive muscle refills glycogen quickly, so
+  the next session starts full.
+- **The waist warns first.** Fat at the waist tracks insulin resistance more
+  closely than bodyweight does. A waist growing faster than your lifts during a
+  bulk is the surplus going to fat — one more reason for slow bulks and the
+  body-fat ceilings in [choosing your phase](/docs/choosing-your-phase).
+- **Carbs stay on the menu.** A lean, active, well-slept body handles a
+  carb-rich diet well, and carbs are what fuel hard training.
+
+## A short checklist
+
+| Habit             | Target                                                              |
+| ----------------- | ------------------------------------------------------------------- |
+| Lifting           | 2+ days a week; most programs use 3–5                               |
+| Moderate activity | 150–300 min a week, as public-health guidelines advise              |
+| Steps             | 7,000–10,000 a day; get up every 30–60 min of sitting               |
+| Sleep             | 7–9 h, regular hours                                                |
+| Waist             | Under half your height — the [waist-to-height calculator](/tools/waist-to-height-ratio-calculator) checks it |
+| Food              | Mostly whole foods, 25 g+ of fiber a day                            |
+
+## Related
+
+- [Diet quality](/docs/diet-quality) — fiber, processing and meal timing.
+- [Sleep, deloads & recovery](/docs/sleep) — the lever most people skip.
+- [Cardio, steps & NEAT](/docs/cardio-and-neat) — movement outside the gym.
+- [Metabolic adaptation](/docs/metabolic-adaptation) — what else changes in a cut.`,
   },
   {
     id: 'fat-loss-myths',
     category: 'nutrition',
     title: 'Fat-loss myths',
-    tags: ['myths', 'fasted cardio', 'somatotypes', 'obesity', 'carbs', 'homeostasis'],
+    tags: [
+      'myths',
+      'fasted cardio',
+      'somatotypes',
+      'starvation mode',
+      'obesity',
+      'carbs',
+      'homeostasis',
+    ],
     body: `Most fat-loss advice that sounds precise is a short-window observation
 stretched into a rule. The body balances itself over days, not minutes, so the
 question for any claim is always the same: what happens over 24 hours, and
@@ -712,31 +961,40 @@ what happens to the total deficit?
 ## Fasted cardio does not burn more fat
 
 Forty minutes of cardio burns about the same energy — say ~400 kcal — whether
-you ate first or not. Fasted, with glycogen low, the session draws more on fat.
-The body then compensates for the rest of the day, burning more glycogen and
-less fat, because it keeps its fuel mix in balance (homeostasis).
+you ate first or not. Fasted, with less carbohydrate on hand, the session does
+draw a bigger share of that energy from fat. That is where the myth starts, and
+where it stops being true:
 
-| Timing        | During the session     | Rest of the day        | 24-h total    |
-| ------------- | ---------------------- | ---------------------- | ------------- |
-| Fasted        | More fat, less glycogen | More glycogen, less fat | ~400 kcal    |
-| After eating  | More glycogen, less fat | More fat, less glycogen | ~400 kcal    |
+| What was measured                      | What studies found                         |
+| -------------------------------------- | ------------------------------------------ |
+| Fat burned during the session          | More when fasted                           |
+| Fat burned over 24 hours, in a lab     | From no difference to slightly more fasted |
+| Body fat after weeks, calories matched | No difference                              |
 
-Studies that measured only during and shortly after the session saw the first
-column and stopped. Studies that followed people for 24 hours saw the
-compensation. The only number that moves fat loss is the daily deficit — burn
-2,000 and eat 2,000 and you hold; eat 1,700–1,800 and you lose. Cardio helps
-because it raises the burn, and it helps exactly as much fed or fasted. Train
-fasted if you enjoy it; there is nothing to gain or lose.
+Burning fat as fuel on a given day is not the same as losing stored fat over
+weeks: the body stores and releases fat all day long, and what decides the
+balance is the daily deficit — burn 2,000 and eat 2,000 and you hold; eat
+1,700–1,800 and you lose. Cardio helps because it raises the burn, and it
+helps exactly as much fed or fasted. Train fasted if you enjoy it; train fed if
+that buys you a better session.
 
 ## Somatotypes are not a plan
 
-Ectomorph, mesomorph and endomorph describe a snapshot of weight, body-fat and
-muscle percentage. Those three numbers change as you train and eat well, so
-the label changes with them: an overweight beginner is called an endomorph
-and, muscular years later, a mesomorph — the same person. Genetics is fixed
-but can be modulated, and the "tendency to gain" mostly disappears when body
-fat drops and muscle rises. Planning around a somatotype is planning around a
-photo of yourself from last year.
+Ectomorph, mesomorph and endomorph describe a snapshot of fat and muscle on a
+frame, and both change as you train and eat well: the overweight beginner
+called an endomorph reads as a mesomorph a few years later. No diet "for your
+type" has held up in trials. The full story is in
+[body types](/docs/somatotypes).
+
+## "Starvation mode" does not stop fat loss
+
+Eating very little does not make the body cling to fat. A real deficit always
+draws on stored energy. Adaptation makes a long or steep deficit smaller — a
+smaller body, less movement, a thriftier metabolism — and a steep one costs
+more muscle, sleep and mood, but it never turns a deficit into fat gain. When
+the scale stalls on very little food, the usual causes are water hiding the
+loss or a food log that drifted. See
+[metabolic adaptation](/docs/metabolic-adaptation).
 
 ## No single nutrient causes obesity
 
@@ -748,7 +1006,7 @@ factors keep showing up together.
 | ----------------------- | ------------------------------------------------------ |
 | Sedentarism             | Fewer steps, lower burn; society is built for it       |
 | Ultra-processed food    | Calorie-dense, low satiety — you eat more and stay hungry |
-| Stress                  | Less fat lost, worse sleep, more muscle lost           |
+| Stress                  | Worse sleep, more appetite, a plan that slips          |
 | Poor sleep              | Higher insulin resistance and hunger the next day      |
 | Under-hydration         | Lower energy for the day and the session               |
 | Caloric excess          | The one that closes the loop — with sedentarism, the combination that drives weight up |
@@ -763,6 +1021,7 @@ single food is "bad". Fix the six together and carbs stop being a problem.
 - [Hydration & steps](/docs/hydration) — two of the six factors, made concrete.
 - [Sleep](/docs/sleep) — the recovery side of the same list.
 - [Breaking a plateau](/docs/breaking-a-plateau) — the levers that actually move the deficit.
+- [Metabolic adaptation](/docs/metabolic-adaptation) — what a long diet really does to your burn.
 - [Diet quality](/docs/diet-quality) — what to do about ultra-processed food.`,
   },
 ];

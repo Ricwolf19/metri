@@ -62,6 +62,13 @@ La grasa sostiene las hormonas y la absorción de vitaminas. Fíjala en g/kg, no
 | 1.5–2      | Dietas bajas en carbohidratos                 |
 | 0.3 g/kg   | Solo preparación de competición, y poco tiempo |
 
+Si tienes mucha grasa corporal, lee la tabla por kilo de **masa magra**, igual
+que con la proteína: unos **0.5–0.7 g** por kilo magro en definición y
+**0.7–1 g** en volumen (el ejemplo completo de abajo usa 0.7). Uses la base que
+uses, un resultado de entre un 20% y un 35% de las calorías es el rango
+saludable habitual; quedarse muy por debajo del 20% mucho tiempo se ha asociado
+con menos testosterona en hombres.
+
 ## Después los carbohidratos rellenan
 
 Lo que sobra tras proteína y grasa son carbohidratos. En definición mantén la
@@ -181,7 +188,9 @@ Pésate en ayunas, promedia la semana y compara al cabo de una o dos semanas:
 | El peso sube y no lo buscabas           | Recorta 15–20%            |
 | Se mueve en la dirección prevista       | No cambies nada           |
 
-Cualquier recorte sale de carbohidratos o grasa, nunca de la proteína.
+Cualquier recorte sale de carbohidratos o grasa, nunca de la proteína. Tu
+mantenimiento se mueve con tu peso, así que revísalo cada ~5 kg perdidos o
+ganados — el porqué está en [adaptación metabólica](/docs/metabolic-adaptation).
 
 > **Nota:** Son estimaciones construidas sobre promedios poblacionales. Toma el resultado como hipótesis y deja que tres o cuatro semanas de datos reales de peso lo confirmen o lo corrijan.
 
@@ -191,7 +200,8 @@ Cualquier recorte sale de carbohidratos o grasa, nunca de la proteína.
 
 - [Cómo contar macros](/docs/macros) — repartir el objetivo en gramos.
 - [¿Definir, volumen o mantener?](/docs/choosing-your-phase) — en qué dirección mover el número.
-- [Salir de un estancamiento](/docs/breaking-a-plateau) — cuando la báscula deja de moverse.`,
+- [Salir de un estancamiento](/docs/breaking-a-plateau) — cuando la báscula deja de moverse.
+- [Adaptación metabólica](/docs/metabolic-adaptation) — por qué el mantenimiento baja al perder peso.`,
   },
   {
     id: 'hydration',
@@ -231,9 +241,10 @@ semana.
 | Definición o recomposición   | 8.000–10.000                         |
 | Definición estancada         | Sube poco a poco, hasta ~13.000      |
 
-Superar los 7.500 pasos diarios se asocia con ~32% menos mortalidad por todas
-las causas — el retorno en salud llega bastante antes que el de la pérdida de
-grasa.
+En estudios grandes, el riesgo de morir antes de tiempo sigue bajando a medida
+que suben los pasos diarios y luego se estabiliza: hacia los 8.000–10.000 pasos
+en menores de 60 años y los 6.000–8.000 a partir de esa edad. El retorno en
+salud llega bastante antes que el de la pérdida de grasa.
 
 ## Relacionado
 
@@ -302,7 +313,8 @@ deja rendir en el gimnasio, dormir bien y no pensar en comida a todas horas.
 El hambre persistente suele significar que el déficit es demasiado agresivo,
 la proteína demasiado baja o el plato tiene poco volumen (verdura, fruta,
 legumbres). Arregla el planteamiento en vez de aguantar a base de voluntad —
-un cuerpo que pasa hambre retiene grasa y suelta músculo.
+un déficit tan agresivo cuesta más músculo, sueño y entreno de lo que te da en
+grasa perdida.
 
 > **Consejo:** ¿En volumen y tras 2 semanas no pasa nada? Suma ~10% a todas las porciones y vuelve a esperar. Repite hasta que la media semanal suba despacio, y quédate ahí.
 
@@ -403,22 +415,47 @@ para subir calorías.
     id: 'breaking-a-plateau',
     category: 'nutrition',
     title: 'Salir de un estancamiento',
-    tags: ['estancamiento', 'meseta', 'neat', 'pasos', 'cardio', 'pérdida de grasa', 'pesarse'],
+    tags: [
+      'estancamiento',
+      'meseta',
+      'neat',
+      'pasos',
+      'cardio',
+      'pérdida de grasa',
+      'pesarse',
+      'pausa de dieta',
+    ],
     body: `Los estancamientos son normales. A medida que bajas de peso tu cuerpo gasta
-menos, y el déficit que funcionaba la primera semana se va cerrando en
-silencio. El reflejo es volver a comer menos — pero la comida es la última
-palanca, porque cada recorte también quita el combustible para entrenar y la
-proteína que protege el músculo. Primero gasta más.
+menos, y el déficit que funcionaba la primera semana se va cerrando en silencio
+— el porqué está en [adaptación metabólica](/docs/metabolic-adaptation). El
+reflejo es volver a comer menos, pero la comida es la última palanca: cada
+recorte también quita el combustible para entrenar y la proteína que protege el
+músculo. Primero gasta más.
+
+## ¿Es un estancamiento de verdad?
+
+Compruébalo antes de cambiar nada:
+
+| Comprobación          | Es un estancamiento real cuando…                          |
+| --------------------- | --------------------------------------------------------- |
+| Media semanal de peso | Plana 2–3 semanas, con 3+ pesajes por semana              |
+| Cintura (o cadera)    | Plana en esas mismas semanas                              |
+| El registro de comida | El aceite, las bebidas, los picoteos y los fines de semana están dentro |
+| El agua               | Sin programa nuevo, creatina, semana salada ni regla en ese periodo |
+
+Un salto de 1–2 kg de un día a otro es agua, no grasa; la cuenta está en
+[interpretar tus números](/docs/reading-your-numbers). Solo cuando las cuatro
+cuadran toca tirar de una palanca.
 
 ## Las cinco palancas, en orden
 
-| Palanca                   | Primer movimiento                                       |
-| ------------------------- | ------------------------------------------------------- |
-| 1. NEAT (pasos diarios)   | Cuéntalos y añade un poco                               |
-| 2. Cardio                 | Suma una sesión, o empieza con 2 × 40 min por semana    |
-| 3. Progresar en las pesas | Mejor técnica → más carga → más energía gastada         |
-| 4. Dormir 7–9 h           | Profundo y continuo; despertarse 3–4 veces no cuenta    |
-| 5. Estrés                 | El estrés crónico frena la pérdida de grasa y el sueño  |
+| Palanca                   | Primer movimiento                                         |
+| ------------------------- | --------------------------------------------------------- |
+| 1. NEAT (pasos diarios)   | Cuéntalos y añade un poco                                 |
+| 2. Cardio                 | Suma una sesión, o empieza con 2 × 40 min por semana      |
+| 3. Progresar en las pesas | Sigue sumando carga o reps; es lo que conserva el músculo |
+| 4. Dormir 7–9 h           | Horarios regulares, pocos despertares largos              |
+| 5. Estrés                 | El estrés crónico erosiona el sueño, el apetito y la constancia |
 
 El **NEAT** es todo lo que te mueves fuera del entrenamiento. Tu teléfono ya
 cuenta los pasos; cuando te estanques sabrás exactamente dónde estás y podrás
@@ -430,53 +467,175 @@ El **cardio** debe ser la misma cantidad cada semana. Si tus calorías son
 constantes, tu movimiento también tiene que serlo — si no, cambias dos
 variables a la vez.
 
-Las **pesas** importan más de lo que parece: un cuerpo que sigue haciéndose
-más fuerte mantiene un gasto más alto y mejor sensibilidad a la insulina, así
-que el músculo absorbe los nutrientes en lugar de la grasa.
+Las **pesas** importan más de lo que parece: un cuerpo que sigue haciéndose más
+fuerte conserva el músculo en déficit, y el músculo que conservas es gasto y
+sensibilidad a la insulina que conservas. Las calorías que quema una sesión son
+un extra, no lo importante.
 
-**Sueño y estrés** son metabólicos, no solo de ánimo. Dormir mal sube la
-resistencia a la insulina y el hambre; el estrés crónico hace que pierdas
-menos grasa y más músculo.
+**Sueño y estrés** son metabólicos, no solo de ánimo. Dormir poco sube el
+hambre, baja la sensibilidad a la insulina y, en una dieta, desplaza lo que
+pierdes de grasa a músculo. El estrés crónico actúa por las mismas vías: peor
+sueño, más apetito, un plan que se resbala.
 
 Solo cuando ya vas por 10.000–12.000 pasos y haces 1.5–2 horas de cardio suave
-a la semana recortas la ingesta — un poco — o entrenas más duro.
+a la semana recortas la ingesta — un poco, un 5–10% de carbohidratos o grasa —
+o entrenas más duro.
 
-## Los saltos de un día a otro son agua, no grasa
+## O tómate una pausa
 
-Un kilo de grasa corporal almacena unas **7.000 kcal**. Si tu mantenimiento
-son 2.000 kcal, ganar un kilo real de grasa en un día exigiría ~9.000 kcal — y
-tu intestino ni siquiera podría absorberlas. Una oscilación de ±1–2 kg tras
-una comida grande, una cena salada o un fin de semana fuera es agua, glucógeno
-y contenido intestinal, y se va por donde vino.
-
-\`\`\`
-1 kg de grasa ≈ 7.000 kcal
-2.000 de mantenimiento + 7.000 = 9.000 kcal en un día
-\`\`\`
-
-## Pésate como un estadístico
-
-Pésate cada mañana, en ayunas, y promedia los siete días. Compara medias
-semana contra semana, no un lunes contra el siguiente.
-
-\`\`\`
-media_semanal = (d1 + d2 + d3 + d4 + d5 + d6 + d7) ÷ 7
-\`\`\`
-
-Acompaña la báscula con la medida de cintura, fotos y cómo te queda la ropa —
-en una recomposición la báscula puede quedarse quieta mientras todo lo demás
-cambia.
+Una definición larga que se ha estancado con mucha hambre y sesiones cada vez
+peores puede necesitar mantenimiento, no más déficit: 1–2 semanas en
+mantenimiento y luego retomas. La báscula subirá un poco por el glucógeno y el
+agua; no es grasa. Detalles en [adaptación metabólica](/docs/metabolic-adaptation).
 
 > **Consejo:** Pesarte a diario te da siete oportunidades por semana de leer la tendencia; pesarte una vez te da una, y puede caer en un día de retención.
 
 ## Relacionado
 
+- [Interpretar tus números](/docs/reading-your-numbers) — agua frente a grasa, y cuándo cuenta una tendencia.
+- [Adaptación metabólica](/docs/metabolic-adaptation) — por qué se encoge el déficit.
 - [Hidratación y pasos](/docs/hydration) — los objetivos de pasos por fase.
 - [Sueño](/docs/sleep) — por qué la cuarta palanca no es opcional.
 - [Cardio, pasos y NEAT](/docs/cardio-and-neat) — las palancas uno y dos en detalle.
 - [Controla tu peso](/docs/weight-tracking) — leer la media semanal antes de tocar nada.
-- [Medir el progreso](/docs/measuring-progress) — cinta, fotos y la rutina en ayunas.
 - [Personaliza tu dieta](/docs/personalizing-your-diet) — cuando por fin la palanca es la comida.`,
+  },
+  {
+    id: 'metabolic-adaptation',
+    category: 'nutrition',
+    title: 'Adaptación metabólica',
+    tags: [
+      'adaptación metabólica',
+      'termogénesis adaptativa',
+      'metabolismo',
+      'neat',
+      'pausa de dieta',
+      'estancamiento',
+      'modo inanición',
+    ],
+    body: `Una definición que bajaba medio kilo por semana el primer mes suele bajar la
+mitad al tercero, comiendo lo mismo. No se ha roto nada. Tu cuerpo es más
+pequeño, empezaste a moverte un poco menos sin darte cuenta y el déficit con el
+que arrancaste se fue encogiendo en silencio. Eso es la **adaptación
+metabólica**, también llamada termogénesis adaptativa: real, medible,
+normalmente modesta y manejable.
+
+## A dónde va tu gasto diario
+
+| Parte del gasto del día     | Proporción         | En una definición larga             |
+| --------------------------- | ------------------ | ----------------------------------- |
+| Metabolismo en reposo (TMB) | ~60–70%            | Baja un poco al hacerte más pequeño |
+| Digerir la comida           | ~10%               | Baja con lo que comes               |
+| Entrenamiento               | ~5–10%             | Se mantiene si sigues entrenando    |
+| NEAT: pasos, gestos, tareas | Casi todo el resto | Es lo que más cae, sin que lo notes |
+
+## Por qué se frena una definición
+
+**1. Un cuerpo más pequeño gasta menos.** Es lo esperable, y es la parte más
+grande. Con la regla de peso × 22 de la [guía de TDEE](/docs/tdee), con
+actividad moderada:
+
+\`\`\`
+10 kg menos × 22 × 1.55 ≈ 340 kcal menos al día
+\`\`\`
+
+Un déficit de 500 kcal fijado al principio ahora ronda las 160.
+
+**2. Te mueves menos sin decidirlo.** Menos pasos, menos gestos, más rato
+sentado, sesiones más planas. El NEAT es la parte más variable del gasto y la
+primera en caer cuando hay poca comida; por eso cuentas los pasos en lugar de
+fiarte de lo activo que te sientes.
+
+**3. El cuerpo se vuelve más ahorrador.** Al bajar la grasa bajan también las
+hormonas que informan de ella, la leptina entre ellas; la tiroides y las ganas
+de moverte se frenan, el músculo hace el mismo trabajo con algo menos de
+energía y el hambre sube. Los estudios con personas que perdieron mucho peso
+encuentran un gasto por debajo de lo que predice su nuevo tamaño. En el
+metabolismo en reposo la diferencia suele ser pequeña — de decenas a un par de
+cientos de kcal al día —, es mayor mientras estás en déficit y se reduce cuando
+vuelves a comer en mantenimiento.
+
+**4. El registro se desvía.** No es adaptación, pero lo parece: las porciones
+crecen, el aceite y las bebidas no se anotan, los fines de semana se alargan.
+En un estudio clásico con personas que decían no poder adelgazar comiendo muy
+poco, la ingesta medida era casi el doble de la que habían anotado.
+
+## Lo que no es
+
+| Creencia                                           | Lo que pasa de verdad                                                  |
+| -------------------------------------------------- | ---------------------------------------------------------------------- |
+| "El modo inanición frena la pérdida de grasa"      | Un déficit real siempre tira de la energía almacenada; la adaptación lo achica, nunca lo invierte |
+| "Si comes muy poco, acumulas grasa"                | La grasa se acumula cuando ingieres más de lo que gastas, no por comer poco |
+| "Hacer dieta te rompe el metabolismo para siempre" | Casi toda la bajada es un cuerpo más pequeño; el extra se desvanece en mantenimiento |
+| "Come más para perder más"                         | Comer más puede darte mejores sesiones y adherencia, no un déficit mayor |
+
+En los experimentos clásicos de semiinanición, voluntarios con más o menos la
+mitad de su comida habitual siguieron perdiendo peso durante seis meses. Lo que
+sí cuesta una dieta dura es músculo, sueño y ánimo — las verdaderas razones
+para no hacerla.
+
+> **Nota:** Una báscula que no se ha movido en una o dos semanas puede seguir escondiendo pérdida de grasa tras el agua: un bloque de entreno duro, el estrés o el ciclo menstrual retienen agua durante días. Juzga tres semanas de medias semanales, no una.
+
+## Qué hacer
+
+- **Cuenta los pasos y fíjate un mínimo.** El movimiento que pierdes sin notarlo
+  es justo el que un contador de pasos detecta. Los objetivos están en
+  [hidratación y pasos](/docs/hydration).
+- **Sigue entrenando pesado y con la proteína alta.** El músculo que conservas
+  es gasto que conservas — mira [macros](/docs/macros).
+- **Baja a un ritmo moderado.** Más o menos un 0.5–1% del peso por semana; los
+  déficits más agresivos traen más adaptación, más hambre y más pérdida de
+  músculo ([elegir tu fase](/docs/choosing-your-phase)).
+- **Revisa el mantenimiento sobre la marcha.** Cada ~5 kg perdidos, o tras 2–3
+  semanas planas, ajusta un 5–10% ([personaliza tu dieta](/docs/personalizing-your-diet)).
+- **Protege el sueño.** Las noches cortas desplazan lo que pierdes de grasa a
+  músculo ([sueño](/docs/sleep)).
+- **Tira de las palancas en orden** antes de volver a recortar comida
+  ([salir de un estancamiento](/docs/breaking-a-plateau)).
+
+## Pausas de dieta y fases de mantenimiento
+
+| Opción                | Cómo                                            | Cuándo                                                  |
+| --------------------- | ----------------------------------------------- | ------------------------------------------------------- |
+| Pausa de dieta        | 1–2 semanas en mantenimiento, más carbohidratos | Cada 6–12 semanas de una definición larga, o cuando el sueño, el hambre y las sesiones empeoran |
+| Fase de mantenimiento | 4+ semanas en tu nuevo mantenimiento            | Tras una definición larga, o entre dos definiciones     |
+| Recarga               | 1–2 días con más carbohidratos                  | Opcional; una sesión mejor y un respiro mental          |
+
+La evidencia es prometedora pero mixta. En un ensayo, alternar dos semanas de
+dieta con dos de mantenimiento hizo perder más grasa por semana de dieta que
+hacerla seguida, a cambio de más tiempo en el calendario. En personas que
+entrenan fuerza, las pausas han igualado a la dieta continua en grasa y músculo
+y han dejado menos hambre. Trata la pausa como una herramienta de adherencia, no
+como un reinicio del metabolismo.
+
+Cuenta con que la báscula suba 0.5–1.5 kg los primeros días de una pausa o al
+terminar una definición: glucógeno, el agua que lo acompaña y más comida en el
+intestino. No es grasa, y se asienta en una semana.
+
+## Terminar una definición
+
+Pasa a tu nuevo mantenimiento en uno o dos pasos, estimado a partir de donde tu
+media semanal se sostuvo de verdad — no de tu cifra de antes de la dieta. Las
+"dietas inversas" lentas tienen poca evidencia de proteger el metabolismo; su
+utilidad real es encontrar el nuevo mantenimiento sin pasarte.
+
+## Lo mismo, pero hacia arriba
+
+En superávit el gasto también sube: un cuerpo más grande cuesta más, y mucha
+gente se mueve más sin notarlo. En un estudio de sobrealimentación, el
+movimiento diario extra fue de casi nada a cerca de 700 kcal al día según la
+persona. El superávit de un volumen se encoge igual: si la media semanal se
+estanca 2–3 semanas y la cintura no cambia, suma ~10%
+([personaliza tu dieta](/docs/personalizing-your-diet)).
+
+> **Nota:** Perder la regla o tenerla irregular, los mareos, tener frío a todas horas o el agotamiento durante una dieta no son un estancamiento que haya que aguantar. Para la definición, come en mantenimiento y consulta a un profesional sanitario.
+
+## Relacionado
+
+- [Salir de un estancamiento](/docs/breaking-a-plateau) — las palancas, en orden.
+- [TMB y TDEE explicados](/docs/tdee) — de dónde sale el mantenimiento.
+- [Interpretar tus números](/docs/reading-your-numbers) — agua frente a grasa en la báscula.
+- [Cardio, pasos y NEAT](/docs/cardio-and-neat) — mantener el movimiento constante.`,
   },
   {
     id: 'tracking-food',
@@ -699,19 +858,22 @@ las horas de ayuno.
 - Concentra más calorías al principio del día; haz la última comida la más
   ligera y termínala 2–3 h antes de dormir.
 - Concentra los carbohidratos alrededor del entrenamiento. Tras una sesión
-  dura, la sensibilidad a la insulina se mantiene elevada **hasta ~6 h** — los
-  carbohidratos de ese margen van primero al músculo.
+  dura el músculo es el primero de la fila, y la sensibilidad a la insulina se
+  mantiene elevada durante horas — hasta uno o dos días —, así que la ventana es
+  amplia, no una carrera contra el reloj
+  ([sensibilidad a la insulina](/docs/insulin-sensitivity)).
 - Si tu comida grande es tarde, entrena por la tarde-noche para que la
   ventana coincida.
 
 ## Volumen sucio
 
 Un superávit construido sobre comida rápida y postres sube peso deprisa, pero
-sube grasa igual de deprisa — y las células grasas compiten con el músculo por
-los nutrientes mientras empeoran la sensibilidad a la insulina, así que un
-volumen sucio puede significar **menos** músculo. Además te arrastra por encima
-de los techos de volumen (18–20% hombres, 28–30% mujeres) y hacia una
-definición larga. Un superávit debería seguir siendo sobre todo comida real.
+sube grasa igual de deprisa. Pasado un superávit moderado, las calorías extra
+añaden grasa, no músculo, y esa grasa extra — junto con los procesados que la
+trajeron — erosiona la [sensibilidad a la insulina](/docs/insulin-sensitivity).
+Un volumen sucio además te arrastra por encima de los techos de volumen (18–20%
+hombres, 28–30% mujeres) y hacia una definición larga. Un superávit debería
+seguir siendo sobre todo comida real.
 
 > **Consejo:** Si en volumen solo te crece la barriga, te has pasado de calorías y de grasa corporal al mismo tiempo.
 
@@ -719,13 +881,123 @@ definición larga. Un superávit debería seguir siendo sobre todo comida real.
 
 - [Intercambios de alimentos](/docs/food-swaps) — variedad sin romper el plan.
 - [¿Definir, volumen o mantener?](/docs/choosing-your-phase) — los techos de grasa corporal.
-- [Suplementos](/docs/supplements) — qué merece la pena añadir y qué no.`,
+- [Suplementos](/docs/supplements) — qué merece la pena añadir y qué no.
+- [Sensibilidad a la insulina](/docs/insulin-sensitivity) — por qué el entreno, el sueño y la cintura importan para los carbohidratos.`,
+  },
+  {
+    id: 'insulin-sensitivity',
+    category: 'nutrition',
+    title: 'Sensibilidad a la insulina',
+    tags: [
+      'insulina',
+      'sensibilidad a la insulina',
+      'resistencia a la insulina',
+      'glucosa',
+      'carbohidratos',
+      'metabolismo',
+    ],
+    body: `La insulina es la hormona que anuncia una comida. Sube el azúcar en sangre, el
+páncreas libera insulina y el músculo, el hígado y la grasa captan la glucosa y
+la almacenan; mientras la insulina está alta, la grasa se moviliza menos. La
+**sensibilidad a la insulina** es la fuerza con la que tus tejidos responden a
+esa señal. Los tejidos sensibles despachan una comida con poca insulina; los
+resistentes necesitan más para el mismo trabajo, y cuando el páncreas ya no da
+abasto, la glucosa sube — el camino hacia la diabetes tipo 2.
+
+El músculo se encarga de la mayor parte de la glucosa que se retira bajo la
+acción de la insulina, y por eso los hábitos que suben la sensibilidad son los
+que quien entrena fuerza ya practica.
+
+> **Nota:** Información general, no consejo médico. Si tienes diabetes, prediabetes u otra condición médica, o tomas medicación que baja la glucosa, planifica los cambios de dieta y entrenamiento con tu médico: ambos pueden bajar la glucosa lo suficiente como para tener que ajustar la dosis.
+
+## Qué la sube
+
+| Palanca               | Qué hace                                                              |
+| --------------------- | --------------------------------------------------------------------- |
+| Entrenar              | El músculo que trabaja capta glucosa sin necesitar insulina, y la sensibilidad sigue alta uno o dos días |
+| Más músculo           | Más espacio para guardar carbohidratos como glucógeno                 |
+| Pasos diarios         | Mantienen la captación de glucosa entre sesiones                      |
+| Perder grasa sobrante | La de la cintura y la del hígado son las que más pesan                |
+| Dormir                | Lo suficiente; una sola noche corta la baja al día siguiente          |
+| Balance energético    | El déficit la sube; un superávit grande y largo la baja               |
+
+Cada palanca se ha probado por separado:
+
+- **Pasos.** Hombres jóvenes y sanos que bajaron a menos de 1.500 pasos diarios
+  durante dos semanas perdieron sensibilidad a la insulina y ganaron grasa
+  alrededor de los órganos.
+- **Pérdida de grasa y actividad.** En personas con alto riesgo de diabetes
+  tipo 2, perder ~7% del peso y caminar ~150 minutos por semana redujo los
+  casos nuevos a menos de la mitad en unos tres años.
+- **Sueño.** Una noche de cuatro horas bastó para que adultos sanos amanecieran
+  con una resistencia a la insulina medible.
+
+El efecto de una sesión se desvanece en uno a tres días, así que la frecuencia
+gana a las hazañas: tres o cuatro sesiones por semana más caminar a diario
+hacen más que un entreno brutal.
+
+## Carbohidratos e insulina: lo que no es
+
+- **"Los carbohidratos engordan porque disparan la insulina."** Una subida tras
+  comer es normal y pasajera. La grasa se gana cuando comes más energía de la
+  que gastas, sea cual sea el reparto de macros; en estudios de alimentación muy
+  controlados con las calorías igualadas, recortar carbohidratos no superó a
+  recortar grasa en pérdida de grasa.
+- **"Los carbohidratos después de entrenar arruinan la sesión."** Al revés: el
+  músculo es el primero de la fila después de entrenar y rellena su glucógeno,
+  y la ventana dura horas, no minutos — mira
+  [calidad de la dieta](/docs/diet-quality).
+- **"La resistencia a la insulina se nota."** El sueño después de comer, los
+  antojos o la barriga no son un diagnóstico. Se mide con análisis de sangre —
+  glucosa en ayunas, HbA1c y a veces insulina en ayunas — y la interpreta un
+  médico.
+- **"Un suplemento lo arregla."** Nada en un bote se acerca a entrenar, caminar,
+  dormir y perder la grasa sobrante.
+
+## Por qué le importa a quien entrena
+
+- **Sesiones mejor alimentadas.** Un músculo sensible rellena el glucógeno
+  rápido, así que la siguiente sesión empieza con el depósito lleno.
+- **La cintura avisa primero.** La grasa de la cintura sigue a la resistencia a
+  la insulina más de cerca que el peso. Una cintura que crece más deprisa que
+  tus marcas durante un volumen es el superávit yéndose a grasa — un motivo más
+  para los volúmenes lentos y los techos de grasa de
+  [elegir tu fase](/docs/choosing-your-phase).
+- **Los carbohidratos siguen en el menú.** Un cuerpo magro, activo y bien
+  descansado maneja bien una dieta rica en carbohidratos, y los carbohidratos
+  son los que alimentan el entreno duro.
+
+## Una lista corta
+
+| Hábito             | Objetivo                                                            |
+| ------------------ | ------------------------------------------------------------------- |
+| Pesas              | 2+ días por semana; la mayoría de programas usa 3–5                 |
+| Actividad moderada | 150–300 min por semana, como recomiendan las guías de salud pública |
+| Pasos              | 7.000–10.000 al día; levántate cada 30–60 min sentado               |
+| Sueño              | 7–9 h, horarios regulares                                           |
+| Cintura            | Menos de la mitad de tu altura — compruébalo con la [calculadora cintura-altura](/es/herramientas/calculadora-cintura-altura) |
+| Comida             | Sobre todo alimentos poco procesados, 25 g+ de fibra al día         |
+
+## Relacionado
+
+- [Calidad de la dieta](/docs/diet-quality) — fibra, procesamiento y horario de las comidas.
+- [Sueño, descargas y recuperación](/docs/sleep) — la palanca que casi todos se saltan.
+- [Cardio, pasos y NEAT](/docs/cardio-and-neat) — el movimiento fuera del gimnasio.
+- [Adaptación metabólica](/docs/metabolic-adaptation) — qué más cambia en una definición.`,
   },
   {
     id: 'fat-loss-myths',
     category: 'nutrition',
     title: 'Mitos de la pérdida de grasa',
-    tags: ['mitos', 'cardio en ayunas', 'somatotipos', 'obesidad', 'carbohidratos', 'homeostasis'],
+    tags: [
+      'mitos',
+      'cardio en ayunas',
+      'somatotipos',
+      'modo inanición',
+      'obesidad',
+      'carbohidratos',
+      'homeostasis',
+    ],
     body: `La mayoría de consejos sobre pérdida de grasa que suenan precisos son una
 observación de ventana corta estirada hasta convertirla en regla. El cuerpo se
 equilibra en días, no en minutos, así que la pregunta para cualquier
@@ -735,33 +1007,41 @@ déficit total?
 ## El cardio en ayunas no quema más grasa
 
 Cuarenta minutos de cardio queman más o menos la misma energía — digamos ~400
-kcal — hayas comido antes o no. En ayunas, con el glucógeno bajo, la sesión
-tira más de grasa. Después el cuerpo compensa durante el resto del día,
-quemando más glucógeno y menos grasa, porque mantiene su mezcla de combustible
-en equilibrio (homeostasis).
+kcal — hayas comido antes o no. En ayunas, con menos carbohidrato disponible, la
+sesión sí saca de la grasa una parte mayor de esa energía. Ahí nace el mito, y
+ahí deja de ser cierto:
 
-| Momento          | Durante la sesión         | Resto del día             | Total 24 h    |
-| ---------------- | ------------------------- | ------------------------- | ------------- |
-| En ayunas        | Más grasa, menos glucógeno | Más glucógeno, menos grasa | ~400 kcal    |
-| Tras comer       | Más glucógeno, menos grasa | Más grasa, menos glucógeno | ~400 kcal    |
+| Qué se midió                                 | Qué encontraron los estudios               |
+| -------------------------------------------- | ------------------------------------------ |
+| Grasa quemada durante la sesión              | Más en ayunas                              |
+| Grasa quemada en 24 horas, en laboratorio    | De ninguna diferencia a algo más en ayunas |
+| Grasa corporal tras semanas, mismas calorías | Ninguna diferencia                         |
 
-Los estudios que midieron solo durante y poco después de la sesión vieron la
-primera columna y se detuvieron ahí. Los que siguieron a las personas 24 horas
-vieron la compensación. El único número que mueve la pérdida de grasa es el
-déficit diario — quema 2.000 y come 2.000 y te mantienes; come 1.700–1.800 y
-bajas. El cardio ayuda porque sube el gasto, y ayuda exactamente igual con o
-sin comida. Entrena en ayunas si lo disfrutas; no hay nada que ganar ni que
-perder.
+Quemar grasa como combustible un día concreto no es lo mismo que perder grasa
+almacenada a lo largo de semanas: el cuerpo guarda y libera grasa todo el día,
+y lo que decide el balance es el déficit diario — quema 2.000 y come 2.000 y te
+mantienes; come 1.700–1.800 y bajas. El cardio ayuda porque sube el gasto, y
+ayuda exactamente igual con o sin comida. Entrena en ayunas si lo disfrutas;
+comido, si eso te da una sesión mejor.
 
 ## Los somatotipos no son un plan
 
-Ectomorfo, mesomorfo y endomorfo describen una instantánea de peso, % de grasa
-y % de músculo. Esos tres números cambian cuando entrenas y comes bien, y la
-etiqueta cambia con ellos: a un principiante con sobrepeso lo llaman endomorfo
-y, musculado años después, mesomorfo — la misma persona. La genética es fija
-pero se puede modular, y la "tendencia a engordar" desaparece casi del todo
-cuando baja la grasa y sube el músculo. Planificar en torno a un somatotipo es
-planificar en torno a una foto tuya del año pasado.
+Ectomorfo, mesomorfo y endomorfo describen una instantánea de grasa y músculo
+sobre una estructura, y ambos cambian cuando entrenas y comes bien: al
+principiante con sobrepeso al que llaman endomorfo lo ven mesomorfo unos años
+después. Ninguna dieta "para tu tipo" ha resistido los ensayos. La historia
+completa está en [tipos de cuerpo](/docs/somatotypes).
+
+## El "modo inanición" no frena la pérdida de grasa
+
+Comer muy poco no hace que el cuerpo se aferre a la grasa. Un déficit real
+siempre tira de la energía almacenada. La adaptación hace más pequeño un
+déficit largo o agresivo — un cuerpo más pequeño, menos movimiento, un
+metabolismo más ahorrador — y uno agresivo cuesta más músculo, sueño y ánimo,
+pero nunca convierte un déficit en ganancia de grasa. Cuando la báscula se
+estanca comiendo muy poco, lo habitual es que el agua esconda la pérdida o que
+el registro de comida se haya desviado. Mira
+[adaptación metabólica](/docs/metabolic-adaptation).
 
 ## Ningún nutriente por sí solo causa obesidad
 
@@ -773,7 +1053,7 @@ factores aparecen siempre juntos.
 | ----------------------- | ----------------------------------------------------------- |
 | Sedentarismo            | Menos pasos, menos gasto; la sociedad está diseñada para ello |
 | Ultraprocesados         | Densos en calorías, poco saciantes — comes más y sigues con hambre |
-| Estrés                  | Menos grasa perdida, peor sueño, más músculo perdido        |
+| Estrés                  | Peor sueño, más apetito, un plan que se resbala             |
 | Dormir mal              | Más resistencia a la insulina y más hambre al día siguiente |
 | Poca agua               | Menos energía para el día y para la sesión                  |
 | Exceso calórico         | El que cierra el círculo — con el sedentarismo, la combinación que dispara el peso |
@@ -789,6 +1069,7 @@ carbohidratos dejan de ser un problema.
 - [Hidratación y pasos](/docs/hydration) — dos de los seis factores, en concreto.
 - [Sueño](/docs/sleep) — el lado de la recuperación de la misma lista.
 - [Salir de un estancamiento](/docs/breaking-a-plateau) — las palancas que sí mueven el déficit.
+- [Adaptación metabólica](/docs/metabolic-adaptation) — lo que una dieta larga hace de verdad con tu gasto.
 - [Calidad de la dieta](/docs/diet-quality) — qué hacer con los ultraprocesados.`,
   },
 ];

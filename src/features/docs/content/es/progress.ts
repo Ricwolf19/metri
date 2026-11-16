@@ -136,10 +136,11 @@ Unos **400 g/semana (cerca de 1,6 kg/mes)** le sirven a la mayoría.
 ## Por qué no más rápido
 
 Perder 1 kg/semana en lugar de 0,5 kg/semana trae más hambre con el tiempo,
-un metabolismo más lento, peor sueño y peores sesiones. En hombres, cuatro
-semanas a 1 kg/semana se han asociado con **cerca de un 30% menos de
-testosterona**. Más rápido tampoco significa más grasa perdida: el extra es
-sobre todo glucógeno, agua y algo de músculo.
+una bajada mayor del gasto ([adaptación metabólica](/docs/metabolic-adaptation)),
+peor sueño y peores sesiones. Los déficits agresivos también se asocian con una
+caída de la testosterona en hombres y con alteraciones del ciclo en mujeres.
+Más rápido tampoco significa más grasa perdida: el extra es sobre todo
+glucógeno, agua y algo de músculo.
 
 ## Cómo ajustar la ingesta
 
@@ -177,26 +178,88 @@ tu peso) y el resto en carbohidratos — unos 300 g, cerca de 1.200 kcal.
     id: 'reading-your-numbers',
     category: 'progress',
     title: 'Interpretar tus números',
-    tags: ['progreso', 'peso', 'medidas', 'recomposición', 'pérdida muscular', 'interpretación'],
+    tags: [
+      'progreso',
+      'peso',
+      'medidas',
+      'recomposición',
+      'pérdida muscular',
+      'interpretación',
+      'retención de líquidos',
+      'media semanal',
+    ],
     body: `Peso, cinta y espejo rara vez coinciden en la misma semana, y está bien: cada
-uno responde una pregunta distinta. Léelos juntos y sabrás si seguir igual o
-ajustar.
+uno responde una pregunta distinta. Léelos juntos, durante el tiempo adecuado,
+y sabrás si seguir igual o ajustar.
+
+## Lee la media semanal, no el día
+
+Una sola mañana te habla de la sal, el sueño y la cena de ayer. Pésate al
+despertar, en ayunas, después del baño, y promedia la semana:
+
+\`\`\`
+media_semanal = suma de los pesajes de la semana ÷ número de pesajes
+\`\`\`
+
+Tres pesajes por semana es el mínimo para una media que valga la pena leer;
+siete, mejor. Compara la media de esta semana con la de la anterior, nunca un
+lunes con el siguiente. metri funciona igual: una semana con menos de tres
+pesajes se muestra, pero no se juzga.
+
+## El agua se mueve más rápido que la grasa
+
+Un kilo de tejido graso guarda unas **7.000–7.700 kcal** — la grasa en sí aporta
+9 kcal por gramo, y el tejido además lleva algo de agua y proteína. Eso pone un
+techo claro a la grasa que puede sumar un solo día:
+
+\`\`\`
+1 kg de grasa corporal ≈ 7.000–7.700 kcal
+1.000 kcal sobre el mantenimiento ≈ 0.13 kg de grasa como mucho
+\`\`\`
+
+Así que un salto de 1–2 kg de la noche a la mañana no es grasa. Es agua,
+glucógeno y comida que sigue en el intestino, y se va por donde vino.
+
+| Causa                            | Qué está pasando                                                   |
+| -------------------------------- | ------------------------------------------------------------------ |
+| Comida grande, salada o tardía   | El sodio retiene agua y la comida todavía pesa; se va en 2–3 días  |
+| Más carbohidratos de lo habitual | El glucógeno se rellena, y cada gramo guarda ~3 g de agua consigo  |
+| Recortar mucho los carbohidratos | Ese mismo glucógeno y agua saliendo: 1–2 kg rápidos que no son grasa |
+| Ciclo menstrual                  | Los líquidos suben en los días alrededor de la regla               |
+| Programa nuevo o bloque duro     | Los músculos doloridos retienen agua mientras se reparan           |
+| Empezar con creatina             | El músculo atrae agua las primeras semanas; ~1 kg es habitual      |
+| Viajes, mal sueño, estrés        | Retención de líquidos y digestión irregular                        |
+
+## Cuánto esperar antes de que cuente una tendencia
+
+| Señal                   | Juzga tras  | Ruido que ignorar            |
+| ----------------------- | ----------- | ---------------------------- |
+| Media semanal de peso   | 2–3 semanas | ±0.5 kg de una semana a otra |
+| Cinta (cintura, cadera) | 3–4 semanas | ±0.5–1 cm entre mediciones   |
+| Fotos                   | 4–8 semanas | Luz, bombeo, postura         |
+| Marcas                  | 3–4 semanas | Una mala sesión              |
+
+Si menstrúas, compara la misma semana de cada ciclo, o juzga a lo largo de un
+ciclo completo. Un cambio que aparece en una sola señal durante una sola semana
+todavía no es una tendencia.
 
 ## Las cuatro situaciones
 
-| Báscula     | Cinta  | Qué está pasando                       |
-| ----------- | ------ | -------------------------------------- |
-| Sube        | Baja   | Recomposición — más músculo, menos grasa |
-| Baja        | Igual  | Probablemente pierdes músculo          |
-| Igual       | Sube   | Comes de más; ganas grasa              |
-| Baja rápido | Igual  | Agua y glucógeno, o pérdida muscular   |
+| Báscula     | Cinta  | Qué está pasando                          |
+| ----------- | ------ | ----------------------------------------- |
+| Sube        | Baja   | Recomposición — más músculo, menos grasa  |
+| Baja        | Igual  | Agua al principio; músculo si se mantiene |
+| Igual       | Sube   | Comes de más; ganas grasa                 |
+| Baja rápido | Igual  | Agua y glucógeno, o pérdida muscular      |
 
 ## 1. Peso sube, medidas bajan
 
 Frecuente en el primer o segundo mes de alguien nuevo en las pesas, o que
 acaba de empezar a entrenar bien. Cintura y cadera se reducen mientras la
-báscula sube: se fueron unos kilos de grasa y entró más que eso en músculo y
-glucógeno.
+báscula sube: la grasa se va mientras el músculo recién entrenado se llena de
+glucógeno y agua y empieza a crecer. Casi toda esa subida inicial es
+combustible y agua más que kilos de músculo nuevo, pero la dirección es
+exactamente la correcta.
 
 **Qué hacer:** nada. Mantén el plan. Espera que se apague después del segundo
 mes, cuando el peso total debería empezar a bajar en una definición.
@@ -204,7 +267,8 @@ mes, cuando el peso total debería empezar a bajar en una definición.
 ## 2. Peso baja, medidas iguales
 
 La báscula baja, pero cintura, brazos y piernas no se mueven y el espejo se ve
-igual. La pérdida viene del músculo, no de la grasa.
+igual. Durante una o dos semanas suele ser agua, y la cinta acaba alcanzándola.
+Si dura un mes mientras tus marcas caen, la pérdida viene del músculo.
 
 **Qué hacer:** revisa lo básico — proteína en su [objetivo](/docs/macros),
 sueño, esfuerzo en el gimnasio. Frena el déficit (ver
@@ -213,9 +277,9 @@ sueño, esfuerzo en el gimnasio. Frena el déficit (ver
 ## 3. Peso igual, medidas suben
 
 Típico de quien quiere ganar peso y se pasa: la cintura crece mientras el peso
-no. El excedente se va a grasa, y comer de más de forma crónica empeora la
-sensibilidad a la insulina — el músculo deja de absorber bien los nutrientes,
-lo que además limita la ganancia muscular.
+apenas se mueve. El excedente se va a grasa, y una cintura que crece va de la
+mano de una peor [sensibilidad a la insulina](/docs/insulin-sensitivity).
+Pasado un superávit moderado, la comida extra añade grasa, no músculo.
 
 **Qué hacer:** vuelve a calorías de mantenimiento, revisa la
 [calidad de la dieta](/docs/diet-quality), mantén los pasos. Repasa el techo
@@ -229,9 +293,10 @@ Dos causas muy distintas:
   cetogénico vacía el glucógeno muscular y el agua que lo acompaña: 1–2 kg
   desaparecen en una semana sin nada que mostrar en el espejo. Esperado, no es
   problema.
-- **Dieta normal, bajadas durante semanas o meses, mismo aspecto.** Se está
-  yendo músculo. Suele terminar en rebote, porque el tejido que sostenía tu
-  gasto también se fue.
+- **Dieta normal, bajadas durante semanas o meses, mismo aspecto.** Puede que
+  se esté yendo músculo, sobre todo si tus marcas también caen. El músculo que
+  se pierde en una dieta cuesta mucho de recuperar, y con él se va el gasto que
+  sostenía.
 
 **Qué hacer:** en el primer caso, espera. En el segundo, trátalo como la
 situación 2.
@@ -242,13 +307,134 @@ situación 2.
 cinta bajó." Eso es músculo ganado y grasa perdida. De las tres señales, la
 báscula es la menos informativa; confía en la cinta y en las fotos.
 
+## La medida de cinta que más importa
+
+La grasa no se va ni llega por igual. En la mayoría de los hombres la cintura
+es lo primero y lo que más se mueve; en muchas mujeres lo muestran mejor la
+cadera y los muslos. Lee tu media semanal junto a esa medida — es la que metri
+empareja con la tendencia del peso — y deja las demás como contexto. La cintura
+importa además para la salud por sí sola: el objetivo habitual es que no pase
+de la mitad de tu altura, y la
+[calculadora cintura-altura](/es/herramientas/calculadora-cintura-altura) hace
+la cuenta.
+
+El espejo es el juez menos fiable del día a día, porque te ves todos los días.
+Las fotos tomadas con cuatro semanas o más de diferencia, con la misma luz y
+pose, no lo son: ponlas una al lado de otra. La ropa que te queda distinta en la
+cintura es la misma prueba, gratis. Cómo tomar cada medida está en
+[medir tu progreso](/docs/measuring-progress).
+
 > **Consejo:** Una sola semana nunca decide. Compara medias de 4 semanas de peso y cinta antes de cambiar nada.
 
 ## Relacionados
 
 - [Medir tu progreso](/docs/measuring-progress)
 - [Seguimiento del peso](/docs/weight-tracking)
-- [Romper un estancamiento](/docs/breaking-a-plateau)
+- [Salir de un estancamiento](/docs/breaking-a-plateau)
+- [Adaptación metabólica](/docs/metabolic-adaptation)
 - [Guía de grasa corporal](/docs/body-fat-guide)`,
+  },
+  {
+    id: 'somatotypes',
+    category: 'progress',
+    title: 'Tipos de cuerpo (somatotipos)',
+    tags: [
+      'somatotipos',
+      'tipo de cuerpo',
+      'ectomorfo',
+      'mesomorfo',
+      'endomorfo',
+      'genética',
+      'hardgainer',
+    ],
+    body: `Ectomorfo, mesomorfo, endomorfo: tres etiquetas que prometen decirte cómo
+entrenar y qué comer. No pueden. Un tipo de cuerpo describe cómo te ves hoy —
+cuánta grasa y cuánto músculo hay sobre tu estructura — y las dos cosas cambian
+con el entreno y la comida. Planifica con los números que hay debajo de la
+etiqueta, no con la etiqueta.
+
+## De dónde salen las etiquetas
+
+El esquema se inventó en los años 40 para relacionar el físico con la
+personalidad, una idea que la ciencia abandonó hace mucho. Las ciencias del
+deporte conservaron una versión medida que puntúa tres componentes a partir de
+pliegues cutáneos, perímetros, diámetros óseos, altura y peso:
+
+| Componente | Qué puntúa                                | Cambia con            |
+| ---------- | ----------------------------------------- | --------------------- |
+| Endomorfia | Adiposidad relativa                       | Dieta y actividad     |
+| Mesomorfia | Músculo y hueso en relación con la altura | Entreno y proteína    |
+| Ectomorfia | Linealidad: altura frente a masa          | Peso ganado o perdido |
+
+La grasa y el músculo mueven dos de las tres puntuaciones, así que el resultado
+cambia cuando cambian ellos. Describe un físico en un momento dado — útil para
+comparar deportistas —, no lo que ese cuerpo puede llegar a ser.
+
+## La misma persona, tres etiquetas
+
+A un principiante con sobrepeso lo llaman endomorfo. Unos años de pesas y una
+definición después, la misma persona parece mesomorfa. Los genes no cambiaron;
+cambiaron la grasa y el músculo. Planificar en torno a un somatotipo es
+planificar en torno a una foto tuya del año pasado.
+
+## Lo que sí decide la genética
+
+Los genes importan, solo que no en tres cajas.
+
+| Sobre todo heredado                                   | En tu mano                       |
+| ----------------------------------------------------- | -------------------------------- |
+| Altura, estructura ósea, largo de las extremidades    | Porcentaje de grasa              |
+| Dónde tiendes a acumular grasa primero                | Cuánto músculo tienes            |
+| La forma del músculo y dónde se insertan los tendones | Fuerza                           |
+| Lo rápido que respondes al entreno                    | Pasos, sueño, hábitos de apetito |
+
+La respuesta varía más de lo que sugiere cualquier etiqueta. Cuando varios
+cientos de personas sin experiencia siguieron el mismo programa de brazo de 12
+semanas, la ganancia de tamaño muscular fue de casi nada a más del 50%. Quien
+responde lento sigue respondiendo; suele necesitar más tiempo, y a veces más
+volumen.
+
+## Las dietas "para tu tipo" no se sostienen
+
+En un ensayo de un año con más de 600 adultos, ni un patrón genético que
+supuestamente predecía la dieta adecuada ni la cantidad de insulina que
+segregaba cada persona dijeron quién perdería más con una dieta baja en grasa o
+baja en carbohidratos. La dispersión de resultados dentro de cada dieta fue
+mucho mayor que la diferencia entre ambas. Tu tolerancia a los carbohidratos o
+a la grasa es real, pero la lees en tus sesiones, tu hambre y tu media semanal,
+no en un tipo de cuerpo.
+
+## Hardgainers y quienes ganan fácil
+
+- **"Soy ectomorfo, no puedo ganar."** Normalmente es poco apetito, mucho
+  movimiento diario y una ingesta menor de lo que parece. Registra dos semanas,
+  suma ~10% ([personaliza tu dieta](/docs/personalizing-your-diet)) y apóyate en
+  comida densa en calorías — la grasa a 1.2–1.5 g/kg lo pone más fácil
+  ([macros](/docs/macros)).
+- **"Soy endomorfo, engordo con solo mirar la comida."** Normalmente es más
+  grasa por perder, todavía poco músculo y un día casi todo sentado. Empieza con
+  un déficit y pesas ([elegir tu fase](/docs/choosing-your-phase)); la
+  "tendencia" se desvanece al bajar la grasa y subir el músculo.
+- **"Soy mesomorfo."** Normalmente son años de entreno, o un buen punto de
+  partida. El progreso igual se frena con la experiencia
+  ([sobrecarga progresiva](/docs/progressive-overload)).
+
+## Con qué planificar en su lugar
+
+| En vez de la etiqueta          | Usa                                                    |
+| ------------------------------ | ------------------------------------------------------ |
+| Qué tipo eres                  | % de grasa → qué fase necesitas                        |
+| Metabolismo "rápido" o "lento" | Tu media semanal → si la ingesta es la adecuada        |
+| "Estar hecho para esto" o no   | Experiencia entrenando → qué ritmo de progreso esperar |
+| Una dieta para tu tipo         | Los alimentos y horarios que puedes mantener           |
+
+> **Consejo:** Si una etiqueta te motiva, quédatela por diversión. Pero no dejes que elija tus calorías ni tu programa.
+
+## Relacionado
+
+- [Mitos de la pérdida de grasa](/docs/fat-loss-myths) — otras reglas que no aguantan una mirada de cerca.
+- [¿Definir, volumen o mantener?](/docs/choosing-your-phase) — la fase que marca tu % de grasa.
+- [Guía de la calculadora de grasa corporal](/docs/body-fat-guide) — estimar el número que importa.
+- [Interpretar tus números](/docs/reading-your-numbers) — lo que dicen juntos peso, cinta y espejo.`,
   },
 ];

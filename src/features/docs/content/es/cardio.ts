@@ -22,7 +22,10 @@ necesitas para tu objetivo, y qué tipo te cuesta menos recuperación.
 El **NEAT** (termogénesis por actividad no asociada al ejercicio) es todo lo que
 quemas fuera del entreno — sobre todo caminar. Es la herramienta más barata que
 tienes: sube el gasto diario, favorece la sensibilidad a la insulina y casi no
-acumula fatiga, así que nunca compite con tus pesas.
+acumula fatiga, así que nunca compite con tus pesas. También es la parte del
+gasto que cae primero, y sin que lo notes, en una definición larga — por eso
+cuentas los pasos en lugar de fiarte de lo activo que te sientes
+([adaptación metabólica](/docs/metabolic-adaptation)).
 
 | Objetivo               | Pasos diarios  |
 | ---------------------- | -------------- |
@@ -63,11 +66,12 @@ meses:
 
 ## El mito del cardio en ayunas
 
-El cardio en ayunas no quema más grasa corporal al final del día. En ayunas
-quemas una mayor proporción de grasa *durante* la sesión; después el cuerpo
-reequilibra y tira de más glucógeno y menos grasa el resto del día. Comido,
-ocurre lo contrario. Los estudios que midieron solo unas horas vieron la primera
-mitad; los de 24 horas vieron la compensación.
+El cardio en ayunas no te hace perder más grasa corporal. En ayunas quemas una
+mayor proporción de grasa *durante* la sesión, y algunos estudios de
+laboratorio de 24 horas encuentran algo más de grasa quemada a lo largo del día
+— pero los ensayos que midieron la grasa corporal tras semanas, con las
+calorías igualadas, no encuentran diferencias. La grasa usada como combustible
+un día no es grasa perdida en un mes; eso lo decide el déficit diario.
 
 - 40 min a ritmo moderado ≈ **400 kcal**, en ayunas o comido.
 - Lo que mueve la pérdida de grasa es el **déficit energético diario**.

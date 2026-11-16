@@ -15,7 +15,9 @@ and which kind costs you the least recovery.
 **NEAT** (non-exercise activity thermogenesis) is everything you burn outside
 training — mostly walking. It is the cheapest tool you have: it raises daily
 expenditure, supports insulin sensitivity, and accumulates almost no fatigue, so
-it never competes with your lifting.
+it never competes with your lifting. It is also the part of your burn that
+falls first, and unnoticed, in a long cut — the reason to count steps rather
+than trust how active you feel ([metabolic adaptation](/docs/metabolic-adaptation)).
 
 | Goal                 | Daily steps  |
 | -------------------- | ------------ |
@@ -52,11 +54,11 @@ cardio and steps the way you progress loads — small, gradual, over months:
 
 ## The fasted cardio myth
 
-Fasted cardio does not burn more body fat by the end of the day. Fasted, you burn
-a higher share of fat *during* the session; afterwards the body rebalances and
-runs on more glycogen and less fat for the rest of the day. Fed, the reverse
-happens. Studies that measured only a few hours saw the first half; 24-hour
-studies saw the compensation.
+Fasted cardio does not lose you more body fat. Fasted, you burn a higher share
+of fat *during* the session, and some 24-hour lab studies find a little more fat
+burned across the day — but trials that measured body fat after weeks, with
+calories matched, find no difference. Fat used as fuel on one day is not fat
+lost over a month; the daily deficit decides that.
 
 - 40 min at a moderate pace ≈ **400 kcal**, fasted or fed.
 - What moves fat loss is the **daily energy deficit**.
