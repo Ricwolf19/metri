@@ -68,7 +68,8 @@ export const OptionSheet = <T extends string>({
                   : undefined
               }
               onPress={() => {
-                onChange(item.value);
+                // The checked option only closes: re-picking it is no change.
+                if (!active) onChange(item.value);
                 onClose();
               }}
               accessibilityRole="button"

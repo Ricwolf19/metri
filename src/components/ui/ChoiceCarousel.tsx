@@ -43,7 +43,9 @@ export const ChoiceCarousel = <T extends string>({ items, value, onChange }: Pro
         return (
           <Pressable
             key={v}
-            onPress={() => onChange(v)}
+            onPress={() => {
+              if (!active) onChange(v);
+            }}
             onLayout={(e) => {
               const x = e.nativeEvent.layout.x;
               setLefts((prev) => (prev[v] === x ? prev : { ...prev, [v]: x }));

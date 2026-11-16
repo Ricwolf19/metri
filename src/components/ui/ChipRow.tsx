@@ -27,7 +27,10 @@ export const ChipRow = <T extends string>({ items, value, onChange }: Props<T>) 
       return (
         <Pressable
           key={item.value}
-          onPress={() => onChange(item.value)}
+          // The chip already chosen is no change: a re-tap must not re-run what a pick does.
+          onPress={() => {
+            if (!active) onChange(item.value);
+          }}
           accessibilityRole="button"
           accessibilityState={{ selected: active }}
           // A 36 dp pill; the slop brings the target to 44.
