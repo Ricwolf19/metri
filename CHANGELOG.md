@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.20.0](https://github.com/Ricwolf19/metri/compare/metri-v1.19.0...metri-v1.20.0) (2026-11-16)
+
+
+### Features
+
+* **body:** offer updated targets on a new TDEE ([95e879d](https://github.com/Ricwolf19/metri/commit/95e879d803009e132702e23dec5f2ce2b7f3d238))
+* **body:** plan a cut from its goal weight ([6e99281](https://github.com/Ricwolf19/metri/commit/6e9928177c792a4fc412a7c48fcd672dac21a8e8))
+* **calculators:** prefill from logs and saved runs ([24476ec](https://github.com/Ricwolf19/metri/commit/24476ecc69255b50554c625cb4c6ec3b03e93dc9))
+* **docs:** add adaptation, insulin and somatotype guides ([8879fe3](https://github.com/Ricwolf19/metri/commit/8879fe30094101c07633a65e4b2367488173b416))
+* **docs:** align doc ids and sleep guide with web ([f06d02f](https://github.com/Ricwolf19/metri/commit/f06d02f5676ca5553892e2b62a491d1d2cf723ea))
+* **metrics:** lead with the body and photo sections ([6bc8360](https://github.com/Ricwolf19/metri/commit/6bc8360fc5b8ef64091a8a4907590f4c82302046))
+* **training:** open exercise guides from the quick view ([6d90d93](https://github.com/Ricwolf19/metri/commit/6d90d935178e2f66a4984b30f7662888955269c3))
+* **training:** plan training days, not split hours ([558e065](https://github.com/Ricwolf19/metri/commit/558e065292f8fd5fd6cd8da578a4256b0e7ea439))
+
+
+### Bug Fixes
+
+* **training:** skip writing an unchanged setting ([61de7f1](https://github.com/Ricwolf19/metri/commit/61de7f18bed4f5d11e236eb9e60d67bd55cbddc8))
+* **ui:** ignore a re-tap on the chosen option ([28741f1](https://github.com/Ricwolf19/metri/commit/28741f12bd27cb3a0c601089ff5876b745299494))
+* **ui:** stop a double tap from creating twice ([c72e145](https://github.com/Ricwolf19/metri/commit/c72e1453f3199e1e8990b9503f956e27ef8e3405))
+
 ## [1.19.0](https://github.com/Ricwolf19/metri/compare/metri-v1.18.0...metri-v1.19.0) (2026-11-13)
 
 
