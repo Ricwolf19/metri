@@ -7,6 +7,11 @@ describe('metrics layout', () => {
     expect(visibleIds(null)).toEqual(SECTION_IDS);
   });
 
+  // The sections that take input lead: a weigh-in should never sit below the fold.
+  it('ships the input sections first', () => {
+    expect(SECTION_IDS.slice(0, 2)).toEqual(['body', 'photos']);
+  });
+
   it('follows the order the user dragged', () => {
     const order = [...SECTION_IDS].reverse();
     expect(orderedIds({ order, hidden: [] })).toEqual(order);

@@ -528,7 +528,9 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   by the seed on templates only, edited in the routine editor, clamped by `clampRmTestWeek`).
   `isRmTestWeek` drives the Train-tab chip (`info`) and the workout subtitle; the guide is
   `/docs/when-to-test-rm`.
-- **The Metrics tab owns no content.** It renders the registry in `features/metrics/sections.ts`,
+- **The Metrics tab owns no content.** It ships with the sections you write to first (body, then
+  photos — a weigh-in never sits below the fold) and renders the registry in
+  `features/metrics/sections.ts`,
   ordered by the user's saved layout (`useMetricsLayout`, MMKV, edited on `/metrics-customize`).
   Adding a section = one entry there; ids are persisted, so never rename or reuse one, and a
   section shipped after a layout was saved joins the end rather than disappearing. Energy

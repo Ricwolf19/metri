@@ -8,17 +8,18 @@ export type MetricsSectionId =
   'consistency' | 'summary' | 'body' | 'analytics' | 'photos' | 'exercises' | 'exerciseTrends';
 
 /**
- * The order metri ships: are you showing up, how are the headline numbers,
- * what your body is doing, where the work is landing, what each movement did,
- * then the photo timeline — something you visit rather than read.
+ * The order metri ships: the sections you WRITE to first — the body (weigh-in,
+ * check-in) and the photo timeline — then the ones you read: are you showing
+ * up, the headline numbers, where the work is landing, what each movement did.
+ * A saved layout keeps its own order (see `orderedIds`).
  */
 export const SECTION_IDS: MetricsSectionId[] = [
+  'body',
+  'photos',
   'consistency',
   'summary',
-  'body',
   'analytics',
   'exercises',
-  'photos',
   // Shipped after the others: a saved layout appends it (see `orderedIds`).
   'exerciseTrends',
 ];
