@@ -373,7 +373,9 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   week (`nextPendingSplit`), whatever the weekday says; a split whose day passed is "carried
   over" to the next session, and every other split of the week opens read-only
   (`SplitPreviewSheet`; it and the program screen's quick view, `ProgramQuickView` — step
-  through phases, pick a split and a week — draw the same `splitPreview` read through
+  through phases, pick a split and a week; an exercise's book opens its guide, closing the sheet
+  first since a Modal stays drawn over a push, and the quick view reopens where it was on the
+  way back — draw the same `splitPreview` read through
   `SplitExercises`, so what is read is what a session opens). The plan is finished, never left with a hole, and only a completed
   session moves the cursor. `status: 'skipped'` on `workout_logs` is legacy wire format: older
   builds wrote it to resolve a week, `completedDaysQuery`/`isWeekComplete` still count those

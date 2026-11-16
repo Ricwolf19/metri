@@ -1,6 +1,12 @@
 import { useLiveQuery } from '@/db/useLiveQuery';
-import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import {
+  Redirect,
+  useFocusEffect,
+  useLocalSearchParams,
+  useNavigation,
+  useRouter,
+} from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { ChevronRightIcon } from '@/components/icons';
@@ -31,6 +37,7 @@ import {
 } from '@/features/training/labels';
 import { getProgram, getProgramTree } from '@/features/training/programs.repo';
 import { useI18n, useT } from '@/i18n';
+import { afterTransition } from '@/lib/useTransitionSettled';
 import { useTheme } from '@/theme/theme-context';
 
 /** Program detail: phases/splits (schedule shown when active), a quick view of any phase or split, Start / Continue / Switch, Edit + hold-to-delete for the owner. */
@@ -52,6 +59,18 @@ const ProgramDetail = () => {
   const [program, setProgram] = useState(() => (programId ? getProgram(programId) : null));
   const [tree, setTree] = useState(() => getProgramTree(programId, null));
   const [quick, setQuick] = useState<QuickViewTarget | null>(null);
+  // Opening an exercise's guide closes the quick view (a sheet is a Modal, drawn
+  // over anything pushed); coming back reopens it where the lifter was.
+  const navigation = useNavigation();
+  const resumeAt = useRef<QuickViewTarget | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      const at = resumeAt.current;
+      if (!at) return;
+      resumeAt.current = null;
+      return afterTransition(navigation, () => setQuick(at));
+    }, [navigation]),
+  );
   // Reload on focus: the editors behind Edit write straight to SQLite.
   useFocusEffect(
     useCallback(() => {
@@ -200,6 +219,10 @@ const ProgramDetail = () => {
             : null
         }
         onClose={() => setQuick(null)}
+        onOpenExercise={(at) => {
+          resumeAt.current = at;
+          setQuick(null);
+        }}
         onEditDay={
           enrolledHere
             ? (dayId) => {

@@ -13,8 +13,9 @@ import { splitPreview } from '../session.repo';
 
 import { SplitExercises } from './SplitExercises';
 
-/** Where the quick view opens: a phase, and one of its splits (null = its first). */
-export type QuickViewTarget = { routineId: string; dayId: string | null };
+/** Where the quick view opens: a phase, one of its splits (null = its first) and,
+ * when coming back to it, the week it was on. */
+export type QuickViewTarget = { routineId: string; dayId: string | null; week?: number };
 
 type Nav = { routineId: string; dayId: string | null; week: number };
 
@@ -31,19 +32,20 @@ type Props = {
   onClose: () => void;
   /** The active copy's splits can be edited (their schedule lives in the editor). */
   onEditDay?: (dayId: string) => void;
+  /** An exercise's guide is opening: close, and reopen at `resumeAt` on the way back. */
+  onOpenExercise: (resumeAt: QuickViewTarget) => void;
 };
 
 const navFor = (
   routines: TreeRoutine[],
-  routineId: string,
-  dayId: string | null,
+  { routineId, dayId, week }: QuickViewTarget,
   current: Props['current'],
 ): Nav => {
   const routine = routines.find((r) => r.id === routineId) ?? routines[0];
   return {
     routineId: routine?.id ?? '',
     dayId: dayId ?? routine?.days[0]?.id ?? null,
-    week: current && current.routineId === routine?.id ? current.week : 1,
+    week: week ?? (current && current.routineId === routine?.id ? current.week : 1),
   };
 };
 
@@ -62,6 +64,7 @@ export const ProgramQuickView = ({
   current,
   onClose,
   onEditDay,
+  onOpenExercise,
 }: Props) => {
   const t = useT();
   const { locale } = useI18n();
@@ -72,11 +75,11 @@ export const ProgramQuickView = ({
   // change" shape); closing keeps the last view so the fall still shows it.
   const [seen, setSeen] = useState(target);
   const [nav, setNav] = useState<Nav | null>(() =>
-    target ? navFor(routines, target.routineId, target.dayId, current) : null,
+    target ? navFor(routines, target, current) : null,
   );
   if (target !== seen) {
     setSeen(target);
-    if (target) setNav(navFor(routines, target.routineId, target.dayId, current));
+    if (target) setNav(navFor(routines, target, current));
   }
 
   const routineIndex = nav ? routines.findIndex((r) => r.id === nav.routineId) : -1;
@@ -92,7 +95,7 @@ export const ProgramQuickView = ({
 
   const goPhase = (index: number) => {
     const next = routines[index];
-    if (next) setNav(navFor(routines, next.id, null, current));
+    if (next) setNav(navFor(routines, { routineId: next.id, dayId: null }, current));
   };
 
   const phaseName = routine
@@ -175,7 +178,10 @@ export const ProgramQuickView = ({
         <ScrollArea inSheet className="mt-4">
           {schedule ? <Text className="mb-2 text-xs text-ink-400">{schedule}</Text> : null}
           {day ? (
-            <SplitExercises rows={rows} />
+            <SplitExercises
+              rows={rows}
+              onOpenExercise={() => onOpenExercise({ routineId: routine?.id ?? '', dayId, week })}
+            />
           ) : (
             <Text className="text-center text-sm text-ink-400">{t('program.noSplits')}</Text>
           )}

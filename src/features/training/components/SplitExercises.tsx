@@ -8,13 +8,22 @@ import { badgeDetail, badgeLabel } from '../programs/badge-copy';
 import type { SplitPreviewRow } from '../session.repo';
 import { formatRest } from '../session-timeline';
 
+import { ExerciseDocButton } from './ExerciseDocButton';
+
 /**
- * A split's exercises as a session would open them, to READ: the name, each
- * set group with its effort, the rest and the cues (a pause spelled out, as on
- * the session card). The Train tab's preview of a split not up yet and a
+ * A split's exercises as a session would open them, to READ: the name with its
+ * technique guide one tap away, each set group with its effort, the rest and
+ * the cues (a pause spelled out, as on the session card). The Train tab's preview of a split not up yet and a
  * program's quick view both draw it.
  */
-export const SplitExercises = ({ rows }: { rows: SplitPreviewRow[] }) => {
+export const SplitExercises = ({
+  rows,
+  onOpenExercise,
+}: {
+  rows: SplitPreviewRow[];
+  /** Called before an exercise's guide opens — the host sheet closes on it. */
+  onOpenExercise: () => void;
+}) => {
   const t = useT();
   const { locale } = useI18n();
   if (!rows.length) {
@@ -31,7 +40,12 @@ export const SplitExercises = ({ rows }: { rows: SplitPreviewRow[] }) => {
           >
             <Text className="w-5 pt-0.5 font-mono-medium text-xs text-ink-500">{i + 1}</Text>
             <View className="min-w-0 flex-1">
-              <Text className="text-sm font-sans-semibold text-ink-100">{row.name}</Text>
+              <View className="flex-row items-start gap-3">
+                <Text className="min-w-0 flex-1 pt-1.5 text-sm font-sans-semibold text-ink-100">
+                  {row.name}
+                </Text>
+                <ExerciseDocButton exerciseId={row.exerciseId} size={16} onOpen={onOpenExercise} />
+              </View>
               {row.groups.map((g, gi) => (
                 <Text key={gi} className="mt-1 font-mono-medium text-xs text-ink-300">
                   {setGroupLine(

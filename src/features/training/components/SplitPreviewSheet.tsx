@@ -38,7 +38,7 @@ export const SplitPreviewSheet = ({ split, onClose }: Props) => {
         ) : null}
         <Text className="mt-1 text-xs text-ink-500">{t('training.previewHint')}</Text>
         <View className="mt-4">
-          <SplitExercises rows={rows} />
+          <SplitExercises rows={rows} onOpenExercise={onClose} />
         </View>
       </ScrollArea>
     </Sheet>
