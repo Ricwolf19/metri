@@ -3,6 +3,7 @@ import { kgToLb, lbToKg } from '@/features/bmr/calc';
 import { formatNumber, trimFloat as trim } from '@/lib/numbers';
 import type { Units } from '@/lib/storage';
 
+import { ladderAt, ladderValues, rungOf, type Ladder } from './ladder';
 import { LB_BARS, plateOptions, platesForSide, platesToSide, totalFromSide } from './plate-math';
 
 export type { LoadDetail };
@@ -92,13 +93,46 @@ export const loadModesFor = (
 
 const sum = (xs: number[]): number => xs.reduce((a, b) => a + b, 0);
 
+export type StackDetail = Extract<LoadDetail, { kind: 'machine' }>;
+
+/** A stack as a ladder in kg: the base, its plate, and where the plate changes. */
+const stackLadderKg = (load: StackDetail): Ladder => ({
+  start: load.baseKg,
+  step: load.incrementKg,
+  jumps: load.jumps?.map((j) => ({ from: j.fromKg, step: j.incrementKg })),
+});
+
+/** The same stack in the display unit, as the sheet draws its pins. */
+export const stackLadder = (load: StackDetail, unit: Units): Ladder => ({
+  start: kgToUnit(load.baseKg, unit),
+  step: kgToUnit(load.incrementKg, unit),
+  jumps: load.jumps?.map((j) => ({
+    from: kgToUnit(j.fromKg, unit),
+    step: kgToUnit(j.incrementKg, unit),
+  })),
+});
+
+/** The most pins a stack offers: past this, a grid of badges stops being a picker. */
+export const MAX_PINS = 40;
+
+/**
+ * A saved stack's pins in the display unit, pin `i` at index `i`: walked in kg
+ * and converted one by one. Walking `stackLadder`'s rounded steps instead (a
+ * 5 kg plate is 11.02 lb) drifted a kg stack read in a lb gym off its real
+ * totals and past its own plate change, so ± stopped landing on any pin.
+ */
+export const stackPins = (load: StackDetail, unit: Units): number[] =>
+  ladderValues(stackLadderKg(load), unitToKg(inputCap('total', unit), unit), MAX_PINS).map((kg) =>
+    kgToUnit(kg, unit),
+  );
+
 /** The system total a detail describes. */
 export const loadTotalKg = (load: LoadDetail): number => {
   switch (load.kind) {
     case 'barbell':
       return trim(load.barKg + (load.sides ?? 2) * sum(load.platesKg));
     case 'machine':
-      return trim(load.baseKg + load.steps * load.incrementKg);
+      return ladderAt(stackLadderKg(load), load.steps);
     case 'dumbbell':
       return trim(load.perHandKg * load.hands);
   }
@@ -160,12 +194,6 @@ export const unstackPlates = (stack: PlateStack[]): number[] =>
     .flatMap(({ plate, count }) => Array.from({ length: count }, () => plate))
     .sort((a, b) => b - a);
 
-/** The loads a machine offers, pin by pin, for the badge grid. */
-export const machineLoads = (base: number, increment: number, maxSteps = 24): number[] => {
-  if (!(increment > 0)) return [];
-  return Array.from({ length: maxSteps + 1 }, (_, i) => trim(Math.max(0, base) + i * increment));
-};
-
 export const hasLoadDetail = (setting: { load?: LoadDetail | null } | null | undefined): boolean =>
   !!setting?.load;
 
@@ -223,12 +251,29 @@ export const describeLoad = (load: LoadDetail, unit: Units): { total: number; pa
     }
     case 'machine': {
       const base = load.baseKg > 0 ? String(kgToUnit(load.baseKg, unit)) : '';
-      const steps = load.steps > 0 ? `${load.steps}×${kgToUnit(load.incrementKg, unit)}` : '';
-      return { total, parts: [base, steps].filter(Boolean).join(' + ') || '0' };
+      const runs = stackRuns(load).map(({ count, stepKg }) => `${count}×${kgToUnit(stepKg, unit)}`);
+      return { total, parts: [base, ...runs].filter(Boolean).join(' + ') || '0' };
     }
     case 'dumbbell':
       return { total, parts: `${load.hands} × ${kgToUnit(load.perHandKg, unit)}` };
   }
+};
+
+/**
+ * The plates under a stack's pin, grouped by weight: "6 of 5" for a plain
+ * stack, "10 of 5, then 2 of 10" past a jump — the arithmetic the caption and
+ * the preview spell out.
+ */
+export const stackRuns = (load: StackDetail): { count: number; stepKg: number }[] => {
+  const ladder = stackLadderKg(load);
+  const runs: { count: number; stepKg: number }[] = [];
+  for (let i = 0; i < load.steps; i++) {
+    const stepKg = trim(ladderAt(ladder, i + 1) - ladderAt(ladder, i));
+    const last = runs[runs.length - 1];
+    if (last && Math.abs(last.stepKg - stepKg) < 0.002) last.count += 1;
+    else runs.push({ count: 1, stepKg });
+  }
+  return runs;
 };
 
 /** Tolerance between a draft's total and the row's text, which rounds to 2 decimals. */
@@ -257,9 +302,13 @@ export const machineLoadForTotal = (
   setting: LoadDetail | null | undefined,
 ): LoadDetail | null => {
   if (setting?.kind !== 'machine' || !(setting.incrementKg > 0)) return null;
-  const steps = (totalKg - setting.baseKg) / setting.incrementKg;
-  if (steps < -0.01 || Math.abs(steps - Math.round(steps)) > 0.01) return null;
-  return { ...setting, steps: Math.max(0, Math.round(steps)) };
+  if (!setting.jumps?.length) {
+    const steps = (totalKg - setting.baseKg) / setting.incrementKg;
+    if (steps < -0.01 || Math.abs(steps - Math.round(steps)) > 0.01) return null;
+    return { ...setting, steps: Math.max(0, Math.round(steps)) };
+  }
+  const steps = rungOf(ladderValues(stackLadderKg(setting), totalKg + 0.01, 10_000), totalKg);
+  return steps == null ? null : { ...setting, steps };
 };
 
 /**
@@ -285,6 +334,13 @@ const MAX_INPUT: Record<RowInputMode['mode'], Record<Units, number>> = {
 
 export const clampInput = (mode: RowInputMode['mode'], value: number, unit: Units): number =>
   Math.min(value, MAX_INPUT[mode][unit]);
+
+/** The heaviest a mode offers: the top of a dumbbell rack, the last pin of a stack. */
+export const inputCap = (mode: RowInputMode['mode'], unit: Units): number => MAX_INPUT[mode][unit];
+
+/** Every dumbbell on a rack (display unit), lightest first, up to the heaviest a gym holds. */
+export const rackWeights = (rack: Ladder, unit: Units): number[] =>
+  ladderValues(rack, inputCap('perHand', unit), 80);
 
 export const rowInputMode = (
   facts: { equipment: Equipment | null } | null | undefined,

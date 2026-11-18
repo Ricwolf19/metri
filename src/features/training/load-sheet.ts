@@ -2,13 +2,19 @@ import type { Equipment } from '@/db/schema';
 import { parseDecimal } from '@/lib/numbers';
 import type { Units } from '@/lib/storage';
 
+import { ladderValues, rungOf, type Ladder, type StepJump } from './ladder';
 import {
   defaultHands,
+  inputCap,
   kgToUnit,
   loadModesFor,
+  MAX_PINS,
   snapPlate,
+  stackLadder,
+  stackPins,
   type LoadDetail,
   type LoadMode,
+  type StackDetail,
 } from './load';
 import {
   barFor,
@@ -19,6 +25,67 @@ import {
   sideTextFromTotal,
   totalFromSide,
 } from './plate-math';
+
+/** A step change as typed: "from 50, every 10" (display unit). */
+export type JumpText = { fromText: string; stepText: string };
+
+const jumpsToText = (jumps: readonly StepJump[] | undefined): JumpText[] =>
+  (jumps ?? []).map((j) => ({ fromText: String(j.from), stepText: String(j.step) }));
+
+/** The typed step changes that say something; a half-typed row is skipped. */
+export const parseJumpTexts = (texts: readonly JumpText[]): StepJump[] =>
+  texts.flatMap((j) => {
+    const from = parseDecimal(j.fromText);
+    const step = parseDecimal(j.stepText);
+    return from != null && step != null && step > 0 ? [{ from, step }] : [];
+  });
+
+type StackFields = Pick<LoadSheetValues, 'baseText' | 'incText' | 'jumps'>;
+
+/**
+ * The saved stack while the sheet's stack fields still read as it (`opened` is
+ * what they were seeded with): its kg values stand. In the other unit those
+ * fields show rounded numbers (a 5 kg plate reads 11.02 lb), and walking or
+ * saving them drifted the pins off the real totals and moved the plate change.
+ */
+export const untouchedStack = (
+  values: StackFields,
+  opened: StackFields,
+  saved: LoadDetail | null | undefined,
+): StackDetail | null =>
+  saved?.kind === 'machine' &&
+  values.baseText === opened.baseText &&
+  values.incText === opened.incText &&
+  JSON.stringify(values.jumps) === JSON.stringify(opened.jumps)
+    ? saved
+    : null;
+
+/** The pins the sheet's stack offers (display unit): the saved stack's own, else as typed. */
+export const sheetPins = (
+  values: StackFields,
+  unit: Units,
+  saved: StackDetail | null = null,
+): number[] =>
+  saved
+    ? stackPins(saved, unit)
+    : ladderValues(
+        {
+          start: parseDecimal(values.baseText) ?? 0,
+          step: parseDecimal(values.incText) ?? 0,
+          jumps: parseJumpTexts(values.jumps),
+        },
+        inputCap('total', unit),
+        MAX_PINS,
+      );
+
+/** The dumbbell rack as typed in the sheet (display unit); step 0 while half typed. */
+export const sheetRack = (
+  values: Pick<LoadSheetValues, 'rackStartText' | 'rackStepText' | 'rackJumps'>,
+): Ladder => ({
+  start: parseDecimal(values.rackStartText) ?? 0,
+  step: parseDecimal(values.rackStepText) ?? 0,
+  jumps: parseJumpTexts(values.rackJumps),
+});
 
 /** The weight sheet's fields, every mode at once, in the DISPLAY unit. */
 export type LoadSheetValues = {
@@ -33,10 +100,16 @@ export type LoadSheetValues = {
   // Machine stack
   baseText: string;
   incText: string;
+  /** Where the plates change weight further down the stack. */
+  jumps: JumpText[];
   step: number | null;
   // Dumbbell
   perHandText: string;
   hands: 1 | 2;
+  /** The gym's rack (a device setting), editable from here. */
+  rackStartText: string;
+  rackStepText: string;
+  rackJumps: JumpText[];
   // None
   plainText: string;
 };
@@ -51,6 +124,8 @@ type SeedInput = {
   unilateral: boolean;
   oneDumbbell: boolean;
   preferMode?: LoadMode;
+  /** The dumbbell rack in the display unit (`dumbbellRack`). */
+  rack: Ladder;
 };
 
 /**
@@ -66,6 +141,7 @@ export const seedLoadSheet = ({
   unilateral,
   oneDumbbell,
   preferMode,
+  rack,
 }: SeedInput): LoadSheetValues => {
   // Known equipment locks the mode; a saved detail of another kind (a custom
   // exercise whose equipment changed) yields to it.
@@ -98,11 +174,10 @@ export const seedLoadSheet = ({
         unit,
       ) ?? []);
 
-  // Stack: the saved base/increment, the row's number on the nearest pin.
-  const base = initialLoad?.kind === 'machine' ? kgToUnit(initialLoad.baseKg, unit) : null;
-  const inc = initialLoad?.kind === 'machine' ? kgToUnit(initialLoad.incrementKg, unit) : null;
-  const pin = base != null && inc != null && inc > 0 && row != null ? (row - base) / inc : null;
-  const onPin = pin != null && pin >= 0 && Math.abs(pin - Math.round(pin)) < 0.001;
+  // Stack: the saved base/increment and step changes, the row's number on its
+  // pin — found among the saved stack's own pins, not the rounded fields'.
+  const savedStack = initialLoad?.kind === 'machine' ? initialLoad : null;
+  const stack = savedStack ? stackLadder(savedStack, unit) : null;
 
   return {
     mode,
@@ -110,9 +185,10 @@ export const seedLoadSheet = ({
     plates,
     sledText: sled > 0 ? String(sled) : '',
     sides,
-    baseText: base != null ? String(base) : '',
-    incText: inc != null && inc > 0 ? String(inc) : '',
-    step: onPin ? Math.round(pin) : null,
+    baseText: stack ? String(stack.start) : '',
+    incText: stack && stack.step > 0 ? String(stack.step) : '',
+    jumps: jumpsToText(stack?.jumps),
+    step: savedStack ? rungOf(stackPins(savedStack, unit), row) : null,
     // Dumbbell: the row's number IS one dumbbell.
     perHandText: initialWeight,
     hands: oneDumbbell
@@ -120,6 +196,9 @@ export const seedLoadSheet = ({
       : initialLoad?.kind === 'dumbbell'
         ? initialLoad.hands
         : defaultHands(unilateral),
+    rackStartText: String(rack.start),
+    rackStepText: String(rack.step),
+    rackJumps: jumpsToText(rack.jumps),
     plainText: initialWeight,
   };
 };

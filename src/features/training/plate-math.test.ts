@@ -6,7 +6,7 @@ import {
   barFor,
   barsFor,
   sideFieldFromTotal,
-  DUMBBELL_PRESETS,
+  DEFAULT_DUMBBELL_RACK,
   platesForSide,
   sideStep,
   barInUnit,
@@ -19,6 +19,7 @@ import {
   sideTextFromTotal,
   totalFromSide,
 } from './plate-math';
+import { rackWeights } from './load';
 
 const bar = (kg: number) => BARS.find((b) => b.kg === kg)!;
 
@@ -184,16 +185,21 @@ describe('platesForSide', () => {
   });
 });
 
-describe('sideStep / DUMBBELL_PRESETS', () => {
+describe('sideStep / DEFAULT_DUMBBELL_RACK', () => {
   it('snaps a side to the finest real plate step per unit', () => {
     expect(sideStep('kg')).toBe(0.25);
     expect(sideStep('lb')).toBe(0.5);
   });
 
-  it('offers the rack in 2.5 kg / 5 lb steps, looked up by the display unit', () => {
-    expect(DUMBBELL_PRESETS.kg.slice(0, 3)).toEqual([2.5, 5, 7.5]);
-    expect(DUMBBELL_PRESETS.lb.slice(0, 3)).toEqual([5, 10, 15]);
-    expect(DUMBBELL_PRESETS.kg.at(-1)).toBe(50);
-    expect(DUMBBELL_PRESETS.lb.at(-1)).toBe(100);
+  // The rack used to stop at 50 kg / 100 lb: heavy dumbbell work had no number to pick.
+  it('runs the rack in 2.5 kg / 5 lb steps up to the heaviest dumbbells a gym holds', () => {
+    const kg = rackWeights(DEFAULT_DUMBBELL_RACK.kg, 'kg');
+    const lb = rackWeights(DEFAULT_DUMBBELL_RACK.lb, 'lb');
+    expect(kg.slice(0, 3)).toEqual([2.5, 5, 7.5]);
+    expect(lb.slice(0, 3)).toEqual([5, 10, 15]);
+    expect(kg.slice(19, 22)).toEqual([50, 55, 60]);
+    expect(kg.at(-1)).toBe(100);
+    expect(lb.slice(29, 32)).toEqual([150, 160, 170]);
+    expect(lb.at(-1)).toBe(220);
   });
 });

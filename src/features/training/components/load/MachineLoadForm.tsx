@@ -5,13 +5,16 @@ import { UnitSuffix } from '@/features/training/components/UnitSuffix';
 import { useT } from '@/i18n';
 import type { Units } from '@/lib/storage';
 
+import type { JumpText } from '../../load-sheet';
 import { LoadSectionLabel } from './LoadSectionLabel';
 import { MachineLoadGrid } from './MachineLoadGrid';
+import { StepJumpsEditor } from './StepJumpsEditor';
 
 /**
- * The stack mode of the weight sheet: base weight + increment describe the
- * machine, the pins come up as a grid. A number off the stack is typed in the
- * row itself. Presentational — the sheet owns the state and the arithmetic.
+ * The stack mode of the weight sheet: base weight + plate weight describe the
+ * machine, with the loads where its plates get heavier further down, and the
+ * pins come up as a grid. Presentational — the sheet owns the state and the
+ * arithmetic.
  */
 export const MachineLoadForm = ({
   unit,
@@ -19,6 +22,8 @@ export const MachineLoadForm = ({
   onBaseText,
   incText,
   onIncText,
+  jumps,
+  onJumps,
   pins,
   step,
   onPick,
@@ -28,6 +33,8 @@ export const MachineLoadForm = ({
   onBaseText: (text: string) => void;
   incText: string;
   onIncText: (text: string) => void;
+  jumps: JumpText[];
+  onJumps: (next: JumpText[]) => void;
   /** The loads on offer, in the display unit. */
   pins: number[];
   /** The selected pin. */
@@ -61,6 +68,12 @@ export const MachineLoadForm = ({
           />
         </View>
       </View>
+      <StepJumpsEditor
+        unit={unit}
+        jumps={jumps}
+        onChange={onJumps}
+        addLabel={t('load.addStackJump')}
+      />
       <LoadSectionLabel label={t('load.pickLoad')} />
       {/* The area is always there: the grid filling it must not shove the
           buttons down once the increment is typed. */}

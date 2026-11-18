@@ -10,14 +10,21 @@ import { useT } from '@/i18n';
 import { parseDecimal, trimFloat } from '@/lib/numbers';
 import type { Units } from '@/lib/storage';
 
-import { loadModesFor, machineLoads, unitToKg, type LoadDetail, type LoadMode } from '../load';
-import { seedLoadSheet, type LoadSheetValues } from '../load-sheet';
+import { dumbbellRack, saveDumbbellRack } from '../dumbbell-rack';
+import { loadModesFor, rackWeights, unitToKg, type LoadDetail, type LoadMode } from '../load';
+import {
+  parseJumpTexts,
+  seedLoadSheet,
+  sheetPins,
+  sheetRack,
+  untouchedStack,
+  type LoadSheetValues,
+} from '../load-sheet';
 import {
   addPlate,
   barsFor,
   barInUnit,
   barLabel,
-  DUMBBELL_PRESETS,
   equivalentIn,
   platesToSide,
   removePlate,
@@ -29,12 +36,14 @@ import { LoadSectionLabel } from './load/LoadSectionLabel';
 import { MachineLoadForm } from './load/MachineLoadForm';
 
 type LoadApply = {
-  /** The row's weight text in the display unit: a total, or ONE dumbbell. */
-  weightText: string;
-  /** How it was built (kg), null for a plain number. */
-  load: LoadDetail | null;
-  /** The lifter changed something — the config is worth saving on the exercise. */
-  changed: boolean;
+  /**
+   * The row's new number (display unit: a total, or ONE dumbbell) and how it
+   * was built (kg, null for a plain number). Null leaves the row as it was: an
+   * untouched open, or a stack described before any pin is picked.
+   */
+  row: { weightText: string; load: LoadDetail | null } | null;
+  /** What to remember on the exercise (seeds the next open); null when nothing changed. */
+  save: LoadDetail | null;
 };
 
 type Props = {
@@ -88,6 +97,7 @@ const LoadSheetForm = ({
   onApply,
 }: Omit<Props, 'visible'>) => {
   const t = useT();
+  const [savedRack] = useState(() => dumbbellRack(unit));
   const [seed] = useState(() =>
     seedLoadSheet({
       unit,
@@ -97,6 +107,7 @@ const LoadSheetForm = ({
       unilateral,
       oneDumbbell,
       preferMode,
+      rack: savedRack,
     }),
   );
   /** A machine marked as plates carries its sled weight where a bar would go. */
@@ -111,6 +122,10 @@ const LoadSheetForm = ({
     kind: 'create',
     defaultValues: seed,
     onSave: (values) => {
+      // The rack is the gym's, not the exercise's: a device setting, written here.
+      const typedRack = sheetRack(values);
+      if (form.isDirty && values.mode === 'dumbbell' && typedRack.step > 0 && rackChanged(values))
+        saveDumbbellRack(unit, typedRack);
       onApply(build(values));
       onClose();
     },
@@ -142,12 +157,22 @@ const LoadSheetForm = ({
   /* ── Stack ───────────────────────────────────────────────────────────── */
   const base = num(v.baseText) ?? 0;
   const inc = num(v.incText) ?? 0;
-  const pins = useMemo(() => machineLoads(base, inc), [base, inc]);
+  const pins = sheetPins(v, unit, untouchedStack(v, seed, initialLoad));
   const machineTotal = v.step != null ? (pins[v.step] ?? 0) : 0;
+  // A described stack is worth keeping before any pin is picked: Apply then
+  // saves the machine, and the row's field picks the pin from it next.
+  const stackOnly = v.mode === 'machine' && inc > 0 && v.step == null;
 
   /* ── Dumbbell ────────────────────────────────────────────────────────── */
   const perHand = num(v.perHandText);
   const dumbbellTotal = perHand != null ? trim(perHand * v.hands) : 0;
+  const editedRack = sheetRack(v);
+  // A rack mid-edit (no step yet) keeps showing the saved one rather than nothing.
+  const rack = editedRack.step > 0 ? editedRack : savedRack;
+  const rackChanged = (values: LoadSheetValues): boolean =>
+    values.rackStartText !== seed.rackStartText ||
+    values.rackStepText !== seed.rackStepText ||
+    JSON.stringify(values.rackJumps) !== JSON.stringify(seed.rackJumps);
 
   const total =
     v.mode === 'barbell'
@@ -160,15 +185,10 @@ const LoadSheetForm = ({
 
   // Every mode but the plain number must leave with a complete picture: that
   // picture is what the sheet saves, a half-described stack saves nothing.
-  const canApply =
-    v.mode === 'dumbbell'
-      ? perHand != null
-      : v.mode === 'machine'
-        ? inc > 0 && v.step != null
-        : true;
+  const canApply = v.mode === 'dumbbell' ? perHand != null : v.mode === 'machine' ? inc > 0 : true;
 
   const build = (values: LoadSheetValues): LoadApply => {
-    if (!form.isDirty) return { weightText: initialWeight, load: initialLoad, changed: false };
+    if (!form.isDirty) return { row: null, save: null };
     if (values.mode === 'barbell') {
       const load: LoadDetail = {
         kind: 'barbell',
@@ -176,29 +196,34 @@ const LoadSheetForm = ({
         platesKg: values.plates.map((p) => unitToKg(p, unit)),
         ...(plateMachine && values.sides === 1 ? { sides: 1 as const } : {}),
       };
-      return { weightText: String(barbellTotal), load, changed: true };
+      return { row: { weightText: String(barbellTotal), load }, save: load };
     }
     if (values.mode === 'machine') {
-      const load: LoadDetail | null =
-        values.step != null && inc > 0
-          ? {
-              kind: 'machine',
-              baseKg: unitToKg(base, unit),
-              incrementKg: unitToKg(inc, unit),
-              steps: values.step,
-            }
-          : null;
-      return { weightText: String(machineTotal), load, changed: true };
+      const jumps = parseJumpTexts(values.jumps).map((j) => ({
+        fromKg: unitToKg(j.from, unit),
+        incrementKg: unitToKg(j.step, unit),
+      }));
+      // An untouched stack saves as it was: its fields are rounded in the other unit.
+      const kept = untouchedStack(values, seed, initialLoad);
+      const load: LoadDetail = kept
+        ? { ...kept, steps: values.step ?? 0 }
+        : {
+            kind: 'machine',
+            baseKg: unitToKg(base, unit),
+            incrementKg: unitToKg(inc, unit),
+            steps: values.step ?? 0,
+            ...(jumps.length ? { jumps } : {}),
+          };
+      return values.step == null
+        ? { row: null, save: load }
+        : { row: { weightText: String(machineTotal), load }, save: load };
     }
     if (values.mode === 'dumbbell') {
       const kg = unitToKg(perHand ?? 0, unit);
-      return {
-        weightText: String(perHand ?? ''),
-        load: { kind: 'dumbbell', perHandKg: kg, hands: values.hands },
-        changed: true,
-      };
+      const load: LoadDetail = { kind: 'dumbbell', perHandKg: kg, hands: values.hands };
+      return { row: { weightText: String(perHand ?? ''), load }, save: load };
     }
-    return { weightText: values.plainText, load: null, changed: true };
+    return { row: { weightText: values.plainText, load: null }, save: null };
   };
 
   const modes = loadModesFor(equipment, initialLoad);
@@ -254,6 +279,11 @@ const LoadSheetForm = ({
             set('incText')(text);
             set('step')(null);
           }}
+          jumps={v.jumps}
+          onJumps={(next) => {
+            set('jumps')(next);
+            set('step')(null);
+          }}
           pins={pins}
           step={v.step}
           onPick={set('step')}
@@ -265,10 +295,19 @@ const LoadSheetForm = ({
           unit={unit}
           perHandText={v.perHandText}
           onPerHandText={set('perHandText')}
-          presets={DUMBBELL_PRESETS[unit]}
+          weights={rackWeights(rack, unit)}
+          typed={equipment !== 'dumbbell'}
           missing={perHand == null}
           hands={v.hands}
           onHands={oneDumbbell ? undefined : set('hands')}
+          rack={{
+            startText: v.rackStartText,
+            onStartText: set('rackStartText'),
+            stepText: v.rackStepText,
+            onStepText: set('rackStepText'),
+            jumps: v.rackJumps,
+            onJumps: set('rackJumps'),
+          }}
         />
       ) : null}
 
@@ -313,7 +352,7 @@ const LoadSheetForm = ({
         <View className="flex-1">
           <Button
             variant="brand"
-            label={t('training.applyWeight')}
+            label={stackOnly ? t('load.saveStack') : t('training.applyWeight')}
             disabled={!canApply || !form.canSave}
             onPress={() => form.submit()}
           />

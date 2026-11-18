@@ -65,8 +65,9 @@ type Props = {
 
 /**
  * The set being filled, on three lines. The header is ONE uppercase mono line
- * ("SET 1 | 12 REPS @ FAILURE") that wraps rather than clips: the header holds
- * nothing else, so a long Spanish target still reads whole. Then the two
+ * ("SET 1 | 12 REPS @ FAILURE") that scrolls sideways rather than wrapping or
+ * clipping: a long Spanish target still reads whole, and the row keeps its
+ * height so the fields never move under the thumb. Then the two
  * number fields with nothing beside them. Then the action line: the base
  * weight, the derived total and its plate breakdown on the left as ONE
  * sideways-scrolling line of fixed height (the data never grows the row, so
@@ -106,11 +107,18 @@ export const ActiveSetRow = ({
 
   return (
     <View className="rounded-field border border-brand/40 bg-ink-850 px-3 py-2">
-      <View className="mb-2 flex-row items-start gap-2">
-        <Text className="min-w-0 flex-1 font-mono-medium text-[11px] uppercase leading-4 tracking-wider text-brand">
-          {label}
-          {legend ? ` | ${legend}` : ''}
-        </Text>
+      <View className="mb-2 flex-row items-center gap-2">
+        <View className="min-w-0 flex-1">
+          <ScrollRow className="items-center pr-2">
+            <Text
+              numberOfLines={1}
+              className="font-mono-medium text-[11px] uppercase leading-4 tracking-wider text-brand"
+            >
+              {label}
+              {legend ? ` | ${legend}` : ''}
+            </Text>
+          </ScrollRow>
+        </View>
         {/* 36 dp plus a 4 dp slop; the negative margins keep the header one
             text line tall, so the fields below never move. */}
         {onRemove ? (

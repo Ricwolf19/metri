@@ -1,7 +1,7 @@
 import { Platform, Pressable, Text, View, type AccessibilityActionEvent } from 'react-native';
 
 import { CheckIcon, SkipIcon, TrashIcon, XIcon } from '@/components/icons';
-import { HoldButton } from '@/components/ui';
+import { HoldButton, ScrollRow } from '@/components/ui';
 import type { SetLog } from '@/db/schema';
 import { useT } from '@/i18n';
 import type { Units } from '@/lib/storage';
@@ -16,9 +16,18 @@ import { WeightButton } from './WeightButton';
 /**
  * Every row is at least 44 dp: the logged and skipped rows carry a 40 dp
  * control at their right edge, and the pending ones match so the list keeps
- * one rhythm.
+ * one rhythm. A row's text is ONE line that scrolls sideways when it runs long
+ * (a Spanish "AL FALLO" after the RIR, a long prescription): wrapped, the row
+ * grew and shoved every row under it; clipped, it hid the reps.
  */
 const ROW = 'min-h-11 flex-row items-center rounded-field';
+
+/** The row's text line: fills what the label and the control leave, scrolls past it. */
+const RowLine = ({ children }: { children: React.ReactNode }) => (
+  <View className="min-w-0 flex-1">
+    <ScrollRow className="items-center pr-2">{children}</ScrollRow>
+  </View>
+);
 
 /** A planned set the lifter skipped: it counts as missed; the X restores it. */
 export const SkippedRow = ({
@@ -38,7 +47,11 @@ export const SkippedRow = ({
         <SkipIcon color={MISSED} size={12} />
       </View>
       <Text className="w-7 text-xs font-sans-semibold text-red-400">{label}</Text>
-      <Text className="flex-1 text-xs text-red-400">{text}</Text>
+      <RowLine>
+        <Text numberOfLines={1} className="text-xs text-red-400">
+          {text}
+        </Text>
+      </RowLine>
       {/* Restoring is the undo of a skip, so one tap is enough. */}
       <Pressable
         onPress={onRestore}
@@ -56,7 +69,11 @@ export const SkippedRow = ({
 export const PendingRow = ({ label, legend }: { label: string; legend: string | null }) => (
   <View className={`${ROW} bg-ink-850/40 px-3 py-2.5`}>
     <Text className="w-7 text-xs font-sans-semibold text-ink-500">{label}</Text>
-    <Text className="flex-1 text-xs text-ink-500">{legend}</Text>
+    <RowLine>
+      <Text numberOfLines={1} className="text-xs text-ink-500">
+        {legend}
+      </Text>
+    </RowLine>
   </View>
 );
 
@@ -139,7 +156,7 @@ export const LoggedRow = ({
           <CheckIcon color={brandContrast} size={13} />
         </View>
         <Text className="w-7 text-xs font-sans-semibold text-ink-400">{label}</Text>
-        <View className="flex-1 flex-row items-center">
+        <RowLine>
           {/* Two dumbbells read as "2 × 30 kg × 10": the count goes first so it
               cannot be mistaken for the reps. */}
           {twoDumbbells ? (
@@ -151,13 +168,13 @@ export const LoggedRow = ({
             onPress={onWeightPress}
             accessible={false}
           />
-          <Text className="shrink text-sm font-sans-medium text-ink-100">
+          <Text numberOfLines={1} className="text-sm font-sans-medium text-ink-100">
             {' '}
             × {logged.reps}
             {logged.rir != null ? ` · RIR ${logged.rir}` : ''}
             {logged.isFailure ? ` · ${failureLabel}` : ''}
           </Text>
-        </View>
+        </RowLine>
       </View>
       {/* Deleting a logged set cannot be undone: a hold, like every irreversible action. */}
       <HoldButton

@@ -21,7 +21,8 @@ import {
   loadTotalKg,
   machineLoadForTotal,
   machineLoadKind,
-  machineLoads,
+  stackPins,
+  stackRuns,
   reconcileLoad,
   rowInputMode,
   setVolumeKg,
@@ -79,17 +80,45 @@ describe('plate stacks', () => {
   });
 });
 
-describe('machineLoads', () => {
-  it('offers the pins from the base up to the cap', () => {
-    expect(machineLoads(10, 5, 4)).toEqual([10, 15, 20, 25, 30]);
+describe('a stack whose plates change weight', () => {
+  // 5 kg plates down to the 50, 10 kg plates past it.
+  const jumped: LoadDetail = {
+    kind: 'machine',
+    baseKg: 0,
+    incrementKg: 5,
+    steps: 12,
+    jumps: [{ fromKg: 50, incrementKg: 10 }],
+  };
+
+  it('totals the pin along the changed plates', () => {
+    expect(loadTotalKg(jumped)).toBe(70);
+    expect(stackRuns(jumped)).toEqual([
+      { count: 10, stepKg: 5 },
+      { count: 2, stepKg: 10 },
+    ]);
+    expect(describeLoad(jumped, 'kg')).toEqual({ total: 70, parts: '10×5 + 2×10' });
   });
 
-  it('offers nothing without an increment', () => {
-    expect(machineLoads(10, 0)).toEqual([]);
+  it('lands a total on its pin past the change, and none between pins', () => {
+    expect(machineLoadForTotal(60, jumped)).toEqual({ ...jumped, steps: 11 });
+    expect(machineLoadForTotal(65, jumped)).toBeNull();
+    expect(machineLoadForTotal(45, jumped)).toEqual({ ...jumped, steps: 9 });
   });
 
-  it('guards float noise on quarter steps', () => {
-    expect(machineLoads(0, 1.25, 3)).toEqual([0, 1.25, 2.5, 3.75]);
+  // A kg stack in a lb gym: walking 11.02 lb steps read 99.18 for the 45 kg pin
+  // and stepped past the plate change, so ± lost the pin from the 8th on.
+  it('offers the real totals of a kg stack in lb, past the change too', () => {
+    const stack = {
+      kind: 'machine' as const,
+      baseKg: 0,
+      incrementKg: 5,
+      steps: 0,
+      jumps: [{ fromKg: 50, incrementKg: 10 }],
+    };
+    const pins = stackPins(stack, 'lb');
+    expect(pins.slice(9, 13)).toEqual([99.21, 110.23, 132.28, 154.32]);
+    pins.forEach((lb, steps) => expect(kgToUnit(loadTotalKg({ ...stack, steps }), 'lb')).toBe(lb));
+    expect(stackPins(stack, 'kg').slice(9, 13)).toEqual([45, 50, 60, 70]);
   });
 });
 

@@ -4,10 +4,11 @@ import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 import type { Units } from '@/lib/storage';
 
 /**
- * The pins of a stack, one pill each, selected in brand. Wraps on purpose —
- * the one strip in the app that does: this is a single-select PICKER for
- * finding a close quantity at a glance (24 pins in a scrolling line hide the
- * one you want), not a badge strip, and it lives inside a sheet that scrolls.
+ * The loads a picker offers — a stack's pins, a rack's dumbbells — one pill
+ * each, selected in brand. Wraps on purpose, the one strip in the app that
+ * does: this is a single-select PICKER for finding a close quantity at a
+ * glance (40 pins in a scrolling line hide the one you want), not a badge
+ * strip, and it lives inside a sheet that scrolls.
  */
 export const MachineLoadGrid = ({
   loads,

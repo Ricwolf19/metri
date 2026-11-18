@@ -2,6 +2,8 @@ import { kgToLb, lbToKg } from '@/features/bmr/calc';
 import { trimFloat as trim } from '@/lib/numbers';
 import type { Units } from '@/lib/storage';
 
+import type { Ladder } from './ladder';
+
 /**
  * Pure arithmetic for the quick total-weight calculator (backlog B1/B3):
  * plate-loaded bars and machines where the lifter loads one side and the other
@@ -133,11 +135,12 @@ export const platesForSide = (side: number, unit: Units): number[] | null => {
 export const sideStep = (unit: Units): number => (unit === 'kg' ? 0.25 : 0.5);
 
 /**
- * Dumbbell racks run in 2.5 kg / 5 lb steps, so the free field gets presets for
- * the common weights. Looked up by the display unit, never converted: a 5 lb
- * step is 2.27 kg and names nothing on a kg rack.
+ * The dumbbell rack until the lifter describes theirs: 2.5 kg / 5 lb steps,
+ * then the heavy end's wider jumps, up to the heaviest dumbbells a gym holds
+ * (`inputCap('perHand')`, 100 kg / 220 lb). Named in the display unit, never
+ * converted: a 5 lb step is 2.27 kg and names nothing on a kg rack.
  */
-export const DUMBBELL_PRESETS: Record<Units, number[]> = {
-  kg: Array.from({ length: 20 }, (_, i) => (i + 1) * 2.5),
-  lb: Array.from({ length: 20 }, (_, i) => (i + 1) * 5),
+export const DEFAULT_DUMBBELL_RACK: Record<Units, Ladder> = {
+  kg: { start: 2.5, step: 2.5, jumps: [{ from: 50, step: 5 }] },
+  lb: { start: 5, step: 5, jumps: [{ from: 150, step: 10 }] },
 };

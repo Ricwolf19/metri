@@ -22,6 +22,8 @@ export const SettingKeys = {
   // The unit of the kit: sets, plates, bars, dumbbells, stacks, training
   // volume. Absent = follows `units` (a gym can be lb in a kg country).
   equipmentUnits: 'settings.equipmentUnits',
+  // The gym's dumbbell rack per unit, as the lifter described it (see training/ladder).
+  dumbbellRack: 'training.dumbbellRack',
   locale: 'settings.locale',
   // `settings.theme` is retired (the app is dark only since 2026-10-20): never reuse the id.
   clock: 'settings.clock',
@@ -52,6 +54,8 @@ export const SettingKeys = {
   activeSession: 'training.activeSession',
   // The day whose planned check-in a session holds back (see notifications/checkin-hold).
   checkinHold: 'notif.checkinHold',
+  // The day whose training-time reminder a session holds back (same module).
+  trainingHold: 'notif.trainingHold',
   // Latest known release payload + when it was fetched (see features/release).
   // `release.latest` (the version-only cache) is retired: never reuse that id.
   latestReleasePayload: 'release.payload',
@@ -61,8 +65,23 @@ export const SettingKeys = {
   releaseDismissed: 'release.dismissed',
   // Release-announcement emails, mirrored to the account profile.
   releaseEmails: 'release.emails',
+  // Training days written to metri's own phone calendar (see features/calendar).
+  calendarSync: 'calendar.sync',
+  // The calendar metri created + the events it wrote, so a re-sync only diffs.
+  calendarState: 'calendar.state',
+  // Private sections that ask for the phone's biometrics / PIN (see features/app-lock).
+  lockPhotos: 'lock.photos',
+  lockSettings: 'lock.settings',
   // `quiz.scores` is retired (the knowledge check lives on metri.info): never reuse the id.
 } as const;
+
+/** Every unit's dumbbell rack as stored; an unreadable value reads as none described. */
+const storedRacks = (): Record<string, unknown> => {
+  const racks = parseJson<unknown>(storage.getString(SettingKeys.dumbbellRack), null);
+  return racks && typeof racks === 'object' && !Array.isArray(racks)
+    ? (racks as Record<string, unknown>)
+    : {};
+};
 
 /** Typed accessors for every `SettingKeys` entry — screens never touch `storage` directly. */
 export const settings = {
@@ -75,6 +94,13 @@ export const settings = {
   /** The equipment unit; until chosen it follows the app-wide one. */
   getEquipmentUnits(): Units {
     return (storage.getString(SettingKeys.equipmentUnits) as Units) ?? settings.getUnits();
+  },
+  /** The described dumbbell rack of `unit`, unvalidated — read it through `dumbbellRack`. */
+  getDumbbellRack(unit: Units): unknown {
+    return storedRacks()[unit] ?? null;
+  },
+  setDumbbellRack(unit: Units, rack: unknown) {
+    storage.set(SettingKeys.dumbbellRack, JSON.stringify({ ...storedRacks(), [unit]: rack }));
   },
   /** The user's saved locale, or null if they've never chosen one (use device default). */
   getLocale(): LocaleCode | null {
@@ -188,6 +214,16 @@ export const settings = {
   clearCheckinHold() {
     storage.remove(SettingKeys.checkinHold);
   },
+  /** 'YYYY-MM-DD' a session started on: that day's training-time reminder is held back. */
+  getTrainingHold(): string | null {
+    return storage.getString(SettingKeys.trainingHold) ?? null;
+  },
+  setTrainingHold(day: string) {
+    storage.set(SettingKeys.trainingHold, day);
+  },
+  clearTrainingHold() {
+    storage.remove(SettingKeys.trainingHold);
+  },
   /** Cached `/api/latest-version` payload, unvalidated — run it through
    * `parseLatestRelease` (see features/release). */
   getLatestReleasePayload(): unknown {
@@ -221,6 +257,34 @@ export const settings = {
   },
   setReleaseEmails(value: boolean) {
     storage.set(SettingKeys.releaseEmails, value);
+  },
+  /** Training days mirrored into metri's own calendar on this phone. Off until switched on. */
+  getCalendarSync(): boolean {
+    return storage.getBoolean(SettingKeys.calendarSync) ?? false;
+  },
+  setCalendarSync(value: boolean) {
+    storage.set(SettingKeys.calendarSync, value);
+  },
+  /** What the last calendar sync wrote, unvalidated — read through `features/calendar`. */
+  getCalendarState(): unknown {
+    return parseJson<unknown>(storage.getString(SettingKeys.calendarState), null);
+  },
+  setCalendarState(state: unknown) {
+    storage.set(SettingKeys.calendarState, JSON.stringify(state));
+  },
+  clearCalendarState() {
+    storage.remove(SettingKeys.calendarState);
+  },
+  /** Whether a private section asks to unlock. Only the choice is stored, never a credential. */
+  getSectionLock(section: 'photos' | 'settings'): boolean {
+    return (
+      storage.getBoolean(
+        section === 'photos' ? SettingKeys.lockPhotos : SettingKeys.lockSettings,
+      ) ?? false
+    );
+  },
+  setSectionLock(section: 'photos' | 'settings', value: boolean) {
+    storage.set(section === 'photos' ? SettingKeys.lockPhotos : SettingKeys.lockSettings, value);
   },
   /** Per-event notification config (see features/notifications/events). */
   getEventConfig<T>(eventId: string, defaults: T): T {

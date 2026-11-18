@@ -14,6 +14,7 @@ import {
   loadFromSide,
   snapPlate,
   stackPlates,
+  stackRuns,
   type LoadDetail,
 } from '../load';
 import { equivalentIn } from '../plate-math';
@@ -119,7 +120,13 @@ export const LoadPreviewSheet = ({ set, onClose, unit, equipment }: Props) => {
             <Line label={t('loadView.base')} value={`${kgToUnit(load.baseKg, unit)} ${unit}`} />
             <Line
               label={t('loadView.pin')}
-              value={`${load.steps} × ${kgToUnit(load.incrementKg, unit)} ${unit}`}
+              value={
+                load.steps > 0
+                  ? stackRuns(load)
+                      .map(({ count, stepKg }) => `${count} × ${kgToUnit(stepKg, unit)} ${unit}`)
+                      .join(' + ')
+                  : '—'
+              }
             />
           </View>
         ) : null}
