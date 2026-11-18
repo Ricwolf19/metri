@@ -20,6 +20,7 @@ import {
 import { recordDeletion } from '@/features/sync/tombstones';
 import { randomId } from '@/lib/crypto';
 
+import { MAX_BADGE_LEN, MAX_BADGES } from './badge-limits';
 import { catalogRestSeconds, propagateSlotMeta } from './session.repo';
 import { getExerciseSetting, slotSeed } from './exercise-settings.repo';
 import { exerciseHeads, type MuscleHead } from './muscles';
@@ -77,8 +78,7 @@ export const dayMuscleHeads = (dayId: string): MuscleHead[] => {
  * `updatedAt` column get it stamped for future sync.
  */
 
-export const MAX_BADGES = 5;
-export const MAX_BADGE_LEN = 24;
+export { MAX_BADGE_LEN, MAX_BADGES };
 
 /** The editable prescription fields of a week config (no id/week/scope). */
 export type ConfigValues = {

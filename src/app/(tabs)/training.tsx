@@ -5,7 +5,14 @@ import { Text, View } from 'react-native';
 
 import type { WorkoutStatus } from '@/db/schema';
 
-import { ChevronRightIcon, HistoryIcon, PlayIcon, PlusIcon, SparksIcon } from '@/components/icons';
+import {
+  ChevronRightIcon,
+  HistoryIcon,
+  PlayIcon,
+  PlusIcon,
+  ScanQrIcon,
+  SparksIcon,
+} from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import {
   BlockingOverlay,
@@ -310,6 +317,21 @@ const Training = () => {
               <Text className="mt-0.5 text-sm text-ink-400">{t('editor.createOwnSub')}</Text>
             </View>
             <ChevronRightIcon color={brand} />
+          </Card>
+        </PressableScale>
+        {/* A program another lifter shows as QR codes joins "Your programs". */}
+        <PressableScale onPress={() => router.push('/training/scan')}>
+          <Card className="flex-row items-center">
+            <View className="mr-4 h-11 w-11 items-center justify-center rounded-field bg-ink-800">
+              <ScanQrIcon color={muted} size={20} />
+            </View>
+            <View className="flex-1 pr-2">
+              <Text className="text-base font-sans-semibold text-ink-50">
+                {t('programShare.scan')}
+              </Text>
+              <Text className="mt-0.5 text-sm text-ink-400">{t('programShare.scanSub')}</Text>
+            </View>
+            <ChevronRightIcon color={muted} />
           </Card>
         </PressableScale>
       </View>

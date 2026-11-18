@@ -11,6 +11,7 @@ import {
   foodLogs,
   exercises,
   programs,
+  progressCheckins,
   progressPhotos,
   routines,
   setLogs,
@@ -149,6 +150,7 @@ describe('buildExport — data freedom guarantees', () => {
   beforeEach(() => {
     wipe();
     db.delete(progressPhotos).run();
+    db.delete(progressCheckins).run();
     seedWorld(U1);
   });
 
@@ -167,7 +169,7 @@ describe('buildExport — data freedom guarantees', () => {
 
     const doc = JSON.parse(JSON.stringify(buildExport(U1)));
 
-    expect(doc.exportVersion).toBe(6);
+    expect(doc.exportVersion).toBe(7);
     expect(doc.data.progressPhotos).toHaveLength(1);
     const [photo] = doc.data.progressPhotos;
     // The weight/date timeline is extractable...
@@ -176,6 +178,37 @@ describe('buildExport — data freedom guarantees', () => {
     expect(photo).not.toHaveProperty('uri');
     expect(photo).not.toHaveProperty('thumbUri');
     expect(JSON.stringify(doc)).not.toContain('file:///');
+  });
+
+  it("ships the check-ins and each clip's pose, kind and length, still without a path", () => {
+    db.insert(progressCheckins)
+      .values({ id: `${U1}-c`, userId: U1, date: '2026-11-10' })
+      .run();
+    db.insert(progressPhotos)
+      .values({
+        id: `${U1}-clip`,
+        userId: U1,
+        checkinId: `${U1}-c`,
+        kind: 'video',
+        pose: 'front',
+        durationMs: 9000,
+        uri: 'file:///data/user/0/app/files/progress/clip.mp4',
+        thumbUri: 'file:///data/user/0/app/files/progress/clip_thumb.jpg',
+        takenAt: new Date('2026-11-10T08:00:00Z'),
+      })
+      .run();
+
+    const doc = JSON.parse(JSON.stringify(buildExport(U1)));
+
+    expect(doc.data.progressCheckins).toEqual([{ id: `${U1}-c`, date: '2026-11-10', note: null }]);
+    expect(doc.data.progressPhotos[0]).toMatchObject({
+      checkinId: `${U1}-c`,
+      kind: 'video',
+      pose: 'front',
+      durationMs: 9000,
+    });
+    expect(JSON.stringify(doc)).not.toContain('file:///');
+    expect(validateImport(doc)).toEqual({ ok: true });
   });
 
   it('round-trips into another LOCAL user — export never requires an account', () => {
@@ -452,7 +485,7 @@ describe('importUserData — local-only tables (v5)', () => {
       ])
       .run();
     const doc = JSON.parse(JSON.stringify(buildExport(U1)));
-    expect(doc.exportVersion).toBe(6);
+    expect(doc.exportVersion).toBe(7);
     expect(validateImport(doc)).toEqual({ ok: true });
 
     const summary = importUserData(U2, doc);

@@ -69,7 +69,14 @@ export type ImportSummary = Record<ImportTable, number>;
 export const importUserData = (
   userId: string,
   doc: { data: Partial<Record<ImportTable, Row[]>> },
-): ImportSummary => {
+): ImportSummary => importRows(userId, doc).summary;
+
+/** `importUserData` plus the file id → fresh id map, for a caller that opens what it wrote
+ * (a program received by QR goes through here — @see program-share.ts). */
+export const importRows = (
+  userId: string,
+  doc: { data: Partial<Record<ImportTable, Row[]>> },
+): { summary: ImportSummary; ids: ReadonlyMap<string, string> } => {
   const data = doc.data;
   const ids = new Map<string, string>();
   for (const table of IMPORT_TABLES) {
@@ -144,5 +151,5 @@ export const importUserData = (
     }
   });
 
-  return summary;
+  return { summary, ids };
 };

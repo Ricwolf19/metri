@@ -36,7 +36,11 @@ import {
   scheduleLabel,
 } from '@/features/training/labels';
 import { getProgram, getProgramTree } from '@/features/training/programs.repo';
+import { programSheetHtml } from '@/features/print/program-sheet';
+import { programSheetInput } from '@/features/print/program-sheet-data';
+import { usePdfActions } from '@/features/print/usePdfActions';
 import { useI18n, useT } from '@/i18n';
+import { useDateFormat } from '@/lib/useDateFormat';
 import { afterTransition } from '@/lib/useTransitionSettled';
 import { useTheme } from '@/theme/theme-context';
 
@@ -50,6 +54,8 @@ const ProgramDetail = () => {
   const toast = useToast();
   const dialog = useDialog();
   const { user } = useAuth();
+  const { date } = useDateFormat();
+  const pdf = usePdfActions();
   const programId = typeof id === 'string' ? id : '';
 
   const { data: enrollments } = useLiveQuery(activeEnrollmentQuery(user?.id ?? ''), [user?.id]);
@@ -101,6 +107,25 @@ const ProgramDetail = () => {
     : enrollment
       ? t('training.switch')
       : t('training.enroll');
+
+  // The tree on screen — the enrolled copy when it runs here — is what travels and prints.
+  const shownCopy = enrolledHere && enrollment ? enrollment.id : null;
+  const onShare = () =>
+    router.push({
+      pathname: '/training/program/share/[id]',
+      params: shownCopy ? { id: programId, up: shownCopy } : { id: programId },
+    });
+  const onPrint = () =>
+    pdf.open(t('print.programTitle'), () => {
+      const input = programSheetInput({
+        programId,
+        userProgramId: shownCopy,
+        locale,
+        t,
+        printedOn: t('print.printedOn', { date: date(new Date()) }),
+      });
+      return input ? { html: programSheetHtml(input, t), title: input.name } : null;
+    });
 
   const remove = () => {
     if (!deleteProgramTree(programId)) {
@@ -235,6 +260,14 @@ const ProgramDetail = () => {
 
       <View className="mt-6 gap-3">
         <Button variant="brand" size="lg" label={primaryLabel} onPress={onPrimary} />
+        <View className="flex-row gap-3">
+          <View className="min-w-0 flex-1">
+            <Button label={t('programShare.action')} onPress={onShare} />
+          </View>
+          <View className="min-w-0 flex-1">
+            <Button label={t('print.programPdf')} onPress={onPrint} />
+          </View>
+        </View>
         {mine ? (
           <Button
             label={t('editor.edit')}
@@ -249,6 +282,7 @@ const ProgramDetail = () => {
           </View>
         ) : null}
       </View>
+      {pdf.overlay}
     </Screen>
   );
 };
