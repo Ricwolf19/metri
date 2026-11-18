@@ -160,7 +160,10 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
 - **Telemetry is for surprises only.** An expected refusal is an answer, not a defect, and must
   never reach `captureError`: rejected credentials (`AuthRejectedError`, 4xx only — a 5xx still
   reports), a dismissed share sheet, a refused sync session, and anything `isNetworkFailure`
-  matches. The rule is enforced at five call sites; add the guard when you add the sixth.
+  matches. The rule is enforced at five call sites; add the guard when you add the sixth. Every
+  file handed to the OS share sheet goes through `shareFile` (`lib/share-file.ts`, the only module
+  importing `expo-sharing`): it resolves to `shared | dismissed | unavailable | failed`, never
+  throws, reports only a real failure, and `shareFailed(outcome)` decides the toast.
 - **Expected outcomes never reach Sentry.** Connectivity loss is filtered centrally
   (`lib/network-errors.ts`, used by both `captureError` and `beforeSend` — SDK 57's global `fetch`
   is `expo/fetch`, so offline reads as `fetch failed: …`), and callers filter their own: a rejected
@@ -286,7 +289,8 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   `onScaleChange` on every render, so whatever it stores there is equality-guarded (it looped
   otherwise), and its y scale is NICED: axis values come from `yScale.domain()`, never from the
   domain passed in. Bar labels thin out from the current (last) bar, which always keeps its own
-  (`labelStride`). No entering animation: a chart's resting state is drawn. `victory-native` is
+  (`labelStride`). A pick belongs to the series as drawn (`seriesKey`: x and y), so new data, or new values on
+  the same bars, drops it. No entering animation: a chart's resting state is drawn. `victory-native` is
   pinned to 42.x — 43 imports a renamed `react-native-skia` package, not the
   `@shopify/react-native-skia` Expo SDK 57 ships.
 - **Long lists are `FlashList` (v2) and the list IS the scroller**: a FlashList inside a
@@ -294,7 +298,8 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   gap) with the search fixed above the list and the rest as `ListHeaderComponent`. `ExerciseList`
   (library, editor picker, the session's add sheet — `inSheet` shrinks it to the sheet's cap and
   the keyboard the way `ScrollArea inSheet` does), session history (headings and rows as one flat
-  list) and the food search are; a short bounded list stays a plain map.
+  list) and the food search are; a short bounded list stays a plain map. A list drawn as slices of one card uses `CARD_SLICE`
+  from `Card.tsx`, never a copy of its classes.
 - **Text on any device**: never a hard `h-*` on a container that holds text (use `min-h-*` and let
   it grow — ES copy runs ~20% longer than EN and phones differ in font/display scale). One-line
   labels clamp with `numberOfLines={1}`; body copy that may overflow uses `<ClampedText>` (measured
@@ -621,7 +626,8 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   `features/photos/components/` (it needs `AlignedPhoto` and `mediaUri`; ui never imports features)
   and draws with `share/palette.ts`. Card text is `allowFontScaling={false}`: a fixed-size PNG
   must not overflow. Either card is a PNG built on the device that the lifter hands to the OS
-  share sheet themselves (the progress one at 1080 px wide, `share({ width, height })`); nothing
+  share sheet themselves (the progress one at 1080 px wide, `share({ width, height })`, which resolves to a `shareFile` outcome, or `null` for a tap while
+  one is under way — the guard is a ref, since a double tap lands before `busy` re-renders); nothing
   else captures a view, and nothing is uploaded.
 - **Spotlight** (`features/spotlight/`) opens from `Screen`'s `onPullHold` — at the top of a tab,
   drag down and hold the finger for `HOLD_MS` (1 s; the progress hairline only starts after
@@ -716,7 +722,10 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   Health Connect, and `legal/content.ts` says exactly that — a cache or a sync of it changes the
   privacy claim first. Weight and body fat are deliberately NOT imported: the week is judged from
   the lifter's own weigh-ins and tape. iOS reads `unsupported` until HealthKit is added. The
-  library needs `minSdkVersion` 26 (`expo-build-properties`).
+  library needs `minSdkVersion` 26 (`expo-build-properties`). A spent read quota (`UNDERLYING_ERROR` naming
+  the quota) or a grant revoked mid-read (`PERMISSION_ERROR`) is an answer, never a
+  `captureError` (`isExpectedRefusal`); each metric is read on its own, so one refusal blanks
+  only its own number.
 - **Sharing a program by QR** (`features/plan/program-share-codec.ts`, pure, and
   `program-share.ts`, the db side). ONE program tree — phases, splits, slots, week prescriptions
   and the full definition of every CUSTOM exercise it names (catalog ones travel as their seed
@@ -737,7 +746,9 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   reused only when the scanner already has one with the same folded name, category, equipment and
   primary muscles; anything less is a new row. The share screen cycles codes every 400 ms under
   its OWN keep-awake tag (a session's must survive it closing); the scanner (`/training/scan`, on
-  the Train tab) collects them in any order through `addScannedCode`.
+  the Train tab) collects them in any order through `addScannedCode`. `buildSharedProgram` returns
+  null only when there is nothing to share; a sender tree that fails the receiver's parser throws
+  (a defect, reported, `programShare.buildFailed`).
 - **Printed documents** (`features/print/`, `expo-print` only in `pdf.ts`). The format is
   metri.info's body page in print (`@media print` in its `globals.css`): ink on white, an eyebrow +
   title + subtitle header, a "Printed on" mono line, stat tiles, sections of title + hint that never
@@ -750,7 +761,8 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   `splitPreview`, the expansion a session opens, with a box per set (capped at 8) to write the
   weight in, four weeks to a table. `usePdfActions` builds behind the blocking overlay and then
   hands off: "Share PDF" (a cache-dir file named by `pdfFileName`) or the system "Print" dialog;
-  a closed print dialog or share sheet is an answer, never a `captureError`.
+  a closed print dialog or share sheet is an answer, never a `captureError`; any other print
+  failure (`printDocument` resolves `failed`) is reported and gets the `print.failed` toast.
 - **App-icon shortcuts** (`features/quick-actions/`, `expo-quick-actions`): Train (the Train tab —
   the one Play, and a session under way reopens from there), Check-in, Log food, Progress photo.
   `useQuickActions` lives in the TABS layout (the navigator is up and a lifter exists; the root
@@ -758,7 +770,10 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   otherwise; titles come from the dictionaries and are re-set on a language change. A delivered
   action routes by its id through our own table (`quickActionHref`), never by a payload href, and
   the cold-start action is consumed once. Ids are kept by the OS between launches: never rename one.
-  Android draws the launcher icon on each (per-action icons need `androidIcons` in the plugin).
+  Android draws the launcher icon on each (per-action icons need `androidIcons` in the plugin). A tab
+  shortcut is switched to, never pushed (`isTabHref`): over a nested screen `dismissTo(href)`, on
+  the tabs `navigate(href)` — a push from a screen stacked over the tabs mounted a second `(tabs)`
+  tree.
 - **The phone-calendar mirror** (`features/calendar/`, `sync.ts` the only module importing
   `expo-calendar`) is OPT-IN (`settings.calendarSync`, its switch on the notifications screen,
   outside the master switch — it is not a notification). It writes the ACTIVE enrollment's
@@ -822,7 +837,9 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   (`/progress/compare`) is side by side, a wipe, a fade or a grid of four, over one pose, with the
   change in days, weekly-average weight and key tape site under it. A photo's `MediaAlign` is
   edited only there (side by side, or the After photo in a fade), clamped by `align.ts` so the
-  photo always covers its frame, and the share card draws the same geometry.
+  photo always covers its frame, and the share card draws the same geometry. A progress screen whose
+  subject is gone leaves with `<LeaveTo>` (`dismissTo` on focus), never `<Redirect>`, which
+  replaced and stacked a second timeline.
 - **Food diary** (`features/nutrition/`). The catalogue is a GENERATED module (`foods.data.ts`,
   built by `scripts/build-foods.ts` from USDA FoodData Central — never hand-edit a value; food
   slugs are written into `food_logs.foodId`, never rename one). Only user-made foods live in the
