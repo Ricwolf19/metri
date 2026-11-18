@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatDate, formatDateKey, formatDayMonth, formatMonth } from './date-format';
+import {
+  formatDate,
+  formatDateKey,
+  formatDayMonth,
+  formatMonth,
+  formatMonthYear,
+} from './date-format';
 
 const D = new Date(2026, 8, 16); // 16 Sep 2026 (Wednesday)
 
@@ -36,5 +42,13 @@ describe('formatDate', () => {
   it('names a month in the app language', () => {
     expect(formatMonth(D, 'en')).toMatch(/^Sep/);
     expect(formatMonth(D, 'es', 'long')).toMatch(/^sept/i);
+  });
+});
+
+describe('formatMonthYear', () => {
+  it('words a month with its year the way each language does', () => {
+    const nov = new Date(2026, 10, 17);
+    expect(formatMonthYear(nov, 'en')).toBe('November 2026');
+    expect(formatMonthYear(nov, 'es')).toBe('noviembre de 2026');
   });
 });

@@ -8,6 +8,7 @@ import {
   formatDateKey,
   formatDayMonth,
   formatMonth,
+  formatMonthYear,
   type DateFormat,
 } from './date-format';
 import { SettingKeys, storage } from './storage';
@@ -29,5 +30,15 @@ export const useDateFormat = () => {
     [locale],
   );
 
-  return { format, setFormat: (next: DateFormat) => setRaw(next), date, dateKey, dayMonth, month };
+  const monthYear = useCallback((d: Date) => formatMonthYear(d, locale), [locale]);
+
+  return {
+    format,
+    setFormat: (next: DateFormat) => setRaw(next),
+    date,
+    dateKey,
+    dayMonth,
+    month,
+    monthYear,
+  };
 };

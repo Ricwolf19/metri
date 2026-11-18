@@ -41,7 +41,7 @@ const ProgressContent = () => {
   const router = useRouter();
   const t = useT();
   const { brand, brandContrast } = useTheme();
-  const { month } = useDateFormat();
+  const { monthYear } = useDateFormat();
   const { units } = useUnits();
   const { entries, keySite } = useProgressLog(user?.id ?? '', user?.sex ?? null);
   const [filter, setFilter] = useState<TimelineFilter>('all');
@@ -54,8 +54,7 @@ const ProgressContent = () => {
   for (const entry of shown) {
     const key = entry.checkin.date.slice(0, 7);
     if (key !== lastMonth) {
-      const first = dateFromKey(`${key}-01`);
-      items.push({ kind: 'month', key, title: `${month(first, 'long')} ${first.getFullYear()}` });
+      items.push({ kind: 'month', key, title: monthYear(dateFromKey(`${key}-01`)) });
       lastMonth = key;
     }
     items.push({ kind: 'checkin', entry });

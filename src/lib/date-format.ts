@@ -52,6 +52,11 @@ export const formatMonth = (
   style: 'short' | 'long' = 'short',
 ): string => date.toLocaleDateString(TAG[locale], { month: style });
 
+/** A month with its year, worded by the language ("November 2026", "noviembre de 2026"): a month
+ * name glued to a year read wrong in Spanish. A heading, so the preset does not apply. */
+export const formatMonthYear = (date: Date, locale: LocaleTag): string =>
+  date.toLocaleDateString(TAG[locale], { month: 'long', year: 'numeric' });
+
 /** Short day + month for compact charts and labels (respects the preset's day/month order). */
 export const formatDayMonth = (date: Date, format: DateFormat, locale: LocaleTag): string => {
   if (format === 'mdy') return `${pad2(date.getMonth() + 1)}/${pad2(date.getDate())}`;
