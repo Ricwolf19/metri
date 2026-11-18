@@ -24,6 +24,8 @@ import {
   TextLink,
   type SelectItem,
 } from '@/components/ui';
+import { LockGate } from '@/features/app-lock/LockGate';
+import { PrivacyLockCard } from '@/features/app-lock/PrivacyLockCard';
 import { useAuth } from '@/features/auth/auth-context';
 import { RoleBadge } from '@/features/auth/components/RoleBadge';
 import { pushProfile } from '@/features/auth/profile-sync';
@@ -50,7 +52,7 @@ const MetricRow = ({ label, value }: { label: string; value: string }) => {
   );
 };
 
-const Profile = () => {
+const ProfileContent = () => {
   const { user, isPremium, isLocalOnly, tier, updateMyProfile, signOut } = useAuth();
   const { t, locale, setLocale } = useI18n();
   const { brand } = useTheme();
@@ -270,6 +272,9 @@ const Profile = () => {
         </>
       )}
 
+      {/* Which private sections ask for the phone's own unlock. */}
+      <PrivacyLockCard />
+
       {/* Feedback — ideas & bug reports straight to the team (beta lifeline). */}
       <Text className="mb-2 mt-7 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
         {t('faq.feedbackTitle')}
@@ -433,5 +438,12 @@ const Profile = () => {
     </Screen>
   );
 };
+
+/** Behind the private-section lock when the lifter turned it on (`features/app-lock`). */
+const Profile = () => (
+  <LockGate section="settings">
+    <ProfileContent />
+  </LockGate>
+);
 
 export default Profile;
