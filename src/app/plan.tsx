@@ -9,6 +9,7 @@ import { useAuth } from '@/features/auth/auth-context';
 import type { Tier } from '@/features/auth/entitlements';
 import { buildImportPrompt } from '@/features/plan/import-prompt';
 import { DataCard } from '@/features/plan/DataCard';
+import { BodyReportCard } from '@/features/print/BodyReportCard';
 import { useI18n, useT, type TranslationKey } from '@/i18n';
 import { WEB_URL } from '@/lib/env';
 import { openExternal } from '@/lib/open-external';
@@ -110,6 +111,7 @@ const Plan = () => {
       </Text>
       <View className="gap-3">
         <DataCard userId={user?.id ?? ''} />
+        {user ? <BodyReportCard userId={user.id} sex={user.sex ?? null} /> : null}
         <Card>
           <Text className="text-base font-sans-semibold text-ink-50">
             {t('plan.aiPromptTitle')}
