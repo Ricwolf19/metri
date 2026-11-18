@@ -101,20 +101,67 @@ export type Reminder = typeof reminders.$inferSelect;
 export type NewReminder = typeof reminders.$inferInsert;
 
 /**
- * Progress photos. The image **files live on disk** (app document dir) — only the
- * file paths + metadata are stored here (never the binary). `takenAt` is an
- * epoch-ms `Date`; `weightKg` snapshots the user's weight at capture for an overlay.
+ * Progress media is LOCAL-ONLY (never synced, never in a backup's files): the
+ * rows hold metadata and the path of a file in the app's private
+ * `documents/progress/` folder — SQLite never stores the image or clip itself.
+ * Paths are resolved by file NAME at read (`mediaUri`, `features/photos/media-path.ts`),
+ * so a container that moved (an iOS reinstall) still finds them.
  */
-export const progressPhotos = sqliteTable('progress_photos', {
-  id: text('id').primaryKey(),
-  userId: text('user_id').notNull(),
-  uri: text('uri').notNull(),
-  thumbUri: text('thumb_uri').notNull(),
-  takenAt: tsMs('taken_at').notNull(),
-  weightKg: real('weight_kg'),
-  note: text('note'),
-  createdAt: tsMs('created_at').notNull().default(NOW_MS),
-});
+
+/** The five poses of a check-in, in capture order. Stored: add, never rename. */
+export type ProgressPose = 'front' | 'back' | 'left' | 'right' | 'flex';
+export type ProgressMediaKind = 'photo' | 'video';
+/**
+ * How a photo sits in its 3:4 frame when compared: `scale` 1 is the photo
+ * covering the frame, `x`/`y` move its centre as a fraction of the frame's
+ * width/height. Lining two photos up once is remembered on each.
+ */
+export type MediaAlign = { scale: number; x: number; y: number };
+
+/** One sitting: the poses (and clips) taken together on a day. */
+export const progressCheckins = sqliteTable(
+  'progress_checkins',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(),
+    /** Local 'YYYY-MM-DD'. Not unique: a morning and an evening check-in may share a day. */
+    date: text('date').notNull(),
+    note: text('note'),
+    createdAt: tsMs('created_at').notNull().default(NOW_MS),
+    updatedAt: tsMs('updated_at').notNull().default(NOW_MS),
+  },
+  (t) => [index('idx_progress_checkins_user_date').on(t.userId, t.date)],
+);
+
+export type ProgressCheckin = typeof progressCheckins.$inferSelect;
+
+/** A photo or a clip. The table keeps its first name: `progressPhotos` is an export key. */
+export const progressPhotos = sqliteTable(
+  'progress_photos',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(),
+    uri: text('uri').notNull(),
+    thumbUri: text('thumb_uri').notNull(),
+    takenAt: tsMs('taken_at').notNull(),
+    /** The profile weight at capture on rows from before check-ins; new rows leave it NULL
+     * (a check-in reads the body log's weekly average instead). */
+    weightKg: real('weight_kg'),
+    note: text('note'),
+    /** NULL only on rows from before check-ins, until `adoptLegacyPhotos` files them. */
+    checkinId: text('checkin_id'),
+    kind: text('kind').$type<ProgressMediaKind>().notNull().default('photo'),
+    /** NULL = not said (an older photo, a clip). A check-in holds at most one photo per pose. */
+    pose: text('pose').$type<ProgressPose>(),
+    width: integer('width'),
+    height: integer('height'),
+    /** Clips only. */
+    durationMs: integer('duration_ms'),
+    align: text('align', { mode: 'json' }).$type<MediaAlign>(),
+    createdAt: tsMs('created_at').notNull().default(NOW_MS),
+  },
+  (t) => [index('idx_progress_photos_checkin').on(t.checkinId)],
+);
 
 export type ProgressPhoto = typeof progressPhotos.$inferSelect;
 
@@ -419,8 +466,17 @@ export type LoadDetail =
   /** `platesKg` is ONE side, largest first; `barKg` 0 is a plate-loaded machine.
    * `sides` 1 is a single post that takes every plate (the total is base + plates once); absent = 2. */
   | { kind: 'barbell'; barKg: number; platesKg: number[]; sides?: 1 | 2 }
-  /** A stack or pin machine: `baseKg + steps × incrementKg`. */
-  | { kind: 'machine'; baseKg: number; incrementKg: number; steps: number }
+  /** A stack or pin machine: `baseKg + steps × incrementKg`, except that from
+   * each `jumps` load on the plates weigh that jump's `incrementKg` (pin `steps`
+   * of the ladder, `features/training/ladder.ts`). `jumps` is additive: an older
+   * build reads a jumped stack as one increment throughout. */
+  | {
+      kind: 'machine';
+      baseKg: number;
+      incrementKg: number;
+      steps: number;
+      jumps?: { fromKg: number; incrementKg: number }[];
+    }
   /** `hands` is frozen at log time from the exercise's unilateral flag, so the
    * total of a dumbbell set never depends on a flag that may change later. */
   | { kind: 'dumbbell'; perHandKg: number; hands: 1 | 2 };

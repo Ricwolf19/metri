@@ -28,6 +28,7 @@ import {
   LogOut,
   Gym,
   ShieldCheck,
+  Lock,
   Plus,
   Minus,
   Check,
@@ -54,6 +55,14 @@ import {
   Sparks,
   Pause,
   Expand,
+  ScanQrCode,
+  RotateCameraRight,
+  ViewGrid,
+  VideoCamera,
+  MediaImage,
+  Eye,
+  EyeClosed,
+  ViewColumns2,
 } from 'iconoir-react-native';
 
 /** Square size in px (maps to width + height). */
@@ -93,6 +102,7 @@ export const CameraIcon = sized(Camera, 'CameraIcon');
 export const ChevronRightIcon = sized(NavArrowRight, 'ChevronRightIcon');
 export const ChevronLeftIcon = sized(NavArrowLeft, 'ChevronLeftIcon');
 export const ChevronDownIcon = sized(NavArrowDown, 'ChevronDownIcon');
+export const ChevronUpIcon = sized(NavArrowUp, 'ChevronUpIcon');
 /** Trend arrows (a comparison indicator, see training/components/TrendArrow). */
 export const ArrowUpIcon = sized(NavArrowUp, 'ArrowUpIcon');
 export const ArrowDownIcon = sized(NavArrowDown, 'ArrowDownIcon');
@@ -121,6 +131,7 @@ export const GithubIcon = sized(Github, 'GithubIcon');
 export const CompassIcon = sized(Compass, 'CompassIcon');
 export const AppleIcon = sized(Apple, 'AppleIcon');
 export const ShieldIcon = sized(ShieldCheck, 'ShieldIcon');
+export const LockIcon = sized(Lock, 'LockIcon');
 export const HelpIcon = sized(HelpCircle, 'HelpIcon');
 export const InfoCircleIcon = sized(InfoCircle, 'InfoCircleIcon');
 export const WarningIcon = sized(WarningTriangle, 'WarningIcon');
@@ -130,3 +141,11 @@ export const PlaySolidIcon = sized(PlaySolid, 'PlaySolidIcon');
 export const SparksIcon = sized(Sparks, 'SparksIcon');
 export const PauseIcon = sized(Pause, 'PauseIcon');
 export const ExpandIcon = sized(Expand, 'ExpandIcon');
+export const ScanQrIcon = sized(ScanQrCode, 'ScanQrIcon');
+export const FlipCameraIcon = sized(RotateCameraRight, 'FlipCameraIcon');
+export const GridIcon = sized(ViewGrid, 'GridIcon');
+export const VideoIcon = sized(VideoCamera, 'VideoIcon');
+export const GalleryIcon = sized(MediaImage, 'GalleryIcon');
+export const EyeIcon = sized(Eye, 'EyeIcon');
+export const EyeOffIcon = sized(EyeClosed, 'EyeOffIcon');
+export const CompareIcon = sized(ViewColumns2, 'CompareIcon');

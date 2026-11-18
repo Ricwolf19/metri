@@ -12,6 +12,7 @@ import {
   exercises,
   foodLogs,
   programs,
+  progressCheckins,
   progressPhotos,
   reminders,
   routines,
@@ -25,7 +26,7 @@ import {
   workoutLogs,
 } from '@/db/schema';
 
-const EXPORT_VERSION = 6;
+const EXPORT_VERSION = 7;
 
 /** Everything the user owns as one JSON document. Identity/entitlement fields and device paths are
  * excluded; ids ship for in-file integrity and are regenerated on import.
@@ -37,7 +38,9 @@ const EXPORT_VERSION = 6;
  * v5 adds the two local-only tables (`exerciseNotes`, `calculationHistory`): sync never carries
  * them, so the file is the only way they leave the device. v6 adds `exerciseSettings` (the
  * per-exercise defaults, including the last load config); the `load` and `unilateral` columns
- * ride on rows that were already exported. */
+ * ride on rows that were already exported. v7 adds export-only `progressCheckins` (the sittings
+ * the photos and clips belong to) and each media row's check-in, kind, pose and clip length —
+ * still metadata only, never a path or a file. */
 export const buildExport = (userId: string) => {
   const [u] = db.select().from(users).where(eq(users.id, userId)).all();
 
@@ -133,9 +136,22 @@ export const buildExport = (userId: string) => {
         .from(calculationHistory)
         .where(eq(calculationHistory.userId, userId))
         .all(),
+      progressCheckins: db
+        .select({
+          id: progressCheckins.id,
+          date: progressCheckins.date,
+          note: progressCheckins.note,
+        })
+        .from(progressCheckins)
+        .where(eq(progressCheckins.userId, userId))
+        .all(),
       progressPhotos: db
         .select({
           id: progressPhotos.id,
+          checkinId: progressPhotos.checkinId,
+          kind: progressPhotos.kind,
+          pose: progressPhotos.pose,
+          durationMs: progressPhotos.durationMs,
           takenAt: progressPhotos.takenAt,
           weightKg: progressPhotos.weightKg,
           note: progressPhotos.note,

@@ -8,12 +8,14 @@ import { Vibration } from 'react-native';
  * Players are created lazily and kept: `createAudioPlayer` decodes on creation,
  * and a cue that stutters the first time it fires is worse than no cue.
  */
-export type SoundId = 'sessionDone' | 'discard' | 'restAlarm';
+/** `timerTick` counts down the progress camera's self-timer, one per second. */
+export type SoundId = 'sessionDone' | 'discard' | 'restAlarm' | 'timerTick';
 
 const SOURCES: Record<SoundId, number> = {
   sessionDone: require('@/assets/sounds/session_done.wav'),
   discard: require('@/assets/sounds/discard.wav'),
   restAlarm: require('@/assets/sounds/rest_alarm.wav'),
+  timerTick: require('@/assets/sounds/timer_tick.wav'),
 };
 
 const players = new Map<SoundId, AudioPlayer>();

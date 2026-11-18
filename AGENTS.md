@@ -18,7 +18,9 @@ merges. `EXPORT_VERSION` 3 added export-only `progressPhotos` metadata (never th
 body and food tables; 5 adds the local-only `exerciseNotes` and `calculationHistory` (sync never
 carries them — a note on an existing exercise keeps the device's copy); 6 adds `exerciseSettings`
 (one per (user, exercise), the device's copy wins) — the `load` and `unilateral` columns ride on
-rows already exported. Bumps only ever ADD keys, so `validate-import.ts` accepts 2–6. Cloud sync is
+rows already exported; 7 adds export-only `progressCheckins` (id, date, note) and each media row's
+checkin id, kind, pose and clip length — never a path. Bumps only ever ADD keys, so
+`validate-import.ts` accepts 2–7. Cloud sync is
 Premium-only and automatic. `README.md` is the presentation card only; this file holds the rules
 (the sync protocol's server half lives in the web repo's `docs/sync.md`).
 
@@ -49,12 +51,26 @@ bun run android|ios    # native build + run (Android needs JDK 17)
 bun run verify         # format:check + lint + typecheck + test + i18n:check + deadcode
 bun run ci             # verify + secrets:scan + expo-doctor — mirror of CI; pre-push runs this
 bun run test           # vitest — colocated *.test.ts: pure logic, or repos against src/test/sqlite.ts (sql.js) with `@/db/client` + `@/lib/crypto` mocked
+bun run test:ui        # jest-expo + Testing Library — colocated *.test.tsx: components, rendered through `renderWithProviders` (src/test/render.tsx)
+bun run atlas          # bundle the Android JS with Atlas on and open the treemap of what makes it big
 bun run db:generate    # regenerate SQL migrations after editing src/db/schema.ts
 bun scripts/build-foods.ts <sr-legacy.json>   # regenerate the food catalogue, then `bun run format`
 ```
 
 A knip or i18n:check finding FAILS the gate: delete/unexport dead code, remove orphaned dictionary
-keys. Every production bug fix ships with the test that would have caught it.
+keys.
+
+**Two test runners, split by extension.** `*.test.ts` is vitest (node, no React Native);
+`*.test.tsx` is Jest on `jest-expo` (`jest.config.js`), because only Jest runs React Native's own
+renderer and mocks. Component tests import `describe`/`it`/`expect`/`jest` from `@jest/globals`
+(no global test types: they would leak into the vitest files), render through
+`renderWithProviders` (i18n + theme), set the locale they assert on (`settings.setLocale('en')`),
+and AWAIT `render` and `fireEvent` (Testing Library 14 is async). The native modules that load at
+import without a Jest mock of their own are stubbed once in `jest.setup.ts` (Nitro, worklets,
+reanimated, keyboard-controller, and Skia + victory-native, which draw nothing there — chart maths
+is tested on vitest); a feature module that binds a native module at import (Health
+Connect, the camera) is mocked in the test, and a `jest.mock` factory may only capture
+`mock`-prefixed variables. Every production bug fix ships with the test that would have caught it.
 
 ## Architecture invariants
 
@@ -90,8 +106,9 @@ keys. Every production bug fix ships with the test that would have caught it.
   (a diverged email would duplicate the mirror row on revalidation).
 - **Entitlements**: gate with `can(plan, feature)` (`features/auth/entitlements.ts`), never
   `plan === 'premium'`.
-- **Privacy claims are code.** "Photos and reminders never leave the device" must stay true and in
-  sync with `src/features/legal/content.ts` whenever sync or telemetry changes. All Sentry access
+- **Privacy claims are code.** "Photos, clips and reminders never leave the device" — unless the
+  lifter shares one themselves through the OS share sheet — must stay true and in sync with
+  `src/features/legal/content.ts` whenever sync, telemetry or sharing changes. All Sentry access
   goes through `src/lib/telemetry.ts` (account id only, `sendDefaultPii: false`, empty DSN = off) —
   never import `@sentry/react-native` elsewhere.
 - **Animations** use `react-native-reanimated` v4 (shared values + `useAnimatedStyle`; worklets
@@ -132,8 +149,10 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   detail is saved", the swap-variant glyph (alternatives exist), the "more than last time" arrow
   — never a selection or an active state, which stay lime. The sole hex
   exceptions are `components/BarGraphic.tsx` (Olympic plate colours are the plate's identity, data
-  not theme) and `components/ui/share/palette.ts` (a share card is a PNG, always dark, never a
-  themed surface). Icons come from the `@/components/icons` Iconoir barrel — add by mapping
+  not theme), `components/ui/share/palette.ts` (a share card is a PNG, always dark, never a
+  themed surface), `features/print/palette.ts` (a PDF is paper, always light) and
+  `features/plan/qr-colors.ts` (a QR code is black on white whatever the theme — a camera
+  needs the contrast). Icons come from the `@/components/icons` Iconoir barrel — add by mapping
   there, don't import `iconoir-react-native` in screens.
 - **i18n**: flat dotted keys in `src/i18n/{en,es}.ts` — add to BOTH (tsc + `i18n:check` enforce).
 - **Server/technical strings never reach the UI.** A caught error shows a translated message and
@@ -156,7 +175,8 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   one). Its firing is the component's OWN timer (armed on press-in, disarmed on press-out), never
   `Pressable.onLongPress`: Pressability drops its long-press timer when the finger drifts more
   than ten points while the press stays active, so a thumb that moved watched the fill reach
-  100 % and nothing fire. Toasts only for save/delete/start/abandon.
+  100 % and nothing fire. Toasts only for save/delete/start/abandon; a toast drops in under the
+  header pill and leaves with an UPWARD swipe (a heads-up banner's gesture), never a sideways one.
 - **Forms are react-hook-form through `@/components/form`** — `useSaveForm` + `ControlledInput` /
   `ControlledSegmentedControl` / `ControlledSelect` (a one-off control gets RHF's `Controller`). An
   edit form takes the loaded row as `defaultValues` ONCE (a new day/row is a `reset(next)` from the
@@ -253,13 +273,43 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
 - **Stat rows shrink, never wrap.** Three `<Stat>` to a row leaves ~90dp per column and an
   uppercase mono label with wide tracking is the widest text the app renders — the label
   auto-shrinks (`adjustsFontSizeToFit`) and the unit is `shrink-0`, so Spanish can't knock the
-  values off a shared baseline.
+  values off a shared baseline. Never four to a row: `ExerciseTrendCard` runs its four as two by
+  two. A list row never carries a third column of copy (a session count, a set total) beside a
+  name — it rides on a line under the name, which may take two lines.
+- **Charts** are `TrendChart` (series over time) and `BarChart` (the Metrics bars) in
+  `components/ui`, drawn by `victory-native` on Skia; `CalcChart` stays for the calculators'
+  visuals. Every word is React Native `Text` — the readout above (`ChartReadout`, always two lines
+  so scrubbing never moves the plot), the axis values beside, the dates and bar labels under —
+  because canvas text ignores the OS font size; Skia draws shapes only. A tap picks the nearest
+  point or bar, a sideways drag scrubs, a vertical drag fails the pan so the screen still scrolls
+  (`useChartScrub`; the pick is JS state, changed only when the index does). The chart calls
+  `onScaleChange` on every render, so whatever it stores there is equality-guarded (it looped
+  otherwise), and its y scale is NICED: axis values come from `yScale.domain()`, never from the
+  domain passed in. Bar labels thin out from the current (last) bar, which always keeps its own
+  (`labelStride`). No entering animation: a chart's resting state is drawn. `victory-native` is
+  pinned to 42.x — 43 imports a renamed `react-native-skia` package, not the
+  `@shopify/react-native-skia` Expo SDK 57 ships.
+- **Long lists are `FlashList` (v2) and the list IS the scroller**: a FlashList inside a
+  `Screen scroll` renders every row, so its screen is a non-scroll `Screen` (the static header
+  gap) with the search fixed above the list and the rest as `ListHeaderComponent`. `ExerciseList`
+  (library, editor picker, the session's add sheet — `inSheet` shrinks it to the sheet's cap and
+  the keyboard the way `ScrollArea inSheet` does), session history (headings and rows as one flat
+  list) and the food search are; a short bounded list stays a plain map.
 - **Text on any device**: never a hard `h-*` on a container that holds text (use `min-h-*` and let
   it grow — ES copy runs ~20% longer than EN and phones differ in font/display scale). One-line
   labels clamp with `numberOfLines={1}`; body copy that may overflow uses `<ClampedText>` (measured
   "Read more", expands or navigates); tappable knowledge is a `<TextLink>` (lime underline, same
   look as markdown links). Controls cap the OS font multiplier with
   `maxFontSizeMultiplier={CONTROL_FONT_SCALE}` (`components/ui/typography.ts`); body copy never.
+- **A plain `View` that dims and holds children is `collapsable={false}`.** An opacity flipping
+  between 1 and below 1 (`disabled ? 'opacity-40' : ''`) starts and stops the view being a stacking
+  context, and Fabric then re-hosts its children between it and its parent. When other views
+  change in the same commit, Android's mount layer can insert a child before removing it:
+  "addViewAt … The specified child already has a parent", a hard crash (2026-11-17: the
+  `SegmentedControl` track on the progress camera, dimmed while Retake/Use showed, crashed every
+  "Use photo" — reproduced on the emulator, fixed by the prop, `SegmentedControl.test.tsx` guards
+  it). A `Pressable` is safe (it is `accessible`, always a stacking context), and so is a view that
+  clips (`overflow-hidden`). Wrappers that only lay out may collapse freely.
 - **Accessibility** (audited 2026-11-09, mirrored on metri.info). Selected text sits on lime at
   40 % (`TEXT_SELECTION`, spread on every TextInput through `useTheme().textSelection`; Android
   also gets an opaque caret and handles): the opaque lime made selected text 1.16:1. `ink-400`
@@ -325,6 +375,10 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   already marked the day), and next week's held occurrence rides as a one-shot until a reconcile
   after the hold expires restores the weekly trigger (`checkin-hold.ts`). Every hold write goes
   through the reconciler's in-flight chain and every one-shot id is recorded under the event.
+  **The same start holds that day's training-time reminder** (`holdSessionReminders`, the
+  `trainingHold` day, `planHeldReminders` with no delay and no ask) and dismisses one already in
+  the tray: "warm up and get to it" reached lifters mid-set. It is never released by the end —
+  the day is trained — and simply expires once its moment passes.
 - **`startRest` / `extendRest` / `endRest` are the only places the alarm starts or stops.** Screens
   never call `startAlarm` or `stopAlarm` themselves; a component that did would silence an alarm the
   service legitimately owns the moment the screen unmounted. `extendRest` takes negative seconds
@@ -339,6 +393,18 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   **A channel is immutable once a device has registered it** — changing its sound or importance
   in code is silently ignored there, so bump the id suffix (`training-v1`, `rest-alarm-v2`) and
   add the old id to `RETIRED_CHANNELS` or the change only reaches fresh installs.
+- **Touch feedback** goes through `lib/haptics.ts` — the only module importing `expo-haptics`. A
+  screen names a cue (`haptic('confirm')`; the set is `HapticCue`), never a vibration. Android
+  plays through `performAndroidHapticsAsync`
+  (`View.performHapticFeedback`), which follows the system's own touch-feedback switch — so there
+  is NO in-app setting — and needs no VIBRATE permission; the richer constants exist only from
+  Android 11/14 and throw below, so every cue carries a fallback and a refused constant is never
+  tried again. Calls are fire-and-forget and swallowed. Where it fires: the primitives' changes
+  (`ChipRow`, `SegmentedControl`, `OptionSheet`, `Switch`, `Stepper`, a `WheelPicker` row passing
+  the band), a `HoldButton` (a tick as the fill starts, `heavy` as it fires), and the session —
+  ± steps, a set logged or corrected, an effort picked, a chip lifted / moved / put down, the
+  workout finished. Rest-over has none: the alarm's repeating buzz (`lib/sounds.ts`) already is
+  one. Never on navigation, scrolling or keystrokes.
 - **Notification events** (`features/notifications/events.ts`) are a fixed catalogue the user tunes
   but never extends. Each carries a `group` (`events` | `knowledge` | `reminders`, the settings
   sections) and a `tuning` that decides its controls: `program` (the program's days, at a time
@@ -436,10 +502,18 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   swatches were tried and removed. `load` is written
   by the sheet's Apply and by that chooser only — never a slot field, never propagates — and
   `reconcileLoad` still drops a detail that no longer adds up to the row. **Plates and a
-  configured pin stack are PICKED, never typed** (owner's call, 2026-11-02): on a per-side row
-  or a stack with an increment, the weight field is `LoadPickerField` — the total, opening the
-  sheet — and the separate calculator button goes; ± still step (a side through `deriveLoad`, a
-  stack pin by pin). Dumbbells and plain totals stay typed. A logged weight (the set rows, "Last
+  configured pin stack are PICKED, never typed** (owner's call, 2026-11-02; dumbbells and every
+  stack joined on 2026-11-17): on a per-side row, any stack (a cable, a machine marked stack — one
+  not described yet opens the sheet on its base and plate) and a dumbbell, the weight field is
+  `LoadPickerField` — the total, or one dumbbell, opening the sheet — and the separate calculator
+  button goes; ± still step (a side through `deriveLoad`, a stack pin by pin, a dumbbell to the
+  next on the rack, both through `stepAlong`). Kettlebells and plain totals stay typed. Stacks and
+  racks are a `Ladder` (`ladder.ts`): a start, a step, and `jumps` where the step changes ("from
+  50, every 10") — a stack's live on its detail (`jumps`, additive: an older build reads one
+  increment throughout), the dumbbell rack is a DEVICE setting per unit (`dumbbellRack`, edited
+  in the sheet, `DEFAULT_DUMBBELL_RACK` up to 100 kg / 220 lb). Choosing "stack" saves the seed at
+  once, and the sheet's Apply saves a described stack with no pin picked yet ("Save machine"):
+  the plate weight typed on the first open used to be lost with it. A logged weight (the set rows, "Last
   training") opens `LoadPreviewSheet`, the read-only picture of that set (plates on the bar, the
   pin, the dumbbells; a bar set without a detail is drawn on the default bar and says so) with
   the other unit as one line under the total — the in-place unit flip is gone. Lifts that hold
@@ -447,6 +521,10 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   are fixed at one hand: the sheet hides the toggle and `oneDumbbellFill` reseeds older pairs.
   Prefill is keyed by the exercise on the card, and a variant swap clears the slot's draft
   details and per-side text (`clearDraftLoads`).
+- **A saved stack's pins are walked in kg** and converted pin by pin (`stackPins`); the sheet
+  keeps the saved kg stack while its fields are untouched (`untouchedStack`). Walking the other
+  unit's ROUNDED fields drifted off the real totals and past the plate change (a kg stack in a lb
+  gym lost its pin from about pin 8 on).
 - **Prefill: set 1 from the previous session, every later set from the set just logged.**
   Set 1 opens on set 1 of the previous completed session of that exercise
   (`previousSessionSets`, any split, any week; warm-ups filtered BEFORE indexing because
@@ -471,7 +549,10 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   logged, amber = partly (a set logged and some left or skipped), red = missed (nothing logged,
   the exercise or all its sets skipped), gray = not begun; FOCUS is a dotted border around the chip, never a fill — a selected chip used to read as done. Missed exercises sit at the end behind a divider
   (`sessionOrder`, display only: the snapshot keeps their place, so a restore puts them back;
-  every reorder writes through `mergeOrder`). The page is tracked by slot id, not index. An exercise left half done is settled first: a set on another one asks to go back or mark its open sets missed (`pendingElsewhere`). A first set on an exercise while an EARLIER one has not begun asks to move it up to be next (`chronologyMove`): the session records the order it was trained in. Paging on happens only after the planned sets of a planned exercise; an extra set (RIR required, its row spent on logging) or an exercise added today stays on the page. A small pencil marks an
+  every reorder writes through `mergeOrder`). Chips show the exercise's SHORT name
+  (`exerciseShortName`: `EXERCISE_SHORT_NAMES`, both languages, under `SHORT_NAME_MAX`; a custom
+  exercise gets `abbreviateName`); a tap spells that one chip out in full and a second shortens it
+  again, and screen readers always hear the full name. The page is tracked by slot id, not index. An exercise left half done is settled first: a set on another one asks to go back or mark its open sets missed (`pendingElsewhere`). A first set on an exercise while an EARLIER one has not begun asks to move it up to be next (`chronologyMove`): the session records the order it was trained in. Paging on happens only after the planned sets of a planned exercise; an extra set (RIR required, its row spent on logging) or an exercise added today stays on the page. A set whose prescription measures effort and has no RIR yet opens the effort sheet from the check, and the pick logs it (`readWithEffort`) — the check used to refuse with a toast. A small pencil marks an
   exercise with a personal note; the card's header pencil (with a "+" until there is a note)
   opens the editor. The phantom "+ Add" chip after the exercises in play adds any library
   exercise not already in the session (`addSessionExercise`) with ONE set, more through "Extra set": today only (a snapshot slot with its own id and `PlannedSlot.added`, additive JSON) or kept in the split (`addSlot` first).
@@ -484,7 +565,9 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   (`writeFocusSlot`/`readFocusSlot` in the drafts store; a notification's `?slot=` wins).
   `settings.workoutLayout` is retired — never reuse the id. The ± groups carry no visible
   caption (the field above them says the unit). The active row is three lines: ONE uppercase
-  mono header ("SET 1 | 12 REPS @ FAILURE") that wraps and never clips, two full-width
+  mono header ("SET 1 | 12 REPS @ FAILURE") that scrolls sideways, never wraps or clips (the
+  logged, skipped and pending rows' text is one scrolling line too: wrapped, a Spanish
+  "AL FALLO" grew the row and shoved the list), two full-width
   number fields with the trend glyph above the unit inside the unit box (a faint dash when there
   is nothing to compare, so the box never shows a hole), then the action line — ONE sideways-
   scrolling line of fixed height on the left (base tag, total, plate breakdown: the data never
@@ -522,10 +605,24 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   lands on the next launch) and can only be copied, never edited or deleted; only `is_custom`
   rows sync. The shipped content follows RAMP (raise, activate, mobilise, potentiate) and static
   stretching stays after the session — don't "fix" that into a pre-lift stretch.
-- **Share cards** are the SESSION card only (owner's call, 2026-11-09: the exercise, plan and day variants are gone): ONE template (`components/ui/share/ShareCard`) from `sessionShareModel` (`features/share/models.ts`) inside `ShareSheet`, the only caller of `useShareCard`, opened from the finish modal and from a session in the day sheet. Exercise
+- **Share cards** are two templates, and `useShareCard` has exactly two callers. The SESSION card
+  (owner's call, 2026-11-09: the exercise, plan and day variants are gone): ONE template
+  (`components/ui/share/ShareCard`) from `sessionShareModel` (`features/share/models.ts`) inside
+  `ShareSheet`, opened from the finish modal and from a session in the day sheet. Exercise
   rows carry the FULL exercise name, clamped to one line with an ellipsis, with the result in a
-  fixed right-aligned column (codes were tried and read worse). A card is a PNG the lifter hands
-  to the OS share sheet themselves; no card ever carries a progress photo.
+  fixed right-aligned column (codes were tried and read worse). The PROGRESS card (owner's call,
+  2026-11-17: photos may be shared when the lifter composes the card) — `/progress/share`,
+  `ProgressShareCard` from `progressShareModel` (`features/photos/share-model.ts`): ONE pose, 1–4
+  check-ins oldest first (1 single, 2 before/after, 3–4 timeline), story 9:16 / post 4:5 /
+  square, in the metri FRAME (mark, title, stat tiles, footer) or CLEAN (photos, optional dates,
+  one line of numbers, no mark). Numbers default to CHANGES and print a body weight only when
+  "Full" is picked; "Hide face" is a blurred copy of each photo clipped to a top band (native
+  image views, so view-shot keeps it — never a Skia canvas, which it may not capture). It lives in
+  `features/photos/components/` (it needs `AlignedPhoto` and `mediaUri`; ui never imports features)
+  and draws with `share/palette.ts`. Card text is `allowFontScaling={false}`: a fixed-size PNG
+  must not overflow. Either card is a PNG built on the device that the lifter hands to the OS
+  share sheet themselves (the progress one at 1080 px wide, `share({ width, height })`); nothing
+  else captures a view, and nothing is uploaded.
 - **Spotlight** (`features/spotlight/`) opens from `Screen`'s `onPullHold` — at the top of a tab,
   drag down and hold the finger for `HOLD_MS` (1 s; the progress hairline only starts after
   `HOLD_DEBOUNCE_MS`, so a scroll that merely began at the top never flashes it). The sheet opens
@@ -577,8 +674,10 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   exercise naming no muscles falls back to `CATEGORY_HEADS`. **Fatigue is a model, not a
   measurement** (decayed `sets × effort(RIR)`): tune it in `muscle-load.ts` constants, and never
   let the UI present it as a physiological reading. `react-native-body-highlighter` draws fewer
-  regions than metri measures, so it stays confined to `components/BodyMap.tsx`, which collapses
-  heads onto regions; the drilldown restores the detail. Colours live in `muscle-colors.ts` (never
+  regions than metri measures, so its COMPONENT stays confined to `components/BodyMap.tsx`;
+  heads collapse onto regions through `training/body-regions.ts` (`regionFills`: a region shows
+  its strongest head), which the printed map shares — `print/figure.ts` reads only the library's
+  path-data modules, so paper and screen draw one silhouette; the drilldown restores the detail. Colours live in `muscle-colors.ts` (never
   inline) and always pair with `<MapLegend>`, since hue alone is not an accessible signal.
 - **Body & goals** (`features/body/`). Weight is judged as a WEEKLY AVERAGE (`weekly.ts`; under 3
   weigh-ins a week is shown but never judged) and never alone — `interpretWeek` reads it with the
@@ -607,6 +706,123 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   `calculation_history` table (deliberately not synced — a synced table ships web-first). All rate/phase/matrix bands
   are data tables; tune them there. **One macro model**: `macroTargets` in `calculators/math`
   (g/kg, carbs = remainder) serves the calculator and the phase, mirrored 1:1 in the web repo.
+- **Health data** (`features/health/`) is READ-ONLY and never kept. `health-connect.ts` is the only
+  module importing `react-native-health-connect` (Android's Health Connect): steps, active energy
+  and sleep — the three `android.permission.health.READ_*` entries in `app.json` match
+  `HEALTH_METRICS`, add both together — read live by the Metrics "Activity & sleep" section on
+  focus and on foreground (grants change in Health Connect's own screens), summarised by the pure
+  `summarizeHealth` (an unrecorded day is unknown, not zero; today stays out of the average; sleep
+  is per night, 18:00 to 18:00, keyed by the morning). Nothing is stored, synced or written to
+  Health Connect, and `legal/content.ts` says exactly that — a cache or a sync of it changes the
+  privacy claim first. Weight and body fat are deliberately NOT imported: the week is judged from
+  the lifter's own weigh-ins and tape. iOS reads `unsupported` until HealthKit is added. The
+  library needs `minSdkVersion` 26 (`expo-build-properties`).
+- **Sharing a program by QR** (`features/plan/program-share-codec.ts`, pure, and
+  `program-share.ts`, the db side). ONE program tree — phases, splits, slots, week prescriptions
+  and the full definition of every CUSTOM exercise it names (catalog ones travel as their seed
+  id; a custom one is `#<n>` into `exercises`) — and nothing about the sender: no logs, no
+  enrollment, no weekdays/start minute, no swap countdown. It reads the tree the program screen
+  shows (the enrolled copy when it runs there), preset copy resolved in the sender's language,
+  and the builder runs its output through the receiver's parser, so what can be sent can be
+  read. JSON → deflate (fflate) → base64url → codes of `FRAME_CHARS` (700, error correction L:
+  a ~v19 symbol a phone reads off another screen) shaped `metri:p<version>:<crc32>:<i>/<n>:<chunk>`;
+  the CRC of the whole text is the share id, so two programs' codes never stitch together. The
+  payload keys are WIRE FORMAT: add, never rename; anything an older build would misread bumps
+  `SHARE_VERSION`, and that build answers "update metri" (`newer`), as it does for a catalog id it
+  lacks (`missingCatalogExercises`). Scanned text is untrusted: `parseSharedProgram` rebuilds
+  every field (enums, ranges, slug-shaped catalog ids, badge limits from `badge-limits.ts`, unknown
+  keys dropped) and inflate stops at 1 MB. Import writes a NEW custom template of the scanner's
+  through `importRows` (the export importer: fresh ids, ownership forced, `updatedAt` stamped so
+  sync pushes it, `validateImport` as a second gate) and is NEVER enrolled. A custom exercise is
+  reused only when the scanner already has one with the same folded name, category, equipment and
+  primary muscles; anything less is a new row. The share screen cycles codes every 400 ms under
+  its OWN keep-awake tag (a session's must survive it closing); the scanner (`/training/scan`, on
+  the Train tab) collects them in any order through `addScannedCode`.
+- **Printed documents** (`features/print/`, `expo-print` only in `pdf.ts`). The format is
+  metri.info's body page in print (`@media print` in its `globals.css`): ink on white, an eyebrow +
+  title + subtitle header, a "Printed on" mono line, stat tiles, sections of title + hint that never
+  split across a page (`flow` for a program phase, whose ROWS refuse to split instead). The HTML
+  builders are pure and tested: every user string goes through `esc`, a parameter named `html` is
+  markup a builder made, and the weight chart's guide values are HTML over the SVG (SVG text scales
+  with the drawing). Two documents: the "Body & training report" (`BodyReportCard` on `/plan`) —
+  the body log exactly as `useBodyLog` reads it, the latest body fat, and the body map's balance
+  for 30 days — and the "Program sheet" (program screen, "Print / PDF") — every week read through
+  `splitPreview`, the expansion a session opens, with a box per set (capped at 8) to write the
+  weight in, four weeks to a table. `usePdfActions` builds behind the blocking overlay and then
+  hands off: "Share PDF" (a cache-dir file named by `pdfFileName`) or the system "Print" dialog;
+  a closed print dialog or share sheet is an answer, never a `captureError`.
+- **App-icon shortcuts** (`features/quick-actions/`, `expo-quick-actions`): Train (the Train tab —
+  the one Play, and a session under way reopens from there), Check-in, Log food, Progress photo.
+  `useQuickActions` lives in the TABS layout (the navigator is up and a lifter exists; the root
+  layout would navigate before either) and sets them only for an onboarded user, clearing them
+  otherwise; titles come from the dictionaries and are re-set on a language change. A delivered
+  action routes by its id through our own table (`quickActionHref`), never by a payload href, and
+  the cold-start action is consumed once. Ids are kept by the OS between launches: never rename one.
+  Android draws the launcher icon on each (per-action icons need `androidIcons` in the plugin).
+- **The phone-calendar mirror** (`features/calendar/`, `sync.ts` the only module importing
+  `expo-calendar`) is OPT-IN (`settings.calendarSync`, its switch on the notifications screen,
+  outside the master switch — it is not a notification). It writes the ACTIVE enrollment's
+  planned training days for the next `WEEKS_AHEAD` (4) weeks into a calendar metri creates for
+  itself ("metri"; on Android a LOCAL-account calendar so no Google account syncs it), at the
+  training-time reminder's hour for 60 min, no alarms (metri reminds on its own schedule). The
+  pure `planSessions` assumes the plan keeps pace (this calendar week is the cursor's program
+  week, each later one the next, rolling into the next phase) and the sync re-runs as the cursor
+  really moves: `useCalendarSync` in the tabs layout on mount, on foreground and whenever the
+  enrollment row changes, plus the training-time change on the notifications screen. It DIFFS
+  against what it wrote (`settings.calendarState`: the calendar id + each event's id and
+  date|minute|title key), keeps past events, and runs one reconcile at a time. It never reads
+  another calendar's events — `getCalendars` only finds its own again after a reinstall. Turning
+  it off deletes metri's calendar and everything in it. A refused permission is an answer: the
+  switch stays off and says where access is granted.
+- **The privacy lock** (`features/app-lock/`, `lock.ts` the only module importing
+  `expo-local-authentication`) is optional per section — progress photos (every `/progress*`
+  route: the timeline, a check-in, the viewer, the camera, compare and share) and the
+  profile/settings screen — chosen in settings
+  (`PrivacyLockCard`); either switch flips only after a successful authentication, and on only
+  when the phone has a screen lock at all. `<LockGate section>` wraps the screen: locked, it draws a
+  SOLID surface and mounts NOTHING of the screen (no photo is read behind it), asks the OS once
+  on arrival and offers Unlock after a cancel, and Back always works. The unlock is IN MEMORY:
+  one success opens every locked section until the app goes to the background (never on iOS's
+  'inactive', never during the prompt itself — Android's PIN screen is another activity), and a
+  process start begins locked. A system screen metri opens over a private section (the photo pickers, the camera permission dialog, the share sheet) goes through `keepUnlockedWhile`: Android reports it as
+  going to the background, and the relock unmounted the very screen waiting for the answer. Only
+  the two booleans are stored; biometrics and PINs never reach
+  metri. A phone whose screen lock was removed opens (removing one takes the old PIN, and a lock
+  nothing can satisfy would shut the owner out).
+- **Progress media** (`features/photos/`) is LOCAL-ONLY: never synced, never in an export's files
+  (the export carries metadata only), never written to the gallery. SQLite holds rows and the
+  PATH of each file in `documents/progress/`; it never stores an image or a clip. A path is
+  resolved by its file NAME at read (`mediaUri`, `media-path.ts`) because an app container can
+  move — never render a stored `uri`/`thumbUri` directly. A CHECK-IN (`progress_checkins`, one
+  sitting, a local date that is not unique) holds at most ONE photo per pose — `POSES` is
+  front, back, left, right, flex in capture order (stored: add, never rename) — and any number of
+  clips; a retake replaces the pose's photo (new files first, then the old ones go),
+  `setMediaPose` swaps, and deleting the last item deletes the check-in. The table keeps its
+  first name, `progress_photos`, because `progressPhotos` is an export key; `kind` tells a photo
+  from a clip. Rows written before check-ins carry `checkin_id` NULL until `adoptLegacyPhotos`
+  (idempotent, run by `useProgressLog` on mount) files them one check-in per local day. Photos are
+  re-encoded at 2160 px on the long edge with a 600 px thumbnail; a clip is copied as recorded
+  with a poster frame from `expo-video` (`thumbUri` '' when none could be read). Numbers beside
+  a photo are READ from the body log, never stored on it: the 7-day average ending that day, the
+  key tape site from the last 14 days, the phase and its week (`stats.ts`), worded once in
+  `format.ts`. Every read is owner-scoped: the routes are deep-linkable.
+- **The progress screens.** The timeline (`/progress`) is a FlashList of month headings and
+  check-in cards, filtered by pose or clips (`filterTimeline`). A check-in (`/progress/checkin/[id]`)
+  shows the five pose slots (an empty one opens the camera on that pose), its clips, the date and
+  a note (a form), and deletes with a hold. The viewer (`/progress/[id]`) re-tags a photo's pose or
+  plays a clip muted and looping at 0.25/0.5/1×; "Share clip" hands the file to the OS sheet. The
+  CAMERA (`/progress/capture`) shoots every pose in one 3:4 frame (`ratio="4:3"`), walking `POSES`
+  (`poseAfterSave`), front camera first; the ghost is the same pose from the previous check-in
+  (`ghostFor`) at an adjustable opacity, FLIPPED on the front camera to match the mirrored
+  preview — the saved photo is never mirrored. A check-in is created by the first SAVE, in the same transaction as its first
+  photo (`addMedia` with `{ checkinId: null, date }`; today's latest is reused), so leaving the
+  camera — or a save that fails — leaves nothing behind. Clips are silent (`mute`; the
+  plugin strips the microphone), carry no pose and stop at `CLIP_MAX_MS` (15 s). The self-timer
+  (3/5/10 s) ticks with `timerTick`, a haptic tick and an announcement. COMPARE
+  (`/progress/compare`) is side by side, a wipe, a fade or a grid of four, over one pose, with the
+  change in days, weekly-average weight and key tape site under it. A photo's `MediaAlign` is
+  edited only there (side by side, or the After photo in a fade), clamped by `align.ts` so the
+  photo always covers its frame, and the share card draws the same geometry.
 - **Food diary** (`features/nutrition/`). The catalogue is a GENERATED module (`foods.data.ts`,
   built by `scripts/build-foods.ts` from USDA FoodData Central — never hand-edit a value; food
   slugs are written into `food_logs.foodId`, never rename one). Only user-made foods live in the
@@ -703,10 +919,16 @@ The workflows' own comments carry the why (`.github/workflows/`). Breakable rule
   `ExpoConfigExtraSection`). Don't revert to `appVersion`, don't delete the config — either strands
   every install from OTA.
 - **Native vs JS-only dependencies**: a native module (e.g. `react-native-view-shot`,
-  `expo-sharing`, `react-native-notify-kit`, `expo-audio`, `expo-blur`) changes the `runtimeVersion`
-  fingerprint → needs a new APK; JS-only libs (`react-native-reorderable-list`, `sql.js`,
-  `react-native-body-highlighter` — it draws on the `react-native-svg` already bundled) ship
-  over OTA.
+  `expo-sharing`, `react-native-notify-kit`, `expo-audio`, `expo-blur`, `react-native-health-connect`,
+  `expo-haptics`, `expo-quick-actions`, `expo-calendar`, `expo-local-authentication`,
+  `expo-camera`, `expo-print`, `expo-video`) changes the `runtimeVersion` fingerprint → needs a new APK; JS-only
+  libs (`react-native-reorderable-list`, `sql.js`, `react-native-body-highlighter` and
+  `react-native-qrcode-svg` — both draw on the `react-native-svg` already bundled — `victory-native`
+  on the bundled Skia, `@shopify/flash-list` v2, `fflate`) ship over OTA. Dev-only tools (`jest-expo`,
+  Testing Library, `expo-atlas`) never reach the app.
+  `@shopify/react-native-skia` is native (its postinstall copies the prebuilt binaries from its
+  sibling packages, so it sits in `trustedDependencies` — bun skips it otherwise and the build
+  has no Skia).
 - `app.config.ts` fails safe to the production API URL (dev URL only under
   `NODE_ENV === 'development'`); `eas.json`/workflows pin `EXPO_PUBLIC_AUTH_URL` on top.
 - `release-apk.yml` (called by release-please with the new tag, or dispatched with an existing one)

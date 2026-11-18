@@ -15,4 +15,6 @@ export const SHARE = {
   glow: 'rgba(190,248,43,0.14)',
   tile: 'rgba(255,255,255,0.05)',
   tileBorder: 'rgba(255,255,255,0.08)',
+  /** The label pill laid over a progress photo. */
+  scrim: 'rgba(9,9,11,0.72)',
 } as const;

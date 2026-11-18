@@ -1,165 +1,167 @@
-import { useLiveQuery } from '@/db/useLiveQuery';
-import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { FlashList } from '@shopify/flash-list';
+import { Redirect, useRouter } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { CameraIcon } from '@/components/icons';
+import { CompareIcon, PlusIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
-import {
-  Button,
-  Card,
-  FadeInUp,
-  PressableScale,
-  Screen,
-  ScreenTitle,
-  SegmentedControl,
-  type Segment,
-  useDialog,
-  useToast,
-} from '@/components/ui';
+import { ChipRow, EmptyState, Screen, ScreenTitle, type ChipItem } from '@/components/ui';
+import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
+import { dateFromKey } from '@/features/training/dates';
+import { LockGate } from '@/features/app-lock/LockGate';
 import { useAuth } from '@/features/auth/auth-context';
-import { pickFromCamera, pickFromLibrary } from '@/features/photos/capture';
-import { groupByPeriod, PERIODS, type Period } from '@/features/photos/period';
-import { addPhoto, photosQuery } from '@/features/photos/photos.repo';
+import {
+  commonestPose,
+  comparable,
+  filterTimeline,
+  poseLabelKey,
+  POSES,
+  type TimelineFilter,
+} from '@/features/photos/checkins';
+import { CheckinCard } from '@/features/photos/components/CheckinCard';
+import { ProgressEmpty } from '@/features/photos/components/ProgressEmpty';
+import { useProgressLog, type ProgressEntry } from '@/features/photos/useProgressLog';
 import { useT } from '@/i18n';
-import { formatYmd } from '@/lib/date';
+import { useDateFormat } from '@/lib/useDateFormat';
+import { useUnits } from '@/lib/useUnits';
 import { useTheme } from '@/theme/theme-context';
 
-const Progress = () => {
+/** One row of the virtualized timeline: a month heading, or a check-in under it. */
+type Item =
+  { kind: 'month'; key: string; title: string } | { kind: 'checkin'; entry: ProgressEntry };
+
+/**
+ * The progress timeline: every photo check-in, newest first under month
+ * headings, narrowed by pose or to the clips. It grows a card a week for
+ * years, so the list virtualizes and IS the scroller (AGENTS "Long lists");
+ * the title, the filter and the compare action ride as its header.
+ */
+const ProgressContent = () => {
   const { user } = useAuth();
   const router = useRouter();
-  const toast = useToast();
-  const dialog = useDialog();
   const t = useT();
-  const { muted } = useTheme();
-  const { data } = useLiveQuery(photosQuery(user?.id ?? ''), [user?.id]);
+  const { brand, brandContrast } = useTheme();
+  const { month } = useDateFormat();
+  const { units } = useUnits();
+  const { entries, keySite } = useProgressLog(user?.id ?? '', user?.sex ?? null);
+  const [filter, setFilter] = useState<TimelineFilter>('all');
 
-  const [period, setPeriod] = useState<Period>('month');
-  const groups = useMemo(() => groupByPeriod(data, period), [data, period]);
-  const periodSegments: Segment<Period>[] = PERIODS.map((p) => ({
-    value: p,
-    label: t(`period.${p}`),
-  }));
+  if (!user) return <Redirect href="/" />;
 
-  const groupLabel = (key: string) => (period === 'week' ? `${t('period.weekOf')} ${key}` : key);
-
-  const capture = async (source: 'camera' | 'library') => {
-    if (!user) return;
-    const uri = source === 'camera' ? await pickFromCamera() : await pickFromLibrary();
-    if (!uri) return;
-    try {
-      await addPhoto(user.id, uri, {
-        takenAt: new Date(),
-        weightKg: user.weightKg ?? null,
-      });
-      toast.success(t('photos.savedToast'));
-    } catch {
-      toast.error(t('photos.permDenied'));
+  const shown = filterTimeline(entries, filter);
+  const items: Item[] = [];
+  let lastMonth = '';
+  for (const entry of shown) {
+    const key = entry.checkin.date.slice(0, 7);
+    if (key !== lastMonth) {
+      const first = dateFromKey(`${key}-01`);
+      items.push({ kind: 'month', key, title: `${month(first, 'long')} ${first.getFullYear()}` });
+      lastMonth = key;
     }
-  };
+    items.push({ kind: 'checkin', entry });
+  }
 
-  const onAdd = () => {
-    dialog.show({
-      title: t('photos.chooseTitle'),
-      actions: [
-        { label: t('photos.camera'), onPress: () => capture('camera') },
-        { label: t('photos.library'), onPress: () => capture('library') },
-        { label: t('common.cancel'), style: 'cancel' },
-      ],
-    });
-  };
+  const canCompare = comparable(entries, commonestPose(entries)).length >= 2;
+  const filters: ChipItem<TimelineFilter>[] = [
+    { value: 'all', label: t('common.all') },
+    ...POSES.map((pose) => ({ value: pose, label: t(poseLabelKey(pose)) })),
+    { value: 'video', label: t('photos.filterClips') },
+  ];
+
+  const capture = (params: { checkin?: string; pose?: string } = {}) =>
+    router.push({ pathname: '/progress/capture', params });
 
   const addButton = (
     <Pressable
       hitSlop={8}
-      onPress={onAdd}
+      onPress={() => capture()}
       accessibilityRole="button"
-      accessibilityLabel={t('photos.add')}
-      className="min-h-9 min-w-9 items-center justify-center rounded-full border border-brand/30 bg-brand/10"
+      accessibilityLabel={t('photos.newCheckin')}
+      className="min-h-11 min-w-11 items-center justify-center rounded-full bg-brand"
     >
-      <Text className="text-xl font-sans-bold text-brand">+</Text>
+      <PlusIcon color={brandContrast} size={20} strokeWidth={2.5} />
     </Pressable>
+  );
+
+  const header = (
+    <View className="pb-2">
+      <ScreenTitle title={t('photos.title')} subtitle={t('photos.subtitle')} />
+      {entries.length ? (
+        <>
+          <ChipRow items={filters} value={filter} onChange={setFilter} />
+          {canCompare ? (
+            <Pressable
+              onPress={() => router.push('/progress/compare')}
+              accessibilityRole="button"
+              className="mt-3 min-h-11 flex-row items-center justify-center gap-2 rounded-field border border-brand/30 bg-brand/10 px-4"
+            >
+              <CompareIcon color={brand} size={18} />
+              <Text
+                maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+                numberOfLines={1}
+                className="shrink text-sm font-sans-semibold text-brand"
+              >
+                {t('photos.compare')}
+              </Text>
+            </Pressable>
+          ) : (
+            <Text className="mt-3 text-xs leading-5 text-ink-500">{t('photos.needTwo')}</Text>
+          )}
+        </>
+      ) : null}
+    </View>
   );
 
   return (
     <Screen
-      scroll
       edges={['top']}
-      contentClassName="px-5 pb-8"
+      contentClassName="px-5"
       header={<TopBar showBack showAvatar={false} right={addButton} />}
     >
-      <ScreenTitle title={t('photos.title')} subtitle={t('photos.subtitle')} />
-
-      {data.length === 0 ? (
-        <FadeInUp>
-          <Card className="mt-1 items-center py-8">
-            <CameraIcon color={muted} size={32} />
-            <Text className="mt-3 text-base font-sans-semibold text-ink-50">
-              {t('photos.empty')}
+      <FlashList
+        data={items}
+        keyExtractor={(item) => (item.kind === 'month' ? `m:${item.key}` : item.entry.checkin.id)}
+        getItemType={(item) => (item.kind === 'month' ? 'month' : `checkin:${filter}`)}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        ListHeaderComponent={header}
+        ListEmptyComponent={
+          entries.length ? (
+            <EmptyState hint={t('photos.filterEmpty')} />
+          ) : (
+            <ProgressEmpty onStart={() => capture()} />
+          )
+        }
+        renderItem={({ item }) =>
+          item.kind === 'month' ? (
+            <Text
+              accessibilityRole="header"
+              className="mb-2 mt-4 font-mono-medium text-xs uppercase tracking-wider text-ink-400"
+            >
+              {item.title}
             </Text>
-            <Text className="mt-1 text-center text-sm text-ink-400">{t('photos.emptyBody')}</Text>
-            <View className="mt-5 w-full">
-              <Button variant="brand" label={t('photos.add')} onPress={onAdd} />
-            </View>
-          </Card>
-        </FadeInUp>
-      ) : (
-        <>
-          <View className="mb-4 flex-row items-center gap-3">
-            <View className="flex-1">
-              <SegmentedControl segments={periodSegments} value={period} onChange={setPeriod} />
-            </View>
-            {data.length >= 2 ? (
-              <Pressable
-                onPress={() => router.push('/progress/compare')}
-                accessibilityRole="button"
-                className="rounded-field border border-ink-600 bg-ink-800 px-3 py-2.5"
-              >
-                <Text className="text-sm font-sans-semibold text-brand">{t('photos.compare')}</Text>
-              </Pressable>
-            ) : null}
-          </View>
-
-          {groups.map((group, gi) => (
-            <View key={group.key} className="mb-5">
-              <Text className="mb-2 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
-                {groupLabel(group.key)}
-              </Text>
-              <View className="flex-row flex-wrap justify-between">
-                {group.items.map((p, i) => (
-                  <FadeInUp
-                    key={p.id}
-                    delay={(gi + i) * 30}
-                    style={{ width: '31.5%' }}
-                    className="mb-3"
-                  >
-                    <PressableScale
-                      onPress={() =>
-                        router.push({ pathname: '/progress/[id]', params: { id: p.id } })
-                      }
-                    >
-                      <View className="aspect-square overflow-hidden rounded-field bg-ink-800">
-                        <Image
-                          source={{ uri: p.thumbUri }}
-                          style={{ width: '100%', height: '100%' }}
-                          contentFit="cover"
-                          transition={150}
-                        />
-                      </View>
-                      <Text className="mt-1 text-center text-xs text-ink-400">
-                        {formatYmd(p.takenAt)}
-                      </Text>
-                    </PressableScale>
-                  </FadeInUp>
-                ))}
-              </View>
-            </View>
-          ))}
-        </>
-      )}
+          ) : (
+            <CheckinCard
+              entry={item.entry}
+              filter={filter}
+              keySite={keySite}
+              units={units}
+              onOpen={(id) => router.push({ pathname: '/progress/checkin/[id]', params: { id } })}
+              onOpenMedia={(id) => router.push({ pathname: '/progress/[id]', params: { id } })}
+              onAddPose={(checkin, pose) => capture({ checkin, pose })}
+            />
+          )
+        }
+      />
     </Screen>
   );
 };
+
+/** Behind the private-section lock when the lifter turned it on (`features/app-lock`). */
+const Progress = () => (
+  <LockGate section="photos">
+    <ProgressContent />
+  </LockGate>
+);
 
 export default Progress;

@@ -33,6 +33,7 @@ import m0028 from './0028_strip_o_similar_badges.sql';
 import m0029 from './0029_deep_preak.sql';
 import m0030 from './0030_graceful_eddie_brock.sql';
 import m0031 from './0031_eminent_maginty.sql';
+import m0032 from './0032_icy_juggernaut.sql';
 
   export default {
     journal,
@@ -68,7 +69,8 @@ m0027,
 m0028,
 m0029,
 m0030,
-m0031
+m0031,
+m0032
     }
   }
   

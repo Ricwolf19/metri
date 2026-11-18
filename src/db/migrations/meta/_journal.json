@@ -225,6 +225,13 @@
       "when": 1792073581259,
       "tag": "0031_eminent_maginty",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1794959657349,
+      "tag": "0032_icy_juggernaut",
+      "breakpoints": true
     }
   ]
 }

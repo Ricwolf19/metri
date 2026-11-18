@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import { bodyGoals, type BodyGoal, type BodyPhase, type TrainingLevel } from '@/db/schema';
@@ -30,6 +30,10 @@ export const activeGoalQuery = (userId: string) =>
     .where(and(eq(bodyGoals.userId, userId), isNull(bodyGoals.endedAt)))
     .orderBy(desc(bodyGoals.startDate), desc(bodyGoals.createdAt))
     .limit(1);
+
+/** Live: every phase, running or ended — the history a dated reading is placed in. */
+export const goalsQuery = (userId: string) =>
+  db.select().from(bodyGoals).where(eq(bodyGoals.userId, userId)).orderBy(asc(bodyGoals.startDate));
 
 /**
  * Start a phase. Whatever was running ends in the SAME transaction — there is

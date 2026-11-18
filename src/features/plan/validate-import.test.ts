@@ -18,7 +18,7 @@ describe('validateImport — envelope', () => {
     ['wrong app', doc({}, { app: 'other' }), 'invalid'],
     ['missing version', doc({}, { exportVersion: undefined }), 'invalid'],
     ['old version', doc({}, { exportVersion: 1 }), 'version'],
-    ['future version', doc({}, { exportVersion: 7 }), 'version'],
+    ['future version', doc({}, { exportVersion: 8 }), 'version'],
     ['data not an object', doc({}, { data: 'x' }), 'invalid'],
     ['table not an array', doc({ programs: {} }), 'invalid'],
   ])('rejects %s', (_, input, reason) => {
@@ -30,7 +30,7 @@ describe('validateImport — envelope', () => {
     expect(validateImport(doc())).toEqual({ ok: true });
   });
 
-  it.each([2, 3, 4, 5, 6])('accepts export version %i', (exportVersion) => {
+  it.each([2, 3, 4, 5, 6, 7])('accepts export version %i', (exportVersion) => {
     expect(validateImport(doc({}, { exportVersion }))).toEqual({ ok: true });
   });
 
@@ -48,6 +48,28 @@ describe('validateImport — envelope', () => {
       { exportVersion: 3 },
     );
     expect(validateImport(v3)).toEqual({ ok: true });
+  });
+
+  it('ignores the export-only check-ins and media details a v7 file carries', () => {
+    const v7 = doc(
+      {
+        progressCheckins: [{ id: 'c1', date: '2026-11-10', note: null }],
+        progressPhotos: [
+          {
+            id: 'ph1',
+            checkinId: 'c1',
+            kind: 'video',
+            pose: null,
+            durationMs: 9000,
+            takenAt: 0,
+            weightKg: null,
+            note: null,
+          },
+        ],
+      },
+      { exportVersion: 7 },
+    );
+    expect(validateImport(v7)).toEqual({ ok: true });
   });
 });
 

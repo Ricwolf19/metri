@@ -8,9 +8,10 @@ export type ImportValidation =
 
 /** Versions this build can restore. Every bump so far only ADDS keys (v3: export-only
  * `progressPhotos` metadata; v4: the body and food tables; v5: exercise notes and calculator
- * history; v6: exercise settings), so an older file is a valid newer one minus those keys — they
- * all import identically. */
-const SUPPORTED_IMPORT_VERSIONS = [2, 3, 4, 5, 6] as const;
+ * history; v6: exercise settings; v7: export-only `progressCheckins` and the media rows' pose,
+ * kind and check-in), so an older file is a valid newer one minus those keys — they all import
+ * identically. */
+const SUPPORTED_IMPORT_VERSIONS = [2, 3, 4, 5, 6, 7] as const;
 
 export const IMPORT_TABLES = [
   'exercises',

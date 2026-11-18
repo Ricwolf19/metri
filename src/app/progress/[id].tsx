@@ -1,89 +1,187 @@
+import * as Sharing from 'expo-sharing';
 import { Image } from 'expo-image';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Text, View } from 'react-native';
 
-import { ChevronRightIcon } from '@/components/icons';
+import { ShareIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
-import { Button, Card, DatePicker, FadeInUp, Screen, ScreenTitle, useToast } from '@/components/ui';
+import { Button, ChipRow, HoldButton, Screen, SectionLabel, useToast } from '@/components/ui';
+import type { ProgressPhoto, ProgressPose } from '@/db/schema';
+import { keepUnlockedWhile } from '@/features/app-lock/lock';
+import { LockGate } from '@/features/app-lock/LockGate';
 import { useAuth } from '@/features/auth/auth-context';
-import { deletePhoto, getPhoto, updatePhotoDate } from '@/features/photos/photos.repo';
+import { poseLabelKey, POSES } from '@/features/photos/checkins';
+import { ClipPlayer } from '@/features/photos/components/ClipPlayer';
+import { mediaUri } from '@/features/photos/media';
+import { deleteMedia, setMediaPose } from '@/features/photos/photos.repo';
+import { useProgressLog, type ProgressEntry } from '@/features/photos/useProgressLog';
+import { formatClockTime } from '@/features/training/schedule';
 import { useT } from '@/i18n';
+import { captureError } from '@/lib/telemetry';
+import { useClockFormat } from '@/lib/useClockFormat';
+import { useDateFormat } from '@/lib/useDateFormat';
+import { isShareDismissal } from '@/lib/useShareCard';
 import { useTheme } from '@/theme/theme-context';
 
-const PhotoViewer = () => {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
+const clipMime = (uri: string): string => (/\.mov$/i.test(uri) ? 'video/quicktime' : 'video/mp4');
+
+type ScreenProps = {
+  media: ProgressPhoto;
+  entry: ProgressEntry;
+  /** The photo or clip was deleted: the parent leaves once this screen is gone. */
+  onDeleted: () => void;
+};
+
+const MediaScreen = ({ media, entry, onDeleted }: ScreenProps) => {
   const toast = useToast();
   const t = useT();
-  const { muted } = useTheme();
+  const { brand } = useTheme();
   const { user } = useAuth();
-
-  // Deep-linkable route (`metri://progress/<id>`), so the lookup is owner-scoped
-  // and an unauthenticated hit bounces instead of rendering.
-  const photo = typeof id === 'string' && user ? getPhoto(id, user.id) : null;
-  const [date, setDate] = useState(() => photo?.takenAt ?? new Date());
-  const [editingDate, setEditingDate] = useState(false);
-
-  if (!user) return <Redirect href="/(auth)/sign-in" />;
-  if (!photo) return <Redirect href="/progress" />;
-
-  const onChangeDate = (d: Date) => {
-    setDate(d);
-    updatePhotoDate(photo.id, user.id, d);
+  const { date, dateKey } = useDateFormat();
+  const clock = useClockFormat();
+  const [sharing, setSharing] = useState(false);
+  const isClip = media.kind === 'video';
+  const uri = mediaUri(media.uri);
+  const aspect = media.width && media.height ? media.width / media.height : 3 / 4;
+  const at = media.takenAt;
+  const when = {
+    date: date(at),
+    time: formatClockTime(at.getHours() * 60 + at.getMinutes(), clock),
   };
 
-  const onDelete = () => {
-    deletePhoto(photo.id, user.id);
-    toast.success(t('photos.deletedToast'));
-    router.back();
+  const title = isClip
+    ? t('photos.clip')
+    : media.pose
+      ? t(poseLabelKey(media.pose))
+      : t('photos.untagged');
+
+  // A clip leaves the phone only here, by the lifter's own hand. A closed share
+  // sheet is an answer, not a failure. The sheet is another activity on
+  // Android: the trip must not relock (and unmount) the viewer under it.
+  const shareClip = async () => {
+    if (sharing) return;
+    setSharing(true);
+    try {
+      if (!(await Sharing.isAvailableAsync())) {
+        toast.error(t('dayDetail.shareFailed'));
+        return;
+      }
+      await keepUnlockedWhile(() =>
+        Sharing.shareAsync(uri, { mimeType: clipMime(uri), dialogTitle: t('photos.shareClip') }),
+      );
+    } catch (e) {
+      if (!isShareDismissal(e)) {
+        captureError(e);
+        toast.error(t('dayDetail.shareFailed'));
+      }
+    } finally {
+      setSharing(false);
+    }
   };
 
   return (
-    <Screen scroll contentClassName="px-5 pb-10" header={<TopBar showBack showAvatar={false} />}>
-      <ScreenTitle title={date.toISOString().slice(0, 10)} />
-
-      <FadeInUp>
+    <Screen
+      scroll
+      contentClassName="px-5 pb-10"
+      header={
+        <TopBar showBack showAvatar={false} title={title} subtitle={dateKey(entry.checkin.date)} />
+      }
+    >
+      {isClip ? (
+        <ClipPlayer uri={uri} aspect={aspect} />
+      ) : (
         <View className="overflow-hidden rounded-card bg-ink-800">
           <Image
-            source={{ uri: photo.uri }}
-            style={{ width: '100%', aspectRatio: 0.8 }}
+            source={{ uri }}
+            style={{ width: '100%', aspectRatio: aspect }}
             contentFit="contain"
             transition={150}
+            accessibilityLabel={title}
           />
         </View>
+      )}
 
-        {/* Date — tap to edit with the wheel picker. */}
-        <Pressable onPress={() => setEditingDate((v) => !v)} accessibilityRole="button">
-          <Card className="mt-4 flex-row items-center justify-between">
-            <Text className="text-sm text-ink-400">{t('photos.date')}</Text>
-            <View className="flex-row items-center">
-              <Text className="text-base font-sans-semibold text-ink-50">
-                {date.toISOString().slice(0, 10)}
-              </Text>
-              <ChevronRightIcon color={muted} size={18} />
-            </View>
-          </Card>
-        </Pressable>
-        {editingDate ? (
-          <View className="mt-2">
-            <DatePicker value={date} onChange={onChangeDate} />
-          </View>
-        ) : null}
+      <Text className="mt-3 text-xs text-ink-400">
+        {t(isClip ? 'photos.recordedAt' : 'photos.takenAt', when)}
+      </Text>
 
-        {photo.weightKg != null ? (
-          <Card className="mt-4 flex-row items-center justify-between">
-            <Text className="text-sm text-ink-400">{t('profile.weight')}</Text>
-            <Text className="text-base font-sans-semibold text-ink-50">{photo.weightKg} kg</Text>
-          </Card>
-        ) : null}
-
+      {isClip ? (
         <View className="mt-6">
-          <Button label={t('photos.delete')} variant="danger" onPress={onDelete} />
+          <Button
+            variant="brandSoft"
+            label={t('photos.shareClip')}
+            loading={sharing}
+            leftIcon={<ShareIcon color={brand} size={18} />}
+            onPress={() => void shareClip()}
+          />
         </View>
-      </FadeInUp>
+      ) : (
+        <>
+          <SectionLabel label={t('photos.pose')} hint={t('photos.poseHint')} className="mt-6" />
+          <ChipRow<ProgressPose>
+            items={POSES.map((pose) => ({ value: pose, label: t(poseLabelKey(pose)) }))}
+            value={media.pose}
+            onChange={(pose) => setMediaPose(media.id, user?.id ?? '', pose)}
+          />
+        </>
+      )}
+
+      <View className="mt-8">
+        <HoldButton
+          variant="danger"
+          label={t(isClip ? 'photos.deleteClip' : 'photos.delete')}
+          onComplete={() => {
+            deleteMedia(media.id, user?.id ?? '');
+            toast.success(t(isClip ? 'photos.clipDeleted' : 'photos.deletedToast'));
+            onDeleted();
+          }}
+        />
+      </View>
     </Screen>
   );
 };
 
-export default PhotoViewer;
+const MediaContent = () => {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const { user } = useAuth();
+  const { entries } = useProgressLog(user?.id ?? '', user?.sex ?? null);
+  // Read live, so a re-tagged pose shows at once. Deep-linkable: the entries are
+  // the signed-in user's own, so another account's id finds nothing.
+  let found: { media: ProgressPhoto; entry: ProgressEntry } | null = null;
+  for (const entry of entries) {
+    const media = [...entry.photos, ...entry.videos].find((m) => m.id === id);
+    if (media) {
+      found = { media, entry };
+      break;
+    }
+  }
+  // Deleted here: draw nothing, and go back once this screen is gone (the
+  // "gone" redirect below would navigate a second time).
+  const [leaving, setLeaving] = useState(false);
+  useEffect(() => {
+    if (leaving) router.back();
+  }, [leaving, router]);
+
+  if (!user) return <Redirect href="/" />;
+  if (leaving) return null;
+  if (!found) return <Redirect href="/progress" />;
+  return (
+    <MediaScreen
+      key={found.media.id}
+      media={found.media}
+      entry={found.entry}
+      onDeleted={() => setLeaving(true)}
+    />
+  );
+};
+
+/** Behind the private-section lock when the lifter turned it on (`features/app-lock`). */
+const MediaViewer = () => (
+  <LockGate section="photos">
+    <MediaContent />
+  </LockGate>
+);
+
+export default MediaViewer;
