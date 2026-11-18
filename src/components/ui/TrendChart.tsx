@@ -110,21 +110,23 @@ export const TrendChart = ({
   // The series a finger reads: the signal when there is one, else the readings.
   const series: Series = line.length ? 'line' : 'points';
   const data = sortByX(series === 'line' ? line : points);
-  const scrub = useChartScrub(data.map((p) => p.x));
+  const scrub = useChartScrub(
+    data.map((p) => p.x),
+    data.map((p) => p.y),
+  );
   const [axis, setAxis] = useState<[number, number, number] | null>(null);
 
   const all = [...points, ...line, ...target, ...markers];
-  const shownUnit = unit.trim();
   const active = scrub.selected != null ? data[scrub.selected] : data[data.length - 1];
   const seriesLabel = series === 'line' ? labels.line : labels.points;
   const extent = seriesExtent(data.map((p) => p.y));
   const summary = extent
     ? t('chart.summary', {
         series: seriesLabel ?? '',
-        first: `${yFormat(extent.first)} ${shownUnit}`.trim(),
-        last: `${yFormat(extent.last)} ${shownUnit}`.trim(),
-        min: `${yFormat(extent.min)} ${shownUnit}`.trim(),
-        max: `${yFormat(extent.max)} ${shownUnit}`.trim(),
+        first: `${yFormat(extent.first)} ${unit}`.trim(),
+        last: `${yFormat(extent.last)} ${unit}`.trim(),
+        min: `${yFormat(extent.min)} ${unit}`.trim(),
+        max: `${yFormat(extent.max)} ${unit}`.trim(),
       })
     : t('chart.empty');
 
@@ -157,7 +159,7 @@ export const TrendChart = ({
     <View accessible accessibilityRole="image" accessibilityLabel={summary}>
       <ChartReadout
         value={active ? yFormat(active.y) : '—'}
-        unit={active ? shownUnit : undefined}
+        unit={active ? unit : undefined}
         caption={caption}
       />
       <View className="flex-row">

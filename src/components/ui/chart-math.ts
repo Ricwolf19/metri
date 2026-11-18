@@ -65,3 +65,11 @@ export const axisValues = (domain: readonly number[]): [number, number, number] 
   const lo = Math.min(...domain);
   return [hi, (hi + lo) / 2, lo];
 };
+
+/**
+ * What a scrub pick belongs to: the series as drawn, x AND y. Another window,
+ * another measure, or the same number of bars with new values is new data,
+ * and a pick made on the old data must not carry over to it.
+ */
+export const seriesKey = (xs: readonly number[], ys: readonly number[]): string =>
+  `${xs.join(',')}|${ys.join(',')}`;

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   axisValues,
+  seriesKey,
   labelStride,
   nearestIndex,
   paddedDomain,
@@ -83,5 +84,13 @@ describe('axisValues', () => {
   it('orders top, middle, bottom whatever the domain direction', () => {
     expect(axisValues([90, 70])).toEqual([90, 80, 70]);
     expect(axisValues([70, 90])).toEqual([90, 80, 70]);
+  });
+});
+
+describe('seriesKey', () => {
+  it('tells new values on the same bars apart, so a pick does not carry over', () => {
+    expect(seriesKey([0, 1, 2], [10, 20, 30])).toBe(seriesKey([0, 1, 2], [10, 20, 30]));
+    expect(seriesKey([0, 1, 2], [10, 20, 30])).not.toBe(seriesKey([0, 1, 2], [10, 20, 31]));
+    expect(seriesKey([0, 1, 2], [10, 20, 30])).not.toBe(seriesKey([1, 2, 3], [10, 20, 30]));
   });
 });

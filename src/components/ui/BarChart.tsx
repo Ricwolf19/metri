@@ -47,7 +47,10 @@ export const BarChart = ({ bars, unit, title, height = 120 }: Props) => {
   const { brand } = useTheme();
   const baseline = tokenHex('--ink-600');
   const [width, setWidth] = useState(0);
-  const scrub = useChartScrub(bars.map((_, i) => i));
+  const scrub = useChartScrub(
+    bars.map((_, i) => i),
+    bars.map((b) => b.value),
+  );
 
   const lit = scrub.selected ?? bars.length - 1;
   const active = bars[lit];

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Gesture } from 'react-native-gesture-handler';
 
-import { nearestIndex } from './chart-math';
+import { nearestIndex, seriesKey } from './chart-math';
 
 type Scale = (value: number) => number;
 
@@ -15,16 +15,18 @@ const samePositions = (a: readonly number[], b: readonly number[]) =>
  * scrolling screen never traps the scroll. The pick lives in JS state and
  * changes only when the nearest index does — a handful of renders per drag,
  * never one per frame. The selection survives the finger lifting; it resets
- * when the series changes shape (another window, another measure).
+ * when the series changes (another window, another measure, new values on
+ * the same bars).
  *
- * `xs` are the series' x values. The chart hands its x scale over through
+ * `xs`/`ys` are the series as drawn. The chart hands its x scale over through
  * `onScaleChange` (only known once the canvas has measured itself); the
  * points' pixel positions are kept as state, and only a CHANGE is stored —
  * the chart calls back on every render, so storing each call would loop.
  */
-export const useChartScrub = (xs: readonly number[]) => {
+export const useChartScrub = (xs: readonly number[], ys: readonly number[]) => {
   const [positions, setPositions] = useState<readonly number[]>([]);
-  const shape = `${xs.length}:${xs[0]}:${xs[xs.length - 1]}`;
+  // The pick is kept per series (`seriesKey`): new data drops it without an effect.
+  const shape = seriesKey(xs, ys);
   const [pick, setPick] = useState<{ shape: string; index: number } | null>(null);
 
   const scrubTo = (px: number) => {
