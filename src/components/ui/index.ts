@@ -6,7 +6,7 @@ export { BrandMark } from './BrandMark';
 export { BadgeRow } from './BadgeRow';
 export { BarChart, type BarDatum } from './BarChart';
 export { Button } from './Button';
-export { Card } from './Card';
+export { Card, CARD_SLICE } from './Card';
 export { ClampedText } from './ClampedText';
 export { DatePicker } from './DatePicker';
 export { DialogProvider, useDialog } from './Dialog';

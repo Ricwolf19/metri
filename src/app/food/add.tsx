@@ -5,7 +5,15 @@ import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { TopBar } from '@/components/TopBar';
-import { Button, EmptyState, Input, Screen, SectionLabel, useToast } from '@/components/ui';
+import {
+  Button,
+  CARD_SLICE,
+  EmptyState,
+  Input,
+  Screen,
+  SectionLabel,
+  useToast,
+} from '@/components/ui';
 import type { Meal } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
 import { AmountSheet } from '@/features/nutrition/components/AmountSheet';
@@ -25,11 +33,12 @@ import { useTodayKey } from '@/lib/useTodayKey';
 /** The list virtualizes now, so a broad word can show a long page of matches. */
 const MAX_RESULTS = 100;
 
-/** Row `index` of `count` as one slice of a card: the first rounds the top, the
- * last the bottom, and each after the first draws the hairline above it. */
+/** Row `index` of `count` as one slice of a card (`CARD_SLICE`, so the rows sit
+ * exactly where a `Card` would put them): the first rounds the top, the last the
+ * bottom, and each after the first draws the hairline above it. */
 const cardSlice = (index: number, count: number): string =>
   [
-    'border-x border-ink-600 bg-ink-800 px-4',
+    `border-x ${CARD_SLICE}`,
     index === 0 ? 'rounded-t-card border-t pt-1' : '',
     index === count - 1 ? 'rounded-b-card border-b pb-1' : '',
   ].join(' ');
