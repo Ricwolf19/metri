@@ -3,7 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { XIcon } from '@/components/icons';
 import { Button, Input } from '@/components/ui';
-import { MAX_BADGES, MAX_BADGE_LEN } from '@/features/training/authoring.repo';
+import { MAX_BADGES, MAX_BADGE_LEN } from '@/features/training/badge-limits';
 import { useI18n, useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 

@@ -78,8 +78,6 @@ export const dayMuscleHeads = (dayId: string): MuscleHead[] => {
  * `updatedAt` column get it stamped for future sync.
  */
 
-export { MAX_BADGE_LEN, MAX_BADGES };
-
 /** The editable prescription fields of a week config (no id/week/scope). */
 export type ConfigValues = {
   sets: number;
