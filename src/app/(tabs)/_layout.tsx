@@ -22,6 +22,8 @@ import {
 import { useDialog } from '@/components/ui';
 import { ScrollVisibilityProvider, useScrollVisibility } from '@/components/ui/scroll-visibility';
 import { useAuth } from '@/features/auth/auth-context';
+import { useCalendarSync } from '@/features/calendar/useCalendarSync';
+import { useQuickActions } from '@/features/quick-actions/useQuickActions';
 import { closeSession } from '@/features/training/close-session';
 import { activeWorkoutQuery } from '@/features/training/session.repo';
 import { useAutoAdherence } from '@/features/training/useAutoAdherence';
@@ -160,6 +162,10 @@ const TabsLayout = () => {
   useAutoAdherence(user?.id);
   // Keep the Android home-screen widget fed with fresh local data.
   useWidgetSync();
+  // The app icon's long-press shortcuts, only for a lifter who has finished onboarding.
+  useQuickActions(isReady && isAuthenticated && !!user?.onboardedAt);
+  // The opt-in phone-calendar mirror of the plan's training days.
+  useCalendarSync(user?.id);
 
   // Focus mode: an in-progress session owns the app. Fresh (today, <8h) →
   // jump straight into it on launch; stale → ask whether to save or discard.
