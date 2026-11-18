@@ -1,8 +1,9 @@
 import { useLiveQuery } from '@/db/useLiveQuery';
+import { FlashList } from '@shopify/flash-list';
 import { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 
-import { Card, ChipRow, Input, PressableScale } from '@/components/ui';
+import { Card, ChipRow, EmptyState, Input, PressableScale } from '@/components/ui';
 import type { Exercise } from '@/db/schema';
 import { ExerciseDocButton } from '@/features/training/components/ExerciseDocButton';
 import { exercisesQuery } from '@/features/training/exercises.repo';
@@ -31,12 +32,21 @@ type Props = {
   showDoc?: boolean;
   /** Ids left out of the list (a live session's own exercises). */
   exclude?: ReadonlySet<string>;
+  /** Inside a `<Sheet>`: shrink to the sheet's cap instead of filling a screen. */
+  inSheet?: boolean;
 };
+
+const Gap = () => <View className="h-2" />;
 
 /**
  * Searchable list of catalog + own custom exercises (picker and library),
  * filtered by the muscle it trains — the same vocabulary the body map and the
  * split badges use, so "quads" means the same thing everywhere.
+ *
+ * It IS its own scroller: the search and the muscle chips stay put above a
+ * virtualized `FlashList` (the library is ~100 rows and growing; mounted
+ * whole inside a ScrollView it built every card on open). So it must sit in a
+ * bounded parent — a non-scroll `Screen`, or a sheet with `inSheet`.
  */
 export const ExerciseList = ({
   userId,
@@ -46,6 +56,7 @@ export const ExerciseList = ({
   rowIcon,
   showDoc,
   exclude,
+  inSheet = false,
 }: Props) => {
   const t = useT();
   const { locale } = useI18n();
@@ -64,7 +75,7 @@ export const ExerciseList = ({
   }, [exercises, search, head, locale, exclude]);
 
   return (
-    <>
+    <View style={inSheet ? { flexShrink: 1 } : { flex: 1 }}>
       <Input
         value={search}
         onChangeText={setSearch}
@@ -84,14 +95,26 @@ export const ExerciseList = ({
         />
       </View>
 
-      {above}
-
-      <View className="mt-4 gap-2">
-        {filtered.map((e) => (
-          <PressableScale key={e.id} onPress={() => onPick(e)}>
+      <FlashList
+        data={filtered}
+        keyExtractor={(e) => e.id}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: inSheet ? 20 : 40 }}
+        ListHeaderComponent={
+          <>
+            {above}
+            <View className="h-4" />
+          </>
+        }
+        ListEmptyComponent={<EmptyState hint={t('editor.noMatches')} />}
+        ItemSeparatorComponent={Gap}
+        renderItem={({ item: e }) => (
+          <PressableScale onPress={() => onPick(e)}>
             <Card className="flex-row items-center py-3">
-              <View className="flex-1">
-                <Text className="text-base font-sans-semibold text-ink-50">
+              <View className="min-w-0 flex-1">
+                <Text className="text-base font-sans-semibold text-ink-50" numberOfLines={2}>
                   {exerciseDisplayName(e, locale)}
                 </Text>
                 <Text className="mt-0.5 text-xs text-ink-400" numberOfLines={1}>
@@ -107,8 +130,8 @@ export const ExerciseList = ({
               {rowIcon}
             </Card>
           </PressableScale>
-        ))}
-      </View>
-    </>
+        )}
+      />
+    </View>
   );
 };

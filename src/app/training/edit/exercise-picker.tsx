@@ -26,7 +26,7 @@ const ExercisePicker = () => {
   const t = useT();
   const toast = useToast();
   const { user } = useAuth();
-  const { brand } = useTheme();
+  const { brand, danger } = useTheme();
 
   const day = typeof dayId === 'string' ? getDay(dayId) : null;
   const [creating, setCreating] = useState(false);
@@ -71,10 +71,11 @@ const ExercisePicker = () => {
   };
 
   return (
+    // The list scrolls itself (a virtualized FlashList); only the form needs the screen's scroll.
     <Screen
-      scroll
+      scroll={creating}
       edges={['top']}
-      contentClassName="px-5 pb-10"
+      contentClassName={creating ? 'px-5 pb-10' : 'px-5'}
       header={
         <TopBar
           showBack
@@ -112,7 +113,7 @@ const ExercisePicker = () => {
             e.isCustom && e.userId === user.id ? (
               <View className="mr-3">
                 <HoldButton
-                  icon={<TrashIcon color="#ef4444" size={16} />}
+                  icon={<TrashIcon color={danger} size={16} />}
                   accessibilityLabel={t('editor.deleteExercise')}
                   onComplete={() => removeExercise(e.id)}
                 />

@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Text } from 'react-native';
+import { Text, View } from 'react-native';
 
-import { ScrollArea, Sheet } from '@/components/ui';
+import { Sheet } from '@/components/ui';
 import type { Exercise } from '@/db/schema';
 import { useT } from '@/i18n';
 
@@ -28,11 +28,14 @@ export const AddExerciseSheet = ({ visible, onClose, userId, exclude, onPick }: 
   if (visible && !opened) setOpened(true);
   return (
     <Sheet visible={visible} onClose={onClose} snapPoints={['92%']}>
-      <ScrollArea inSheet keyboardShouldPersistTaps="handled">
+      {/* The list virtualizes and scrolls itself; this column only shrinks to the
+          sheet's cap (and to the keyboard), the way `ScrollArea inSheet` would. */}
+      <View className="px-5" style={{ flexShrink: 1 }}>
         <Text className="mb-1 text-lg font-sans-bold text-ink-50">{t('training.addExercise')}</Text>
         <Text className="mb-3 text-sm leading-5 text-ink-400">{t('training.addExerciseHint')}</Text>
         {opened ? (
           <ExerciseList
+            inSheet
             userId={userId}
             exclude={exclude}
             onPick={(exercise) => {
@@ -41,7 +44,7 @@ export const AddExerciseSheet = ({ visible, onClose, userId, exclude, onPick }: 
             }}
           />
         ) : null}
-      </ScrollArea>
+      </View>
     </Sheet>
   );
 };

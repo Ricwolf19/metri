@@ -1,10 +1,11 @@
 import { useLiveQuery } from '@/db/useLiveQuery';
+import { FlashList } from '@shopify/flash-list';
 import { Redirect } from 'expo-router';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { TopBar } from '@/components/TopBar';
-import { Card, EmptyState, FadeInUp, PressableScale, Screen, SectionLabel } from '@/components/ui';
+import { Card, EmptyState, PressableScale, Screen, SectionLabel } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { DayDetailSheet } from '@/features/training/components/DayDetailSheet';
 import { DeleteSessionButton } from '@/features/training/components/DeleteSessionButton';
@@ -18,7 +19,13 @@ import { useI18n, useT } from '@/i18n';
 import { settings } from '@/lib/storage';
 import { useDateFormat } from '@/lib/useDateFormat';
 
-/** The active program's finished sessions by phase and week — where a mistaken log is undone. */
+/** One row of the virtualized list: a phase · week heading, or a session under it. */
+type Item =
+  { kind: 'group'; key: string; title: string } | { kind: 'session'; session: ProgramSession };
+
+/** The active program's finished sessions by phase and week — where a mistaken log is undone.
+ * A whole program is a hundred-odd sessions, so the list virtualizes: the headings and the rows
+ * are one flat `FlashList`, the hint card its header. */
 const History = () => {
   const t = useT();
   const { locale } = useI18n();
@@ -47,6 +54,10 @@ const History = () => {
     group.rows.push(s);
     groups.set(key, group);
   }
+  const items: Item[] = [...groups.entries()].flatMap(([key, group]) => [
+    { kind: 'group' as const, key, title: group.title },
+    ...group.rows.map((session) => ({ kind: 'session' as const, session })),
+  ]);
 
   const programName = structure?.program
     ? (presetProgramCopy(structure.program.id, locale)?.name ?? structure.program.name)
@@ -54,9 +65,8 @@ const History = () => {
 
   return (
     <Screen
-      scroll
       edges={['top']}
-      contentClassName="px-5 pb-10"
+      contentClassName="px-5"
       header={
         <TopBar
           showBack
@@ -66,45 +76,54 @@ const History = () => {
         />
       }
     >
-      <Card className="mb-2 border-brand/25 bg-brand/5">
-        <Text className="text-sm leading-6 text-ink-200">{t('training.sessionsHint')}</Text>
-      </Card>
-
-      {!sessions.length ? <EmptyState hint={t('training.sessionsEmpty')} /> : null}
-
-      {[...groups.entries()].map(([key, group]) => (
-        <View key={key}>
-          <SectionLabel label={group.title} />
-          <View className="gap-2">
-            {group.rows.map((s, i) => (
-              <FadeInUp key={s.id} delay={Math.min(i, 5) * 40}>
-                <PressableScale
-                  onPress={() => (s.completedAt ? setOpenDay(localDateKey(s.completedAt)) : null)}
-                >
-                  <Card className="flex-row items-center">
-                    <View className="flex-1 pr-3">
-                      <Text className="text-base font-sans-semibold text-ink-50" numberOfLines={1}>
-                        {s.dayName != null && s.dayOrder != null
-                          ? dayDisplayName({ name: s.dayName, orderIndex: s.dayOrder }, t)
-                          : '—'}
-                      </Text>
-                      <Text className="mt-0.5 text-xs text-ink-400">
-                        {s.completedAt ? `${date(s.completedAt)} · ` : ''}
-                        {t('dayDetail.setsLine', {
-                          count: s.setCount,
-                          volume: fromKgHalf(s.volumeKg, unit),
-                          unit,
-                        })}
-                      </Text>
-                    </View>
-                    <DeleteSessionButton logId={s.id} />
-                  </Card>
-                </PressableScale>
-              </FadeInUp>
-            ))}
-          </View>
-        </View>
-      ))}
+      <FlashList
+        data={items}
+        keyExtractor={(item) => (item.kind === 'group' ? `g:${item.key}` : item.session.id)}
+        getItemType={(item) => item.kind}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        ListHeaderComponent={
+          <Card className="mb-2 border-brand/25 bg-brand/5">
+            <Text className="text-sm leading-6 text-ink-200">{t('training.sessionsHint')}</Text>
+          </Card>
+        }
+        ListEmptyComponent={<EmptyState hint={t('training.sessionsEmpty')} />}
+        renderItem={({ item }) => {
+          if (item.kind === 'group') return <SectionLabel label={item.title} />;
+          const s = item.session;
+          return (
+            <PressableScale
+              className="mb-2"
+              onPress={() => (s.completedAt ? setOpenDay(localDateKey(s.completedAt)) : null)}
+            >
+              <Card className="flex-row items-center">
+                <View className="min-w-0 flex-1 pr-3">
+                  <Text className="text-base font-sans-semibold text-ink-50" numberOfLines={1}>
+                    {s.dayName != null && s.dayOrder != null
+                      ? dayDisplayName({ name: s.dayName, orderIndex: s.dayOrder }, t)
+                      : '—'}
+                  </Text>
+                  {/* Date and totals on their own lines: one joined line clipped on a
+                      small phone, mid-number. */}
+                  {s.completedAt ? (
+                    <Text className="mt-0.5 text-xs text-ink-400" numberOfLines={1}>
+                      {date(s.completedAt)}
+                    </Text>
+                  ) : null}
+                  <Text className="mt-0.5 text-xs text-ink-400" numberOfLines={1}>
+                    {t('dayDetail.setsLine', {
+                      count: s.setCount,
+                      volume: fromKgHalf(s.volumeKg, unit),
+                      unit,
+                    })}
+                  </Text>
+                </View>
+                <DeleteSessionButton logId={s.id} />
+              </Card>
+            </PressableScale>
+          );
+        }}
+      />
 
       <DayDetailSheet date={openDay} onClose={() => setOpenDay(null)} />
     </Screen>

@@ -23,10 +23,11 @@ const ExerciseLibrary = () => {
   if (!user) return <Redirect href="/" />;
 
   return (
+    // The list scrolls itself (a virtualized FlashList); only the form needs the screen's scroll.
     <Screen
-      scroll
+      scroll={creating}
       edges={['top']}
-      contentClassName="px-5 pb-10"
+      contentClassName={creating ? 'px-5 pb-10' : 'px-5'}
       header={
         <TopBar
           showBack

@@ -1,10 +1,11 @@
 import { useLiveQuery } from '@/db/useLiveQuery';
+import { FlashList } from '@shopify/flash-list';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { TopBar } from '@/components/TopBar';
-import { Button, Card, EmptyState, Input, Screen, SectionLabel, useToast } from '@/components/ui';
+import { Button, EmptyState, Input, Screen, SectionLabel, useToast } from '@/components/ui';
 import type { Meal } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
 import { AmountSheet } from '@/features/nutrition/components/AmountSheet';
@@ -21,10 +22,22 @@ import { FOODS } from '@/features/nutrition/foods.data';
 import { useI18n, useT } from '@/i18n';
 import { useTodayKey } from '@/lib/useTodayKey';
 
-const MAX_RESULTS = 40;
+/** The list virtualizes now, so a broad word can show a long page of matches. */
+const MAX_RESULTS = 100;
+
+/** Row `index` of `count` as one slice of a card: the first rounds the top, the
+ * last the bottom, and each after the first draws the hairline above it. */
+const cardSlice = (index: number, count: number): string =>
+  [
+    'border-x border-ink-600 bg-ink-800 px-4',
+    index === 0 ? 'rounded-t-card border-t pt-1' : '',
+    index === count - 1 ? 'rounded-b-card border-b pb-1' : '',
+  ].join(' ');
 
 /** Pick what was eaten: recents first, search across the catalogue and the
- * user's own foods, or type the calories straight in. */
+ * user's own foods, or type the calories straight in. The search field stays
+ * put; everything under it is one virtualized list (the catalogue runs to the
+ * thousands). */
 const AddFood = () => {
   const t = useT();
   const { locale } = useI18n();
@@ -58,6 +71,9 @@ const AddFood = () => {
 
   const results = searchFoods(foods, query).slice(0, MAX_RESULTS);
   const searching = query.trim().length > 0;
+  const rows = searching
+    ? results.map((food) => ({ food, grams: food.servingG }))
+    : recents.map((r) => ({ food: r.food, grams: r.grams }));
 
   const log = (
     name: string,
@@ -71,42 +87,42 @@ const AddFood = () => {
   };
 
   const renderRow = (food: Food, grams: number, index: number) => (
-    <Pressable
-      key={food.id}
-      onPress={() => setPicked({ food, grams })}
-      onLongPress={
-        food.source === 'catalog'
-          ? () => router.push({ pathname: '/food/[id]', params: { id: food.id } })
-          : undefined
-      }
-      accessibilityRole="button"
-      className={['flex-row items-center py-3', index > 0 ? 'border-t border-ink-700' : ''].join(
-        ' ',
-      )}
-    >
-      <View className="min-w-0 flex-1 pr-3">
-        <Text className="text-sm text-ink-100" numberOfLines={2}>
-          {food.name}
+    <View className={cardSlice(index, rows.length)}>
+      <Pressable
+        onPress={() => setPicked({ food, grams })}
+        onLongPress={
+          food.source === 'catalog'
+            ? () => router.push({ pathname: '/food/[id]', params: { id: food.id } })
+            : undefined
+        }
+        accessibilityRole="button"
+        className={['flex-row items-center py-3', index > 0 ? 'border-t border-ink-700' : ''].join(
+          ' ',
+        )}
+      >
+        <View className="min-w-0 flex-1 pr-3">
+          <Text className="text-sm text-ink-100" numberOfLines={2}>
+            {food.name}
+          </Text>
+          <Text className="text-[11px] text-ink-500" numberOfLines={1}>
+            {food.source === 'custom' ? `${t('diary.mine')} · ` : ''}
+            {t('diary.per100', { n: Math.round(food.kcal) })}
+          </Text>
+        </View>
+        <Text className="shrink-0 text-xs text-ink-400">
+          {t('diary.macroLine', {
+            p: Math.round(food.proteinG),
+            c: Math.round(food.carbsG),
+            f: Math.round(food.fatG),
+          })}
         </Text>
-        <Text className="text-[11px] text-ink-500">
-          {food.source === 'custom' ? `${t('diary.mine')} · ` : ''}
-          {t('diary.per100', { n: Math.round(food.kcal) })}
-        </Text>
-      </View>
-      <Text className="text-xs text-ink-400">
-        {t('diary.macroLine', {
-          p: Math.round(food.proteinG),
-          c: Math.round(food.carbsG),
-          f: Math.round(food.fatG),
-        })}
-      </Text>
-    </Pressable>
+      </Pressable>
+    </View>
   );
 
   return (
     <Screen
-      scroll
-      contentClassName="px-5 pb-10"
+      contentClassName="px-5"
       header={
         <TopBar
           showBack
@@ -126,54 +142,51 @@ const AddFood = () => {
         />
       </View>
 
-      <View className="mt-3 flex-row gap-2">
-        <View className="flex-1">
-          <Button label={t('diary.quickAdd')} variant="secondary" onPress={() => setQuick(true)} />
-        </View>
-        <View className="flex-1">
-          <Button
-            label={t('diary.newFood')}
-            variant="secondary"
-            onPress={() => router.push('/food/new')}
-          />
-        </View>
-      </View>
-
-      <View className="mt-2">
-        <Button
-          label={t('food.openIdeas')}
-          variant="ghost"
-          onPress={() => router.push('/food/ideas')}
-        />
-      </View>
-
-      {searching ? (
-        <>
-          <SectionLabel label={t('diary.results')} />
-          {results.length ? (
-            <Card className="gap-0 py-1">
-              {results.map((food, i) => renderRow(food, food.servingG, i))}
-            </Card>
-          ) : (
-            <EmptyState hint={t('diary.noResults')} />
-          )}
-        </>
-      ) : (
-        <>
-          <SectionLabel label={t('diary.recent')} />
-          {recents.length ? (
-            <Card className="gap-0 py-1">
-              {recents.map((r, i) => renderRow(r.food, r.grams, i))}
-            </Card>
-          ) : (
-            <EmptyState hint={t('diary.noRecent')} />
-          )}
-        </>
-      )}
-
-      <Text className="mt-6 text-center text-[11px] leading-4 text-ink-600">
-        {t('diary.dataCredit')}
-      </Text>
+      <FlashList
+        data={rows}
+        keyExtractor={(r) => r.food.id}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        ListHeaderComponent={
+          <>
+            <View className="mt-3 flex-row gap-2">
+              <View className="flex-1">
+                <Button
+                  label={t('diary.quickAdd')}
+                  variant="secondary"
+                  onPress={() => setQuick(true)}
+                />
+              </View>
+              <View className="flex-1">
+                <Button
+                  label={t('diary.newFood')}
+                  variant="secondary"
+                  onPress={() => router.push('/food/new')}
+                />
+              </View>
+            </View>
+            <View className="mt-2">
+              <Button
+                label={t('food.openIdeas')}
+                variant="ghost"
+                onPress={() => router.push('/food/ideas')}
+              />
+            </View>
+            <SectionLabel label={searching ? t('diary.results') : t('diary.recent')} />
+          </>
+        }
+        ListEmptyComponent={
+          <EmptyState hint={searching ? t('diary.noResults') : t('diary.noRecent')} />
+        }
+        ListFooterComponent={
+          <Text className="mt-6 text-center text-[11px] leading-4 text-ink-600">
+            {t('diary.dataCredit')}
+          </Text>
+        }
+        renderItem={({ item, index }) => renderRow(item.food, item.grams, index)}
+      />
 
       <AmountSheet
         food={picked?.food ?? null}
