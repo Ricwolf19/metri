@@ -93,7 +93,7 @@ import {
   getExercise,
 } from '@/features/training/exercises.repo';
 import { exerciseHeads, muscleHeadKey } from '@/features/training/muscles';
-import { exerciseDisplayName } from '@/features/training/labels';
+import { exerciseDisplayName, exerciseShortName } from '@/features/training/labels';
 import { visualIdFor } from '@/features/training/exercise-visuals';
 import {
   exerciseSettingsQuery,
@@ -105,9 +105,11 @@ import {
   hasLoadDetail,
   holdsOneDumbbell,
   kgToUnit,
-  loadTotalKg,
+  rackWeights,
+  stackPins,
   unitToKg,
   machineLoadKind,
+  machineLoadForTotal,
   PLATE_MACHINE_SEED,
   POST_MACHINE_SEED,
   STACK_MACHINE_SEED,
@@ -118,6 +120,8 @@ import {
   type LoadDetail,
 } from '@/features/training/load';
 import { sideStep, sideFieldFromTotal, totalFromSide } from '@/features/training/plate-math';
+import { dumbbellRack } from '@/features/training/dumbbell-rack';
+import { stepAlong } from '@/features/training/ladder';
 import { getWorkoutDay } from '@/features/training/programs.repo';
 import { getRoutine, reorderSplitFromNowOn } from '@/features/training/authoring.repo';
 import { fromKg, isRmTestWeek } from '@/features/training/progression';
@@ -185,6 +189,7 @@ import { prefillSourceKey, similarExercises, swapOptions } from '@/features/trai
 import { useI18n, useT, type TFunction } from '@/i18n';
 import { formatNumber, parseDecimal, parseInteger, roundHalf, snapTo } from '@/lib/numbers';
 import { settings, type Units } from '@/lib/storage';
+import { haptic } from '@/lib/haptics';
 import { playSound } from '@/lib/sounds';
 import { useBlockingTask } from '@/lib/useBlockingTask';
 import { UNIT_SEGMENTS, useEquipmentUnits } from '@/lib/useUnits';
@@ -396,9 +401,18 @@ const ExerciseCard = ({
     loadSetting.load.incrementKg > 0
       ? loadSetting.load
       : null;
-  // Plates or pins are picked in the load sheet, never typed: the number is
-  // always one the rack can build, and the prefill arrives as plates or a pin.
-  const picker = !!perSide || !!stack;
+  // A stack not described yet still picks: the field opens the sheet, which
+  // asks for the base and the plate first (a cable, or a machine marked stack).
+  const stackLoaded =
+    inputMode.mode === 'total' &&
+    (facts?.equipment === 'cable' ||
+      (facts?.equipment === 'machine' && machineLoadKind(loadSetting?.load) === 'stack'));
+  // Dumbbells come off the gym's rack (a kettlebell's sizes are no rack's: typed).
+  const rackPicked = inputMode.mode === 'perHand' && facts?.equipment === 'dumbbell';
+  // Plates, pins and dumbbells are picked in the load sheet, never typed: the
+  // number is always one the gym holds, and the prefill arrives as plates, a pin
+  // or a dumbbell.
+  const picker = !!perSide || !!stack || stackLoaded || rackPicked;
   const baseInUnit = perSide ? kgToUnit(perSide.baseKg, unit) : 0;
   const sideOf = (draft: RowDraft): string =>
     draft.side ?? (perSide ? sideFieldFromTotal(draft.weight, baseInUnit, perSide.sides) : '');
@@ -505,7 +519,8 @@ const ExerciseCard = ({
       if (snapped !== side) setSide(key, formatNumber(snapped));
       return;
     }
-    if (inputMode.mode === 'perHand') {
+    // A typed dumbbell snaps to the half; one picked off the rack is already real.
+    if (inputMode.mode === 'perHand' && !rackPicked) {
       const w = parseDecimal(draft.weight);
       if (w == null) return;
       const snapped = roundHalf(w);
@@ -518,19 +533,28 @@ const ExerciseCard = ({
 
   const stepDraft = (key: RowKey, field: 'weight' | 'reps', delta: number) => {
     const draft = freshDraft(key);
-    // A stack moves pin by pin: the step becomes the nearest whole number of
-    // pins (at least one), so ± never lands between two holes.
+    // A stack moves pin by pin (past a plate change too): at least one pin, the
+    // one nearest the step asked for, so ± never lands between two holes.
     if (field === 'weight' && stack) {
-      const typed = parseDecimal(draft.weight);
-      const kg = typed == null ? stack.baseKg : unitToKg(typed, unit);
-      const at = Math.max(0, Math.round((kg - stack.baseKg) / stack.incrementKg));
-      const pins = Math.max(1, Math.round(Math.abs(unitToKg(delta, unit)) / stack.incrementKg));
-      const steps = Math.max(0, at + Math.sign(delta) * pins);
-      const load: LoadDetail = { ...stack, steps };
+      const pins = stackPins(stack, unit);
+      const next = stepAlong(pins, parseDecimal(draft.weight) ?? pins[0] ?? 0, delta);
+      const pin = pins.indexOf(next);
       patchDraft(key, {
-        weight: formatNumber(kgToUnit(loadTotalKg(load), unit)),
-        load,
+        weight: formatNumber(next),
+        // The pin itself: a round trip through the rounded number missed it in the other unit.
+        load: pin < 0 ? machineLoadForTotal(unitToKg(next, unit), stack) : { ...stack, steps: pin },
       });
+      return;
+    }
+    // A dumbbell moves to the next one on the rack the same way.
+    if (field === 'weight' && rackPicked) {
+      const weights = rackWeights(dumbbellRack(unit), unit);
+      const current = parseDecimal(draft.weight);
+      // Nothing yet: + starts on the lightest dumbbell, − stays empty.
+      const next =
+        current == null ? (delta > 0 ? weights[0] : undefined) : stepAlong(weights, current, delta);
+      // The detail (its hands) follows the number in `patchDraft`.
+      if (next != null) patchDraft(key, { weight: formatNumber(next) });
       return;
     }
     // On a plate-loaded row the ± steps the SIDE: that is the number in hand,
@@ -547,6 +571,7 @@ const ExerciseCard = ({
   };
   const bump = (field: 'weight' | 'reps', delta: number) => {
     if (!focusKey) return;
+    haptic('tap');
     stepDraft(focusKey, field, delta);
     // Focus stays on the ± button, so the number it changed is spoken.
     AccessibilityInfo.announceForAccessibility(
@@ -554,7 +579,11 @@ const ExerciseCard = ({
     );
   };
 
-  /** The typed row as numbers, or null after the toast that names what is missing. */
+  /**
+   * The typed row as numbers, or null after the toast that names what is
+   * missing — except a missing RIR, which reads as 'effort': the check asks for
+   * it (`readWithEffort`) instead of refusing.
+   */
   const readDraft = (key: RowKey, wantsEffort: boolean) => {
     // The check is tapped without leaving the field, so the blur snap runs here too.
     snapDraft(key);
@@ -571,12 +600,9 @@ const ExerciseCard = ({
       return null;
     }
     // A prescription that measures effort is not logged without it: the RIR
-    // chip in the action bar picks it, the check only reminds.
+    // chip in the action bar picks it ahead, else the check opens the picker.
     const effort = draft.effort;
-    if (wantsEffort && !effort) {
-      toast.error(t('training.needRir'));
-      return null;
-    }
+    if (wantsEffort && !effort) return 'effort' as const;
     const weightKg = unit === 'lb' ? lbToKg(w) : w;
     return {
       weightKg,
@@ -592,14 +618,26 @@ const ExerciseCard = ({
     };
   };
 
-  const confirm = (key: RowKey) => {
+  /** `readDraft`, but a missing RIR opens the effort sheet and the pick completes the set. */
+  const readWithEffort = async (key: RowKey, wantsEffort: boolean) => {
+    const read = readDraft(key, wantsEffort);
+    if (read !== 'effort') return read;
+    const picked = await requestEffort();
+    if (!picked) return null;
+    patchDraft(key, { effort: picked });
+    const again = readDraft(key, wantsEffort);
+    return again === 'effort' ? null : again;
+  };
+
+  const confirm = async (key: RowKey) => {
     const index = Number(key);
     const extra = index >= rows.length;
     // Checked before the order question: an incomplete row never asks to move.
-    const read = readDraft(key, wantsEffortAt(index));
+    const read = await readWithEffort(key, wantsEffortAt(index));
     if (!read) return;
     guardOrder(() => {
       const logged = logSet({ workoutLogId, exerciseId: planned.exerciseId, ...read });
+      haptic('confirm');
       clearDraft(workoutLogId, storeKey(key));
       // The row turns into a logged one and the rest starts: say so, or a
       // screen reader user hears nothing at all.
@@ -628,11 +666,12 @@ const ExerciseCard = ({
   };
 
   /** Rewrite the set being corrected; no rest and no advance — nothing new happened. */
-  const confirmEdit = () => {
+  const confirmEdit = async () => {
     if (!editing || !editKey) return;
-    const read = readDraft(editKey, wantsEffortAt(editIndex));
+    const read = await readWithEffort(editKey, wantsEffortAt(editIndex));
     if (!read) return;
     updateSet(editing.id, read);
+    haptic('confirm');
     clearDraft(workoutLogId, storeKey(editKey));
     setEditingId(null);
   };
@@ -807,10 +846,12 @@ const ExerciseCard = ({
     if (kind === machineKind) return;
     if (focusKey) clearDraftLoads(workoutLogId, planned.slotId);
     if (kind === 'stack') {
-      if (machineKind)
-        upsertExerciseSetting(userId, planned.exerciseId, { load: STACK_MACHINE_SEED });
+      // Saved at once, like plates: the choice sticks even if the sheet is
+      // closed before the plate weight is typed, and the row's field reopens it.
+      upsertExerciseSetting(userId, planned.exerciseId, { load: STACK_MACHINE_SEED });
       setCalcSeed(STACK_MACHINE_SEED);
       setCalcOpen(true);
+      setLoadHint(true);
       return;
     }
     upsertExerciseSetting(userId, planned.exerciseId, {
@@ -1018,7 +1059,7 @@ const ExerciseCard = ({
                 unit={unit}
                 placeholder={row ? `${row.reps}${row.repsMax ? `-${row.repsMax}` : ''}` : '0'}
                 onChange={(patch) => patchDraft(editKey, patch)}
-                onConfirm={confirmEdit}
+                onConfirm={() => void confirmEdit()}
                 onRemove={cancelEdit}
                 removeLabel={t('training.cancelEdit')}
                 onOpenCalculator={() => setCalcOpen(true)}
@@ -1065,7 +1106,7 @@ const ExerciseCard = ({
               unit={unit}
               placeholder={row ? `${row.reps}${row.repsMax ? `-${row.repsMax}` : ''}` : '0'}
               onChange={(patch) => patchDraft(key, patch)}
-              onConfirm={() => confirm(key)}
+              onConfirm={() => void confirm(key)}
               onSkip={row ? skipSet : undefined}
               onRemove={
                 row
@@ -1196,13 +1237,14 @@ const ExerciseCard = ({
         unilateral={oneHand}
         oneDumbbell={holdsOneDumbbell(planned.exerciseId)}
         preferMode={needsMachineKind ? 'machine' : undefined}
-        onApply={({ weightText, load, changed }) => {
+        onApply={({ row, save }) => {
           if (!focusKey) return;
           // `side` is dropped on purpose: the sheet may have changed the base,
           // and the row re-splits the total over the base it renders with.
-          patchDraft(focusKey, { weight: weightText, load, side: undefined });
-          if (changed && load) {
-            upsertExerciseSetting(userId, planned.exerciseId, { load });
+          if (row)
+            patchDraft(focusKey, { weight: row.weightText, load: row.load, side: undefined });
+          if (save) {
+            upsertExerciseSetting(userId, planned.exerciseId, { load: save });
             if (needsMachineKind) setLoadHint(true);
           }
         }}
@@ -1462,6 +1504,7 @@ const WorkoutSession = () => {
   const requestEffort: RequestEffort = () =>
     new Promise((resolve) => {
       const resolver = (e: Effort | null) => {
+        if (e) haptic('tick');
         resolve(e);
         effortResolveRef.current = null;
         setEffortResolve(null);
@@ -1481,6 +1524,7 @@ const WorkoutSession = () => {
         // Whatever is still open closes as MISSED, not forgotten.
         markRemainingSkipped(log.id);
         playSound('sessionDone');
+        haptic('confirm');
         setSummary(sessionSummary(log.id, locale));
       },
     });
@@ -1679,6 +1723,7 @@ const WorkoutSession = () => {
     const [moving] = ids.splice(liftedIndex, 1);
     ids.splice(to, 0, moving);
     writeActiveOrder(ids);
+    haptic('tick');
     // The chip moves out from under nothing a screen reader can see: say where it landed.
     AccessibilityInfo.announceForAccessibility(
       t('training.exerciseOf', { n: to + 1, total: planned.length }),
@@ -1745,6 +1790,7 @@ const WorkoutSession = () => {
   const chipOf = (p: PlannedSlot): SessionChip => ({
     slotId: p.slotId,
     label: `${ordered.indexOf(p) + 1}. ${p.name}`,
+    shortLabel: `${ordered.indexOf(p) + 1}. ${exerciseShortName({ id: p.exerciseId, name: p.name }, locale)}`,
     state: slotState(p, doneFor(p.exerciseId)),
     hasNote: notedIds.has(p.exerciseId),
   });

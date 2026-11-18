@@ -12,13 +12,17 @@ import {
 import { ScrollRow } from '@/components/ui';
 import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 import { useT, type TranslationKey } from '@/i18n';
+import { haptic } from '@/lib/haptics';
 import { useTheme } from '@/theme/theme-context';
 
 import type { SlotState } from '../session-order';
 
 export type SessionChip = {
   slotId: string;
+  /** The full name: read to screen readers, and shown once the chip is tapped. */
   label: string;
+  /** What the chip shows by default (`exerciseShortName`), so a strip fits a phone. */
+  shortLabel: string;
   state: SlotState;
   /** The lifter keeps a note on this exercise: a small pencil says so. */
   hasNote: boolean;
@@ -94,7 +98,8 @@ type Box = { x: number; width: number };
  * and marked with that state's glyph so the colour is never the only signal.
  * Focus is a dotted border around the chip, never a fill, so the exercise on
  * screen does not read as done just because it is selected. Missed exercises sit at the
- * end behind a divider; the phantom "+" chip adds an exercise to today.
+ * end behind a divider; the phantom "+" chip adds an exercise to today. Chips show the
+ * short name; a tap also spells that chip out in full, and a second tap shortens it again.
  */
 export const SessionChipStrip = ({
   active,
@@ -108,6 +113,8 @@ export const SessionChipStrip = ({
   const t = useT();
   const { brand, brandContrast, muted } = useTheme();
   const [boxes, setBoxes] = useState<ReadonlyMap<string, Box>>(new Map());
+  // ONE chip spelled out at a time: the strip stays a strip of short names.
+  const [expanded, setExpanded] = useState<string | null>(null);
   const place = (slotId: string) => (e: LayoutChangeEvent) => {
     const { x, width } = e.nativeEvent.layout;
     setBoxes((prev) => {
@@ -128,8 +135,20 @@ export const SessionChipStrip = ({
     return (
       <Pressable
         key={item.slotId}
-        onPress={() => onPress(item.slotId)}
-        onLongPress={canLift ? () => onLongPress(item.slotId) : undefined}
+        onPress={() => {
+          // A tap while a chip is lifted only puts it down.
+          if (lifted) haptic('tick');
+          else setExpanded((open) => (open === item.slotId ? null : item.slotId));
+          onPress(item.slotId);
+        }}
+        onLongPress={
+          canLift
+            ? () => {
+                haptic('lift');
+                onLongPress(item.slotId);
+              }
+            : undefined
+        }
         onLayout={place(item.slotId)}
         accessibilityRole="button"
         accessibilityLabel={[item.label, stateLabel].filter(Boolean).join(', ')}
@@ -174,7 +193,7 @@ export const SessionChipStrip = ({
             item.state === 'untouched' && isFocused ? 'text-ink-50' : tone.text,
           ].join(' ')}
         >
-          {item.label}
+          {expanded === item.slotId ? item.label : item.shortLabel}
         </Text>
         {item.hasNote ? <EditIcon color={muted} size={11} /> : null}
       </Pressable>

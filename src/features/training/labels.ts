@@ -3,6 +3,7 @@ import type { Locale, TFunction } from '@/i18n';
 import type { TranslationKey } from '@/i18n/en';
 
 import { EXERCISE_NAMES } from './exercise-content';
+import { abbreviateName, EXERCISE_SHORT_NAMES } from './exercise-short-names';
 
 export const EQUIPMENT_KEY: Record<Equipment, TranslationKey> = {
   barbell: 'equipment.barbell',
@@ -51,6 +52,10 @@ export const DAY_LETTERS: Record<string, string[]> = Object.fromEntries(
 /** Localized catalog name for seeded exercises; customs pass through raw. */
 export const exerciseDisplayName = (ex: { id: string; name: string }, locale: Locale): string =>
   EXERCISE_NAMES[ex.id]?.[locale] ?? ex.name;
+
+/** The session strip's chip text: the catalog's short name, else one derived from the name. */
+export const exerciseShortName = (ex: { id: string; name: string }, locale: Locale): string =>
+  EXERCISE_SHORT_NAMES[ex.id]?.[locale] ?? abbreviateName(exerciseDisplayName(ex, locale));
 
 /** Unnamed phases render a slug fallback ("phase-2") instead of a stored fake name. */
 export const routineDisplayName = (
