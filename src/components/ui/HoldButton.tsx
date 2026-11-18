@@ -18,6 +18,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { useT } from '@/i18n';
+import { haptic } from '@/lib/haptics';
 import { useTheme } from '@/theme/theme-context';
 import { THEME_VARS } from '@/theme/tokens';
 
@@ -134,6 +135,8 @@ export const HoldButton = ({
 
   const complete = () => {
     if (busy || disabled) return;
+    // The hold landed: the one heavy cue in the app, felt as the action fires.
+    haptic('heavy');
     ctl.reset();
     setBusy(true);
     setTimeout(() => {
@@ -149,6 +152,8 @@ export const HoldButton = ({
     armed.current = null;
   };
   const pressIn = () => {
+    // A tick as the fill starts, so a thumb knows the hold has begun.
+    haptic('tick');
     ctl.start();
     disarm();
     timer.current = setTimeout(() => {

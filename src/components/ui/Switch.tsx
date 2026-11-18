@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Animated, Easing, Pressable, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
+import { haptic } from '@/lib/haptics';
+
 type Size = 'sm' | 'md';
 
 type Props = {
@@ -66,7 +68,11 @@ export const Switch = ({
 
   return (
     <Pressable
-      onPress={() => !disabled && onValueChange(!value)}
+      onPress={() => {
+        if (disabled) return;
+        haptic(value ? 'toggleOff' : 'toggleOn');
+        onValueChange(!value);
+      }}
       onPressIn={() => !disabled && setPressed(true)}
       onPressOut={() => setPressed(false)}
       accessibilityRole="switch"

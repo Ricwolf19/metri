@@ -1,5 +1,7 @@
 import { Pressable, Text } from 'react-native';
 
+import { haptic } from '@/lib/haptics';
+
 import { ScrollRow } from './ScrollRow';
 
 export type ChipItem<T extends string> = {
@@ -29,7 +31,9 @@ export const ChipRow = <T extends string>({ items, value, onChange }: Props<T>) 
           key={item.value}
           // The chip already chosen is no change: a re-tap must not re-run what a pick does.
           onPress={() => {
-            if (!active) onChange(item.value);
+            if (active) return;
+            haptic('tick');
+            onChange(item.value);
           }}
           accessibilityRole="button"
           accessibilityState={{ selected: active }}

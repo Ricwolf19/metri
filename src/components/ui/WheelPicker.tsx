@@ -8,6 +8,8 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native';
 
+import { haptic } from '@/lib/haptics';
+
 import { wheelStep } from './wheel-step';
 
 const ITEM_HEIGHT = 44;
@@ -46,8 +48,12 @@ export const WheelPicker = ({ values, value, onChange, format, accessibilityLabe
   const ref = useRef<ScrollView>(null);
   const index = Math.max(0, values.indexOf(value));
   const label = (v: number) => (format ? format(v) : String(v));
+  // The row under the band while the wheel moves: each new row ticks, the way
+  // a physical detent would. Starts on the chosen row so opening never ticks.
+  const row = useRef(index);
 
   useEffect(() => {
+    row.current = index;
     const t = setTimeout(
       () => ref.current?.scrollTo({ y: index * ITEM_HEIGHT, animated: false }),
       0,
@@ -55,17 +61,31 @@ export const WheelPicker = ({ values, value, onChange, format, accessibilityLabe
     return () => clearTimeout(t);
   }, [index]);
 
+  const rowAt = (e: NativeSyntheticEvent<NativeScrollEvent>) =>
+    Math.min(
+      values.length - 1,
+      Math.max(0, Math.round(e.nativeEvent.contentOffset.y / ITEM_HEIGHT)),
+    );
+
   const commit = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const i = Math.round(e.nativeEvent.contentOffset.y / ITEM_HEIGHT);
-    const next = values[Math.min(values.length - 1, Math.max(0, i))];
+    const next = values[rowAt(e)];
     if (next !== value) onChange(next);
+  };
+
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const i = rowAt(e);
+    if (i === row.current) return;
+    row.current = i;
+    haptic('tick');
   };
 
   const onAccessibilityAction = (e: AccessibilityActionEvent) => {
     const name = e.nativeEvent.actionName;
     if (name !== 'increment' && name !== 'decrement') return;
     const next = wheelStep(values, value, name === 'increment' ? 1 : -1);
-    if (next !== value) onChange(next);
+    if (next === value) return;
+    haptic('tick');
+    onChange(next);
   };
 
   return (
@@ -90,6 +110,8 @@ export const WheelPicker = ({ values, value, onChange, format, accessibilityLabe
         snapToInterval={ITEM_HEIGHT}
         decelerationRate="fast"
         contentContainerStyle={{ paddingVertical: PAD }}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         onMomentumScrollEnd={commit}
         onScrollEndDrag={commit}
         // The wheel always lives inside a scrollable Screen; without this,

@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { AccessibilityInfo, Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { AccessibilityInfo, Pressable, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Easing,
@@ -27,6 +27,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   CheckIcon,
   ChevronRightIcon,
+  ChevronUpIcon,
   InfoCircleIcon,
   WarningIcon,
   type IconProps,
@@ -62,9 +63,13 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 // Notification-like: long enough to read and act on; swipe dismisses sooner.
 const DURATION_MS = 7_500;
 
-// Swipe-release thresholds: distance or flick velocity dismisses.
-const DISMISS_DX = 80;
-const DISMISS_VX = 800;
+// Swipe-release thresholds: distance or an upward flick dismisses.
+const DISMISS_DY = 36;
+const DISMISS_VY = 600;
+/** Far enough above its slot to leave past the header pill on any phone. */
+const OFFSCREEN_Y = -220;
+/** A downward drag only gives a little: the toast has nowhere to go but up. */
+const DOWN_RESISTANCE = 0.2;
 
 const SURFACE: Record<ToastType, string> = {
   success: 'border-brand/40 bg-ink-800',
@@ -96,12 +101,11 @@ const ICON: Record<ToastType, React.ComponentType<IconProps>> = {
 const makeToastController = (opts: {
   anim: SharedValue<number>;
   life: SharedValue<number>;
-  panX: SharedValue<number>;
-  width: number;
+  panY: SharedValue<number>;
   sticky: boolean;
   dismiss: () => void;
 }) => {
-  const { anim, life, panX, width, sticky, dismiss } = opts;
+  const { anim, life, panY, sticky, dismiss } = opts;
   let timer: ReturnType<typeof setTimeout> | null = null;
 
   // Life bar and timeout always move together so the countdown never lies —
@@ -135,31 +139,29 @@ const makeToastController = (opts: {
     if (timer) clearTimeout(timer);
   };
 
-  // Horizontal pan = OS-notification swipe. activeOffsetX keeps plain taps
-  // flowing to the Pressable below (which carries the accessibility surface).
+  // Upward pan = the heads-up banner pushed back where it came from (the toast
+  // drops in from under the header). activeOffsetY keeps plain taps flowing to
+  // the Pressable below (which carries the accessibility surface).
   const pan = Gesture.Pan()
-    .activeOffsetX([-12, 12])
-    .failOffsetY([-10, 10])
+    .activeOffsetY([-12, 12])
+    .failOffsetX([-16, 16])
     .onStart(() => {
       runOnJS(pause)();
     })
     .onUpdate((e) => {
-      panX.value = e.translationX;
+      panY.value = e.translationY < 0 ? e.translationY : e.translationY * DOWN_RESISTANCE;
     })
     .onEnd((e) => {
-      const shouldDismiss =
-        Math.abs(e.translationX) > DISMISS_DX || Math.abs(e.velocityX) > DISMISS_VX;
-      if (shouldDismiss) {
-        const dir = Math.sign(e.translationX || e.velocityX) || 1;
-        panX.value = withTiming(
-          dir * width,
+      if (e.translationY < -DISMISS_DY || e.velocityY < -DISMISS_VY) {
+        panY.value = withTiming(
+          OFFSCREEN_Y,
           { duration: 160, easing: Easing.out(Easing.cubic) },
           (finished) => {
             if (finished) runOnJS(dismiss)();
           },
         );
       } else {
-        panX.value = withTiming(0, { duration: 160, easing: Easing.out(Easing.cubic) });
+        panY.value = withTiming(0, { duration: 160, easing: Easing.out(Easing.cubic) });
         if (!sticky) runOnJS(resume)(life.value);
       }
     });
@@ -167,7 +169,7 @@ const makeToastController = (opts: {
   return { pan, start, clear };
 };
 
-/** Perpetually drifting chevrons — the visual "slide me away" affordance. */
+/** Perpetually drifting chevrons — the visual "push me up" affordance. */
 const SwipeHint = () => {
   const { muted } = useTheme();
   const drift = useSharedValue(0);
@@ -179,12 +181,14 @@ const SwipeHint = () => {
   }, [drift]);
   const anim = useAnimatedStyle(() => ({
     opacity: 0.5 + drift.value * 0.5,
-    transform: [{ translateX: drift.value * 5 }],
+    transform: [{ translateY: drift.value * -4 }],
   }));
   return (
-    <Animated.View style={anim} className="ml-3 flex-row items-center">
-      <ChevronRightIcon color={muted} size={14} />
-      <ChevronRightIcon color={muted} size={14} strokeWidth={1.6} />
+    <Animated.View style={anim} className="ml-3 items-center">
+      <ChevronUpIcon color={muted} size={14} />
+      <View className="-mt-2">
+        <ChevronUpIcon color={muted} size={14} strokeWidth={1.6} />
+      </View>
     </Animated.View>
   );
 };
@@ -192,20 +196,18 @@ const SwipeHint = () => {
 const ToastView = ({ toast, onDone }: { toast: Toast; onDone: (id: number) => void }) => {
   const t = useT();
   const { accent, brand } = useTheme();
-  const { width } = useWindowDimensions();
   const anim = useSharedValue(0);
   const life = useSharedValue(1);
-  const panX = useSharedValue(0);
+  const panY = useSharedValue(0);
 
   const iconColor =
     toast.type === 'success' ? accent : toast.type === 'error' ? '#f87171' : '#a1a1aa';
   const Icon = ICON[toast.type];
 
   const dismiss = useCallback(() => onDone(toast.id), [onDone, toast.id]);
-  // One controller per toast (keyed mount); width captured at creation is fine
-  // for a 10s lifespan.
+  // One controller per toast (keyed mount).
   const [ctrl] = useState(() =>
-    makeToastController({ anim, life, panX, width, sticky: !!toast.sticky, dismiss }),
+    makeToastController({ anim, life, panY, sticky: !!toast.sticky, dismiss }),
   );
 
   useEffect(() => {
@@ -221,10 +223,9 @@ const ToastView = ({ toast, onDone }: { toast: Toast; onDone: (id: number) => vo
     : dismiss;
 
   const cardAnim = useAnimatedStyle(() => ({
-    opacity: anim.value * interpolate(Math.abs(panX.value), [0, width / 2], [1, 0.35], 'clamp'),
+    opacity: anim.value * interpolate(panY.value, [OFFSCREEN_Y / 2, 0], [0, 1], 'clamp'),
     transform: [
-      { translateY: interpolate(anim.value, [0, 1], [-24, 0]) },
-      { translateX: panX.value },
+      { translateY: interpolate(anim.value, [0, 1], [-24, 0]) + panY.value },
       { scale: interpolate(anim.value, [0, 1], [0.95, 1]) },
     ],
   }));

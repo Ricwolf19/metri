@@ -2,6 +2,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { MinusIcon, PlusIcon } from '@/components/icons';
 import { useT } from '@/i18n';
+import { haptic } from '@/lib/haptics';
 import { useTheme } from '@/theme/theme-context';
 
 import { CONTROL_FONT_SCALE } from './typography';
@@ -61,7 +62,10 @@ export const Stepper = ({
           buttons past their half and over the neighbour's. */}
       <View className="max-w-full flex-row items-center justify-center">
         <Pressable
-          onPress={() => onChange(Math.max(min, (value ?? seed) - step))}
+          onPress={() => {
+            haptic('tap');
+            onChange(Math.max(min, (value ?? seed) - step));
+          }}
           disabled={!canDec}
           accessibilityRole="button"
           accessibilityLabel={
@@ -82,7 +86,10 @@ export const Stepper = ({
         </Text>
         <View className="w-5 shrink" />
         <Pressable
-          onPress={() => onChange(value == null ? seed : Math.min(max, value + step))}
+          onPress={() => {
+            haptic('tap');
+            onChange(value == null ? seed : Math.min(max, value + step));
+          }}
           disabled={!canInc}
           accessibilityRole="button"
           accessibilityLabel={

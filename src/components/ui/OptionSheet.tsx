@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Pressable, Text, type ScrollView } from 'react-native';
 
 import { CheckIcon } from '@/components/icons';
+import { haptic } from '@/lib/haptics';
 import { useTheme } from '@/theme/theme-context';
 
 import { ScrollArea } from './ScrollArea';
@@ -69,7 +70,10 @@ export const OptionSheet = <T extends string>({
               }
               onPress={() => {
                 // The checked option only closes: re-picking it is no change.
-                if (!active) onChange(item.value);
+                if (!active) {
+                  haptic('tick');
+                  onChange(item.value);
+                }
                 onClose();
               }}
               accessibilityRole="button"
