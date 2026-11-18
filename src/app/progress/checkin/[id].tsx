@@ -24,6 +24,7 @@ import { siteLabelKey, type SiteId } from '@/features/body/sites';
 import { fromCm, lengthUnitFor } from '@/features/body/units';
 import { daysBetween } from '@/features/body/weekly';
 import { photoForPose, POSES, nextMissingPose } from '@/features/photos/checkins';
+import { LeaveTo } from '@/features/photos/components/LeaveTo';
 import { MediaRow } from '@/features/photos/components/MediaRow';
 import { PoseGrid } from '@/features/photos/components/PoseGrid';
 import { avgWeightValue, phaseLine } from '@/features/photos/format';
@@ -271,7 +272,7 @@ const CheckinContent = () => {
   if (!user) return <Redirect href="/" />;
   if (leaving) return null;
   // Gone with its last photo (deleted from the viewer).
-  if (!entry) return <Redirect href="/progress" />;
+  if (!entry) return <LeaveTo href="/progress" />;
   // Keyed: the note form reads its baseline once, per check-in.
   return (
     <CheckinScreen
