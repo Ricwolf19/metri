@@ -17,7 +17,7 @@ vi.mock('react-native-health-connect', () => ({
 vi.mock('@/lib/open-external', () => ({ openExternal: () => {} }));
 vi.mock('@/lib/telemetry', () => ({ captureError: (e: unknown) => h.captured.push(e) }));
 
-const { readHealthDays } = await import('./health-connect');
+const { isExpectedRefusal, readHealthDays } = await import('./health-connect');
 
 const NOW = new Date(2026, 10, 17, 9, 30);
 
@@ -68,5 +68,29 @@ describe('readHealthDays', () => {
       if (tz === undefined) delete process.env.TZ;
       else process.env.TZ = tz;
     }
+  });
+});
+
+/** The library rejects with the Kotlin exception's message and a `code`. */
+const rejection = (code: string, message: string) => Object.assign(new Error(message), { code });
+
+describe('isExpectedRefusal', () => {
+  it('reads a spent quota and a revoked grant as answers, not defects', () => {
+    expect(
+      isExpectedRefusal(
+        rejection('UNDERLYING_ERROR', 'Rate limited request quota has been exceeded.'),
+      ),
+    ).toBe(true);
+    expect(isExpectedRefusal(rejection('PERMISSION_ERROR', 'Caller has no permission'))).toBe(true);
+    expect(isExpectedRefusal(rejection('UNDERLYING_ERROR', 'Binder died'))).toBe(false);
+    expect(isExpectedRefusal(new Error('quota'))).toBe(false);
+  });
+
+  it('keeps a spent quota out of telemetry', async () => {
+    h.byPeriod.mockRejectedValue(
+      rejection('UNDERLYING_ERROR', 'Rate limited request quota has been exceeded.'),
+    );
+    await readHealthDays(['steps'], 2, NOW);
+    expect(h.captured).toEqual([]);
   });
 });

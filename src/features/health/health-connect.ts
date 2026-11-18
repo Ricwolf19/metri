@@ -111,6 +111,23 @@ const DAY_MS = 86_400_000;
 const NIGHT_STARTS_AT_HOUR = 18;
 
 /**
+ * Health Connect's answers that are not defects (AGENTS "Telemetry is for
+ * surprises only"): the read quota is spent (it throws a RemoteException, which
+ * the library rejects as `UNDERLYING_ERROR`, naming the quota) — the next
+ * foreground reads again — or a grant was taken back in Health Connect's own
+ * screens between the check and the read (`PERMISSION_ERROR`). Either way the
+ * section shows what it has.
+ */
+export const isExpectedRefusal = (error: unknown): boolean => {
+  const code = (error as { code?: unknown } | null)?.code;
+  if (code === 'PERMISSION_ERROR') return true;
+  return (
+    code === 'UNDERLYING_ERROR' &&
+    /rate.?limit|quota/i.test(error instanceof Error ? error.message : '')
+  );
+};
+
+/**
  * The last `days` days (today included) of whatever was granted, as one row a
  * day. Steps and energy are summed per local calendar day; sleep per night,
  * keyed by the morning it ended on. A missing day is null — unknown, not zero.
@@ -141,8 +158,9 @@ export const readHealthDays = async (
     try {
       await read();
     } catch (error) {
-      // Every read is for a granted type, so a throw here is a surprise.
-      captureError(error);
+      // Every read is for a granted type, so a throw is a surprise — unless
+      // Health Connect simply said no (`isExpectedRefusal`).
+      if (!isExpectedRefusal(error)) captureError(error);
     }
   };
 
