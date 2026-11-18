@@ -4,7 +4,7 @@ import type { TFunction } from '@/i18n';
 import { en } from '@/i18n/en';
 import { es } from '@/i18n/es';
 
-import { quickActionHref, quickActionItems } from './items';
+import { isTabHref, quickActionHref, quickActionItems } from './items';
 
 const tFor =
   (dict: Record<string, string>): TFunction =>
@@ -31,5 +31,18 @@ describe('quickActionHref', () => {
     expect(quickActionHref({ id: 'food' })).toBe('/food/add');
     expect(quickActionHref({ id: 'photo' })).toBe('/progress/capture');
     expect(quickActionHref({ id: 'elsewhere' })).toBeNull();
+  });
+});
+
+describe('isTabHref', () => {
+  const hrefOf = (id: string) => {
+    const href = quickActionHref({ id });
+    if (!href) throw new Error(`no route for ${id}`);
+    return href;
+  };
+
+  it('switches to the Train tab, and pushes every other shortcut', () => {
+    expect(isTabHref(hrefOf('train'))).toBe(true);
+    for (const id of ['checkin', 'food', 'photo']) expect(isTabHref(hrefOf(id))).toBe(false);
   });
 });

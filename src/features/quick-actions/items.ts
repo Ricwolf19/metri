@@ -53,3 +53,10 @@ export const quickActionItems = (t: TFunction, os: 'ios' | 'android'): QuickActi
 /** The route a delivered action names — only one of ours, never a payload's own href. */
 export const quickActionHref = (action: { id?: unknown }): Href | null =>
   SPECS.find((s) => s.id === action.id)?.href ?? null;
+
+/**
+ * A tab is switched to, never pushed: pushed from a screen stacked over the
+ * tabs, it stacked a SECOND `(tabs)` tree (every tab mounted again).
+ */
+export const isTabHref = (href: Href): boolean =>
+  typeof href === 'string' && href.startsWith('/(tabs)');

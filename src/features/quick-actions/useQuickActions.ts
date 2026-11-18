@@ -1,11 +1,11 @@
 import * as QuickActions from 'expo-quick-actions';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 
 import { tFor, useI18n } from '@/i18n';
 
-import { quickActionHref, quickActionItems } from './items';
+import { isTabHref, quickActionHref, quickActionItems } from './items';
 
 /** The action that cold-started the app, consumed once: a remount must not replay it. */
 let pendingInitial: QuickActions.Action | undefined = QuickActions.initial;
@@ -36,10 +36,18 @@ export const useQuickActions = (enabled: boolean) => {
 
   useEffect(() => {
     if (!enabled) return;
+    const go = (href: Href) => {
+      if (!isTabHref(href)) router.push(href);
+      // Over the tabs (a workout, a check-in open): back down to them, onto
+      // that tab. On the tabs already: switch. `dismissTo` alone is not enough
+      // there — the tab navigator does not handle the pop it sends.
+      else if (router.canDismiss()) router.dismissTo(href);
+      else router.navigate(href);
+    };
     const open = (action: QuickActions.Action) => {
       const href = quickActionHref(action);
       // The next frame: the tabs navigator mounts in this same commit.
-      if (href) setTimeout(() => router.push(href), 0);
+      if (href) setTimeout(() => go(href), 0);
     };
     if (pendingInitial) {
       open(pendingInitial);
