@@ -7,7 +7,7 @@ import type { Units } from '@/lib/storage';
 
 import type { JumpText } from '../../load-sheet';
 import { LoadSectionLabel } from './LoadSectionLabel';
-import { MachineLoadGrid } from './MachineLoadGrid';
+import { LoadGrid } from './LoadGrid';
 import { StepJumpsEditor } from './StepJumpsEditor';
 
 /**
@@ -78,7 +78,7 @@ export const MachineLoadForm = ({
       {/* The area is always there: the grid filling it must not shove the
           buttons down once the increment is typed. */}
       {pins.length ? (
-        <MachineLoadGrid loads={pins} unit={unit} selected={step} onSelect={onPick} />
+        <LoadGrid loads={pins} unit={unit} selected={step} onSelect={onPick} />
       ) : (
         <Text className="min-h-11 text-xs leading-4 text-ink-500">{t('load.pinsHint')}</Text>
       )}

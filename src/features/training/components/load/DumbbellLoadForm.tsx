@@ -13,7 +13,7 @@ import { useTheme } from '@/theme/theme-context';
 import { rungOf } from '../../ladder';
 import type { JumpText } from '../../load-sheet';
 import { LoadSectionLabel } from './LoadSectionLabel';
-import { MachineLoadGrid } from './MachineLoadGrid';
+import { LoadGrid } from './LoadGrid';
 import { StepJumpsEditor } from './StepJumpsEditor';
 
 type RackFields = {
@@ -84,7 +84,7 @@ export const DumbbellLoadForm = ({
       {!typed && missing ? (
         <Text className="mb-2 text-xs leading-4 text-ink-400">{t('load.pickDumbbell')}</Text>
       ) : null}
-      <MachineLoadGrid
+      <LoadGrid
         loads={weights}
         unit={unit}
         selected={picked}

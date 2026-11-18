@@ -10,7 +10,7 @@ import type { Units } from '@/lib/storage';
  * glance (40 pins in a scrolling line hide the one you want), not a badge
  * strip, and it lives inside a sheet that scrolls.
  */
-export const MachineLoadGrid = ({
+export const LoadGrid = ({
   loads,
   unit,
   selected,
