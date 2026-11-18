@@ -23,7 +23,12 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
+        "android.permission.health.READ_SLEEP"
+      ]
     },
     "web": {
       "output": "static",
@@ -79,7 +84,23 @@
         "expo-image-picker",
         {
           "photosPermission": "Metri uses your photos to save progress pictures.",
-          "cameraPermission": "Metri uses the camera to take progress photos."
+          "cameraPermission": "Metri uses the camera for progress photos and to scan a shared program's code."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Metri uses the camera for progress photos and to scan a shared program's code.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
+        }
+      ],
+      [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": false,
+          "supportsPictureInPicture": false
         }
       ],
       "expo-localization",
@@ -112,6 +133,21 @@
       ],
       "expo-status-bar",
       "expo-audio",
+      "react-native-health-connect",
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Metri adds your training days to a calendar on this phone.",
+          "remindersPermission": false
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Metri uses Face ID to unlock your progress photos and settings."
+        }
+      ],
+      "expo-quick-actions",
       [
         "expo-build-properties",
         {
@@ -120,7 +156,8 @@
               "arm64-v8a",
               "armeabi-v7a"
             ],
-            "enableMinifyInReleaseBuilds": true
+            "enableMinifyInReleaseBuilds": true,
+            "minSdkVersion": 26
           }
         }
       ]
