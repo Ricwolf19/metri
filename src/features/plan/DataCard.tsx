@@ -4,10 +4,11 @@ import { Text, View } from 'react-native';
 
 import { BlockingOverlay, Button, Card, useToast } from '@/components/ui';
 import { useT } from '@/i18n';
+import { shareFailed, shareFile } from '@/lib/share-file';
 import { captureError } from '@/lib/telemetry';
 import { useBlockingTask } from '@/lib/useBlockingTask';
 
-import { shareExportFile, writeExportFile } from './export';
+import { writeExportFile } from './export';
 import { importUserData } from './import';
 import { validateImport } from './validate-import';
 
@@ -35,9 +36,10 @@ export const DataCard = ({ userId }: { userId: string }) => {
         toast.error(t('plan.exportErrFailed'));
         return;
       }
-      void shareExportFile(uri, t('premium.exportCta'))
-        .then((shared) => shared && toast.success(t('premium.exportedToast')))
-        .catch((e: unknown) => captureError(e));
+      void shareFile(uri, 'json', t('premium.exportCta')).then((outcome) => {
+        if (outcome === 'shared') toast.success(t('premium.exportedToast'));
+        else if (shareFailed(outcome)) toast.error(t('share.failed'));
+      });
     });
   };
 

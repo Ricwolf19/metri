@@ -1,9 +1,10 @@
 import { BlockingOverlay, useDialog, useToast } from '@/components/ui';
 import { useT } from '@/i18n';
+import { shareFailed, shareFile } from '@/lib/share-file';
 import { captureError } from '@/lib/telemetry';
 import { useBlockingTask } from '@/lib/useBlockingTask';
 
-import { pdfFileName, printDocument, sharePdf, writePdf } from './pdf';
+import { pdfFileName, printDocument, writePdf } from './pdf';
 
 /** A built document: its HTML and the title its file and share sheet carry. */
 export type PdfDoc = { html: string; title: string };
@@ -34,7 +35,9 @@ export const usePdfActions = () => {
         return;
       }
       if (mode === 'print') {
-        void printDocument(doc.html);
+        void printDocument(doc.html).then((outcome) => {
+          if (outcome === 'failed') toast.error(t('print.failed'));
+        });
         return;
       }
       let uri: string;
@@ -45,11 +48,8 @@ export const usePdfActions = () => {
         toast.error(t('print.failed'));
         return;
       }
-      // A dismissed share sheet is an answer, not a defect: some platforms reject
-      // on it (the share card's and the clip's guard).
-      void sharePdf(uri, doc.title).catch((e: unknown) => {
-        const message = e instanceof Error ? e.message : '';
-        if (!/cancel|dismiss/i.test(message)) captureError(e);
+      void shareFile(uri, 'pdf', doc.title).then((outcome) => {
+        if (shareFailed(outcome)) toast.error(t('share.failed'));
       });
     });
 

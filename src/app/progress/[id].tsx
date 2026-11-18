@@ -1,4 +1,3 @@
-import * as Sharing from 'expo-sharing';
 import { Image } from 'expo-image';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -18,13 +17,10 @@ import { deleteMedia, setMediaPose } from '@/features/photos/photos.repo';
 import { useProgressLog, type ProgressEntry } from '@/features/photos/useProgressLog';
 import { formatClockTime } from '@/features/training/schedule';
 import { useT } from '@/i18n';
-import { captureError } from '@/lib/telemetry';
+import { shareFailed, shareFile } from '@/lib/share-file';
 import { useClockFormat } from '@/lib/useClockFormat';
 import { useDateFormat } from '@/lib/useDateFormat';
-import { isShareDismissal } from '@/lib/useShareCard';
 import { useTheme } from '@/theme/theme-context';
-
-const clipMime = (uri: string): string => (/\.mov$/i.test(uri) ? 'video/quicktime' : 'video/mp4');
 
 type ScreenProps = {
   media: ProgressPhoto;
@@ -63,18 +59,8 @@ const MediaScreen = ({ media, entry, onDeleted }: ScreenProps) => {
     if (sharing) return;
     setSharing(true);
     try {
-      if (!(await Sharing.isAvailableAsync())) {
-        toast.error(t('dayDetail.shareFailed'));
-        return;
-      }
-      await keepUnlockedWhile(() =>
-        Sharing.shareAsync(uri, { mimeType: clipMime(uri), dialogTitle: t('photos.shareClip') }),
-      );
-    } catch (e) {
-      if (!isShareDismissal(e)) {
-        captureError(e);
-        toast.error(t('dayDetail.shareFailed'));
-      }
+      const outcome = await keepUnlockedWhile(() => shareFile(uri, 'video', t('photos.shareClip')));
+      if (shareFailed(outcome)) toast.error(t('share.failed'));
     } finally {
       setSharing(false);
     }

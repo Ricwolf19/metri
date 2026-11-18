@@ -2,6 +2,7 @@ import { View } from 'react-native';
 
 import { Button, ScrollArea, Sheet, ShareCard, useToast } from '@/components/ui';
 import { useT } from '@/i18n';
+import { shareFailed } from '@/lib/share-file';
 import { useShareCard } from '@/lib/useShareCard';
 
 import type { ShareModel } from './models';
@@ -25,7 +26,7 @@ export const ShareSheet = ({
   const toast = useToast();
   const { ref, share, busy } = useShareCard(t('share.action'));
   const onShare = async () => {
-    if (!(await share())) toast.error(t('dayDetail.shareFailed'));
+    if (shareFailed(await share())) toast.error(t('share.failed'));
   };
   return (
     <Sheet visible={visible && model !== null} onClose={onClose}>

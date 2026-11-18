@@ -1,5 +1,4 @@
 import * as FileSystem from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
 
 import { localDateKey } from '@/features/training/dates';
 
@@ -19,11 +18,4 @@ export const writeExportFile = async (userId: string): Promise<string> => {
   const uri = `${FileSystem.cacheDirectory}${exportFileName()}`;
   await FileSystem.writeAsStringAsync(uri, json);
   return uri;
-};
-
-/** Hands the file to the OS share sheet; false when the device cannot share. */
-export const shareExportFile = async (uri: string, dialogTitle: string): Promise<boolean> => {
-  if (!(await Sharing.isAvailableAsync())) return false;
-  await Sharing.shareAsync(uri, { mimeType: 'application/json', dialogTitle, UTI: 'public.json' });
-  return true;
 };

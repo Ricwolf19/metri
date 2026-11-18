@@ -1,8 +1,8 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
 
 import { localDateKey } from '@/features/training/dates';
+import { captureError } from '@/lib/telemetry';
 import { fold } from '@/lib/text';
 
 /**
@@ -30,16 +30,22 @@ export const writePdf = async (html: string, fileName: string): Promise<string> 
   return target;
 };
 
-/** Hands the PDF to the OS share sheet; false when the device cannot share. */
-export const sharePdf = async (uri: string, dialogTitle: string): Promise<boolean> => {
-  if (!(await Sharing.isAvailableAsync())) return false;
-  await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle, UTI: 'com.adobe.pdf' });
-  return true;
-};
+/** iOS rejects a closed printer picker or an unfinished job; Android just resolves. */
+const isPrintDismissal = (e: unknown): boolean =>
+  /cancel|did not complete/i.test(e instanceof Error ? e.message : '');
 
 /**
  * The system print dialog (Android's also offers "Save as PDF"). Closing it is
- * an answer, and the platform reports that as a rejection — never an error.
+ * an answer; anything else (no print service, a page that would not render) is
+ * a real failure the caller tells the lifter about.
  */
-export const printDocument = (html: string): Promise<void> =>
-  Print.printAsync({ html }).catch(() => undefined);
+export const printDocument = async (html: string): Promise<'printed' | 'dismissed' | 'failed'> => {
+  try {
+    await Print.printAsync({ html });
+    return 'printed';
+  } catch (e) {
+    if (isPrintDismissal(e)) return 'dismissed';
+    captureError(e);
+    return 'failed';
+  }
+};

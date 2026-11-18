@@ -18,7 +18,7 @@ import { esc } from './html';
 import { programSheetHtml, type ProgramSheetInput } from './program-sheet';
 
 vi.mock('expo-print', () => ({}));
-vi.mock('expo-sharing', () => ({}));
+vi.mock('@/lib/telemetry', () => ({ captureError: vi.fn() }));
 vi.mock('expo-file-system/legacy', () => ({}));
 const { pdfFileName } = await import('./pdf');
 

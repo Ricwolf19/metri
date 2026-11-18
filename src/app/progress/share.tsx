@@ -34,6 +34,7 @@ import { useProgressLog } from '@/features/photos/useProgressLog';
 import { dateFromKey } from '@/features/training/dates';
 import { useT } from '@/i18n';
 import { useDateFormat } from '@/lib/useDateFormat';
+import { shareFailed } from '@/lib/share-file';
 import { useShareCard } from '@/lib/useShareCard';
 import { useUnits } from '@/lib/useUnits';
 import { useTheme } from '@/theme/theme-context';
@@ -104,8 +105,8 @@ const ShareContent = () => {
   // the composer and throw away the card being made.
   const onShare = async () => {
     const size = { width: OUTPUT_WIDTH, height: OUTPUT_WIDTH * FORMAT_RATIO[format] };
-    const sent = await keepUnlockedWhile(() => share(size));
-    if (!sent) toast.error(t('progressShare.failed'));
+    const outcome = await keepUnlockedWhile(() => share(size));
+    if (shareFailed(outcome)) toast.error(t('progressShare.failed'));
   };
 
   const formatSegments: Segment<ShareFormat>[] = FORMATS.map((f) => ({
