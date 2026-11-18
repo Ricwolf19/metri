@@ -89,8 +89,8 @@ export const ExerciseTrendCard = ({
         xLabels={
           first && last ? [dayMonth(new Date(first.at)), dayMonth(new Date(last.at))] : undefined
         }
-        unit={` ${unit}`}
-        yFormat={(v) => String(v)}
+        formatX={(x) => (points[x] ? dayMonth(new Date(points[x].at)) : '')}
+        unit={unit}
       />
       {weeks.length > 1 ? (
         <View className="mt-4 border-t border-ink-800 pt-3">
@@ -118,18 +118,24 @@ export const ExerciseTrendCard = ({
           <Text className="mt-2 text-xs leading-4 text-ink-500">{t('exHistory.dropNote')}</Text>
         </View>
       ) : null}
-      <View className="mt-4 flex-row border-t border-ink-800 pt-3">
-        <Stat
-          label={t('exHistory.bestSet')}
-          value={bestSet ? `${shown(bestSet.weightKg)}×${bestSet.reps}` : '—'}
-        />
-        <Stat
-          label={t('exHistory.bestE1rm')}
-          value={bestE1rm ? String(shown(bestE1rm)) : '—'}
-          unit={bestE1rm ? unit : undefined}
-        />
-        <Stat label={t('exHistory.prCount')} value={String(prEvents(points).length)} />
-        <Stat label={t('exHistory.sessionsCount')} value={String(points.length)} />
+      {/* Two by two: four stats in one row left ~70dp a column on a small phone,
+          and the Spanish labels shrank to unreadable. */}
+      <View className="mt-4 gap-3 border-t border-ink-800 pt-3">
+        <View className="flex-row">
+          <Stat
+            label={t('exHistory.bestSet')}
+            value={bestSet ? `${shown(bestSet.weightKg)}×${bestSet.reps}` : '—'}
+          />
+          <Stat
+            label={t('exHistory.bestE1rm')}
+            value={bestE1rm ? String(shown(bestE1rm)) : '—'}
+            unit={bestE1rm ? unit : undefined}
+          />
+        </View>
+        <View className="flex-row">
+          <Stat label={t('exHistory.prCount')} value={String(prEvents(points).length)} />
+          <Stat label={t('exHistory.sessionsCount')} value={String(points.length)} />
+        </View>
       </View>
       {records.length ? (
         <View className="mt-3 border-t border-ink-800 pt-3">
@@ -138,9 +144,11 @@ export const ExerciseTrendCard = ({
           </Text>
           <View className="mt-1.5 gap-1">
             {records.map((r) => (
-              <View key={r.logId} className="flex-row items-center justify-between">
-                <Text className="text-xs text-ink-400">{dayMonth(new Date(r.at))}</Text>
-                <Text className="font-mono text-sm text-ink-100">
+              <View key={r.logId} className="flex-row items-center justify-between gap-3">
+                <Text className="shrink text-xs text-ink-400" numberOfLines={1}>
+                  {dayMonth(new Date(r.at))}
+                </Text>
+                <Text className="shrink-0 font-mono text-sm text-ink-100">
                   {shown(r.topKg)} {unit}
                 </Text>
               </View>

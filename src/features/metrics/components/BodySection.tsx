@@ -16,7 +16,8 @@ import { WeighInSheet } from '@/features/body/components/WeighInSheet';
 import { siteLabelKey } from '@/features/body/sites';
 import { fromCm, lengthUnitFor } from '@/features/body/units';
 import { useBodyLog } from '@/features/body/useBodyLog';
-import { MIN_WEIGH_INS, daysBetween } from '@/features/body/weekly';
+import { MIN_WEIGH_INS, addDays, daysBetween } from '@/features/body/weekly';
+import { dateFromKey } from '@/features/training/dates';
 import { fromKg } from '@/features/training/progression';
 import { useT } from '@/i18n';
 import { settings } from '@/lib/storage';
@@ -37,7 +38,7 @@ export const BodySection = ({ headerRight }: MetricsSectionProps) => {
   const t = useT();
   const router = useRouter();
   const { user } = useAuth();
-  const { dateKey } = useDateFormat();
+  const { dateKey, dayMonth } = useDateFormat();
   const units = settings.getUnits();
   const [weighing, setWeighing] = useState(false);
   const log = useBodyLog(user?.id ?? '', user?.sex ?? null);
@@ -57,6 +58,13 @@ export const BodySection = ({ headerRight }: MetricsSectionProps) => {
   const target = log.calendar
     .filter((r) => r.week <= log.currentWeek + 1)
     .map((r) => ({ x: r.week * 7 + 3, y: fromKg(r.targetKg, units) }));
+
+  // A reading sits on its day; a weekly average mid-block (index × 7 + 3), named by the
+  // block's first day (blocks run from the phase start, not from Mondays).
+  const formatX = (x: number, series: 'line' | 'points') =>
+    series === 'line'
+      ? t('chart.weekOf', { date: dayMonth(dateFromKey(addDays(anchor, Math.round(x) - 3))) })
+      : dayMonth(dateFromKey(addDays(anchor, Math.round(x))));
 
   const thisWeek = log.thisWeek;
   const missing = thisWeek ? Math.max(0, MIN_WEIGH_INS - thisWeek.n) : MIN_WEIGH_INS;
@@ -89,8 +97,9 @@ export const BodySection = ({ headerRight }: MetricsSectionProps) => {
               points={points}
               line={line}
               target={target}
-              unit={` ${units}`}
+              unit={units}
               xLabels={[dateKey(anchor), dateKey(log.today)]}
+              formatX={formatX}
               labels={{
                 points: t('body.legendDaily'),
                 line: t('body.legendWeekly'),

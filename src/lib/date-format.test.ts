@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatDate, formatDateKey, formatDayMonth } from './date-format';
+import { formatDate, formatDateKey, formatDayMonth, formatMonth } from './date-format';
 
 const D = new Date(2026, 8, 16); // 16 Sep 2026 (Wednesday)
 
@@ -30,5 +30,11 @@ describe('formatDate', () => {
     expect(formatDayMonth(D, 'dmy', 'en')).toBe('16/09');
     expect(formatDayMonth(D, 'mdy', 'en')).toBe('09/16');
     expect(formatDayMonth(D, 'dmmmy', 'en')).toMatch(/Sep/);
+  });
+
+  // Bar charts labelled months "06", "07": a number reads as a day in half the presets.
+  it('names a month in the app language', () => {
+    expect(formatMonth(D, 'en')).toMatch(/^Sep/);
+    expect(formatMonth(D, 'es', 'long')).toMatch(/^sept/i);
   });
 });

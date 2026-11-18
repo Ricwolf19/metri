@@ -44,6 +44,14 @@ export const formatDateKey = (key: string, format: DateFormat, locale: LocaleTag
   return formatDate(new Date(y, m - 1, d), format, locale);
 };
 
+/** A month's name in the app's language ("Nov" / "November"): no preset prints months as words
+ * differently, so this one ignores it. */
+export const formatMonth = (
+  date: Date,
+  locale: LocaleTag,
+  style: 'short' | 'long' = 'short',
+): string => date.toLocaleDateString(TAG[locale], { month: style });
+
 /** Short day + month for compact charts and labels (respects the preset's day/month order). */
 export const formatDayMonth = (date: Date, format: DateFormat, locale: LocaleTag): string => {
   if (format === 'mdy') return `${pad2(date.getMonth() + 1)}/${pad2(date.getDate())}`;

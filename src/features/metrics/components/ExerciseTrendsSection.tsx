@@ -97,21 +97,25 @@ export const ExerciseTrendsSection = ({ headerRight }: MetricsSectionProps) => {
                 }
                 className="flex-row items-center border-t border-ink-800 py-3"
               >
+                {/* The session count rides under the name: as a third column it
+                    squeezed long (Spanish) names to a few letters. */}
                 <View className="min-w-0 flex-1 pr-2">
-                  <Text className="text-sm font-sans-medium text-ink-100" numberOfLines={1}>
+                  <Text className="text-sm font-sans-medium text-ink-100" numberOfLines={2}>
                     {nameOf(r.exerciseId)}
                   </Text>
-                  <Text className="mt-0.5 text-xs text-accent">
-                    {t('metrics.trendsDelta', {
-                      kg: fromKgHalf(r.deltaKg, unit),
-                      unit,
-                      pct: Math.round(r.deltaPct),
-                    })}
-                  </Text>
+                  <View className="mt-0.5 flex-row flex-wrap gap-x-2">
+                    <Text className="text-xs text-accent" numberOfLines={1}>
+                      {t('metrics.trendsDelta', {
+                        kg: fromKgHalf(r.deltaKg, unit),
+                        unit,
+                        pct: Math.round(r.deltaPct),
+                      })}
+                    </Text>
+                    <Text className="text-xs text-ink-400" numberOfLines={1}>
+                      {t('metrics.exSessions', { n: r.sessions })}
+                    </Text>
+                  </View>
                 </View>
-                <Text className="mr-2 shrink-0 text-xs text-ink-400">
-                  {t('metrics.exSessions', { n: r.sessions })}
-                </Text>
                 <ChevronRightIcon color={muted} size={16} />
               </PressableScale>
             ))

@@ -1,12 +1,13 @@
 import { useRouter } from 'expo-router';
 import { useCallback } from 'react';
-import { Text } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { ChevronRightIcon } from '@/components/icons';
 import { Card, EmptyState, PressableScale, SectionLabel } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
+import { exerciseDisplayName } from '@/features/training/labels';
 import { loggedExercises } from '@/features/training/stats.repo';
-import { useT } from '@/i18n';
+import { useI18n, useT } from '@/i18n';
 import { useFocusRead } from '@/lib/useFocusRead';
 import { useTheme } from '@/theme/theme-context';
 
@@ -18,6 +19,7 @@ const MAX_ROWS = 6;
 export const ExerciseHistorySection = ({ headerRight }: MetricsSectionProps) => {
   const router = useRouter();
   const t = useT();
+  const { locale } = useI18n();
   const { user } = useAuth();
   const { muted } = useTheme();
   const userId = user?.id ?? '';
@@ -45,15 +47,15 @@ export const ExerciseHistorySection = ({ headerRight }: MetricsSectionProps) => 
                 i > 0 ? 'border-t border-ink-800' : '',
               ].join(' ')}
             >
-              <Text
-                className="min-w-0 flex-1 pr-2 text-sm font-sans-medium text-ink-100"
-                numberOfLines={1}
-              >
-                {e.name}
-              </Text>
-              <Text className="mr-2 shrink-0 text-xs text-ink-400">
-                {t('metrics.exSessions', { n: e.sessions })}
-              </Text>
+              {/* The count sits under the name, so a long name keeps its width. */}
+              <View className="min-w-0 flex-1 pr-2">
+                <Text className="text-sm font-sans-medium text-ink-100" numberOfLines={2}>
+                  {exerciseDisplayName({ id: e.exerciseId, name: e.name }, locale)}
+                </Text>
+                <Text className="mt-0.5 text-xs text-ink-400" numberOfLines={1}>
+                  {t('metrics.exSessions', { n: e.sessions })}
+                </Text>
+              </View>
               <ChevronRightIcon color={muted} size={16} />
             </PressableScale>
           ))}

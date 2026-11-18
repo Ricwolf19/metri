@@ -9,6 +9,7 @@ import Animated, {
 
 import { ActivityIcon, FlameIcon, HistoryIcon } from '@/components/icons';
 import {
+  BarChart,
   Card,
   ChipRow,
   ChoiceCarousel,
@@ -16,13 +17,12 @@ import {
   SectionLabel,
   SegmentedControl,
   Stat,
+  type BarDatum,
   type ChipItem,
   type ChoiceCard,
   type Segment,
 } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
-import { CalcChart } from '@/features/calculators/components/CalcChart';
-import type { CalcChart as Chart } from '@/features/calculators/types';
 import { BodyMap } from '@/features/training/components/BodyMap';
 import { MapLegend, type MapView } from '@/features/training/components/MapLegend';
 import {
@@ -51,6 +51,7 @@ import {
   recentWorkouts,
   workoutCounts,
 } from '@/features/training/stats.repo';
+import { dateFromKey } from '@/features/training/dates';
 import { fromKgHalf } from '@/features/training/progression';
 import { useT } from '@/i18n';
 import { useDateFormat } from '@/lib/useDateFormat';
@@ -86,7 +87,7 @@ export const AnalyticsSection = ({ headerRight }: MetricsSectionProps) => {
   const { user } = useAuth();
   // Volume rows are kg from SQL; everything shown converts and rounds to the half.
   const { units: unit } = useEquipmentUnits();
-  const { date: formatDate } = useDateFormat();
+  const { date: formatDate, dayMonth, month: monthName } = useDateFormat();
   const today = useTodayKey();
 
   const [view, setView] = useState<MapView>('balance');
@@ -207,28 +208,24 @@ export const AnalyticsSection = ({ headerRight }: MetricsSectionProps) => {
   const hasVolume = volume.some((w) => w.volume > 0);
   const rate = adherence ? adherenceRate(adherence) : null;
 
-  const monthChart: Chart = {
-    kind: 'bars',
-    max: Math.max(1, ...months.map((m) => m.count)),
-    bars: months.map((m, i) => ({
-      label: m.label,
+  const monthBars: BarDatum[] = months.map((m) => {
+    const first = dateFromKey(`${m.month}-01`);
+    return {
+      label: monthName(first),
+      caption: monthName(first, 'long'),
       value: m.count,
       display: String(m.count),
-      color: theme.brand,
-      highlight: i === months.length - 1,
-    })),
-  };
-  const volumeChart: Chart = {
-    kind: 'bars',
-    max: Math.max(1, ...volume.map((w) => w.volume)),
-    bars: volume.map((w, i) => ({
-      label: w.label,
+    };
+  });
+  const volumeBars: BarDatum[] = volume.map((w) => {
+    const start = dayMonth(dateFromKey(w.weekStart));
+    return {
+      label: start,
+      caption: t('chart.weekOf', { date: start }),
       value: w.volume,
       display: fmtVol(fromKgHalf(w.volume, unit)),
-      color: theme.brand,
-      highlight: i === volume.length - 1,
-    })),
-  };
+    };
+  });
 
   const viewCards: ChoiceCard<MapView>[] = [
     {
@@ -321,14 +318,22 @@ export const AnalyticsSection = ({ headerRight }: MetricsSectionProps) => {
       </Card>
 
       <Card className="mt-3">
-        <Text className="mb-3 text-xs text-ink-400">{t('home.weeklyVolume')}</Text>
-        {hasVolume ? <CalcChart chart={volumeChart} /> : <EmptyState hint={t('stats.emptyMap')} />}
+        <Text className="mb-2 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
+          {t('stats.volumeTitle')}
+        </Text>
+        {hasVolume ? (
+          <BarChart bars={volumeBars} unit={unit} title={t('stats.volumeTitle')} />
+        ) : (
+          <EmptyState hint={t('stats.emptyMap')} />
+        )}
       </Card>
 
       <Card className="mt-3">
-        <Text className="mb-3 text-xs text-ink-400">{t('stats.perMonth')}</Text>
+        <Text className="mb-2 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
+          {t('stats.perMonth')}
+        </Text>
         {counts?.total ? (
-          <CalcChart chart={monthChart} />
+          <BarChart bars={monthBars} title={t('stats.perMonth')} />
         ) : (
           <EmptyState hint={t('stats.emptyMonths')} />
         )}
@@ -368,18 +373,17 @@ export const AnalyticsSection = ({ headerRight }: MetricsSectionProps) => {
                 i > 0 ? 'border-t border-ink-800' : '',
               ].join(' ')}
             >
-              <Text
-                className="min-w-0 flex-1 text-sm font-sans-medium text-ink-100"
-                numberOfLines={1}
-              >
-                {w.completedAt ? formatDate(w.completedAt) : '—'}
-              </Text>
-              <Text className="ml-3 shrink-0 text-xs text-ink-400">
-                {t('stats.setsCount', { n: w.setCount })}
-              </Text>
-              <Text className="ml-3 shrink-0 text-xs text-ink-500">
-                {fromKgHalf(w.volumeKg, unit)} {unit}
-              </Text>
+              {/* Two lines, never three squeezed columns: a long date and a
+                  five-digit volume pushed each other off a 320dp row. */}
+              <View className="min-w-0 flex-1">
+                <Text className="text-sm font-sans-medium text-ink-100" numberOfLines={1}>
+                  {w.completedAt ? formatDate(w.completedAt) : '—'}
+                </Text>
+                <Text className="mt-0.5 text-xs text-ink-400" numberOfLines={1}>
+                  {t('stats.setsCount', { n: w.setCount })} · {fmtVol(fromKgHalf(w.volumeKg, unit))}{' '}
+                  {unit}
+                </Text>
+              </View>
             </View>
           ))}
         </Card>
