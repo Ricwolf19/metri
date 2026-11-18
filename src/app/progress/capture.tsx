@@ -91,6 +91,9 @@ const CaptureContent = () => {
   const { entries } = useProgressLog(user?.id ?? '', user?.sex ?? null);
   const [permission, requestPermission] = useCameraPermissions();
   const camera = useRef<CameraView>(null);
+  // A picker already open: a second tap would open another over it (a ref, not
+  // state — the tap lands before any re-render could disable the button).
+  const picking = useRef(false);
 
   const [opened] = useState(() => {
     const named =
@@ -234,7 +237,8 @@ const CaptureContent = () => {
   };
 
   const fromGallery = async () => {
-    if (busy) return;
+    if (busy || picking.current) return;
+    picking.current = true;
     try {
       if (mode === 'photo') {
         const uri = await pickFromLibrary();
@@ -251,6 +255,8 @@ const CaptureContent = () => {
     } catch (e) {
       captureError(e);
       toast.error(t('capture.shotFailed'));
+    } finally {
+      picking.current = false;
     }
   };
 
