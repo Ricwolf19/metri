@@ -21,6 +21,8 @@ import {
   type NotificationEvent,
 } from '@/features/notifications/events';
 import { useAuth } from '@/features/auth/auth-context';
+import { TrainingCalendarCard } from '@/features/calendar/TrainingCalendarCard';
+import { syncTrainingCalendar } from '@/features/calendar/sync';
 import { getEventConfig, syncNotificationEvents } from '@/features/notifications/policies';
 import { TIP_FREQUENCIES, tipSlotsFor } from '@/features/notifications/tips';
 import { StartTimeField } from '@/features/training/components/StartTimeField';
@@ -57,6 +59,8 @@ const EventCard = ({ event }: { event: NotificationEvent }) => {
     void (user ? syncTrainingReminder(user.id) : syncNotificationEvents()).then(() =>
       setCfg(getEventConfig(event)),
     );
+    // The calendar mirror books sessions at this same time (a no-op while it is off).
+    if (user) void syncTrainingCalendar(user.id);
   };
 
   const times = cfg.timesPerDay ?? 2;
@@ -205,6 +209,9 @@ const Notifications = () => {
           <Switch value={masterOn} onValueChange={onMasterToggle} />
         </View>
       </Card>
+
+      {/* Not a notification, so the master switch leaves it be. */}
+      <TrainingCalendarCard />
 
       {masterOn ? (
         <>
