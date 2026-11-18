@@ -26,7 +26,7 @@ import {
   workoutLogs,
 } from '@/db/schema';
 
-const EXPORT_VERSION = 7;
+export const EXPORT_VERSION = 7;
 
 /** Everything the user owns as one JSON document. Identity/entitlement fields and device paths are
  * excluded; ids ship for in-file integrity and are regenerated on import.

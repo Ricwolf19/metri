@@ -9,6 +9,7 @@ import type { Locale } from '@/i18n';
 import { randomId } from '@/lib/crypto';
 import { fold } from '@/lib/text';
 
+import { EXPORT_VERSION } from './export-data';
 import { importRows } from './import';
 import {
   catalogRefs,
@@ -45,9 +46,11 @@ const sharedExercise = (ex: Exercise): SharedExercise => ({
 });
 
 /**
- * One program as its share payload, or null when there is nothing to share.
- * The result has been through the receiver's own parser, so a program the
- * sender can share is one the receiver can read.
+ * One program as its share payload, or null when there is nothing to share
+ * (no program, or no phase yet). The result has been through the receiver's
+ * own parser, so a program the sender can share is one the receiver can read;
+ * a tree that FAILS it (a phase longer than the codec carries, a week count of
+ * 0) throws — that is a defect to hear about, not an empty program.
  */
 export const buildSharedProgram = (
   programId: string,
@@ -151,7 +154,10 @@ export const buildSharedProgram = (
       })),
     })),
   };
-  return parseSharedProgram(built);
+  if (!built.routines.length) return null;
+  const parsed = parseSharedProgram(built);
+  if (!parsed) throw new Error("The sender's own program failed the share parser.");
+  return parsed;
 };
 
 /** Catalog exercises the program names that this install does not have (an older build). */
@@ -294,7 +300,8 @@ export const importSharedProgram = (userId: string, program: SharedProgram): str
     weekConfigs: weeks,
   };
   // The export importer's own gate, as a second line behind the codec's parser.
-  if (!validateImport({ app: 'metri', exportVersion: 6, data }).ok) {
+  // The rows are this build's own shape: they validate as its current export.
+  if (!validateImport({ app: 'metri', exportVersion: EXPORT_VERSION, data }).ok) {
     throw new Error('Shared program failed import validation.');
   }
   const { ids } = importRows(userId, { data });

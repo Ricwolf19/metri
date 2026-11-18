@@ -27,7 +27,7 @@ const build = (programId: string, userProgramId: string | null, locale: Locale):
   } catch (e) {
     if (e instanceof ShareTooLargeError) return { error: 'programShare.tooBig' };
     captureError(e);
-    return { error: 'programShare.failed' };
+    return { error: 'programShare.buildFailed' };
   }
 };
 
@@ -81,7 +81,9 @@ const ShareProgram = () => {
               style={{ backgroundColor: QR_PAPER }}
               accessible
               accessibilityRole="image"
-              accessibilityLabel={t('programShare.codeOf', { i: frame + 1, n: total })}
+              // Static: a label that changes every frame re-announces on its own, and
+              // the counter under the code already says where the run is.
+              accessibilityLabel={t('programShare.codesLabel', { n: total })}
             >
               <QRCode
                 value={built.codes[frame]}

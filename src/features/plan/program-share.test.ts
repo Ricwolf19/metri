@@ -135,6 +135,19 @@ describe('buildSharedProgram', () => {
     expect(text).not.toContain('weekday');
     expect(text).not.toContain('sessionsLeft');
   });
+
+  it('has nothing to share before the first phase', () => {
+    db.insert(programs)
+      .values({ id: 'empty', name: 'Blank', isCustom: true, userId: SENDER })
+      .run();
+    expect(buildSharedProgram('empty', null, 'en')).toBeNull();
+    expect(buildSharedProgram('missing', null, 'en')).toBeNull();
+  });
+
+  it("throws when the sender's own tree fails the parser, rather than reading as empty", () => {
+    db.update(routines).set({ durationWeeks: 0 }).where(eq(routines.id, 'r')).run();
+    expect(() => buildSharedProgram('p', null, 'en')).toThrow();
+  });
 });
 
 describe('importSharedProgram', () => {
