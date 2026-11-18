@@ -5,12 +5,20 @@
  * Ids are persisted in MMKV: never rename or reuse one.
  */
 export type MetricsSectionId =
-  'consistency' | 'summary' | 'body' | 'analytics' | 'photos' | 'exercises' | 'exerciseTrends';
+  | 'consistency'
+  | 'summary'
+  | 'body'
+  | 'analytics'
+  | 'photos'
+  | 'exercises'
+  | 'exerciseTrends'
+  | 'health';
 
 /**
  * The order metri ships: the sections you WRITE to first — the body (weigh-in,
  * check-in) and the photo timeline — then the ones you read: are you showing
- * up, the headline numbers, where the work is landing, what each movement did.
+ * up, the headline numbers, the day's activity and sleep, where the work is
+ * landing, what each movement did.
  * A saved layout keeps its own order (see `orderedIds`).
  */
 export const SECTION_IDS: MetricsSectionId[] = [
@@ -18,6 +26,8 @@ export const SECTION_IDS: MetricsSectionId[] = [
   'photos',
   'consistency',
   'summary',
+  // Steps, active energy and sleep from the phone's health store (read, never written).
+  'health',
   'analytics',
   'exercises',
   // Shipped after the others: a saved layout appends it (see `orderedIds`).
