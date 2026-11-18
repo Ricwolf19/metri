@@ -12,7 +12,12 @@ import {
   type EventConfig,
   type NotificationEvent,
 } from './events';
-import { isDailyAtOneTime, scheduleEntries, shiftEntries } from './schedule-entries';
+import {
+  isDailyAtOneTime,
+  scheduleEntries,
+  shiftEntries,
+  type FiringEntry,
+} from './schedule-entries';
 import { tipFor, tipSlotsFor } from './tips';
 import {
   cancelNotifications,
@@ -51,47 +56,48 @@ const CHECKIN_EVENT_ID: NotificationEvent['id'] = 'session-checkin';
 const CHECKIN_EVENT = NOTIFICATION_EVENTS.find((e) => e.id === CHECKIN_EVENT_ID)!;
 
 /**
- * The check-in's weekly entries plus any one-shots, with a session's hold
- * applied (see checkin-hold). An expired hold is dropped here, so the next
+ * An event's weekly entries with a session's hold applied (see checkin-hold):
+ * the held day's occurrence stays back and next week's rides as a one-shot
+ * until the hold expires. An expired hold is cleared here, so the next
  * reconcile after its moment passes restores the plain weekly schedule.
  */
-const checkinEntries = (cfg: EventConfig) => {
-  const offset = cfg.offsetMinutes ?? DEFAULT_CHECKIN_OFFSET_MIN;
-  const raw = scheduleEntries(cfg);
-  const hold = settings.getCheckinHold<CheckinHold>();
+const heldEntries = (
+  raw: FiringEntry[],
+  offsetMinutes: number,
+  hold: CheckinHold | null,
+  clearHold: () => void,
+) => {
   const plan = hold
-    ? planHeldReminders({ entries: raw, offsetMinutes: offset, hold, now: Date.now() })
+    ? planHeldReminders({ entries: raw, offsetMinutes, hold, now: Date.now() })
     : null;
   if (!plan || plan.expired) {
-    if (hold) settings.clearCheckinHold();
-    return { entries: shiftEntries(raw, offset), once: [] };
+    if (hold) clearHold();
+    return { entries: offsetMinutes ? shiftEntries(raw, offsetMinutes) : raw, once: [] };
   }
   return { entries: plan.weekly, once: plan.once };
 };
 
+/** The check-in: its delay after the training time, and the session's hold. */
+const checkinEntries = (cfg: EventConfig) =>
+  heldEntries(
+    scheduleEntries(cfg),
+    cfg.offsetMinutes ?? DEFAULT_CHECKIN_OFFSET_MIN,
+    settings.getCheckinHold<CheckinHold>(),
+    () => settings.clearCheckinHold(),
+  );
+
 const TRAINING_EVENT_ID: NotificationEvent['id'] = 'training-time';
 
 /**
- * Training time with a session's hold applied: the day a session starts, that
- * day's "time to train — warm up" is held back (the lifter is training, or has
- * trained), and next week's occurrence rides as a one-shot until the hold
- * expires — the check-in's hold with no delay and no ask of its own.
+ * Training time: the day a session starts, that day's "time to train — warm
+ * up" is held back (the lifter is training, or has trained) — the check-in's
+ * hold with no delay and no ask of its own.
  */
 const trainingEntries = (cfg: EventConfig) => {
-  const raw = scheduleEntries(cfg);
   const day = settings.getTrainingHold();
-  if (!day) return { entries: raw, once: [] };
-  const plan = planHeldReminders({
-    entries: raw,
-    offsetMinutes: 0,
-    hold: { day, askAt: null },
-    now: Date.now(),
-  });
-  if (plan.expired) {
-    settings.clearTrainingHold();
-    return { entries: raw, once: [] };
-  }
-  return { entries: plan.weekly, once: plan.once };
+  return heldEntries(scheduleEntries(cfg), 0, day ? { day, askAt: null } : null, () =>
+    settings.clearTrainingHold(),
+  );
 };
 
 const reconcile = async (): Promise<void> => {
