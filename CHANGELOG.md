@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.21.0](https://github.com/Ricwolf19/metri/compare/metri-v1.20.0...metri-v1.21.0) (2026-11-18)
+
+
+### Features
+
+* **app-lock:** lock photos and settings behind the phone lock ([19b6f39](https://github.com/Ricwolf19/metri/commit/19b6f3932165094d155895d8f8ac14e781016915))
+* **calendar:** mirror training days to a phone calendar ([f042f3e](https://github.com/Ricwolf19/metri/commit/f042f3e7b8c2698820de3675b105d4b758dc59e7))
+* **charts:** rebuild charts on victory-native with scrubbing ([9625eb4](https://github.com/Ricwolf19/metri/commit/9625eb470183fb09d5ab2abcdcf3f167afd85c3a))
+* **health:** read steps, energy and sleep from health connect ([acc6392](https://github.com/Ricwolf19/metri/commit/acc6392e5b0fb42209884c58af7c929e369f11d9))
+* **notifications:** hold training reminders during a session ([1e016dc](https://github.com/Ricwolf19/metri/commit/1e016dcdd9b57a00951ce3a5cc4f863327da4b06))
+* **photos:** add check-ins, guided capture, compare and share cards ([250ce24](https://github.com/Ricwolf19/metri/commit/250ce2468d588d38ac73c8bb92fbc9013634b6f4))
+* **plan:** share programs by qr code ([19601ae](https://github.com/Ricwolf19/metri/commit/19601ae5a284ab459ec6aff80dcaa749d92e731e))
+* **print:** print a body report and program sheet ([8def6bd](https://github.com/Ricwolf19/metri/commit/8def6bdddc3639c0c02f75b3f7650793b8d03970))
+* **quick-actions:** add app icon shortcuts ([1b40cda](https://github.com/Ricwolf19/metri/commit/1b40cda5b07a76cfbf0bd0f24f396f755e2fbded))
+* **training:** add stack ladders and a dumbbell rack ([4dfc4be](https://github.com/Ricwolf19/metri/commit/4dfc4be80e444b77909b5930502468a5f1658737))
+* **training:** show short exercise names on session chips ([5743079](https://github.com/Ricwolf19/metri/commit/5743079c38c6186fdbd40355b9ea7f2eb8d66d35))
+* **ui:** add haptic feedback to primitives ([3a91204](https://github.com/Ricwolf19/metri/commit/3a9120415f80ab1cd801857b8c423ca761534cb8))
+
+
+### Performance Improvements
+
+* **lists:** move long lists onto flashlist ([f28b5f7](https://github.com/Ricwolf19/metri/commit/f28b5f73383b037550673b8fd6f0b50e2a1736f5))
+
 ## [1.20.0](https://github.com/Ricwolf19/metri/compare/metri-v1.19.0...metri-v1.20.0) (2026-11-16)
 
 
