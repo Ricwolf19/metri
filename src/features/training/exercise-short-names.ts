@@ -145,5 +145,6 @@ export const abbreviateName = (name: string): string => {
     if (short.length + 1 + w.length > SHORT_NAME_MAX) break;
     short = `${short} ${w}`;
   }
-  return short;
+  // A name made only of filler words abbreviates to nothing: a chip is never empty.
+  return short || trimmed;
 };

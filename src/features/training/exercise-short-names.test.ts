@@ -30,4 +30,8 @@ describe('exercise short names', () => {
       'Landmine Press',
     );
   });
+
+  it('keeps the full name when every word is filler', () => {
+    expect(abbreviateName('de la con el de la con el')).toBe('de la con el de la con el');
+  });
 });
