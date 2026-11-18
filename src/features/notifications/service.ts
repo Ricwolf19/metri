@@ -153,3 +153,21 @@ export const cancelNotifications = async (ids: (string | null)[] | null): Promis
       .map((id) => Notifications.cancelScheduledNotificationAsync(id).catch(() => {})),
   );
 };
+
+/**
+ * Take an event's notifications off the screen: a training reminder still in
+ * the tray once the session has started tells the lifter to do what they are
+ * already doing. Never throws.
+ */
+export const dismissPresented = async (eventId: string): Promise<void> => {
+  try {
+    const shown = await Notifications.getPresentedNotificationsAsync();
+    await Promise.all(
+      shown
+        .filter((n) => n.request.content.data?.event === eventId)
+        .map((n) => Notifications.dismissNotificationAsync(n.request.identifier)),
+    );
+  } catch {
+    // Environmental (no permission, a platform without the API): nothing to take back.
+  }
+};

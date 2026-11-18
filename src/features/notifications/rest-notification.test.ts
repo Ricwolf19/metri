@@ -76,7 +76,7 @@ vi.mock('@/lib/storage', () => ({
 vi.mock('@/lib/sounds', () => ({ startAlarm: vi.fn(), stopAlarm: vi.fn() }));
 vi.mock('@/features/training/adherence.repo', () => ({ dayQuery: vi.fn() }));
 vi.mock('./policies', () => ({
-  holdCheckin: vi.fn(async () => {}),
+  holdSessionReminders: vi.fn(async () => {}),
   releaseCheckin: vi.fn(async () => {}),
 }));
 vi.mock('./session-service', () => ({ runSessionService: vi.fn(async () => {}) }));

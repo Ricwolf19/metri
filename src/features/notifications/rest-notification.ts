@@ -23,7 +23,7 @@ import {
   notificationMode,
   type NotificationContent,
 } from './notification-content';
-import { holdCheckin, releaseCheckin } from './policies';
+import { holdSessionReminders, releaseCheckin } from './policies';
 import { runSessionService, type ServiceDeps } from './session-service';
 
 /**
@@ -288,15 +288,15 @@ export const endRest = async (): Promise<void> => {
 /**
  * Show (or redraw) the card and record the session — kept on iOS too, since
  * the catch-up banner and the check-in hold read it. Only the first call of a
- * session holds the planned check-in back; redraws (one per logged set) must
- * not re-run the reconciler.
+ * session holds the planned check-in and training-time reminder back; redraws
+ * (one per logged set) must not re-run the reconciler.
  */
 export const showSession = async (session: ActiveSession): Promise<void> => {
   const current = sessionState.get();
   const fresh = current?.workoutId !== session.workoutId;
   // A redraw carries a fresh record; the dismissal it would overwrite is kept.
   sessionState.set(fresh ? session : { ...session, hidden: current?.hidden });
-  if (fresh) void holdCheckin(session.startedAt).catch(() => {});
+  if (fresh) void holdSessionReminders(session.startedAt).catch(() => {});
   await draw();
 };
 

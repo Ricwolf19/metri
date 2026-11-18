@@ -80,14 +80,17 @@ const atMinutes = (day: string, minutes: number, plusDays = 0): number => {
 };
 
 /**
- * Which check-ins the reconciler schedules while a hold stands. The held day's
+ * Which entries the reconciler schedules while a hold stands — the check-in's
+ * (shifted by its delay), and the training-time reminder's (no delay, no
+ * session ask: a session already under way, or done, is not told to go and
+ * warm up). The held day's
  * RAW entries (by the weekday the session was planned on) leave the weekly set;
  * dropping a weekly trigger also drops next week's occurrence, so each comes
  * back as a one-shot seven days on — any reconcile after the hold expires
  * restores the weekly trigger and cancels that stand-in. The hold expires once
  * both the held entries' moment and the session-anchored ask have passed.
  */
-export const planHeldCheckin = ({
+export const planHeldReminders = ({
   entries,
   offsetMinutes,
   hold,

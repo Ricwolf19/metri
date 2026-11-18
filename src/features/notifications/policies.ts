@@ -4,7 +4,7 @@ import { en } from '@/i18n/en';
 import { es } from '@/i18n/es';
 import { settings } from '@/lib/storage';
 
-import { planCheckinAfterSession, planHeldCheckin, type CheckinHold } from './checkin-hold';
+import { planCheckinAfterSession, planHeldReminders, type CheckinHold } from './checkin-hold';
 import {
   DEFAULT_CHECKIN_OFFSET_MIN,
   NOTIFICATION_EVENTS,
@@ -16,6 +16,7 @@ import { isDailyAtOneTime, scheduleEntries, shiftEntries } from './schedule-entr
 import { tipFor, tipSlotsFor } from './tips';
 import {
   cancelNotifications,
+  dismissPresented,
   ensureNotificationPermission,
   scheduleDaily,
   scheduleOnce,
@@ -59,11 +60,36 @@ const checkinEntries = (cfg: EventConfig) => {
   const raw = scheduleEntries(cfg);
   const hold = settings.getCheckinHold<CheckinHold>();
   const plan = hold
-    ? planHeldCheckin({ entries: raw, offsetMinutes: offset, hold, now: Date.now() })
+    ? planHeldReminders({ entries: raw, offsetMinutes: offset, hold, now: Date.now() })
     : null;
   if (!plan || plan.expired) {
     if (hold) settings.clearCheckinHold();
     return { entries: shiftEntries(raw, offset), once: [] };
+  }
+  return { entries: plan.weekly, once: plan.once };
+};
+
+const TRAINING_EVENT_ID: NotificationEvent['id'] = 'training-time';
+
+/**
+ * Training time with a session's hold applied: the day a session starts, that
+ * day's "time to train — warm up" is held back (the lifter is training, or has
+ * trained), and next week's occurrence rides as a one-shot until the hold
+ * expires — the check-in's hold with no delay and no ask of its own.
+ */
+const trainingEntries = (cfg: EventConfig) => {
+  const raw = scheduleEntries(cfg);
+  const day = settings.getTrainingHold();
+  if (!day) return { entries: raw, once: [] };
+  const plan = planHeldReminders({
+    entries: raw,
+    offsetMinutes: 0,
+    hold: { day, askAt: null },
+    now: Date.now(),
+  });
+  if (plan.expired) {
+    settings.clearTrainingHold();
+    return { entries: raw, once: [] };
   }
   return { entries: plan.weekly, once: plan.once };
 };
@@ -92,7 +118,9 @@ const reconcile = async (): Promise<void> => {
     const { entries, once } =
       event.id === CHECKIN_EVENT_ID
         ? checkinEntries(cfg)
-        : { entries: firingEntries(event, cfg), once: [] as number[] };
+        : event.id === TRAINING_EVENT_ID
+          ? trainingEntries(cfg)
+          : { entries: firingEntries(event, cfg), once: [] as number[] };
     if (event.tuning !== 'frequency' && !entries.length && !once.length) continue;
 
     const granted = await ensureNotificationPermission();
@@ -167,10 +195,17 @@ const enqueue = (step: () => Promise<void>): Promise<void> => {
 
 export const syncNotificationEvents = (): Promise<void> => enqueue(reconcile);
 
-/** A session started: hold back that day's planned check-in while it runs. */
-export const holdCheckin = (startedAt: number): Promise<void> =>
-  enqueue(() => {
-    settings.setCheckinHold({ day: localDateKey(new Date(startedAt)), askAt: null });
+/**
+ * A session started: hold back that day's planned check-in while it runs, and
+ * that day's training-time reminder for good — one already on screen is
+ * dismissed too, since it tells someone mid-session to go and warm up.
+ */
+export const holdSessionReminders = (startedAt: number): Promise<void> =>
+  enqueue(async () => {
+    const day = localDateKey(new Date(startedAt));
+    settings.setCheckinHold({ day, askAt: null });
+    settings.setTrainingHold(day);
+    await dismissPresented(TRAINING_EVENT_ID);
     return reconcile();
   });
 

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { planCheckinAfterSession, planHeldCheckin, type SessionEnd } from './checkin-hold';
+import { planCheckinAfterSession, planHeldReminders, type SessionEnd } from './checkin-hold';
 
 // session-state reads MMKV at call time only; the constant is all this needs.
 vi.mock('@/lib/storage', () => ({ SettingKeys: {}, storage: {} }));
@@ -50,7 +50,7 @@ describe('planCheckinAfterSession', () => {
   });
 });
 
-describe('planHeldCheckin', () => {
+describe('planHeldReminders', () => {
   // Wed 18:00 and Sat 18:00 sessions; the check-in lands 3h after each.
   const entries = [
     { weekday: 4, hour: 18, minute: 0 },
@@ -58,7 +58,7 @@ describe('planHeldCheckin', () => {
   ];
 
   it('holds back the session day and stands in for next week with a one-shot', () => {
-    const plan = planHeldCheckin({
+    const plan = planHeldReminders({
       entries,
       offsetMinutes: 180,
       hold: { day: SAT, askAt: null },
@@ -72,7 +72,7 @@ describe('planHeldCheckin', () => {
   });
 
   it('adds the session-anchored ask before next week’s stand-in', () => {
-    const plan = planHeldCheckin({
+    const plan = planHeldReminders({
       entries,
       offsetMinutes: 180,
       hold: { day: SAT, askAt: at(26, 22, 15) },
@@ -84,17 +84,17 @@ describe('planHeldCheckin', () => {
 
   it('stays in force until the later of the planned moment and the ask', () => {
     const hold = { day: SAT, askAt: at(26, 23) };
-    expect(planHeldCheckin({ entries, offsetMinutes: 180, hold, now: at(26, 22) }).expired).toBe(
+    expect(planHeldReminders({ entries, offsetMinutes: 180, hold, now: at(26, 22) }).expired).toBe(
       false,
     );
-    expect(planHeldCheckin({ entries, offsetMinutes: 180, hold, now: at(26, 23) }).expired).toBe(
+    expect(planHeldReminders({ entries, offsetMinutes: 180, hold, now: at(26, 23) }).expired).toBe(
       true,
     );
   });
 
   it('on an unplanned day only the session-anchored ask is added', () => {
     // 2026-09-27 is a Sunday (weekday 1): nothing planned to hold back.
-    const plan = planHeldCheckin({
+    const plan = planHeldReminders({
       entries,
       offsetMinutes: 180,
       hold: { day: '2026-09-27', askAt: at(27, 14) },
@@ -111,7 +111,7 @@ describe('planHeldCheckin', () => {
   });
 
   it('expires at once when nothing is held and nothing is asked', () => {
-    const plan = planHeldCheckin({
+    const plan = planHeldReminders({
       entries,
       offsetMinutes: 180,
       hold: { day: '2026-09-27', askAt: null },
@@ -122,7 +122,7 @@ describe('planHeldCheckin', () => {
 
   it('expires a hold it cannot read instead of holding the day forever', () => {
     const bad = { day: 'garbage', askAt: null } as const;
-    expect(planHeldCheckin({ entries, offsetMinutes: 180, hold: bad, now: at(26, 11) })).toEqual({
+    expect(planHeldReminders({ entries, offsetMinutes: 180, hold: bad, now: at(26, 11) })).toEqual({
       expired: true,
     });
   });
