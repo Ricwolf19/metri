@@ -86,9 +86,11 @@ const GLYPH: Record<Exclude<SlotState, 'untouched'>, { disc: string; Icon: typeo
 
 /**
  * The focus border is 1 dp wider: the padding gives it back, so the strip
- * never shifts. Both boxes are at least 44 dp tall (a thumb mid-set).
+ * never shifts. The plain box's `px-4 py-2` is 14 / 7 dp (NativeWind's rem is
+ * 14 here, not 16), so the focused one pads 13 / 6. Both boxes are at least
+ * 44 dp tall (a thumb mid-set).
  */
-const FOCUS_BOX = 'min-h-11 border-2 border-dotted px-[15px] py-[7px]';
+const FOCUS_BOX = 'min-h-11 border-2 border-dotted px-[13px] py-[6px]';
 const PLAIN_BOX = 'min-h-11 border px-4 py-2';
 
 type Box = { x: number; width: number };
