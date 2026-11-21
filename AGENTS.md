@@ -129,7 +129,8 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
 - **A new synced COLUMN needs no web change** — the mirror is opaque jsonb and the client
   intersects incoming keys against its live table (web `docs/sync.md`, "Schema drift"); only a
   new TABLE touches the web allow-list. `exercises.unilateral`, `exercise_settings.load`,
-  `set_logs.load`, `routines.rm_test_week` and `workout_logs.warmup_done` shipped this way.
+  `set_logs.load`, `routines.rm_test_week`, `workout_logs.warmup_done` and
+  `user_programs.effort_mode` shipped this way.
 - **A 401/403 is an answer, not a retry.** `syncFailure` raises `SyncAuthError` (`sync/errors.ts`)
   and `useAutoSync` stops the loop instead of backing off into it. An empty
   `authClient.getCookie()` means the session is already gone, so `syncNow` refuses to send at all:
@@ -146,8 +147,7 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   2026-10-20 (`settings.theme` is a retired key), so `useTheme()` carries no scheme; `ink-950`
   stays constant; accent text = `text-accent`, accent fills = `bg-lime-400`; icon `color=` props use
   `useTheme()` values. `info` (sky) is the one informational tone — a per-side tag, "a load
-  detail is saved", the swap-variant glyph (alternatives exist), the "more than last time" arrow
-  — never a selection or an active state, which stay lime. The sole hex
+  detail is saved", the swap-variant glyph (alternatives exist) — never a selection or an active state, which stay lime. The sole hex
   exceptions are `components/BarGraphic.tsx` (Olympic plate colours are the plate's identity, data
   not theme), `components/ui/share/palette.ts` (a share card is a PNG, always dark, never a
   themed surface), `features/print/palette.ts` (a PDF is paper, always light) and
@@ -171,11 +171,16 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
 - **Screens**: navbar via `Screen`'s `header` slot (`<TopBar>`, floating pill). Tab screens:
   `<TopBar menu showFaq showBeta />` + `<ScreenTitle>` as the first content block. Nested screens:
   `<TopBar showBack showAvatar={false} title subtitle />` and no `ScreenTitle` (training is
-  migrated; other nested screens follow).
+  migrated; other nested screens follow). The `footer` rides the keyboard (`KeyboardStickyView`);
+  a scroll `Screen` keeps `KEYBOARD_CLEARANCE` (`components/ui/keyboard-room.ts`: a hint, then the
+  next field or the Save) plus the lifted footer between a focused field and the keyboard, and a
+  static one pads to the footer's top. A screen with its own `KeyboardAwareScrollView` uses the
+  same constant (the workout screen adds the rest bar's measured height) — at 24 every action
+  under a field sat behind the keyboard.
 - **Editors** buffer a draft + `dirty`, persist structure (add/delete/reorder) immediately, and
   guard leaving with `useUnsavedGuard` (Save & leave / Discard / Cancel). Every irreversible action
   is a `<HoldButton>` (press-and-hold) — inline and inside dialogs (`style: 'destructive'` renders
-  one). Its firing is the component's OWN timer (armed on press-in, disarmed on press-out), never
+  one; `ghost` draws only the glyph, for an irreversible action sitting among inputs). Its firing is the component's OWN timer (armed on press-in, disarmed on press-out), never
   `Pressable.onLongPress`: Pressability drops its long-press timer when the finger drifts more
   than ten points while the press stays active, so a thumb that moved watched the fill reach
   100 % and nothing fire. Toasts only for save/delete/start/abandon; a toast drops in under the
@@ -223,12 +228,21 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   `<BlockingOverlay>` is a `Modal` for the same reason a sheet is: as a child of a scrolling
   `Screen` an absolute overlay anchors to the CONTENT, so it drifted off centre on a scrolled page.
 - **A strip of badges scrolls, it never wraps** — `<BadgeRow>` (read-only: muscles, cues, tags) and
-  `<ChipRow>` (single-select) both sit on `<ScrollRow>`, which puts a static chevron on whichever
-  edge still has content. Wrapped strips grew downwards and pushed the screen's real subject below
-  the fold, and a `+3` counter names what it hides without letting anyone see it. The cues do not
-  animate: these rows repeat down a list. `ScrollRow` re-reads its geometry on `onScrollEndDrag`
-  and `onMomentumScrollEnd` as well as `onScroll`, because a throttled `onScroll` misses the last
-  frame of a fling and leaves a chevron parked over the very item just scrolled to.
+  `<ChipRow>` (single-select) both sit on `<ScrollRow>`, whose edge FADES into the surface behind
+  it wherever content is still hidden (`<EdgeFade>`, `edge-fade.ts`; the chevrons were removed
+  2026-11-21, owner's call: a fade takes no room and invites no tap). Wrapped strips grew
+  downwards and pushed the screen's real subject below the fold, and a `+3` counter names what it
+  hides without letting anyone see it. The fades do not animate: these rows repeat down a list. A
+  fade must match the fill under it, so whatever PAINTS a fill declares it: `Card` (by its
+  `surface`) and `Sheet` wrap their content in `<OnSurface>` (`components/ui/surface.tsx`; nothing
+  declared = ink-900), a one-off box wraps its strips in `<OnSurface surface=…>`, and a
+  `ScrollRow`/`ScrollArea` placed straight on one takes `surface`. The gradient is RN's native
+  `experimental_backgroundImage` (New Architecture), never a new dependency, its colours from the
+  tokens. A fade opens with a SOLID band (a third of its depth): opaque only at its very edge, a
+  row cut by the scroller's clip still showed through and the clip drew a line across its text.
+  `ScrollRow` and `ScrollArea` re-read their geometry on `onScrollEndDrag` and
+  `onMomentumScrollEnd` as well as `onScroll`, because a throttled `onScroll` misses the last frame
+  of a fling and leaves the fade over the very item just scrolled to.
 - **Motion**: no springs, no bounce. Dialogs only fade (the Modal's own fade); sheets are `<Sheet>`,
   a plain RN `Modal` with a timing rise + scrim fade; the handle drags between `snapPoints` (pull
   down to close), scrim/handle tap/back close too. No third-party sheet: `@gorhom/bottom-sheet` was
@@ -249,12 +263,16 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   follows `shown` alone (`scrimOpacity`) — dividing by the measured height, which lands a frame
   late, dimmed, cleared and re-dimmed every first open. The handle is a static lime bar (the
   sweep it played on open is gone, owner's call 2026-11-12). Press
-  feedback is a 110ms timing. Bounded lists that may overflow use `<ScrollArea>` so the edge
-  chevron hints there is more — inside a sheet use `<ScrollArea inSheet>` (fills the sheet,
+  feedback is a 110ms timing. Bounded lists that may overflow use `<ScrollArea>`, whose top/bottom
+  edge fades where there is more — inside a sheet use `<ScrollArea inSheet>` (fills the sheet,
   safe-area padded). A sheet with no `snapPoints` fits its WHOLE content up to 92% of the screen
   (a form must never hide its own buttons below the fold); option pickers pass `PICKER_STOPS`
   (half, pull up to 92%). The rise starts in a layout effect — a plain effect drew the first open
-  fully shown for a frame, then jumped away to rise.
+  fully shown for a frame, then jumped away to rise. With the keyboard up a sheet rides it at its
+  own height while that fits under the ceiling and shrinks only past it (`keyboardLimit`). A sheet
+  holding a form uses `<SheetForm>` (not a bare `ScrollArea inSheet`): once the keyboard settles it
+  scrolls the focused field to the top with as much of what follows as fits — a plain ScrollView
+  never follows focus on iOS.
 - **Two units.** `settings.units` is app-wide (body weight, goals, check-ins, calculators) and
   rides the account profile; `settings.equipmentUnits` is the gym's — sets, plates, bars,
   dumbbells, stacks and every number measured on them (volume, e1RM, trends, session cards) —
@@ -300,6 +318,12 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   the keyboard the way `ScrollArea inSheet` does), session history (headings and rows as one flat
   list) and the food search are; a short bounded list stays a plain map. A list drawn as slices of one card uses `CARD_SLICE`
   from `Card.tsx`, never a copy of its classes.
+- **No placeholders.** A field's name is its `label` (or an `accessibilityLabel` when a section
+  label above names it) and guidance or an example is its `hint`, which wraps — `Input`'s type has
+  no `placeholder` (owner's call 2026-11-21: placeholders clipped, in Spanish above all). The one
+  exception is a search field: `search="Search exercises"` draws the magnifier and the short
+  placeholder, which is also its spoken name. No marquee: moving text is unreadable and ignores
+  reduced motion.
 - **Text on any device**: never a hard `h-*` on a container that holds text (use `min-h-*` and let
   it grow — ES copy runs ~20% longer than EN and phones differ in font/display scale). One-line
   labels clamp with `numberOfLines={1}`; body copy that may overflow uses `<ClampedText>` (measured
@@ -388,6 +412,8 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   never call `startAlarm` or `stopAlarm` themselves; a component that did would silence an alarm the
   service legitimately owns the moment the screen unmounted. `extendRest` takes negative seconds
   (`shiftRestEnd`); a reduction past zero ENDS the rest rather than ringing the lifter's own tap.
+  Opening the finish prompt ends any rest of the workout (`finish` → `endRest`), and a set whose
+  logging opens it starts none: nothing is left to rest for.
 - **Sound cues** go through `lib/sounds.ts` — the only module importing `expo-audio`. Players are
   created once and kept (decoding on first play stutters), every call is try/caught (a cue must
   never break a save) and the rest alarm loops until `stopAlarm()`. Notification sounds are a
@@ -468,8 +494,14 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   Both are wire format. The day sheet shows an answered day as a summary (status, reason, the
   carried-over split, the linked session) with a "Change" link — it never re-offers "Mark this day".
 - **Session history is append-only; deletion is the one undo** — except a logged SET, which the
-  lifter can reopen in place from its row (`updateSet`: same ordinal, no rest, no advance; the
-  draft lives under `edit:<id>`), and `deleteSet` renumbers the rest so `set_number` stays 1..n
+  lifter reopens in place from the pencil at its row's end (`updateSet`: same ordinal, no rest,
+  no advance; the draft lives under `editDraftKey`). The correction is where a set is deleted (a
+  `ghost` HoldButton in the Skip-set slot); the row itself and its check disc are not buttons.
+  Deleting the set the live row steps back onto hands it the correction's values, effort cleared
+  (`liveAfterDelete`). The live draft is keyed per slot (`liveDraftKey`), never by ordinal — an
+  ordinal key re-seeded the row from the prefill after a delete or a restored skip and orphaned
+  what was typed — and the live row is the first ordinal neither skipped nor logged (`setRows`,
+  `set-rows.ts`), never a count: a delete before a skipped set left no live row at all. And `deleteSet` renumbers the rest so `set_number` stays 1..n
   per (log, exercise). A repeated split is a new `workout_logs` row, never a rewrite. `deleteWorkout` (reached from `/training/history` and the
   day sheet, both through `<DeleteSessionButton>`) hard-deletes the log + sets with tombstones, hands
   the `training_days` mark to another session finished that day or clears it, and calls
@@ -544,20 +576,53 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   45 lb (`defaultBarKg(unit)`, `LB_BARS`), kg values display at the quarter (`weightText`) and
   every field writes two decimals. The whole seed is ONE pure function, `seedRow`
   (`row-seed.ts`, tested): the picture always travels with the number, and a source without
-  one (a set logged before plates) gets one derived for the row's mode. The
-  arrows beside the inputs still compare the typed value with the SAME ordinal set of the
-  previous session: `info` up, the adherence `MISSED` red down — a comparison indicator, the
-  one place those two tones mean neither a state nor a miss.
+  one (a set logged before plates) gets one derived for the row's mode. **Prefill is a device
+  setting** (`training.setPrefill`, Profile → Workout, read through `useSetPrefill`): absent =
+  automatic (`prefillEnabled`: OFF on `metri-foundations`, so a beginner fills every set by hand;
+  ON elsewhere), else the lifter's own on/off. Off, the live row opens empty, "Last training" stays
+  the reference and the notification's next set names no weight; a correction and a deleted set's
+  carry-over are the lifter's numbers and unaffected. No up/down comparison sits by the inputs
+  (removed 2026-11-21, owner's call: it read a lighter set as worse, which a technique or deload
+  set is not; the exercise trend card's weekly arrows went with it). A past set always carries its
+  effort beside weight × reps through ONE helper pair in `labels.ts`: `effortMark` (`@2` on a
+  "Last training" chip, the flame for a set to failure) and `effortWords` ("× 8 @ RIR 2" /
+  "@ Failure" on a logged row and in the preview headline, the plan target's `@`), both taking
+  the session's effort mode (below) — simple reads "@ Hard" through `effortBand`, and
+  `effortPhrase` (`session-a11y.ts`) speaks the same word. Failure wins over the `rir: 0` stored
+  with it, and `rir: 5` is the effort sheet's open end, shown `5+`.
+- **Effort logging is per ENROLLMENT** (`user_programs.effort_mode`, synced, NULL = the
+  program's default), because a preset template is not editable and the lifter must be able to
+  change it on Foundations too. ONE resolver, `effortModeFor(templateId, stored)`
+  (`effort-mode.ts`): the stored pick, else `PRESET_EFFORT_MODE` beside the presets
+  (`metri-foundations` → `simple`: it sends a beginner to failure and teaches the terms;
+  `metri-progression` → `rir`), else `rir`; a value this build does not know reads as unset, and
+  a session with no enrollment is `rir`. `rir` is the professional sheet (failure, 1–4, 5+);
+  The open end is spelled once (`RIR_OPEN_END`, `rirText`) for the sheet, the row, the past-set
+  mark and the screen reader, and the display helpers take the mode as a REQUIRED argument (a
+  default showed RIR in a simple session). The session reads the template id from the enrollment
+  (`enrollment.programId`) for both this and prefill. `simple` offers four bands — failure, hard (1–2 left), moderate (3–4), easy (5+) — stored on
+  the SAME `rir` / `is_failure` columns (`BAND_EFFORT`: 0 + flag, 1, 3, 5; no set column, so
+  e1RM, fatigue and history read every set alike), and every effort IN the session reads as its
+  band (`effortBand`: ≤ 2 hard, 3–4 moderate, ≥ 5 easy — one mapping, so a set logged on the
+  professional scale reads too); the day sheet and history keep the numbers. `free` never
+  requires one (`effortRequired`) and adds "No effort" to the professional sheet
+  (`EffortSheet`). Edited on the program screen while the program is enrolled (a
+  `ChoiceCarousel`, saved on the pick through `setEffortMode`, owner-scoped, `updatedAt`
+  stamped); the workout screen reads it LIVE from the log's `user_program_id`, so a change
+  reaches a session already open. Export/import carry the column as-is (no version bump).
 - **The session has ONE view**: one exercise per page, `SessionChipStrip` as the navigation
-  (its own component — `ChipRow` no longer carries session states), Prev/Next on the row above
-  the card. A chip's FILL is its state (`slotState`, `session-order.ts`): brand = every set
+  (its own component — `ChipRow` no longer carries session states), the strip scrolls (its
+  edges fade where chips sit off screen) and a tap opens an exercise; Prev/Next arrows flank it
+  only while a chip is lifted. A chip's FILL is its state (`slotState`, `session-order.ts`): brand = every set
   logged, amber = partly (a set logged and some left or skipped), red = missed (nothing logged,
   the exercise or all its sets skipped), gray = not begun; FOCUS is a dotted border around the chip, never a fill — a selected chip used to read as done. Missed exercises sit at the end behind a divider
   (`sessionOrder`, display only: the snapshot keeps their place, so a restore puts them back;
   every reorder writes through `mergeOrder`). Chips show the exercise's SHORT name
   (`exerciseShortName`: `EXERCISE_SHORT_NAMES`, both languages, under `SHORT_NAME_MAX`; a custom
-  exercise gets `abbreviateName`); a tap spells that one chip out in full and a second shortens it
-  again, and screen readers always hear the full name. The page is tracked by slot id, not index. An exercise left half done is settled first: a set on another one asks to go back or mark its open sets missed (`pendingElsewhere`). A first set on an exercise while an EARLIER one has not begun asks to move it up to be next (`chronologyMove`): the session records the order it was trained in. Paging on happens only after the planned sets of a planned exercise; an extra set (RIR required, its row spent on logging) or an exercise added today stays on the page. A set whose prescription measures effort and has no RIR yet opens the effort sheet from the check, and the pick logs it (`readWithEffort`) — the check used to refuse with a toast. A small pencil marks an
+  exercise gets `abbreviateName`); a tap on another chip only focuses it (the screen pages there) and
+  keeps the short name; a tap on the chip already in view spells it out in full and the next
+  shortens it again; focus moving on (a tap, or the paging after a logged set) shortens it, derived
+  in render from `focused`, never an effect; screen readers always hear the full name. The page is tracked by slot id, not index. An exercise left half done is settled first: a set on another one asks to go back or mark its open sets missed (`pendingElsewhere`). A first set on an exercise while an EARLIER one has not begun asks to move it up to be next (`chronologyMove`): the session records the order it was trained in. Paging on happens only after the planned sets of a planned exercise; an extra set (effort required unless the mode is `free`, its row spent on logging) or an exercise added today stays on the page. A set whose prescription measures effort and has none yet opens the effort sheet — in the session's mode — from the check, and the pick logs it (`readWithEffort`; never in `free`, where `effortRequired` is false) — the check used to refuse with a toast. A small pencil marks an
   exercise with a personal note; the card's header pencil (with a "+" until there is a note)
   opens the editor. The phantom "+ Add" chip after the exercises in play adds any library
   exercise not already in the session (`addSessionExercise`) with ONE set, more through "Extra set": today only (a snapshot slot with its own id and `PlannedSlot.added`, additive JSON) or kept in the split (`addSlot` first).
@@ -573,17 +638,17 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   mono header ("SET 1 | 12 REPS @ FAILURE") that scrolls sideways, never wraps or clips (the
   logged, skipped and pending rows' text is one scrolling line too: wrapped, a Spanish
   "AL FALLO" grew the row and shoved the list), two full-width
-  number fields with the trend glyph above the unit inside the unit box (a faint dash when there
-  is nothing to compare, so the box never shows a hole), then the action line — ONE sideways-
+  number fields with no placeholder (the header names the target), the unit in its own box, then
+  the action line — ONE sideways-
   scrolling line of fixed height on the left (base tag, total, plate breakdown: the data never
-  grows the row, so the check stays under the thumb from set to set), Skip set in the middle,
-  calculator and check on the right. On a machine the tag IS the way to re-choose plates per
+  grows the row, so the check stays under the thumb from set to set), Skip set in the middle (a correction
+  holds its delete there), calculator and check on the right. On a machine the tag IS the way to re-choose plates per
   side / one post / stack (`OptionSheet`, same seeds as the first-time chooser). The cue strip
   above the sets is one scrolling line too — the per-side hint rides as a chip, never a line
   under it.
   A base prefix and an arrow beside the number clipped "132.5" on a phone, and a truncated
   header hid the target.
-- **Swaps have a scope and skips write "missed". The timer follows the exercise** (`exerciseRestSeconds`: the lifter's `exercise_settings` rest, else `catalogRestSeconds` → `defaultRestFor` — the same baseline `slotSeed` gives a new slot and settings propagation compares against; `propagateSlotMeta` never re-rests a swapped slot; the presets' two bands read from what it trains (the sheets rest 2–3 min on everything: 3 on the main lifts); a rest-of-cycle swap clears the slot's week overrides, written for the exercise that left). The swap sheet (`SwapSheet`) lists the
+- **Swaps have a scope and skips write "missed". The timer follows the exercise** (`exerciseRestSeconds`: the lifter's `exercise_settings` rest, else `catalogRestSeconds` → `defaultRestFor`: a catalog exercise's own entry in `CATALOG_REST_SECONDS` (`catalog-rest.ts`, graded by muscle mass, joints and stability, 75–210 s, sources in its header), else two bands read from what a custom exercise trains — the same baseline `slotSeed` gives a new slot and settings propagation compares against; `propagateSlotMeta` never re-rests a swapped slot; the presets keep their own prescriptions (the sheets rest 2–3 min on everything: 3 on the main lifts) and never read the table; a rest-of-cycle swap clears the slot's week overrides, written for the exercise that left). The swap sheet (`SwapSheet`) lists the
   variants first (the plan's movement on other kit) and, set apart, other movements for the same
   muscles (`similarExercises`: a shared primary head, or a `SIBLING_HEADS` one — never the
   category, which pairs biceps with triceps). Picking one opens `SwapScopeSheet`:
@@ -917,8 +982,12 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   derive from the exercises (`exerciseHeads` / `dayMuscleHeads`) — the manual focus-muscles
   picker is retired and `workout_days.focus_muscles` stays as dormant wire format.
 - **Per-exercise defaults** (`exercise_settings`, synced) seed `addSlot` (rest, badges,
-  alternatives; `slotSeed`) and are edited on `/training/exercise/[id]`. An edit follows into
-  slots of ACTIVE enrollments only, and only for a field still holding the PREVIOUS default — a
+  alternatives; `slotSeed`) and are edited on `/training/exercise/[id]` (the rest row shows the exercise's default,
+  captioned "Suggested for this exercise", and writes nothing until the lifter turns the wheel).
+  An edit follows into slots of ACTIVE enrollments only, and only for a field still holding the
+  PREVIOUS default — with nothing saved that is `catalogRestSeconds`, which most preset slots do
+  not hold (they keep the sheet's rest), so a first library rest edit does not follow into an
+  enrolled preset — a
   slot the lifter customised, or a paused/finished program, keeps its values, and untouched slots
   are never stamped. Live sessions re-resolve rest through `propagateSlotMeta` with
   `startWorkout`'s rule (week override, then slot default); a swapped variant keeps its badges. Slot prescriptions save-block
