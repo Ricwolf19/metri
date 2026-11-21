@@ -347,7 +347,11 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   the first activation and fires on a second within 4 s — a TalkBack double-tap is a click, not a
   hold. State is never colour alone: session chips carry a glyph, the calendar strikes a missed
   day and outlines a rest day, the week strip uses shapes. Controls reach 44 dp (size or
-  hitSlop); toasts, a logged set, rest over and each ± step are announced
+  hitSlop). **NativeWind's rem is 14 dp here** (its metro `inlineRem` default), so the scale is
+  NOT Tailwind's ×16: spacing `10`/`11`/`12` are pinned to exactly 40/44/48 dp in
+  `tailwind.config.js` (`tailwind-config.test.ts` guards it) — `min-h-11` is the 44 dp floor —
+  and every other step stays rem-based ×14 (`h-9` = 31.5, `h-8` = 28, `p-5` = 17.5); a comment
+  quoting dp must say the real number. Toasts, a logged set, rest over and each ± step are announced
   (`announceForAccessibility`, never a live region on ticking text). Functional progress (the
   hold fill, countdowns) uses `ReduceMotion.Never`; decoration follows the system setting.
 - **Docs markdown** (`features/docs/markdownStyles.ts`) must override every block the library
@@ -610,7 +614,10 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   `ChoiceCarousel`, saved on the pick through `setEffortMode`, owner-scoped, `updatedAt`
   stamped); the workout screen reads it LIVE from the log's `user_program_id`, so a change
   reaches a session already open. Export/import carry the column as-is (no version bump).
-- **The session has ONE view**: one exercise per page, `SessionChipStrip` as the navigation
+- **The session has ONE view** (the page is `ExerciseCard`, `features/training/components/ExerciseCard.tsx`,
+  its control bar's effort pick `EffortChip`; `app/training/workout/[id].tsx` holds only the screen —
+  the chip strip, paging and order guards, the rest bar, the effort sheet, finish/abandon and the
+  notification face): one exercise per page, `SessionChipStrip` as the navigation
   (its own component — `ChipRow` no longer carries session states), the strip scrolls (its
   edges fade where chips sit off screen) and a tap opens an exercise; Prev/Next arrows flank it
   only while a chip is lifted. A chip's FILL is its state (`slotState`, `session-order.ts`): brand = every set
@@ -648,7 +655,7 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   under it.
   A base prefix and an arrow beside the number clipped "132.5" on a phone, and a truncated
   header hid the target.
-- **Swaps have a scope and skips write "missed". The timer follows the exercise** (`exerciseRestSeconds`: the lifter's `exercise_settings` rest, else `catalogRestSeconds` → `defaultRestFor`: a catalog exercise's own entry in `CATALOG_REST_SECONDS` (`catalog-rest.ts`, graded by muscle mass, joints and stability, 75–210 s, sources in its header), else two bands read from what a custom exercise trains — the same baseline `slotSeed` gives a new slot and settings propagation compares against; `propagateSlotMeta` never re-rests a swapped slot; the presets keep their own prescriptions (the sheets rest 2–3 min on everything: 3 on the main lifts) and never read the table; a rest-of-cycle swap clears the slot's week overrides, written for the exercise that left). The swap sheet (`SwapSheet`) lists the
+- **Swaps have a scope and skips write "missed". The timer follows the exercise** (`exerciseRestSeconds`: the lifter's `exercise_settings` rest, else `catalogRestSeconds` → `defaultRestFor`: a catalog exercise's own entry in `CATALOG_REST_SECONDS` (`catalog-rest.ts`, graded by muscle mass, joints and stability, 75–210 s, sources in its header), else two bands read from what a custom exercise trains (`legacyRestFor`, the rule every exercise rested by before the table) — the same baseline `slotSeed` gives a new slot and settings propagation compares against (with nothing saved, a slot on the legacy rule counts as untouched too); `propagateSlotMeta` never re-rests a swapped slot; the presets keep their own prescriptions (the sheets rest 2–3 min on everything: 3 on the main lifts) and never read the table; a rest-of-cycle swap clears the slot's week overrides, written for the exercise that left). The swap sheet (`SwapSheet`) lists the
   variants first (the plan's movement on other kit) and, set apart, other movements for the same
   muscles (`similarExercises`: a shared primary head, or a `SIBLING_HEADS` one — never the
   category, which pairs biceps with triceps). Picking one opens `SwapScopeSheet`:
@@ -984,12 +991,15 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
 - **Per-exercise defaults** (`exercise_settings`, synced) seed `addSlot` (rest, badges,
   alternatives; `slotSeed`) and are edited on `/training/exercise/[id]` (the rest row shows the exercise's default,
   captioned "Suggested for this exercise", and writes nothing until the lifter turns the wheel).
-  An edit follows into slots of ACTIVE enrollments only, and only for a field still holding the
-  PREVIOUS default — with nothing saved that is `catalogRestSeconds`, which most preset slots do
-  not hold (they keep the sheet's rest), so a first library rest edit does not follow into an
-  enrolled preset — a
+  An edit follows into slots of ACTIVE enrollments only, and only for a field still UNTOUCHED —
+  holding the PREVIOUS default. With no rest saved, a rest is untouched at `catalogRestSeconds`
+  OR at the two-band rule older builds seeded with (`legacyRestFor` / `legacyRestSeconds`: a curl
+  at 120 where the table says 75; every preset slot, whose sheet rests follow the same rule), so
+  a first library rest edit follows into them too; once the lifter saved a rest, that value is
+  the only baseline. The rest is in play only when the SAVED rest changes (a badge or load edit
+  never re-rests). The one test is `untouched` in `propagateSettingsToEnrolled`; a
   slot the lifter customised, or a paused/finished program, keeps its values, and untouched slots
-  are never stamped. Live sessions re-resolve rest through `propagateSlotMeta` with
+  are never stamped. A preset's per-week rests still win in-session over the slot default. Live sessions re-resolve rest through `propagateSlotMeta` with
   `startWorkout`'s rule (week override, then slot default); a swapped variant keeps its badges. Slot prescriptions save-block
   until every week has an effort method + sets + reps (`slot-draft.ts` owns that logic).
 - Conventional Commits (commitlint); husky runs lint-staged pre-commit and `bun run ci` pre-push.
