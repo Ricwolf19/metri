@@ -52,6 +52,7 @@ export const ExerciseNote = ({
         userId={userId}
         exerciseId={exerciseId}
         note={note}
+        compact={compact}
         className={className}
         onDone={() => setEditing(false)}
       />
@@ -83,12 +84,14 @@ const NoteEditor = ({
   userId,
   exerciseId,
   note,
+  compact,
   className,
   onDone,
 }: {
   userId: string;
   exerciseId: string;
   note: string | null;
+  compact: boolean;
   className: string;
   onDone: () => void;
 }) => {
@@ -116,7 +119,11 @@ const NoteEditor = ({
       <ControlledInput
         control={form.control}
         name="note"
-        placeholder={t('exNote.placeholder')}
+        // The exercise page titles its card with the same words; the session
+        // card has no title, so the field names itself there.
+        label={compact ? t('exNote.title') : undefined}
+        accessibilityLabel={t('exNote.title')}
+        hint={t('exNote.example')}
         multiline
         autoFocus
         maxLength={500}

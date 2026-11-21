@@ -58,7 +58,6 @@ const LocalSetup = () => {
           control={form.control}
           name="displayName"
           label={t('auth.name')}
-          placeholder={t('auth.phName')}
           autoCapitalize="words"
           textContentType="name"
           autoComplete="name"

@@ -40,6 +40,7 @@ import {
 import { navyFromTape } from '@/features/body/navy';
 import { enabledSites, siteHintKey, siteLabelKey, type SiteId } from '@/features/body/sites';
 import { fromCm, lengthUnitFor, toCm } from '@/features/body/units';
+import { UnitSuffix } from '@/features/training/components/UnitSuffix';
 import { dateFromKey, localDateKey } from '@/features/training/dates';
 import { fromKg } from '@/features/training/progression';
 import { useT } from '@/i18n';
@@ -267,8 +268,10 @@ const BodyCheckin = () => {
         <ControlledInput
           control={form.control}
           name="weight"
+          // The section above is its visible name; the unit rides inside the box.
+          accessibilityLabel={`${t('body.weight')} (${units})`}
+          rightSlot={<UnitSuffix label={units} />}
           keyboardType="decimal-pad"
-          placeholder={units}
           maxLength={6}
         />
       </Card>

@@ -89,7 +89,6 @@ const SignUp = () => {
           control={form.control}
           name="displayName"
           label={t('auth.name')}
-          placeholder={t('auth.phName')}
           autoCapitalize="words"
           textContentType="name"
           autoComplete="name"
@@ -103,16 +102,15 @@ const SignUp = () => {
           keyboardType="email-address"
           textContentType="emailAddress"
           autoComplete="email"
-          placeholder={t('auth.phEmail')}
         />
         <ControlledInput
           control={form.control}
           name="password"
           label={t('auth.password')}
+          hint={t('auth.passwordHint')}
           secureTextEntry
           textContentType="newPassword"
           autoComplete="new-password"
-          placeholder={t('auth.phPassword')}
         />
         <ControlledInput
           control={form.control}
@@ -121,7 +119,6 @@ const SignUp = () => {
           secureTextEntry
           textContentType="newPassword"
           autoComplete="new-password"
-          placeholder={t('auth.passwordRepeat')}
           error={error ?? undefined}
           onSubmitEditing={onSubmit}
           returnKeyType="go"

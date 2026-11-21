@@ -140,7 +140,6 @@ const Onboarding = () => {
                 name="age"
                 label={t('bmr.age')}
                 keyboardType="number-pad"
-                placeholder="28"
                 maxLength={3}
               />
             </View>
@@ -150,7 +149,6 @@ const Onboarding = () => {
                 name="heightCm"
                 label={t('bmr.heightCm')}
                 keyboardType="decimal-pad"
-                placeholder="175"
                 maxLength={5}
               />
             </View>
@@ -161,7 +159,6 @@ const Onboarding = () => {
             name="weight"
             label={`${t('bmr.weight')} (${units})`}
             keyboardType="decimal-pad"
-            placeholder={units === 'kg' ? '72' : '160'}
             maxLength={6}
           />
 

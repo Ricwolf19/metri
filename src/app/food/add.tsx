@@ -145,7 +145,7 @@ const AddFood = () => {
         <Input
           value={query}
           onChangeText={setQuery}
-          placeholder={t('diary.searchPlaceholder')}
+          search={t('diary.searchPlaceholder')}
           autoCorrect={false}
           maxLength={40}
         />

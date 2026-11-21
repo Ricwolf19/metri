@@ -131,7 +131,9 @@ const EditRoutine = () => {
           control={draft.control}
           name="name"
           label={t('editor.phaseName')}
-          placeholder={t('editor.phaseFallback', { n: routine.orderIndex + 1 })}
+          hint={t('editor.blankNameHint', {
+            name: t('editor.phaseFallback', { n: routine.orderIndex + 1 }),
+          })}
         />
         <Controller
           control={draft.control}

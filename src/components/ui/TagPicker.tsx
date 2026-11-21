@@ -90,8 +90,9 @@ export const TagPicker = ({ label, sections, value, onChange, placeholder, doneL
             ))}
           </View>
         ) : (
+          // Wraps, never clips: it says what the empty picker needs ("Pick at
+          // least one muscle"), and clipped it said nothing in Spanish.
           <Text
-            numberOfLines={1}
             maxFontSizeMultiplier={CONTROL_FONT_SCALE}
             className="flex-1 text-base text-ink-400"
           >

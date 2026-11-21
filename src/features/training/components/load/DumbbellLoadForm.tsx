@@ -74,7 +74,6 @@ export const DumbbellLoadForm = ({
             value={perHandText}
             onChangeText={onPerHandText}
             keyboardType="decimal-pad"
-            placeholder="0"
             maxLength={6}
             hint={missing ? t('load.needPerHand') : undefined}
           />
@@ -119,7 +118,6 @@ export const DumbbellLoadForm = ({
                 value={rack.startText}
                 onChangeText={rack.onStartText}
                 keyboardType="decimal-pad"
-                placeholder="2.5"
                 maxLength={6}
               />
             </View>
@@ -130,7 +128,6 @@ export const DumbbellLoadForm = ({
                 value={rack.stepText}
                 onChangeText={rack.onStepText}
                 keyboardType="decimal-pad"
-                placeholder="2.5"
                 maxLength={6}
               />
             </View>

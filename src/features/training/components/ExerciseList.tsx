@@ -79,7 +79,7 @@ export const ExerciseList = ({
       <Input
         value={search}
         onChangeText={setSearch}
-        placeholder={t('editor.searchExercises')}
+        search={t('editor.searchExercises')}
         autoCapitalize="none"
         autoCorrect={false}
       />

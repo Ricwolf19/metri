@@ -103,7 +103,7 @@ const Explore = () => {
       <Input
         value={query}
         onChangeText={setQuery}
-        placeholder={t('explore.searchPh')}
+        search={t('explore.searchPh')}
         autoCapitalize="none"
         autoCorrect={false}
       />

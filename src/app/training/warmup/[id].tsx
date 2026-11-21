@@ -256,22 +256,23 @@ const StepCard = ({
   const name = useWatch({ control, name: `steps.${index}.name` });
   return (
     <Card className="gap-2">
-      <View className="flex-row items-center gap-2">
+      {/* items-end: the X lines up with the box, not with the label above it. */}
+      <View className="flex-row items-end gap-1">
         <View className="flex-1">
           <ControlledInput
             control={control}
             name={`steps.${index}.name`}
-            placeholder={t('warmup.stepPh')}
+            label={t('warmup.stepName', { n: index + 1 })}
           />
         </View>
         {onRemove ? (
           <Pressable
             onPress={onRemove}
-            hitSlop={14}
             accessibilityRole="button"
             accessibilityLabel={t('common.removeNamed', {
-              name: name.trim() || `${t('warmup.steps')} ${index + 1}`,
+              name: name.trim() || t('warmup.stepName', { n: index + 1 }),
             })}
+            className="h-12 w-11 items-center justify-center rounded-full active:bg-ink-700"
           >
             <XIcon color={muted} size={16} />
           </Pressable>
@@ -280,7 +281,7 @@ const StepCard = ({
       <ControlledInput
         control={control}
         name={`steps.${index}.detail`}
-        placeholder={t('warmup.detailPh')}
+        label={t('warmup.stepAmount')}
       />
       <WarmupStepDemo name={name} />
     </Card>

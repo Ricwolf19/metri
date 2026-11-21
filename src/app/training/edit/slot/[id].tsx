@@ -420,7 +420,9 @@ const EditSlot = () => {
         <ControlledInput
           control={draft.control}
           name="notes"
-          placeholder={t('editor.notesPh')}
+          // Named by the section label above it.
+          accessibilityLabel={t('editor.notes')}
+          hint={t('editor.notesExample')}
           multiline
         />
       </Card>

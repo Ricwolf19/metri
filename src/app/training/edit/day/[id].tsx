@@ -121,7 +121,9 @@ const EditDay = () => {
           label={t('editor.splitName')}
           value={draft.name}
           onChangeText={(name) => patch({ name })}
-          placeholder={t('editor.splitFallback', { n: day.orderIndex + 1 })}
+          hint={t('editor.blankNameHint', {
+            name: t('editor.splitFallback', { n: day.orderIndex + 1 }),
+          })}
         />
         {muscles.length ? (
           <View>

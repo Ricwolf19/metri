@@ -102,6 +102,8 @@ const NewFood = () => {
           control={form.control}
           name="name"
           rules={{ validate: (v) => v.trim().length >= 2 }}
+          // Named by the section label above it.
+          accessibilityLabel={t('diary.foodName')}
           maxLength={60}
         />
       </Card>

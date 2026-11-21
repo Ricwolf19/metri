@@ -1,12 +1,19 @@
 import { forwardRef, useEffect, useRef, useState } from 'react';
 import { Pressable, Text, TextInput, View, type TextInputProps } from 'react-native';
 
+import { SearchIcon } from '@/components/icons';
 import { useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
 import { CONTROL_FONT_SCALE } from './typography';
 
-type Props = TextInputProps & {
+/**
+ * No `placeholder`: a field's name is its `label` and guidance or an example
+ * is its `hint` — both wrap under any font scale and in Spanish, while a
+ * placeholder was cut off on a small phone and gone as soon as anything was
+ * typed. A field with no visible label passes `accessibilityLabel`.
+ */
+type Props = Omit<TextInputProps, 'placeholder'> & {
   label?: string;
   error?: string;
   hint?: string;
@@ -14,6 +21,12 @@ type Props = TextInputProps & {
   secureToggle?: boolean;
   /** Read-only informational field: muted, not focusable, no secure toggle. */
   disabled?: boolean;
+  /**
+   * Makes it a search field: a magnifier inside it and this SHORT text
+   * ("Search exercises") as its placeholder and spoken name — the one place
+   * the platforms put a placeholder.
+   */
+  search?: string;
 };
 
 /** How long the last typed character of a secure field stays readable. */
@@ -31,6 +44,7 @@ export const Input = forwardRef<TextInput, Props>(function Input(
     value,
     onChangeText,
     disabled,
+    search,
     ...rest
   },
   ref,
@@ -104,14 +118,21 @@ export const Input = forwardRef<TextInput, Props>(function Input(
                   'border-ink-500',
         ].join(' ')}
       >
+        {search ? (
+          <View className="mr-2.5">
+            <SearchIcon color={muted} size={18} />
+          </View>
+        ) : null}
         <TextInput
           ref={ref}
           maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+          placeholder={search}
           placeholderTextColor={muted}
+          returnKeyType={search ? 'search' : undefined}
           {...textSelection}
           // The visible label above is a sibling, not the field's name: name the
           // field itself (a caller's own label still wins through `rest`).
-          accessibilityLabel={label ?? rest.placeholder}
+          accessibilityLabel={label ?? search}
           // Masking happens in JS above; the native flag would hide the tail too.
           secureTextEntry={false}
           autoCorrect={masked ? false : rest.autoCorrect}

@@ -80,7 +80,6 @@ const SignIn = () => {
           keyboardType="email-address"
           textContentType="emailAddress"
           autoComplete="email"
-          placeholder="you@email.com"
           returnKeyType="next"
         />
         <ControlledInput
@@ -90,7 +89,6 @@ const SignIn = () => {
           secureTextEntry
           textContentType="password"
           autoComplete="current-password"
-          placeholder="••••••••"
           returnKeyType="go"
           onSubmitEditing={onSubmit}
           error={error ?? undefined}

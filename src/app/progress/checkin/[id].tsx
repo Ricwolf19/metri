@@ -200,7 +200,7 @@ const CheckinScreen = ({ entry, entries, keySite, onDeleted }: ScreenProps) => {
           control={form.control}
           name="note"
           label={t('photos.note')}
-          placeholder={t('photos.notePlaceholder')}
+          hint={t('photos.noteHint')}
           multiline
           maxLength={280}
         />

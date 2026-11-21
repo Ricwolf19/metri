@@ -58,7 +58,6 @@ export const BarbellLoadForm = ({
             value={base.text}
             onChangeText={base.onText}
             keyboardType="decimal-pad"
-            placeholder="0"
             maxLength={6}
           />
           {sides ? (

@@ -107,7 +107,7 @@ const EditProgram = () => {
           control={draft.control}
           name="description"
           label={t('editor.description')}
-          placeholder={t('editor.descriptionPh')}
+          hint={t('editor.descriptionHint')}
           multiline
         />
       </Card>

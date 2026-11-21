@@ -58,19 +58,23 @@ export const BadgesEditor = ({
         </View>
       ) : null}
       {value.length < MAX_BADGES ? (
-        <View className="flex-row items-end gap-2">
-          <View className="flex-1">
-            <Input
-              value={input}
-              onChangeText={setInput}
-              placeholder={t('editor.badgePh')}
-              maxLength={MAX_BADGE_LEN}
-              autoCapitalize="characters"
-              onSubmitEditing={add}
-              returnKeyType="done"
-            />
+        <View>
+          <View className="flex-row items-end gap-2">
+            <View className="flex-1">
+              <Input
+                label={t('editor.newBadge')}
+                value={input}
+                onChangeText={setInput}
+                maxLength={MAX_BADGE_LEN}
+                autoCapitalize="characters"
+                onSubmitEditing={add}
+                returnKeyType="done"
+              />
+            </View>
+            <Button label={t('editor.addBadge')} fullWidth={false} onPress={add} />
           </View>
-          <Button label={t('editor.addBadge')} fullWidth={false} onPress={add} />
+          {/* Under the row, not the field's own hint: the button lines up with the box. */}
+          <Text className="mt-1.5 text-xs text-ink-400">{t('editor.badgeExample')}</Text>
         </View>
       ) : null}
     </View>

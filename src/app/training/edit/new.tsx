@@ -43,14 +43,14 @@ const NewProgram = () => {
             name="name"
             rules={{ validate: (v) => v.trim().length >= MIN_NAME }}
             label={t('editor.programName')}
-            placeholder={t('editor.programNamePh')}
+            hint={t('editor.programNameHint')}
             autoCapitalize="sentences"
           />
           <ControlledInput
             control={form.control}
             name="description"
             label={t('editor.description')}
-            placeholder={t('editor.descriptionPh')}
+            hint={t('editor.descriptionHint')}
             multiline
           />
         </View>

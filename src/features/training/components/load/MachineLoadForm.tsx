@@ -52,7 +52,6 @@ export const MachineLoadForm = ({
             value={baseText}
             onChangeText={onBaseText}
             keyboardType="decimal-pad"
-            placeholder="0"
             maxLength={6}
           />
         </View>
@@ -63,7 +62,6 @@ export const MachineLoadForm = ({
             value={incText}
             onChangeText={onIncText}
             keyboardType="decimal-pad"
-            placeholder="5"
             maxLength={6}
           />
         </View>

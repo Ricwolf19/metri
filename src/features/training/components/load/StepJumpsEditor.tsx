@@ -45,7 +45,6 @@ export const StepJumpsEditor = ({
               value={jump.fromText}
               onChangeText={(fromText) => patch(index, { fromText })}
               keyboardType="decimal-pad"
-              placeholder="50"
               maxLength={6}
             />
           </View>
@@ -56,7 +55,6 @@ export const StepJumpsEditor = ({
               value={jump.stepText}
               onChangeText={(stepText) => patch(index, { stepText })}
               keyboardType="decimal-pad"
-              placeholder="10"
               maxLength={6}
             />
           </View>
