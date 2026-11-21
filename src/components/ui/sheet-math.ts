@@ -48,12 +48,16 @@ export const computeStops = (
 
 /**
  * The sheet's max height with the keyboard up. `kb` is keyboard-controller's
- * `height`: 0 when closed, NEGATIVE (minus the keyboard's height) while open,
- * so adding it shrinks the limit; the floor keeps a field reachable.
+ * `height`: 0 when closed, NEGATIVE (minus the keyboard's height) while open.
+ * The sheet rides the keyboard at its own limit while that still fits under
+ * `ceiling` (the full-height cap) and shrinks only past it: taking the whole
+ * keyboard off every limit squeezed the spotlight's 60 % sheet to the floor,
+ * one result under its search, with half the screen free above. The floor
+ * keeps a field reachable over a tall keyboard.
  */
-export const keyboardLimit = (limit: number, kb: number): number => {
+export const keyboardLimit = (limit: number, kb: number, ceiling: number): number => {
   'worklet';
-  return Math.max(MIN_LIMIT, limit + kb);
+  return Math.max(MIN_LIMIT, Math.min(limit, ceiling + kb));
 };
 
 /**

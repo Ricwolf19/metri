@@ -1,10 +1,15 @@
 import { remapProps } from 'nativewind';
 import { useEffect, useState } from 'react';
 import { View, type ViewProps } from 'react-native';
-import { KeyboardAvoidingView, KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import {
+  KeyboardAvoidingView,
+  KeyboardAwareScrollView,
+  KeyboardStickyView,
+} from 'react-native-keyboard-controller';
 import Animated, { interpolate, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
 
+import { KEYBOARD_CLEARANCE, liftedFooterHeight } from './keyboard-room';
 import { makePullHoldController } from './pull-hold-controller';
 import { useLocalScrollVisibility, useScrollVisibility } from './scroll-visibility';
 
@@ -30,7 +35,8 @@ type Props = ViewProps & {
   /** Navbar. On tab screens (inside the scroll-visibility provider) it renders
    * as a floating pill that hides on scroll-down; elsewhere it stays fixed. */
   header?: React.ReactNode;
-  /** Sticky bottom slot (e.g. a Continue button) rendered outside the scroll. */
+  /** Sticky bottom slot (e.g. a Continue button) rendered outside the scroll. It
+   * rides the keyboard, so a form's Save stays in reach while a field is typed in. */
   footer?: React.ReactNode;
   /** Scroll screens only: fires after a drag held at the very top for `HOLD_MS`. @see AGENTS.md "Spotlight" */
   onPullHold?: () => void;
@@ -42,7 +48,9 @@ type Props = ViewProps & {
  *
  * Keyboard behavior comes from react-native-keyboard-controller (identical on
  * iOS/Android, animated on the UI thread): scrollable screens auto-scroll the
- * focused input above the keyboard; fixed screens pad instead.
+ * focused input above the keyboard with `KEYBOARD_CLEARANCE` under it (its
+ * hint, then the next field or the Save); fixed screens pad instead. The
+ * footer rides the keyboard and both modes keep the field clear of it too.
  *
  * Pass the navbar via `header` (fixed or floating) and the page title as a
  * `<ScreenTitle>` inside the content — the large-title pattern.
@@ -92,9 +100,18 @@ export const Screen = ({
     <View style={{ height: scroll ? HEADER_CLEARANCE : HEADER_CLEARANCE_STATIC }} />
   ) : null;
 
+  // The footer's height over the keyboard once it has ridden up: a focused
+  // field has to clear it as well as the keyboard.
+  const padsBottom = edges.includes('bottom');
+  const [footerHeight, setFooterHeight] = useState(0);
+  const footerLift = footer ? liftedFooterHeight(footerHeight, insets.bottom, padsBottom) : 0;
+
   const body = scroll ? (
     <KeyboardAwareScrollView
-      bottomOffset={24}
+      bottomOffset={KEYBOARD_CLEARANCE + footerLift}
+      // Room to scroll that far: the keyboard's own inset alone cannot lift the
+      // LAST field of a page clear by more than the padding under it.
+      extraKeyboardSpace={KEYBOARD_CLEARANCE}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
       contentContainerClassName={contentClassName}
@@ -107,20 +124,26 @@ export const Screen = ({
       {children}
     </KeyboardAwareScrollView>
   ) : (
-    <KeyboardAvoidingView behavior="padding" className="flex-1">
+    // A positive offset raises the line the content pads to: the footer's top.
+    <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={footerLift} className="flex-1">
       {clearance}
       <View className={['flex-1', contentClassName ?? ''].join(' ')}>{children}</View>
     </KeyboardAvoidingView>
   );
 
   // Always clears the home indicator, whichever edges the screen asked for.
+  // Open, it sits on the keyboard: `opened` tucks the home-indicator room
+  // (the SafeAreaView's padding or the footer's own) behind the keyboard.
   const footerNode = footer ? (
-    <View
-      className="border-t border-ink-800 bg-ink-900 px-5 pt-3"
-      style={{ paddingBottom: (edges.includes('bottom') ? 0 : insets.bottom) + 16 }}
-    >
-      {footer}
-    </View>
+    <KeyboardStickyView offset={{ opened: insets.bottom }}>
+      <View
+        onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
+        className="border-t border-ink-800 bg-ink-900 px-5 pt-3"
+        style={{ paddingBottom: (padsBottom ? 0 : insets.bottom) + 16 }}
+      >
+        {footer}
+      </View>
+    </KeyboardStickyView>
   ) : null;
 
   if (floating) {

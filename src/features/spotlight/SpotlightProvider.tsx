@@ -11,7 +11,6 @@ import {
 } from 'react';
 import { Pressable, Text, View, type TextInput } from 'react-native';
 
-import { SearchIcon } from '@/components/icons';
 import { Input, ScrollArea, Sheet } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { CALC_META, calcShortTitle } from '@/features/calculators/registry';
@@ -19,7 +18,6 @@ import { getDocs } from '@/features/docs';
 import { exercisesQuery } from '@/features/training/exercises.repo';
 import { exerciseDisplayName } from '@/features/training/labels';
 import { useI18n, useT, type TranslationKey } from '@/i18n';
-import { useTheme } from '@/theme/theme-context';
 
 import {
   spotlightSearch,
@@ -70,7 +68,6 @@ export const SpotlightProvider = ({ children }: { children: ReactNode }) => {
   const { locale } = useI18n();
   const { user } = useAuth();
   const router = useRouter();
-  const { muted } = useTheme();
   const [visible, setVisible] = useState(false);
   const [query, setQuery] = useState('');
   const [sources, setSources] = useState<SpotlightSources | null>(null);
@@ -120,19 +117,15 @@ export const SpotlightProvider = ({ children }: { children: ReactNode }) => {
       {children}
       {/* A fixed stop: the sheet must not resize as results come and go under the finger. */}
       <Sheet visible={visible} onClose={close} snapPoints={['60%']}>
-        <View className="mb-3 flex-row items-center gap-2 px-5">
-          <SearchIcon color={muted} size={18} />
-          <View className="flex-1">
-            <Input
-              ref={inputRef}
-              value={query}
-              onChangeText={setQuery}
-              placeholder={t('spotlight.placeholder')}
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="search"
-            />
-          </View>
+        <View className="mb-3 px-5">
+          <Input
+            ref={inputRef}
+            value={query}
+            onChangeText={setQuery}
+            search={t('spotlight.placeholder')}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
         </View>
         <ScrollArea inSheet keyboardShouldPersistTaps="handled">
           {query.trim() === '' ? (

@@ -2,7 +2,7 @@ import { useWatch } from 'react-hook-form';
 import { Text, View } from 'react-native';
 
 import { ControlledInput, useOpenKey, useSaveForm } from '@/components/form';
-import { Button, HoldButton, ScrollArea, Sheet, Stat } from '@/components/ui';
+import { Button, HoldButton, Sheet, SheetForm, Stat } from '@/components/ui';
 import { useT } from '@/i18n';
 
 import { scale } from '../diary';
@@ -52,7 +52,7 @@ const AmountForm = ({ food, initialGrams, onConfirm, onDelete }: Omit<Props, 'on
   const totals = food && grams != null ? scale(food, grams) : null;
 
   return (
-    <ScrollArea inSheet keyboardShouldPersistTaps="handled">
+    <SheetForm>
       <Text className="text-base font-sans-semibold text-ink-50">{food?.name}</Text>
       <Text className="mb-4 mt-0.5 text-xs text-ink-500">
         {food ? t('diary.per100', { n: Math.round(food.kcal) }) : ''}
@@ -91,6 +91,6 @@ const AmountForm = ({ food, initialGrams, onConfirm, onDelete }: Omit<Props, 'on
           <HoldButton label={t('diary.deleteFood')} onComplete={() => onDelete(food)} />
         </View>
       ) : null}
-    </ScrollArea>
+    </SheetForm>
   );
 };

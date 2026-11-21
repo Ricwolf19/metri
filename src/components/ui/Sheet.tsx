@@ -23,6 +23,7 @@ import {
   sheetTranslate,
   type Bounds,
 } from './sheet-math';
+import { OnSurface } from './surface';
 
 type Props = {
   visible: boolean;
@@ -279,7 +280,7 @@ export const Sheet = ({ visible, onClose, children, snapPoints, expandable = tru
   // the cap and lifts the sheet (`sheet-math.ts`).
   const bottomInset = insets.bottom;
   const sheetStyle = useAnimatedStyle(() => ({
-    maxHeight: keyboardLimit(limit.value, kb.value),
+    maxHeight: keyboardLimit(limit.value, kb.value, ceiling),
     transform: [
       {
         translateY: keyboardLift(
@@ -342,7 +343,8 @@ export const Sheet = ({ visible, onClose, children, snapPoints, expandable = tru
               <View style={{ width: HANDLE_WIDTH }} className="h-1 rounded-full bg-brand" />
             </Pressable>
           </GestureDetector>
-          {children}
+          {/* A sheet opened from inside a card is still drawn on ink-900. */}
+          <OnSurface surface="base">{children}</OnSurface>
         </Animated.View>
       </GestureHandlerRootView>
     </Modal>

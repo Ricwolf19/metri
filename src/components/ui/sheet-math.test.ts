@@ -57,16 +57,21 @@ describe('computeStops', () => {
 
 describe('keyboardLimit', () => {
   it('leaves the limit alone with the keyboard closed', () => {
-    expect(keyboardLimit(600, 0)).toBe(600);
+    expect(keyboardLimit(600, 0, CEILING)).toBe(600);
   });
 
-  it('shrinks the limit by the keyboard height', () => {
-    expect(keyboardLimit(600, -300)).toBe(300);
+  it('keeps a shorter sheet whole while it fits between the keyboard and the ceiling', () => {
+    // The spotlight's 60 %: it used to drop to 300 here, with 350 free above it.
+    expect(keyboardLimit(600, -300, CEILING)).toBe(600);
+  });
+
+  it('shrinks a tall sheet to the room left above the keyboard', () => {
+    expect(keyboardLimit(920, -300, CEILING)).toBe(CEILING - 300);
   });
 
   it('floors at MIN_LIMIT', () => {
-    expect(keyboardLimit(300, -300)).toBe(MIN_LIMIT);
-    expect(keyboardLimit(100, 0)).toBe(MIN_LIMIT);
+    expect(keyboardLimit(600, -850, CEILING)).toBe(MIN_LIMIT);
+    expect(keyboardLimit(100, 0, CEILING)).toBe(MIN_LIMIT);
   });
 });
 

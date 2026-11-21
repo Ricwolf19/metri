@@ -2,8 +2,9 @@ import { useWatch } from 'react-hook-form';
 import { Text, View } from 'react-native';
 
 import { ControlledInput, useOpenKey, useSaveForm } from '@/components/form';
-import { Button, ScrollArea, Sheet, useToast } from '@/components/ui';
+import { Button, Sheet, SheetForm, useToast } from '@/components/ui';
 import { lbToKg } from '@/features/bmr/calc';
+import { UnitSuffix } from '@/features/training/components/UnitSuffix';
 import { fromKg } from '@/features/training/progression';
 import { useT } from '@/i18n';
 import { settings } from '@/lib/storage';
@@ -57,7 +58,7 @@ const WeighInForm = ({ onClose, userId, date, previousKg }: Omit<Props, 'visible
   const kg = typed != null ? toKg(typed) : null;
 
   return (
-    <ScrollArea inSheet keyboardShouldPersistTaps="handled">
+    <SheetForm>
       <Text className="mb-1 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
         {t('body.weighIn')}
       </Text>
@@ -66,8 +67,15 @@ const WeighInForm = ({ onClose, userId, date, previousKg }: Omit<Props, 'visible
         control={form.control}
         name="weight"
         rules={{ validate: (v) => parseWeight(v) != null }}
+        // The title above is its visible name; the unit rides inside the box.
+        accessibilityLabel={`${t('body.weighIn')} (${units})`}
+        rightSlot={<UnitSuffix label={units} />}
+        hint={
+          previousKg != null
+            ? t('body.lastWeighIn', { value: String(fromKg(previousKg, units)), unit: units })
+            : undefined
+        }
         keyboardType="decimal-pad"
-        placeholder={previousKg != null ? String(fromKg(previousKg, units)) : units}
         maxLength={6}
         autoFocus
       />
@@ -83,6 +91,6 @@ const WeighInForm = ({ onClose, userId, date, previousKg }: Omit<Props, 'visible
           onPress={() => form.submit()}
         />
       </View>
-    </ScrollArea>
+    </SheetForm>
   );
 };

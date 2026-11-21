@@ -1,7 +1,7 @@
 import { Text, View } from 'react-native';
 
 import { ControlledInput, useOpenKey, useSaveForm } from '@/components/form';
-import { Button, ScrollArea, Sheet } from '@/components/ui';
+import { Button, Sheet, SheetForm } from '@/components/ui';
 import { useT } from '@/i18n';
 
 import type { Totals } from '../diary';
@@ -64,7 +64,7 @@ const QuickAddForm = ({ onConfirm }: Pick<Props, 'onConfirm'>) => {
   );
 
   return (
-    <ScrollArea inSheet keyboardShouldPersistTaps="handled">
+    <SheetForm>
       <Text className="mb-1 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
         {t('diary.quickAdd')}
       </Text>
@@ -99,6 +99,6 @@ const QuickAddForm = ({ onConfirm }: Pick<Props, 'onConfirm'>) => {
           onPress={() => form.submit()}
         />
       </View>
-    </ScrollArea>
+    </SheetForm>
   );
 };

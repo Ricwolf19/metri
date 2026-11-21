@@ -3,7 +3,7 @@ import { useWatch } from 'react-hook-form';
 import { Text, View } from 'react-native';
 
 import { ControlledInput, useOpenKey, useSaveForm } from '@/components/form';
-import { Button, ChipRow, ScrollArea, Sheet } from '@/components/ui';
+import { Button, ChipRow, Sheet, SheetForm } from '@/components/ui';
 import type { Equipment } from '@/db/schema';
 import { UnitSuffix } from '@/features/training/components/UnitSuffix';
 import { useT } from '@/i18n';
@@ -238,7 +238,7 @@ const LoadSheetForm = ({
   return (
     // Scrolls only when a small screen (or the keyboard) cannot fit the form;
     // the sheet itself grows to show every field and both buttons.
-    <ScrollArea inSheet keyboardShouldPersistTaps="handled">
+    <SheetForm>
       <Text className="mb-1 text-lg font-sans-bold text-ink-50">
         {t('training.calculatorTitle')}
       </Text>
@@ -319,7 +319,6 @@ const LoadSheetForm = ({
             label={t('training.weight')}
             rightSlot={<UnitSuffix label={unit} />}
             keyboardType="decimal-pad"
-            placeholder="0"
             maxLength={6}
           />
         </View>
@@ -358,6 +357,6 @@ const LoadSheetForm = ({
           />
         </View>
       </View>
-    </ScrollArea>
+    </SheetForm>
   );
 };
