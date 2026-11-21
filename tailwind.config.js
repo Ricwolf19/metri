@@ -8,6 +8,16 @@ module.exports = {
   darkMode: 'class',
   theme: {
     extend: {
+      // NativeWind's rem is 14 dp here (its metro `inlineRem` default), so the
+      // stock rem steps come out short: `h-11` would be 38.5 dp, not the 44 dp
+      // touch floor the components are written against. The three steps that
+      // size controls are pinned to exact dp (`px` is dp in NativeWind); every
+      // other step stays rem-based (× 14). `tailwind-config.test.ts` guards it.
+      spacing: {
+        10: '40px',
+        11: '44px',
+        12: '48px',
+      },
       colors: {
         // Primary accent — the dumbbell green from the logo.
         lime: {

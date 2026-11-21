@@ -231,9 +231,7 @@ const ProgramDetail = () => {
                       onPress={() => setQuick({ routineId: routine.id, dayId: day.id })}
                       accessibilityRole="button"
                       accessibilityHint={t('program.quickViewHint')}
-                      // Literal dp: NativeWind's rem is 14, so `min-h-11` is 38.5.
-                      style={{ minHeight: 44 }}
-                      className="flex-row items-center rounded-field bg-ink-850 px-3 py-2 active:bg-ink-800"
+                      className="min-h-11 flex-row items-center rounded-field bg-ink-850 px-3 py-2 active:bg-ink-800"
                     >
                       <Text className="min-w-0 flex-1 text-sm text-ink-100">
                         {dayDisplayName(

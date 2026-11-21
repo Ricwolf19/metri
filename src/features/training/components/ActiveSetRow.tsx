@@ -130,8 +130,9 @@ export const ActiveSetRow = ({
             </Text>
           </ScrollRow>
         </View>
-        {/* 36 dp plus a 4 dp slop; the negative margins keep the header one
-            text line tall, so the fields below never move. */}
+        {/* A 31.5 dp disc (`h-9`: rem is 14) plus a 4 dp slop; the negative
+            margins keep the header one text line tall, so the fields below
+            never move. */}
         {onRemove ? (
           <Pressable
             onPress={onRemove}

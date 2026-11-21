@@ -5,7 +5,14 @@ import { Pressable, Text, View } from 'react-native';
 
 import { CompareIcon, PlusIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
-import { ChipRow, EmptyState, Screen, ScreenTitle, type ChipItem } from '@/components/ui';
+import {
+  ChipRow,
+  EmptyState,
+  IconButton,
+  Screen,
+  ScreenTitle,
+  type ChipItem,
+} from '@/components/ui';
 import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 import { dateFromKey } from '@/features/training/dates';
 import { LockGate } from '@/features/app-lock/LockGate';
@@ -70,16 +77,15 @@ const ProgressContent = () => {
   const capture = (params: { checkin?: string; pose?: string } = {}) =>
     router.push({ pathname: '/progress/capture', params });
 
+  // The header's own control, sized like every other one in the pill: a
+  // 44 dp disc made the pill taller than the toasts anchored under it.
   const addButton = (
-    <Pressable
-      hitSlop={8}
+    <IconButton
+      icon={<PlusIcon color={brandContrast} size={20} strokeWidth={2.5} />}
       onPress={() => capture()}
-      accessibilityRole="button"
       accessibilityLabel={t('photos.newCheckin')}
-      className="min-h-11 min-w-11 items-center justify-center rounded-full bg-brand"
-    >
-      <PlusIcon color={brandContrast} size={20} strokeWidth={2.5} />
-    </Pressable>
+      tone="brand"
+    />
   );
 
   const header = (

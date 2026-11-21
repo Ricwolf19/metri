@@ -12,9 +12,9 @@ type Props = {
 };
 
 /**
- * A round 36-px icon button — the control that sits in a `TopBar` `right` slot
- * or on a card's title row (share, finish, abandon). Looks like a small gray
- * (or lime) disc with a single glyph; nothing else goes inside it.
+ * A round 31.5 dp icon button (`h-9`: rem is 14) — the control that sits in a
+ * `TopBar` `right` slot or on a card's title row (share, finish, abandon). Looks
+ * like a small gray (or lime) disc with a single glyph; nothing else goes inside it.
  */
 export const IconButton = ({
   icon,
@@ -24,7 +24,7 @@ export const IconButton = ({
   disabled = false,
 }: Props) => (
   <Pressable
-    // 36 dp disc + 8 dp each side = a 52 dp target, past the 44 dp floor.
+    // 31.5 dp disc + 8 dp each side = a 47.5 dp target, past the 44 dp floor.
     hitSlop={8}
     onPress={onPress}
     disabled={disabled}

@@ -132,9 +132,7 @@ export const EffortSheet = ({ visible, mode, onPick, onClose }: Props) => {
               <Pressable
                 onPress={() => onPick({ rir: null, failure: false })}
                 accessibilityRole="button"
-                // Literal dp: NativeWind's rem is 14, so `min-h-11` is 38.5.
-                style={{ minHeight: 44 }}
-                className="items-center justify-center rounded-field px-4 py-3 active:bg-ink-800"
+                className="min-h-11 items-center justify-center rounded-field px-4 py-3 active:bg-ink-800"
               >
                 <Text className="text-sm font-sans-medium text-ink-300">
                   {t('training.effortClear')}

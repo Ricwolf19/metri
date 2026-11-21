@@ -180,7 +180,7 @@ export const TrainingCalendar = () => {
           if (!cell) return <View key={i} style={{ width: `${100 / 7}%` }} />;
           const look = paint(cell);
           return (
-            // The whole column is the target (≥ 44 dp); the 32 dp square is the picture.
+            // The whole column is the target (≥ 44 dp); the 28 dp square is the picture.
             <Pressable
               key={i}
               onPress={() => !cell.future && setSelected(cell.key)}

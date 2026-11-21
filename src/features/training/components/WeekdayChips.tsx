@@ -12,15 +12,20 @@ type Props = {
   size?: 'sm' | 'md';
 };
 
-/** Monday-first row of single-letter weekday chips. Selection semantics belong to the caller. */
+/**
+ * Monday-first row of single-letter weekday chips. Selection semantics belong to the caller.
+ * Each chip is a circle of at most 40 dp (`md`) that shrinks evenly when seven of them and
+ * their gaps outgrow the row: seven fixed 40 dp chips fill a card on a 360 dp phone edge to
+ * edge and overflow it at a larger display size.
+ */
 export const WeekdayChips = ({ selected, onPress, size = 'md' }: Props) => {
   const t = useT();
   const { locale } = useI18n();
-  const box = size === 'md' ? 'h-10 w-10' : 'h-9 w-9';
+  const box = size === 'md' ? 'max-w-10' : 'max-w-9';
   const text = size === 'md' ? 'text-sm' : 'text-xs';
 
   return (
-    <View className="flex-row justify-between">
+    <View className="flex-row justify-between gap-1">
       {DAY_ORDER.map((weekday) => {
         const active = selected.includes(weekday);
         return (
@@ -32,7 +37,7 @@ export const WeekdayChips = ({ selected, onPress, size = 'md' }: Props) => {
             accessibilityState={{ selected: active }}
             className={[
               box,
-              'items-center justify-center rounded-full border',
+              'aspect-square flex-1 items-center justify-center rounded-full border',
               active ? 'border-brand/40 bg-brand/15' : 'border-ink-700 bg-ink-800',
             ].join(' ')}
           >
