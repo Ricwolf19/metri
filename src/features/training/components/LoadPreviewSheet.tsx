@@ -3,11 +3,12 @@ import { Text, View } from 'react-native';
 import { BarGraphic } from '@/components/BarGraphic';
 import { DumbbellIcon } from '@/components/icons';
 import { Button, ScrollArea, Sheet } from '@/components/ui';
-import type { Equipment } from '@/db/schema';
+import type { EffortMode, Equipment } from '@/db/schema';
 import { useT } from '@/i18n';
 import type { Units } from '@/lib/storage';
 import { useTheme } from '@/theme/theme-context';
 
+import { effortWords } from '../labels';
 import {
   defaultBarKg,
   kgToUnit,
@@ -20,14 +21,22 @@ import {
 import { equivalentIn } from '../plate-math';
 import { weightText } from '../set-prefill';
 
-/** The set on view: what was logged, and how it was built when that was saved. */
-export type PreviewSet = { weightKg: number; reps: number; load?: LoadDetail | null };
+/** The set on view: what was logged, how it was built when that was saved, and how hard it was. */
+export type PreviewSet = {
+  weightKg: number;
+  reps: number;
+  load?: LoadDetail | null;
+  rir?: number | null;
+  isFailure?: boolean;
+};
 
 type Props = {
   set: PreviewSet | null;
   onClose: () => void;
   unit: Units;
   equipment: Equipment | null;
+  /** How this session reads effort (`effortModeFor`): the headline names the band in simple mode. */
+  effortMode: EffortMode;
 };
 
 /**
@@ -58,14 +67,16 @@ const Line = ({ label, value }: { label: string; value: string }) => (
 /**
  * A logged weight, read as what was on the bar: the plates on each sleeve, the
  * pin in the stack, the dumbbells in each hand — read-only, the same picture
- * the load sheet builds. The other unit stays as one line under the total.
+ * the load sheet builds. The headline names the effort too ("60 kg × 8 @ RIR 2"),
+ * so the set reads whole; the other unit stays as one line under the total.
  */
-export const LoadPreviewSheet = ({ set, onClose, unit, equipment }: Props) => {
+export const LoadPreviewSheet = ({ set, onClose, unit, equipment, effortMode }: Props) => {
   const t = useT();
   const { info } = useTheme();
   const other: Units = unit === 'kg' ? 'lb' : 'kg';
   const load = set ? pictureOf(set, equipment, unit) : null;
   const total = set ? weightText(set.weightKg, unit) : '';
+  const effort = set ? effortWords(set, t, effortMode) : null;
   // One side's plates on this unit's rack: the drawing and the line under it.
   const sidePlates =
     load?.kind === 'barbell' ? stackPlates(load.platesKg.map((p) => snapPlate(p, unit))) : [];
@@ -78,7 +89,13 @@ export const LoadPreviewSheet = ({ set, onClose, unit, equipment }: Props) => {
         <View className="mt-2 flex-row items-baseline justify-between">
           <Text className="min-w-0 flex-1 text-2xl font-sans-bold tabular-nums text-ink-50">
             {total} {unit}
-            {set ? <Text className="text-base text-ink-400"> × {set.reps}</Text> : null}
+            {set ? (
+              <Text className="text-base text-ink-400">
+                {' '}
+                × {set.reps}
+                {effort ? ` @ ${effort}` : ''}
+              </Text>
+            ) : null}
           </Text>
           <Text className="ml-3 shrink-0 text-xs text-ink-500">
             {t('training.totalEquivalent', {

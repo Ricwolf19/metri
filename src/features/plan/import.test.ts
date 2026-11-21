@@ -343,6 +343,18 @@ describe('importUserData round-trip', () => {
     expect(srcLog.id).toBe(`${U1}-log`);
   });
 
+  // The pick rides on the enrollment row as-is: no version bump, and an older
+  // file (no key) imports as unset, which resolves to the program's default.
+  it("carries the enrollment's effort logging to the importer", () => {
+    db.update(userPrograms)
+      .set({ effortMode: 'free' })
+      .where(eq(userPrograms.id, `${U1}-up`))
+      .run();
+    importUserData(U2, JSON.parse(JSON.stringify(buildExport(U1))));
+    const [up] = db.select().from(userPrograms).where(eq(userPrograms.userId, U2)).all();
+    expect(up.effortMode).toBe('free');
+  });
+
   it('skips training days already logged on the same date', () => {
     db.insert(trainingDays)
       .values({ id: 'existing', userId: U2, date: '2026-09-01', status: 'rest' })

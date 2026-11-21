@@ -4,10 +4,15 @@ import {
   clearDraft,
   clearDraftLoads,
   clearSessionDrafts,
+  editDraftKey,
+  liveAfterDelete,
+  liveDraftKey,
   readSessionDrafts,
   readSlotCounts,
+  settleDeletedSet,
   writeDraft,
   writeSlotCounts,
+  type RowDraft,
 } from './workout-drafts';
 
 describe('workout draft store', () => {
@@ -84,5 +89,128 @@ describe('workout draft store', () => {
     const before = readSessionDrafts('log-1');
     clearDraft('log-1', 'slot-z:9');
     expect(readSessionDrafts('log-1')).toBe(before);
+  });
+});
+
+describe('the live row after a delete', () => {
+  const plates = { kind: 'barbell' as const, barKg: 20, platesKg: [20] };
+  // What the correction held: the lifter changed 60 to 62.5 before deleting.
+  const edit: RowDraft = {
+    weight: '62.5',
+    reps: '8',
+    effort: { rir: 1, failure: false },
+    load: plates,
+    side: '21.25',
+  };
+  const base = {
+    workingIds: ['s1', 's2'],
+    edit,
+    plannedRows: 3,
+    skipped: new Set<number>(),
+    extraRows: 0,
+  };
+
+  // The bug: the live row re-seeded from the prefill (set 1: the previous
+  // session) and threw away what the lifter had entered.
+  it('deleting the last set steps the live row back with what the correction held', () => {
+    expect(liveAfterDelete({ ...base, deletedId: 's2' })).toEqual({
+      weight: '62.5',
+      reps: '8',
+      load: plates,
+      side: '21.25',
+      // A redo is a new performance: the RIR is asked again.
+      effort: null,
+    });
+  });
+
+  it('the first and only set counts as the last one', () => {
+    expect(liveAfterDelete({ ...base, workingIds: ['s1'], deletedId: 's1' })?.weight).toBe('62.5');
+  });
+
+  it('deleting an earlier set leaves the live row as it is', () => {
+    expect(liveAfterDelete({ ...base, deletedId: 's1' })).toBeNull();
+  });
+
+  it('a set logged beyond the plan leaves no row behind, unless an extra row is open', () => {
+    const beyond = { ...base, workingIds: ['s1', 's2', 's3', 's4'] };
+    expect(liveAfterDelete({ ...beyond, deletedId: 's4' })).toBeNull();
+    expect(liveAfterDelete({ ...beyond, deletedId: 's4', extraRows: 1 })?.reps).toBe('8');
+  });
+
+  it('a skipped row still counts as settled', () => {
+    // Three planned, set 2 skipped, sets 1 and 3 logged: plan done, the delete reopens one.
+    expect(
+      liveAfterDelete({
+        ...base,
+        workingIds: ['s1', 's3'],
+        skipped: new Set([1]),
+        deletedId: 's3',
+      }),
+    ).not.toBeNull();
+  });
+
+  // Log set 1, skip set 2, delete set 1: the live row reopens on set 1 itself,
+  // so the correction's numbers must land there, not in a draft nobody draws.
+  it('a set deleted before a skipped one hands its values to the reopened row', () => {
+    expect(
+      liveAfterDelete({ ...base, workingIds: ['s1'], skipped: new Set([1]), deletedId: 's1' })
+        ?.weight,
+    ).toBe('62.5');
+  });
+
+  it('an earlier set deleted around a skip leaves the live row alone', () => {
+    // Four planned, set 2 skipped, sets 1 and 3 logged: deleting set 1 shifts set 3 up.
+    expect(
+      liveAfterDelete({
+        ...base,
+        plannedRows: 4,
+        workingIds: ['s1', 's3'],
+        skipped: new Set([1]),
+        deletedId: 's1',
+      }),
+    ).toBeNull();
+  });
+});
+
+describe('settling a deleted set in the store', () => {
+  afterEach(() => clearSessionDrafts('log-1'));
+  const live = liveDraftKey('slot-a');
+  const edit = editDraftKey('slot-a', 'set-2');
+
+  it('drops the correction and hands its values to the live row in one write', () => {
+    writeDraft('log-1', live, { weight: '70', reps: '6', effort: null });
+    writeDraft('log-1', edit, { weight: '62.5', reps: '8', effort: null });
+    const carried = { weight: '62.5', reps: '8', effort: null };
+    settleDeletedSet('log-1', edit, { key: live, draft: carried });
+    expect(readSessionDrafts('log-1').has(edit)).toBe(false);
+    expect(readSessionDrafts('log-1').get(live)).toEqual(carried);
+  });
+
+  it('an earlier set leaves the live draft untouched', () => {
+    writeDraft('log-1', live, { weight: '70', reps: '6', effort: null });
+    writeDraft('log-1', edit, { weight: '62.5', reps: '8', effort: null });
+    settleDeletedSet('log-1', edit, null);
+    expect(readSessionDrafts('log-1').has(edit)).toBe(false);
+    expect(readSessionDrafts('log-1').get(live)?.weight).toBe('70');
+  });
+
+  // Keyed by ordinal, a restored skip or a delete moved the row onto a key
+  // with nothing typed, and the typed draft resurfaced rows later.
+  it("the live row's key names the slot, never an ordinal", () => {
+    expect(liveDraftKey('slot-a')).toBe('slot-a:live');
+    writeDraft('log-1', live, {
+      weight: '70',
+      reps: '6',
+      effort: null,
+      load: { kind: 'barbell', barKg: 20, platesKg: [25] },
+    });
+    // A swap still reaches it: the key keeps the slot prefix.
+    clearDraftLoads('log-1', 'slot-a');
+    expect(readSessionDrafts('log-1').get(live)).toEqual({
+      weight: '70',
+      reps: '6',
+      effort: null,
+      load: null,
+    });
   });
 });

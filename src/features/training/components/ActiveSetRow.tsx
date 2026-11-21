@@ -1,14 +1,20 @@
 import { Pressable, Text, View } from 'react-native';
 
-import { CheckIcon, ChevronDownIcon, DumbbellIcon, SkipIcon, XIcon } from '@/components/icons';
-import { ScrollRow } from '@/components/ui';
+import {
+  CheckIcon,
+  ChevronDownIcon,
+  DumbbellIcon,
+  SkipIcon,
+  TrashIcon,
+  XIcon,
+} from '@/components/icons';
+import { HoldButton, ScrollRow } from '@/components/ui';
 import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 import { useT } from '@/i18n';
 import type { Units } from '@/lib/storage';
 import { useTheme } from '@/theme/theme-context';
 
 import type { LoadDetail } from '../load';
-import type { Trend } from '../set-prefill';
 import type { RowDraft } from '../workout-drafts';
 import { LoadBreakdown } from './LoadBreakdown';
 import { LoadPickerField } from './LoadPickerField';
@@ -29,7 +35,6 @@ type Props = {
   legend: string | null;
   draft: RowDraft;
   unit: Units;
-  placeholder: string;
   onChange: (patch: Partial<RowDraft>) => void;
   onConfirm: () => void;
   onRemove?: () => void;
@@ -37,6 +42,14 @@ type Props = {
   removeLabel?: string;
   /** Mark this planned set as missed and move on (the card confirms first). */
   onSkip?: () => void;
+  /**
+   * A correction only: delete the logged set. A hold, like every irreversible
+   * action, drawn as the bare glyph where the live row keeps Skip set, so the
+   * check stays under the thumb.
+   */
+  onDelete?: () => void;
+  /** "Delete set 2", for screen readers. */
+  deleteLabel?: string;
   onOpenCalculator?: () => void;
   /** A load detail is saved for this exercise: the sheet icon says so in `info`. */
   detailActive?: boolean;
@@ -44,9 +57,6 @@ type Props = {
   caption?: string | null;
   /** The detail the row currently describes, drawn as one compact line. */
   breakdown?: LoadDetail | null;
-  /** How the typed values compare with the same set of the previous session. */
-  weightTrend?: Trend | null;
-  repsTrend?: Trend | null;
   /** Present on plate-loaded exercises: the weight field takes the per-side number. */
   side?: SideInput;
   /** The weight field lost focus: the card snaps the number onto the rack. */
@@ -72,7 +82,9 @@ type Props = {
  * weight, the derived total and its plate breakdown on the left as ONE
  * sideways-scrolling line of fixed height (the data never grows the row, so
  * the check stays where the thumb left it from set to set), Skip set in the
- * middle, the calculator and the check on the right. One line for everything
+ * middle (a correction holds its delete there instead), the calculator and
+ * the check on the right. No placeholders: the header names the target, and a
+ * grey number in an empty field read as one already typed. One line for everything
  * clipped "132.5" behind a base prefix and an arrow on a phone. The ± / RIR
  * controls live once at the bottom of the card and drive this row.
  */
@@ -81,18 +93,17 @@ export const ActiveSetRow = ({
   legend,
   draft,
   unit,
-  placeholder,
   onChange,
   onConfirm,
   onRemove,
   removeLabel,
   onSkip,
+  onDelete,
+  deleteLabel,
   onOpenCalculator,
   detailActive = false,
   caption,
   breakdown,
-  weightTrend = null,
-  repsTrend = null,
   side,
   onBlurWeight,
   kindTag,
@@ -100,7 +111,7 @@ export const ActiveSetRow = ({
   picker = false,
 }: Props) => {
   const t = useT();
-  const { brandContrast, muted, info } = useTheme();
+  const { brandContrast, muted, info, danger } = useTheme();
   const tag = side
     ? t(side.sides === 1 ? 'training.platesTag' : 'training.baseTag', { n: side.baseLabel, unit })
     : (kindTag ?? null);
@@ -109,7 +120,7 @@ export const ActiveSetRow = ({
     <View className="rounded-field border border-brand/40 bg-ink-850 px-3 py-2">
       <View className="mb-2 flex-row items-center gap-2">
         <View className="min-w-0 flex-1">
-          <ScrollRow className="items-center pr-2">
+          <ScrollRow className="items-center pr-2" surface="sunken">
             <Text
               numberOfLines={1}
               className="font-mono-medium text-[11px] uppercase leading-4 tracking-wider text-brand"
@@ -136,12 +147,7 @@ export const ActiveSetRow = ({
       <View className="flex-row items-center gap-2">
         <View className="flex-1">
           {picker && onOpenCalculator ? (
-            <LoadPickerField
-              value={draft.weight}
-              unitLabel={unit}
-              onPress={onOpenCalculator}
-              trend={weightTrend}
-            />
+            <LoadPickerField value={draft.weight} unitLabel={unit} onPress={onOpenCalculator} />
           ) : (
             <SetInput
               value={side ? side.value : draft.weight}
@@ -149,14 +155,12 @@ export const ActiveSetRow = ({
               onBlur={onBlurWeight}
               unitLabel={unit}
               keyboardType="decimal-pad"
-              placeholder="0"
               maxLength={6}
               accessibilityLabel={
                 side
                   ? `${t(side.sides === 1 ? 'training.plates' : 'training.perSide')} (${unit})`
                   : `${t('training.weight')} (${unit})`
               }
-              trend={weightTrend}
             />
           )}
         </View>
@@ -166,17 +170,15 @@ export const ActiveSetRow = ({
             onChangeText={(reps) => onChange({ reps })}
             unitLabel={t('training.repsShort')}
             keyboardType="number-pad"
-            placeholder={placeholder}
             maxLength={3}
             accessibilityLabel={t('training.reps')}
-            trend={repsTrend}
           />
         </View>
       </View>
       <View className="mt-2 flex-row items-center gap-2">
         <View className="min-h-11 min-w-0 flex-1 justify-center">
           {tag || caption || breakdown ? (
-            <ScrollRow className="items-center gap-x-1.5">
+            <ScrollRow className="items-center gap-x-1.5" surface="sunken">
               {tag ? (
                 <Pressable
                   onPress={onChangeKind}
@@ -226,6 +228,14 @@ export const ActiveSetRow = ({
               {t('training.skipSet')}
             </Text>
           </Pressable>
+        ) : null}
+        {onDelete ? (
+          <HoldButton
+            ghost
+            icon={<TrashIcon color={danger} size={16} />}
+            accessibilityLabel={deleteLabel}
+            onComplete={onDelete}
+          />
         ) : null}
         {onOpenCalculator && !picker ? (
           <Pressable

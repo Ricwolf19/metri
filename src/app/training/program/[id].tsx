@@ -9,11 +9,13 @@ import {
 import { useCallback, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { ChevronRightIcon } from '@/components/icons';
+import { ActivityIcon, ChevronRightIcon, EditIcon, SparksIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import {
   Button,
   Card,
+  ChoiceCarousel,
+  type ChoiceCard,
   FadeInUp,
   HoldButton,
   Screen,
@@ -28,9 +30,12 @@ import {
 } from '@/features/training/components/ProgramQuickView';
 import { presetDayName, presetProgramCopy, presetRoutineName } from '@/features/training/programs';
 import { deleteProgramTree } from '@/features/training/authoring.repo';
-import { activeEnrollmentQuery } from '@/features/training/enroll';
+import type { EffortMode } from '@/db/schema';
+import { EFFORT_MODES, effortModeFor } from '@/features/training/effort-mode';
+import { activeEnrollmentQuery, setEffortMode } from '@/features/training/enroll';
 import {
   dayDisplayName,
+  EFFORT_MODE_COPY,
   phaseMeta,
   routineDisplayName,
   scheduleLabel,
@@ -43,6 +48,13 @@ import { useI18n, useT } from '@/i18n';
 import { useDateFormat } from '@/lib/useDateFormat';
 import { afterTransition } from '@/lib/useTransitionSettled';
 import { useTheme } from '@/theme/theme-context';
+
+/** One glyph per effort-logging mode: a measured scale, plain words, the lifter's own pen. */
+const EFFORT_MODE_ICON: Record<EffortMode, ChoiceCard<EffortMode>['Icon']> = {
+  rir: ActivityIcon,
+  simple: SparksIcon,
+  free: EditIcon,
+};
 
 /** Program detail: phases/splits (schedule shown when active), a quick view of any phase or split, Start / Continue / Switch, Edit + hold-to-delete for the owner. */
 const ProgramDetail = () => {
@@ -77,17 +89,30 @@ const ProgramDetail = () => {
       return afterTransition(navigation, () => setQuick(at));
     }, [navigation]),
   );
-  // Reload on focus: the editors behind Edit write straight to SQLite.
+  // Reload on focus: the editors behind Edit write straight to SQLite. Keyed by
+  // the enrollment's id, not its row: an effort-mode pick rewrites the row and
+  // changes nothing in the tree.
+  const enrolledId = enrolledHere && enrollment ? enrollment.id : null;
   useFocusEffect(
     useCallback(() => {
       setProgram(programId ? getProgram(programId) : null);
-      setTree(getProgramTree(programId, enrolledHere && enrollment ? enrollment.id : null));
-    }, [programId, enrolledHere, enrollment]),
+      setTree(getProgramTree(programId, enrolledId));
+    }, [programId, enrolledId]),
   );
 
   if (!program || !user) return <Redirect href="/training" />;
 
   const preset = presetProgramCopy(program.id, locale);
+  // Effort logging belongs to the enrollment (a preset is not editable), so it
+  // is offered only while this program runs; unset, the program's default shows.
+  const effortMode =
+    enrolledHere && enrollment ? effortModeFor(enrollment.programId, enrollment.effortMode) : null;
+  const effortCards: ChoiceCard<EffortMode>[] = EFFORT_MODES.map((mode) => ({
+    value: mode,
+    label: t(EFFORT_MODE_COPY[mode].label),
+    caption: t(EFFORT_MODE_COPY[mode].caption),
+    Icon: EFFORT_MODE_ICON[mode],
+  }));
 
   const mine = program.isCustom && program.userId === user.id;
   const totalWeeks = tree.routines.reduce((sum, r) => sum + r.durationWeeks, 0);
@@ -257,6 +282,21 @@ const ProgramDetail = () => {
             : undefined
         }
       />
+
+      {effortMode && enrollment ? (
+        <View>
+          <SectionLabel label={t('program.effortMode')} hint={t('program.effortModeHint')} />
+          {/* A setting, not a draft: saved on the pick, and an open session follows it. */}
+          <ChoiceCarousel
+            items={effortCards}
+            value={effortMode}
+            onChange={(mode) => setEffortMode(user.id, enrollment.id, mode)}
+          />
+          <Text className="mt-3 text-xs leading-5 text-ink-400">
+            {t(EFFORT_MODE_COPY[effortMode].description)}
+          </Text>
+        </View>
+      ) : null}
 
       <View className="mt-6 gap-3">
         <Button variant="brand" size="lg" label={primaryLabel} onPress={onPrimary} />

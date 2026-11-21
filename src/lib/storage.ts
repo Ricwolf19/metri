@@ -40,6 +40,9 @@ export const SettingKeys = {
   // `settings.workoutLayout` is retired (the session has one view): never reuse the id.
   weightStep: 'settings.weightStep',
   repsStep: 'settings.repsStep',
+  // Whether the live set row opens prefilled; absent = automatic (off on metri
+  // Foundations, see training/set-prefill `prefillEnabled`). Read through `useSetPrefill`.
+  setPrefill: 'training.setPrefill',
   // Section order + hidden sections on the Metrics tab (see features/metrics).
   metricsLayout: 'metrics.layout',
   // `settings.showExerciseArt` is retired (illustrations live on the exercise screen only).

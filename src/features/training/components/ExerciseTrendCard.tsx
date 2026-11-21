@@ -8,15 +8,11 @@ import { useDateFormat } from '@/lib/useDateFormat';
 
 import { bestSetOf, prEvents, weeklyTops, type ExerciseSessionPoint } from '../exercise-trend';
 import { fromKgHalf } from '../progression';
-import { compareToPrevious } from '../set-prefill';
-import { TrendArrow } from './TrendArrow';
 
 type Metric = 'top' | 'e1rm' | 'volume';
 const METRICS: Metric[] = ['top', 'e1rm', 'volume'];
 const MAX_RECORDS = 5;
 const WEEKS = 8;
-/** A week counts as up or down against the one before only past this. */
-const WEEK_EPS_KG = 0.02;
 
 /**
  * One exercise over time: a measure per session (top set, estimated 1RM, or
@@ -99,18 +95,15 @@ export const ExerciseTrendCard = ({
           </Text>
           <View className="mt-1.5">
             <ScrollRow className="gap-1.5">
-              {weeks.map((w, i) => (
+              {/* The numbers alone: an up/down arrow judged a lighter week as worse,
+                  which a deload or a slower tempo is not (the note says so). */}
+              {weeks.map((w) => (
                 <View
                   key={w.weekStart}
                   className="shrink-0 flex-row items-center gap-1.5 rounded-field bg-ink-850 px-2 py-1"
                 >
                   <Text className="text-xs text-ink-400">{dayMonth(new Date(w.weekStart))}</Text>
                   <Text className="font-mono text-sm text-ink-100">{shown(w.topKg)}</Text>
-                  <TrendArrow
-                    trend={
-                      i > 0 ? compareToPrevious(w.topKg, weeks[i - 1].topKg, WEEK_EPS_KG) : null
-                    }
-                  />
                 </View>
               ))}
             </ScrollRow>

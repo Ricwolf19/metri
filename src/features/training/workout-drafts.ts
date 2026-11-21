@@ -2,6 +2,8 @@ import { useCallback, useSyncExternalStore } from 'react';
 
 import type { LoadDetail } from '@/db/schema';
 
+import { setRows } from './set-rows';
+
 /** What the lifter reports after a set; `rir: null` = deliberately skipped. */
 export type Effort = { rir: number | null; failure: boolean };
 
@@ -21,8 +23,20 @@ export type RowDraft = {
   side?: string;
 };
 
-/** `${slotId}:${rowKey}` — rowKey is the exercise-card row (`0`, `1`, …, `w0`, …). */
+/** `${slotId}:${rowKey}` — rowKey is `live` (the row being filled) or `edit:<setId>` (a correction). */
 export type DraftKey = string;
+
+/**
+ * The live row's store key: ONE per slot, never its ordinal. A deleted set or
+ * a restored skip moves the row to another ordinal, and keyed by ordinal it
+ * re-seeded from the prefill there (set 1 from the previous session) while
+ * what was typed sat orphaned under the old ordinal, to resurface once the
+ * row reached it again.
+ */
+export const liveDraftKey = (slotId: string): DraftKey => `${slotId}:live`;
+
+/** A logged set reopened for a correction. */
+export const editDraftKey = (slotId: string, setId: string): DraftKey => `${slotId}:edit:${setId}`;
 
 /** Rows beyond the plan the lifter opened on a slot (extra sets). */
 export type SlotCounts = { extra: number };
@@ -38,8 +52,8 @@ const EMPTY: SessionDrafts = { rows: new Map(), counts: new Map() };
 const NO_COUNTS: SlotCounts = { extra: 0 };
 
 /**
- * Session drafts live outside React: switching exercises in compact view
- * unmounts the card, leaving training mode unmounts the whole screen, and both
+ * Session drafts live outside React: paging to another exercise unmounts the
+ * card, leaving training mode unmounts the whole screen, and both
  * used to throw away half-typed sets. The store is module-level (like the rest
  * timer's MMKV state), keyed by workoutLogId, and cleared when the session
  * ends. Inner maps are replaced immutably so `useSyncExternalStore` snapshots
@@ -89,6 +103,53 @@ export const clearDraftLoads = (logId: string, slotId: string): void => {
     }
   }
   if (changed) setSession(logId, { ...session, rows });
+};
+
+/**
+ * What the live row holds once a logged set is deleted from its correction.
+ * When the live row steps back onto the deleted set's place — it was the
+ * exercise's LAST working set and a row stays open there (`setRows`, the rule
+ * the card draws by) — it takes what the correction held: weight, reps,
+ * per-side text and picture, but not the effort (a redo is a new performance,
+ * so the RIR is asked again). Deleting an earlier set leaves the live row as
+ * it is (null). The lifter's own numbers, never a prefill.
+ */
+export const liveAfterDelete = (input: {
+  /** The exercise's working sets this session, in order, before the delete. */
+  workingIds: readonly string[];
+  deletedId: string;
+  /** The correction's draft as it stands (the logged values when untouched). */
+  edit: RowDraft;
+  /** Planned rows, the ordinals skipped, extra rows open. */
+  plannedRows: number;
+  skipped: ReadonlySet<number>;
+  extraRows: number;
+}): RowDraft | null => {
+  const { workingIds, deletedId, edit, plannedRows, skipped, extraRows } = input;
+  const rows = { planned: plannedRows, skipped, extra: extraRows };
+  const place = setRows({ ...rows, working: workingIds }).model.find(
+    (r) => r.logged === deletedId,
+  )?.i;
+  const after = setRows({ ...rows, working: workingIds.filter((id) => id !== deletedId) });
+  return place != null && after.live === place ? { ...edit, effort: null } : null;
+};
+
+/**
+ * A set deleted from its correction: the correction's draft goes and, when
+ * `liveAfterDelete` says so, the live row takes its values — one write, so no
+ * render sees the one without the other.
+ */
+export const settleDeletedSet = (
+  logId: string,
+  editKey: DraftKey,
+  live: { key: DraftKey; draft: RowDraft } | null,
+): void => {
+  const session = read(logId);
+  if (!live && !session.rows.has(editKey)) return;
+  const rows = new Map(session.rows);
+  rows.delete(editKey);
+  if (live) rows.set(live.key, live.draft);
+  setSession(logId, { ...session, rows });
 };
 
 export const writeSlotCounts = (logId: string, slotId: string, counts: SlotCounts): void => {

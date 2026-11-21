@@ -25,11 +25,11 @@ import {
   BlockingOverlay,
   Card,
   IconButton,
+  KEYBOARD_CLEARANCE,
+  OnSurface,
   Screen,
-  ScrollArea,
   SegmentedControl,
   OptionSheet,
-  Sheet,
   type SelectItem,
   TextLink,
   TimedModal,
@@ -37,6 +37,7 @@ import {
   useToast,
 } from '@/components/ui';
 import type {
+  EffortMode,
   Equipment,
   Exercise,
   ExerciseSetting,
@@ -48,6 +49,7 @@ import type {
 } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
 import { lbToKg } from '@/features/bmr/calc';
+import { EffortSheet } from '@/features/training/components/EffortSheet';
 import { ExerciseDocButton } from '@/features/training/components/ExerciseDocButton';
 import { ActiveSetRow } from '@/features/training/components/ActiveSetRow';
 import { ExerciseFrames } from '@/features/training/components/ExerciseFrames';
@@ -83,6 +85,7 @@ import {
 } from '@/features/training/session-state';
 import {
   dayDisplayName,
+  effortWords,
   groupIntensity,
   targetLine,
   type SetTarget,
@@ -123,31 +126,34 @@ import { sideStep, sideFieldFromTotal, totalFromSide } from '@/features/training
 import { dumbbellRack } from '@/features/training/dumbbell-rack';
 import { stepAlong } from '@/features/training/ladder';
 import { getWorkoutDay } from '@/features/training/programs.repo';
+import { enrollmentQuery } from '@/features/training/enroll';
+import { effortModeFor, effortRequired } from '@/features/training/effort-mode';
 import { getRoutine, reorderSplitFromNowOn } from '@/features/training/authoring.repo';
 import { fromKg, isRmTestWeek } from '@/features/training/progression';
 import { closeSession } from '@/features/training/close-session';
 import { sessionShareModel } from '@/features/share/models';
 import { ShareSheet } from '@/features/share/ShareSheet';
-import {
-  bumpValue,
-  compareToPrevious,
-  nextSetPrefill,
-  previousSetFor,
-  weightText,
-} from '@/features/training/set-prefill';
+import { bumpValue, nextSetPrefill, weightText } from '@/features/training/set-prefill';
+import { useSetPrefill } from '@/features/training/useSetPrefill';
 import { badgeDetail, badgeLabel } from '@/features/training/programs/badge-copy';
 import { sessionBadges } from '@/features/training/session-badges';
 import { oneDumbbellFill, seedRow } from '@/features/training/row-seed';
+import { setRows } from '@/features/training/set-rows';
 import {
   clearDraft,
   clearDraftLoads,
+  editDraftKey,
+  liveAfterDelete,
+  liveDraftKey,
   readFocusSlot,
   readSessionDrafts,
+  settleDeletedSet,
   useSessionDrafts,
   useSlotCounts,
   writeDraft,
   writeFocusSlot,
   writeSlotCounts,
+  type DraftKey,
   type Effort,
   type RowDraft,
 } from '@/features/training/workout-drafts';
@@ -155,6 +161,7 @@ import {
   getWorkout,
   workoutQuery,
   applySwap,
+  deleteSet,
   logSet,
   markRemainingSkipped,
   type SwapScope,
@@ -250,26 +257,6 @@ const ElapsedClock = ({ startedAt }: { startedAt: Date }) => {
     : `${Math.floor(s / 60)}:${pad2(s % 60)}`;
   return <Text className="font-mono-medium text-xs tabular-nums text-ink-300">{label}</Text>;
 };
-/**
- * Planned ordinals with the logged sets poured into the non-skipped ones in
- * order: a skipped row keeps its number, the sets after it shift nothing.
- */
-const rowModel = (
-  total: number,
-  skipped: ReadonlySet<number>,
-  working: readonly SetLog[],
-): { i: number; logged: SetLog | null }[] => {
-  let w = 0;
-  return Array.from({ length: total }, (_, i) => {
-    if (skipped.has(i)) return { i, logged: null };
-    const logged = working[w] ?? null;
-    if (logged) w += 1;
-    return { i, logged };
-  });
-};
-
-/** The row the action bar drives: a pending warm-up first, else the next working set. */
-type RowKey = string;
 
 type CardProps = {
   workoutLogId: string;
@@ -280,6 +267,17 @@ type CardProps = {
   previous: PreviousSession | null;
   /** Progression suggestion (kg) for the first set, when history supports one. */
   suggestedKg: number | null;
+  /**
+   * The live row opens on the prefill chain (`nextSetPrefill`); off, it opens
+   * empty and "Last training" is the only reference (`useSetPrefill`).
+   */
+  prefill: boolean;
+  /**
+   * How the session asks for effort (`effortModeFor`, the enrollment's pick or
+   * the program's default): which sets may not log without one, and how every
+   * effort on the card reads.
+   */
+  effortMode: EffortMode;
   /** How the exercise is loaded and whether each side is logged on its own. */
   facts: { equipment: Equipment | null; unilateral: boolean } | null;
   /** The owner's defaults for the exercise on the card (its last load config). */
@@ -316,6 +314,8 @@ const ExerciseCard = ({
   unit,
   previous,
   suggestedKg: suggested,
+  prefill,
+  effortMode,
   facts,
   loadSetting,
   userId,
@@ -356,7 +356,7 @@ const ExerciseCard = ({
   const [calcSeed, setCalcSeed] = useState<LoadDetail | null>(null);
   // The machine's loading, re-asked from the row's tag (plates per side, one post, stack).
   const [kindOpen, setKindOpen] = useState(false);
-  // A logged set reopened for a correction; its draft lives under `edit:<id>`.
+  // A logged set reopened for a correction; its draft lives under `editDraftKey`.
   const [editingId, setEditingId] = useState<string | null>(null);
   // The lifter's note, opened from the header pencil.
   const [noteOpen, setNoteOpen] = useState(false);
@@ -373,14 +373,16 @@ const ExerciseCard = ({
   const rows = useMemo(() => expandRows(planned.setGroups, t), [planned.setGroups, t]);
   const working = sets.filter((s) => !s.isWarmup);
   const doneCount = working.length;
-  // Skipped rows are settled like logged ones: they hold their ordinal and
-  // the live row sits after the last settled one.
+  // Skipped rows are settled like logged ones: they hold their ordinal, and
+  // the live row is the first ordinal neither skipped nor logged (`setRows`).
   const skippedSet = new Set(planned.skippedSets ?? []);
   const resolvedCount = doneCount + skippedSet.size;
   const planDone = resolvedCount >= rows.length;
-  /** A planned row says whether it measures effort; a set beyond the plan always does. */
-  const wantsEffortAt = (i: number) => rows[i]?.wantsEffort ?? true;
-  const totalRows = Math.max(rows.length, resolvedCount) + extraRows;
+  /**
+   * A planned row says whether it measures effort; a set beyond the plan always
+   * does — unless the program logs effort freely (`effortRequired`).
+   */
+  const wantsEffortAt = (i: number) => effortRequired(effortMode, rows[i]?.wantsEffort ?? true);
   // Snapshots from before the badges key existed carry `undefined` — normalize
   // instead of letting the row read `.length` off nothing.
   const badges = sessionBadges(planned.badges);
@@ -430,20 +432,29 @@ const ExerciseCard = ({
   // what the row asks for, so the card asks first.
   const needsMachineKind =
     facts?.equipment === 'machine' && machineLoadKind(loadSetting?.load) === null;
-  const activeKey: RowKey | null = resolvedCount < totalRows ? `${resolvedCount}` : null;
+  // Which planned row a logged set sits on (skipped ordinals shift the rest
+  // down), and the live row: the first ordinal neither skipped nor logged. Its
+  // ordinal moves (a deleted set, a restored skip) but its draft key does not,
+  // so what was typed stays.
+  const { model, live: liveIndex } = setRows({
+    planned: rows.length,
+    skipped: skippedSet,
+    working,
+    extra: extraRows,
+  });
+  const liveKey: DraftKey | null = liveIndex != null ? liveDraftKey(planned.slotId) : null;
   const editing = editingId ? (working.find((s) => s.id === editingId) ?? null) : null;
-  const editKey: RowKey | null = editing ? `edit:${editing.id}` : null;
-  // Which planned row a logged set sits on: skipped ordinals shift the rest down.
-  const model = rowModel(totalRows, skippedSet, working);
+  const editKey: DraftKey | null = editing ? editDraftKey(planned.slotId, editing.id) : null;
   const editIndex = editing ? model.findIndex((r) => r.logged?.id === editing.id) : -1;
   /** The row the control bar and the sheet drive: the correction in progress, else the live row. */
-  const focusKey = editKey ?? activeKey;
+  const focusKey = editKey ?? liveKey;
 
-  /** Store keys carry the slotId so drafts from different exercises never mix. */
-  const storeKey = (key: RowKey) => `${planned.slotId}:${key}`;
-
-  const seedDraft = (key: RowKey): RowDraft => {
-    const i = Number(key);
+  const seedLive = (): RowDraft => {
+    // Prefill off (automatic on a beginner's Foundations, or the lifter's
+    // choice): every set is filled by hand — no number, no picture to confirm.
+    if (!prefill) return { weight: '', reps: '', effort: null, load: null };
+    // Only the live row seeds (a correction starts from its own set).
+    const i = liveIndex ?? 0;
     // Set 1 opens on last session's set 1; every later set on the set just
     // logged here (`nextSetPrefill`) — and the plates, pin or dumbbells come
     // with the number (`seedRow`).
@@ -473,16 +484,16 @@ const ExerciseCard = ({
         : null,
     load: logged.load ?? null,
   });
-  const seedFor = (key: RowKey): RowDraft =>
-    key === editKey && editing ? editSeed(editing) : seedDraft(key);
-  const draftFor = (key: RowKey): RowDraft => drafts.get(storeKey(key)) ?? seedFor(key);
+  const seedFor = (key: DraftKey): RowDraft =>
+    key === editKey && editing ? editSeed(editing) : seedLive();
+  const draftFor = (key: DraftKey): RowDraft => drafts.get(key) ?? seedFor(key);
   // The store, not the render snapshot: two writes in one handler (snap, then
   // log) must each see the other.
-  const freshDraft = (key: RowKey): RowDraft =>
-    readSessionDrafts(workoutLogId).get(storeKey(key)) ?? seedFor(key);
+  const freshDraft = (key: DraftKey): RowDraft =>
+    readSessionDrafts(workoutLogId).get(key) ?? seedFor(key);
   // Every change to the number re-derives how it is built (`deriveLoad`), so a
   // ± tap keeps the plates; the sheet is the one caller that hands its own `load`.
-  const patchDraft = (key: RowKey, patch: Partial<RowDraft>) => {
+  const patchDraft = (key: DraftKey, patch: Partial<RowDraft>) => {
     const next = { ...freshDraft(key), ...patch };
     // A typed total or per-hand number stops at the cap (per-side is capped in `setSide`).
     if ('weight' in patch && !('side' in patch) && !perSide) {
@@ -493,10 +504,10 @@ const ExerciseCard = ({
       }
     }
     const renumbered = ('weight' in patch || 'side' in patch) && !('load' in patch);
-    writeDraft(workoutLogId, storeKey(key), renumbered ? { ...next, load: deriveFor(next) } : next);
+    writeDraft(workoutLogId, key, renumbered ? { ...next, load: deriveFor(next) } : next);
   };
   /** Per-side typing: the total follows. */
-  const setSide = (key: RowKey, text: string) => {
+  const setSide = (key: DraftKey, text: string) => {
     const typed = parseDecimal(text);
     const side = typed == null ? null : clampInput('perSide', typed, unit);
     patchDraft(key, {
@@ -510,7 +521,7 @@ const ExerciseCard = ({
    * dumbbell to the half; the total of a stack or a plain number is left as
    * typed. Silent — this IS the rounding the lifter expects, not a correction.
    */
-  const snapDraft = (key: RowKey) => {
+  const snapDraft = (key: DraftKey) => {
     const draft = freshDraft(key);
     if (perSide) {
       const side = parseDecimal(sideOf(draft));
@@ -531,7 +542,7 @@ const ExerciseCard = ({
   const setExtraRows = (n: number) =>
     writeSlotCounts(workoutLogId, planned.slotId, { extra: Math.max(0, n) });
 
-  const stepDraft = (key: RowKey, field: 'weight' | 'reps', delta: number) => {
+  const stepDraft = (key: DraftKey, field: 'weight' | 'reps', delta: number) => {
     const draft = freshDraft(key);
     // A stack moves pin by pin (past a plate change too): at least one pin, the
     // one nearest the step asked for, so ± never lands between two holes.
@@ -584,7 +595,7 @@ const ExerciseCard = ({
    * missing — except a missing RIR, which reads as 'effort': the check asks for
    * it (`readWithEffort`) instead of refusing.
    */
-  const readDraft = (key: RowKey, wantsEffort: boolean) => {
+  const readDraft = (key: DraftKey, wantsEffort: boolean) => {
     // The check is tapped without leaving the field, so the blur snap runs here too.
     snapDraft(key);
     const draft = freshDraft(key);
@@ -599,8 +610,9 @@ const ExerciseCard = ({
       toast.error(t('training.needReps'));
       return null;
     }
-    // A prescription that measures effort is not logged without it: the RIR
-    // chip in the action bar picks it ahead, else the check opens the picker.
+    // A prescription that measures effort is not logged without it (free mode
+    // never asks): the effort chip in the action bar picks it ahead, else the
+    // check opens the picker.
     const effort = draft.effort;
     if (wantsEffort && !effort) return 'effort' as const;
     const weightKg = unit === 'lb' ? lbToKg(w) : w;
@@ -619,7 +631,7 @@ const ExerciseCard = ({
   };
 
   /** `readDraft`, but a missing RIR opens the effort sheet and the pick completes the set. */
-  const readWithEffort = async (key: RowKey, wantsEffort: boolean) => {
+  const readWithEffort = async (key: DraftKey, wantsEffort: boolean) => {
     const read = readDraft(key, wantsEffort);
     if (read !== 'effort') return read;
     const picked = await requestEffort();
@@ -629,8 +641,10 @@ const ExerciseCard = ({
     return again === 'effort' ? null : again;
   };
 
-  const confirm = async (key: RowKey) => {
-    const index = Number(key);
+  const confirm = async () => {
+    if (!liveKey || liveIndex == null) return;
+    const key = liveKey;
+    const index = liveIndex;
     const extra = index >= rows.length;
     // Checked before the order question: an incomplete row never asks to move.
     const read = await readWithEffort(key, wantsEffortAt(index));
@@ -638,7 +652,7 @@ const ExerciseCard = ({
     guardOrder(() => {
       const logged = logSet({ workoutLogId, exerciseId: planned.exerciseId, ...read });
       haptic('confirm');
-      clearDraft(workoutLogId, storeKey(key));
+      clearDraft(workoutLogId, key);
       // The row turns into a logged one and the rest starts: say so, or a
       // screen reader user hears nothing at all.
       AccessibilityInfo.announceForAccessibility(
@@ -672,16 +686,40 @@ const ExerciseCard = ({
     if (!read) return;
     updateSet(editing.id, read);
     haptic('confirm');
-    clearDraft(workoutLogId, storeKey(editKey));
+    clearDraft(workoutLogId, editKey);
     setEditingId(null);
   };
   const cancelEdit = () => {
-    if (editKey) clearDraft(workoutLogId, storeKey(editKey));
+    if (editKey) clearDraft(workoutLogId, editKey);
     setEditingId(null);
   };
   const startEdit = (id: string) => {
-    if (editKey) clearDraft(workoutLogId, storeKey(editKey));
+    if (editKey) clearDraft(workoutLogId, editKey);
     setEditingId(id);
+  };
+  /**
+   * The correction's delete (a hold). Deleting the exercise's last set steps
+   * the live row back onto its place with what the correction held — the
+   * lifter's numbers, not the prefill (`liveAfterDelete`); an earlier set
+   * leaves the live row as it is.
+   */
+  const deleteEditing = () => {
+    if (!editing || !editKey) return;
+    const carried = liveAfterDelete({
+      workingIds: working.map((s) => s.id),
+      deletedId: editing.id,
+      edit: freshDraft(editKey),
+      plannedRows: rows.length,
+      skipped: skippedSet,
+      extraRows,
+    });
+    deleteSet(editing.id);
+    settleDeletedSet(
+      workoutLogId,
+      editKey,
+      carried ? { key: liveDraftKey(planned.slotId), draft: carried } : null,
+    );
+    setEditingId(null);
   };
 
   const pickEffort = async () => {
@@ -742,8 +780,9 @@ const ExerciseCard = ({
   };
   // Skips are confirmed with a hold: they write "missed" into the session.
   const skipSet = () => {
-    if (!activeKey) return;
-    const index = Number(activeKey);
+    if (!liveKey || liveIndex == null) return;
+    const key = liveKey;
+    const index = liveIndex;
     dialog.confirm({
       title: t('training.skipSetTitle', { n: index + 1 }),
       message: t('training.skipSetBody'),
@@ -751,7 +790,7 @@ const ExerciseCard = ({
       destructive: true,
       onConfirm: () => {
         skipSnapshotSet(workoutLogId, planned.slotId, index, true);
-        clearDraft(workoutLogId, storeKey(activeKey));
+        clearDraft(workoutLogId, key);
         onSkipped({
           ...planned,
           skippedSets: [...(planned.skippedSets ?? []), index].sort((a, b) => a - b),
@@ -774,24 +813,20 @@ const ExerciseCard = ({
   const restoreExercise = () => skipSnapshotExercise(workoutLogId, planned.slotId, false);
 
   const focusDraft = focusKey ? draftFor(focusKey) : null;
+  // The effort chip names the pick in the session's notation ("RIR 2", "Hard").
+  const focusEffortText = focusDraft?.effort
+    ? effortWords(
+        { rir: focusDraft.effort.rir, isFailure: focusDraft.effort.failure },
+        t,
+        effortMode,
+      )
+    : null;
   const focusWantsEffort = editing
     ? wantsEffortAt(editIndex)
-    : activeKey
-      ? wantsEffortAt(Number(activeKey))
+    : liveIndex != null
+      ? wantsEffortAt(liveIndex)
       : false;
   const detailActive = hasLoadDetail(loadSetting);
-  /** The typed values against the same set last time; nothing for warm-ups or without history. */
-  const trendsFor = (index: number, draft: RowDraft) => {
-    const none = { weight: null, reps: null };
-    const ref = previousSetFor(previousSets, index);
-    if (!ref) return none;
-    const typed = parseDecimal(draft.weight);
-    const typedKg = typed == null ? null : unit === 'lb' ? lbToKg(typed) : typed;
-    return {
-      weight: compareToPrevious(typedKg, ref.weightKg, 0.02),
-      reps: compareToPrevious(parseInteger(draft.reps), ref.reps),
-    };
-  };
   /** What the number in the row means when it is not simply the total, and how it is built. */
   const rowCaption = (draft: RowDraft): { text: string | null; breakdown: LoadDetail | null } => {
     const value = parseDecimal(draft.weight);
@@ -826,7 +861,7 @@ const ExerciseCard = ({
     return { text: null, breakdown };
   };
   /** The per-side field for `ActiveSetRow`, on plate-loaded rows only. */
-  const sideInputFor = (key: RowKey, draft: RowDraft) =>
+  const sideInputFor = (key: DraftKey, draft: RowDraft) =>
     perSide
       ? {
           baseLabel: formatNumber(baseInUnit, 2),
@@ -839,6 +874,25 @@ const ExerciseCard = ({
   // A stack has no base to name, so the row's tag says what it is; any machine's tag re-opens the choice.
   const kindTag = machineKind === 'stack' ? t('training.stackTag') : undefined;
   const onChangeKind = machineKind ? () => setKindOpen(true) : undefined;
+  /** What the live row and a correction share: the draft under `key`, how its load reads, the sheet. */
+  const draftRowProps = (key: DraftKey) => {
+    const draft = draftFor(key);
+    const cap = rowCaption(draft);
+    return {
+      draft,
+      unit,
+      onChange: (patch: Partial<RowDraft>) => patchDraft(key, patch),
+      onOpenCalculator: () => setCalcOpen(true),
+      detailActive,
+      caption: cap.text,
+      breakdown: cap.breakdown,
+      side: sideInputFor(key, draft),
+      onBlurWeight: () => snapDraft(key),
+      kindTag,
+      onChangeKind,
+      picker,
+    };
+  };
   // Plates write their seed at once; a stack needs base + pins, so it opens the sheet.
   // Re-choosing from the row's tag resets the saved picture the same way the
   // exercise page does: the next number is built on the new kind.
@@ -998,14 +1052,22 @@ const ExerciseCard = ({
       />
 
       {previous?.sets.length ? (
-        <LastTraining previous={previous} unit={unit} onSetPress={setPreview} />
+        <LastTraining
+          previous={previous}
+          unit={unit}
+          effortMode={effortMode}
+          onSetPress={setPreview}
+        />
       ) : null}
 
       {/* Asked once per machine, before the first number: plates and a pin stack
           are different rows (per side vs total) and different pictures. */}
       {needsMachineKind ? (
         <View className="mt-3 rounded-field border border-ink-700 bg-ink-850 px-3 py-2.5">
-          <MachineLoadChooser value={null} onChange={chooseMachineKind} />
+          {/* The box paints the card's inset fill: the chooser's strip fades into it. */}
+          <OnSurface surface="sunken">
+            <MachineLoadChooser value={null} onChange={chooseMachineKind} />
+          </OnSurface>
         </View>
       ) : loadHint ? (
         <View className="mt-3 flex-row flex-wrap items-center gap-x-1.5">
@@ -1047,32 +1109,17 @@ const ExerciseCard = ({
             );
           }
           if (logged && editKey && logged.id === editingId) {
-            const draft = draftFor(editKey);
-            const trend = trendsFor(i, draft);
-            const cap = rowCaption(draft);
             return (
               <ActiveSetRow
                 key={editKey}
                 label={t('training.setEditing', { n: i + 1 })}
                 legend={legend}
-                draft={draft}
-                unit={unit}
-                placeholder={row ? `${row.reps}${row.repsMax ? `-${row.repsMax}` : ''}` : '0'}
-                onChange={(patch) => patchDraft(editKey, patch)}
+                {...draftRowProps(editKey)}
                 onConfirm={() => void confirmEdit()}
                 onRemove={cancelEdit}
                 removeLabel={t('training.cancelEdit')}
-                onOpenCalculator={() => setCalcOpen(true)}
-                detailActive={detailActive}
-                caption={cap.text}
-                breakdown={cap.breakdown}
-                weightTrend={trend.weight}
-                repsTrend={trend.reps}
-                side={sideInputFor(editKey, draft)}
-                onBlurWeight={() => snapDraft(editKey)}
-                kindTag={kindTag}
-                onChangeKind={onChangeKind}
-                picker={picker}
+                onDelete={deleteEditing}
+                deleteLabel={t('training.deleteSet', { n: i + 1 })}
               />
             );
           }
@@ -1083,50 +1130,31 @@ const ExerciseCard = ({
                 label={String(i + 1)}
                 logged={logged}
                 unit={unit}
-                warmup={false}
-                failureLabel={t('training.failure')}
-                editHint={t('training.editSetHint')}
+                effortMode={effortMode}
                 onEdit={() => startEdit(logged.id)}
                 onWeightPress={() => setPreview(logged)}
               />
             );
           }
-          if (key !== activeKey) {
+          if (!liveKey || i !== liveIndex) {
             return <PendingRow key={key} label={String(i + 1)} legend={legend} />;
           }
-          const draft = draftFor(key);
-          const trend = trendsFor(i, draft);
-          const cap = rowCaption(draft);
           return (
             <ActiveSetRow
               key={key}
               label={t('training.setN', { n: i + 1 })}
               legend={legend}
-              draft={draft}
-              unit={unit}
-              placeholder={row ? `${row.reps}${row.repsMax ? `-${row.repsMax}` : ''}` : '0'}
-              onChange={(patch) => patchDraft(key, patch)}
-              onConfirm={() => void confirm(key)}
+              {...draftRowProps(liveKey)}
+              onConfirm={() => void confirm()}
               onSkip={row ? skipSet : undefined}
               onRemove={
                 row
                   ? undefined
                   : () => {
-                      clearDraft(workoutLogId, storeKey(key));
+                      clearDraft(workoutLogId, liveKey);
                       setExtraRows(extraRows - 1);
                     }
               }
-              onOpenCalculator={() => setCalcOpen(true)}
-              detailActive={detailActive}
-              caption={cap.text}
-              breakdown={cap.breakdown}
-              weightTrend={trend.weight}
-              repsTrend={trend.reps}
-              side={sideInputFor(key, draft)}
-              onBlurWeight={() => snapDraft(key)}
-              kindTag={kindTag}
-              onChangeKind={onChangeKind}
-              picker={picker}
             />
           );
         })}
@@ -1161,7 +1189,7 @@ const ExerciseCard = ({
           <Pressable
             onPress={() => void pickEffort()}
             accessibilityRole="button"
-            accessibilityLabel={effortChipLabel(focusDraft.effort, t)}
+            accessibilityLabel={effortChipLabel(focusDraft.effort, t, effortMode)}
             accessibilityHint={t('training.effortTitle')}
             className={[
               'min-h-11 flex-row items-center justify-center gap-1 rounded-field border px-3',
@@ -1186,11 +1214,7 @@ const ExerciseCard = ({
                   : 'text-ink-200',
               ].join(' ')}
             >
-              {focusDraft.effort
-                ? focusDraft.effort.failure
-                  ? t('training.failure')
-                  : `RIR ${focusDraft.effort.rir}`
-                : 'RIR'}
+              {focusEffortText ?? (effortMode === 'simple' ? t('training.effortShort') : 'RIR')}
             </Text>
           </Pressable>
         </View>
@@ -1220,6 +1244,7 @@ const ExerciseCard = ({
         onClose={() => setPreview(null)}
         unit={unit}
         equipment={facts?.equipment ?? null}
+        effortMode={effortMode}
       />
 
       {/* The load sheet applies straight into the live row's draft, and a
@@ -1279,7 +1304,7 @@ const WorkoutSession = () => {
   }, [id]);
 
   const { units: unit, setUnits } = useEquipmentUnits();
-  // The chip a hold picked up: the paging arrows move it instead of paging,
+  // The chip a hold picked up: arrows appear beside the strip to move it,
   // until a tap on the strip puts it down.
   const [lifted, setLifted] = useState<string | null>(null);
   // The order when the chip was lifted, so putting it down knows whether anything moved.
@@ -1318,6 +1343,8 @@ const WorkoutSession = () => {
   }, [logId, focusedSlotId]);
   const activeRest = useActiveRest();
   const rest = activeRest?.workoutId === log?.id ? activeRest : null;
+  // The rest bar sits under the scroll view; a focused field must clear it.
+  const [restBarHeight, setRestBarHeight] = useState(0);
   const [summary, setSummary] = useState<SessionSummary | null>(null);
   // The share sheet holds the summary's ring while it is up.
   const [sharing, setSharing] = useState(false);
@@ -1325,6 +1352,19 @@ const WorkoutSession = () => {
 
   const day = workoutDayId ? getWorkoutDay(workoutDayId) : null;
   const routine = day ? getRoutine(day.routineId) : null;
+  // The enrollment the session belongs to: its template decides the defaults
+  // below, and it holds the lifter's effort pick (`user_programs.effort_mode`).
+  // Live, so a change on the program screen reaches a session already open.
+  const userProgramId = log?.userProgramId ?? '';
+  const { data: enrollmentRows } = useLiveQuery(enrollmentQuery(user?.id ?? '', userProgramId), [
+    user?.id,
+    userProgramId,
+  ]);
+  const enrollment = enrollmentRows[0] ?? null;
+  const effortMode = effortModeFor(enrollment?.programId, enrollment?.effortMode);
+  // A beginner's Foundations session opens its sets empty unless the lifter
+  // switched prefill on in Settings.
+  const { enabled: prefill } = useSetPrefill(enrollment?.programId);
   const { data: sets } = useLiveQuery(setLogsQuery(typeof id === 'string' ? id : ''), [id]);
 
   // Prefill source per snapshot slot, keyed by the exercise ON the slot and
@@ -1415,7 +1455,9 @@ const WorkoutSession = () => {
       exerciseName: slot.name,
       setLabel: t('session.setOf', { n: upcoming.setNumber, total: upcoming.setTotal }),
       targetLabel: row ? targetLine(row, t) : '',
-      weightLabel: fill.weightKg != null ? `${weightText(fill.weightKg, unit)} ${unit}` : '',
+      // Prefill off, the row opens empty: the card must not name a load it won't show.
+      weightLabel:
+        prefill && fill.weightKg != null ? `${weightText(fill.weightKg, unit)} ${unit}` : '',
     };
   };
 
@@ -1459,6 +1501,7 @@ const WorkoutSession = () => {
     log?.plannedSnapshot,
     sets.filter((s) => !s.isWarmup).map((s) => [s.id, s.weightKg, s.reps]),
     unit,
+    prefill,
   ]);
   useEffect(() => {
     if (!liveWorkoutId) return;
@@ -1514,8 +1557,11 @@ const WorkoutSession = () => {
     });
 
   // Confirmed before anything happens: the two header buttons sit side by side,
-  // and ending a session by a mis-tap cannot be undone.
-  const finish = () =>
+  // and ending a session by a mis-tap cannot be undone. A rest still running
+  // ends as the question opens: nothing is left to rest for, and the alarm
+  // must not ring over the prompt (`endRest` is the one place it stops).
+  const finish = () => {
+    if (restState.get()?.workoutId === log.id) void endRest();
     dialog.confirm({
       title: t('training.finishConfirm'),
       message: t('training.finishConfirmBody'),
@@ -1528,6 +1574,7 @@ const WorkoutSession = () => {
         setSummary(sessionSummary(log.id, locale));
       },
     });
+  };
 
   /**
    * After a set is settled (logged or skipped): page to the next exercise with
@@ -1577,6 +1624,12 @@ const WorkoutSession = () => {
       ? nextSetSummary(plannedNow, slotId, doneCount, doneFor)
       : advanceAfter(plannedNow, slotId, doneCount);
     const record = sessionRecord(log, nextSetCopy(plannedNow, upcoming, logged));
+    // The last set opened the finish prompt (`advanceAfter`): no rest starts
+    // under it — the prompt has already ended any rest still running.
+    if (!stay && upcoming.kind === 'done') {
+      void showSession(record);
+      return;
+    }
     const restPayload = {
       workoutId: log.id,
       slotId,
@@ -1639,9 +1692,9 @@ const WorkoutSession = () => {
   const changeUnit = (next: Units) => setUnits(next);
 
   // One exercise per page: the chip strip is the navigation (it follows the
-  // current page), Prev/Next step through, and the page holds nothing but the
-  // exercise at hand. Missed exercises sit at the end of the strip, so paging
-  // walks the strip's order, not the snapshot's.
+  // current page, a tap opens another), and the page holds nothing but the
+  // exercise at hand. Missed exercises sit at the end of the strip, so the
+  // numbering walks the strip's order, not the snapshot's.
   const { active, missed } = sessionOrder(planned, doneFor);
   const ordered = [...active, ...missed];
   const idx = Math.max(
@@ -1649,10 +1702,6 @@ const WorkoutSession = () => {
     ordered.findIndex((p) => p.slotId === focusedSlotId),
   );
   const current = ordered[idx] ?? null;
-  const goTo = (index: number) => {
-    const slot = ordered[index];
-    if (slot) setPageSlot(slot.slotId);
-  };
   /** A new order of the exercises in play; missed ones keep their snapshot places. */
   const writeActiveOrder = (activeIds: string[]) =>
     reorderSnapshot(
@@ -1760,10 +1809,6 @@ const WorkoutSession = () => {
     if (lifted) putDown();
     setPageSlot(slotId);
   };
-  const stepLeft = () => (lifted ? moveLifted(-1) : goTo(idx - 1));
-  const stepRight = () => (lifted ? moveLifted(1) : goTo(idx + 1));
-  const atStart = lifted ? liftedIndex <= 0 : idx === 0;
-  const atEnd = lifted ? liftedIndex >= active.length - 1 : idx >= ordered.length - 1;
   // An exercise from the library joins today's session — for today, or kept
   // in the split from now on. It lands last among the exercises still in play.
   const addExercise = (exercise: Exercise) => {
@@ -1795,22 +1840,34 @@ const WorkoutSession = () => {
     hasNote: notedIds.has(p.exerciseId),
   });
 
-  // Paging arrows flank the chip strip: one line carries the whole navigation.
-  // As tall as the chips (44 dp); while a chip is lifted they move it, and
-  // their names say so.
+  // The strip is the navigation: it scrolls, and a tap opens an exercise.
+  // Arrows flank it only while a chip is lifted, to move that chip one place
+  // (44 dp, as tall as the chips); paging arrows beside it cost a line's width
+  // for what a scroll and a tap already do.
   const NAV_BTN = 'h-11 w-11 shrink-0 items-center justify-center rounded-field bg-ink-800';
+  const moveButton = (side: 'left' | 'right') => {
+    const disabled = side === 'left' ? liftedIndex <= 0 : liftedIndex >= active.length - 1;
+    return (
+      <Pressable
+        onPress={() => moveLifted(side === 'left' ? -1 : 1)}
+        disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel={t(side === 'left' ? 'training.moveEarlier' : 'training.moveLater')}
+        accessibilityState={{ disabled }}
+        className={[NAV_BTN, disabled ? 'opacity-40' : ''].join(' ')}
+      >
+        {side === 'left' ? (
+          <ChevronLeftIcon color={muted} size={16} />
+        ) : (
+          <ChevronRightIcon color={muted} size={16} />
+        )}
+      </Pressable>
+    );
+  };
   const exerciseChips =
     planned.length > 0 ? (
       <View className="mb-3 flex-row items-center gap-2">
-        <Pressable
-          onPress={stepLeft}
-          disabled={atStart}
-          accessibilityRole="button"
-          accessibilityLabel={t(lifted ? 'training.moveEarlier' : 'training.prev')}
-          className={[NAV_BTN, atStart ? 'opacity-40' : ''].join(' ')}
-        >
-          <ChevronLeftIcon color={muted} size={16} />
-        </Pressable>
+        {lifted ? moveButton('left') : null}
         <View className="min-w-0 flex-1">
           <SessionChipStrip
             active={active.map(chipOf)}
@@ -1822,15 +1879,7 @@ const WorkoutSession = () => {
             onAdd={() => setAddOpen(true)}
           />
         </View>
-        <Pressable
-          onPress={stepRight}
-          disabled={atEnd}
-          accessibilityRole="button"
-          accessibilityLabel={t(lifted ? 'training.moveLater' : 'training.next')}
-          className={[NAV_BTN, atEnd ? 'opacity-40' : ''].join(' ')}
-        >
-          <ChevronRightIcon color={muted} size={16} />
-        </Pressable>
+        {lifted ? moveButton('right') : null}
       </View>
     ) : null;
 
@@ -1913,10 +1962,15 @@ const WorkoutSession = () => {
         </View>
       </View>
 
+      {/* The screen's padding lifts everything under the scroll view above the
+       * keyboard — the rest bar too — so a focused field keeps the app-wide
+       * clearance for the actions under it (the set row's check, the note's
+       * Save) plus that bar while a rest shows: with only its own 24 dp, it
+       * landed behind the timer and its buttons under the keyboard. */}
       <KeyboardAwareScrollView
         className="flex-1"
         contentContainerClassName="grow px-5 pb-2"
-        bottomOffset={24}
+        bottomOffset={KEYBOARD_CLEARANCE + (rest ? restBarHeight : 0)}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -1980,6 +2034,8 @@ const WorkoutSession = () => {
               unit={unit}
               previous={previousBySlot.get(current.slotId) ?? null}
               suggestedKg={suggestedBySlot.get(current.slotId) ?? null}
+              prefill={prefill}
+              effortMode={effortMode}
               facts={factsById.get(current.exerciseId) ?? null}
               loadSetting={settingById.get(current.exerciseId) ?? null}
               userId={user.id}
@@ -1995,7 +2051,10 @@ const WorkoutSession = () => {
       </KeyboardAwareScrollView>
 
       {rest ? (
-        <View className="gap-3 px-5 pb-2 pt-3">
+        <View
+          onLayout={(e) => setRestBarHeight(e.nativeEvent.layout.height)}
+          className="gap-3 px-5 pb-2 pt-3"
+        >
           <RestTimer
             key={rest.startedAt}
             endsAt={rest.endsAt}
@@ -2005,56 +2064,13 @@ const WorkoutSession = () => {
         </View>
       ) : null}
 
-      {/* Effort sheet — the one place RIR / failure gets reported. */}
-      <Sheet visible={!!effortResolve} onClose={() => effortResolve?.(null)}>
-        <ScrollArea inSheet>
-          <View className="pb-6">
-            <Text className="mb-3 text-lg font-sans-bold text-ink-50">
-              {t('training.effortTitle')}
-            </Text>
-            <View className="gap-2">
-              <Pressable
-                onPress={() => effortResolve?.({ rir: 0, failure: true })}
-                accessibilityRole="button"
-                className="flex-row items-center gap-3 rounded-field border border-red-400/40 bg-red-500/10 px-4 py-3.5"
-              >
-                <FlameIcon color={danger} size={18} />
-                <Text className="flex-1 text-sm font-sans-semibold text-red-400">
-                  {t('training.effortFailure')}
-                </Text>
-              </Pressable>
-              {[1, 2, 3, 4].map((n) => (
-                <Pressable
-                  key={n}
-                  onPress={() => effortResolve?.({ rir: n, failure: false })}
-                  accessibilityRole="button"
-                  className="flex-row items-center gap-3 rounded-field border border-ink-700 bg-ink-800 px-4 py-3.5"
-                >
-                  <View className="h-7 w-7 items-center justify-center rounded-full bg-brand/15">
-                    <Text className="text-sm font-sans-bold text-brand">{n}</Text>
-                  </View>
-                  <Text className="flex-1 text-sm font-sans-medium text-ink-100">
-                    {t('training.effortRir')}
-                  </Text>
-                </Pressable>
-              ))}
-              {/* The open end of the scale: anything easier than four. */}
-              <Pressable
-                onPress={() => effortResolve?.({ rir: 5, failure: false })}
-                accessibilityRole="button"
-                className="flex-row items-center gap-3 rounded-field border border-ink-700 bg-ink-800 px-4 py-3.5"
-              >
-                <View className="h-7 w-7 items-center justify-center rounded-full bg-ink-700">
-                  <Text className="text-sm font-sans-bold text-ink-200">5+</Text>
-                </View>
-                <Text className="flex-1 text-sm font-sans-medium text-ink-100">
-                  {t('training.effortRir5')}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </ScrollArea>
-      </Sheet>
+      {/* Effort sheet — the one place an effort gets reported, in the session's mode. */}
+      <EffortSheet
+        visible={!!effortResolve}
+        mode={effortMode}
+        onPick={(e) => effortResolve?.(e)}
+        onClose={() => effortResolve?.(null)}
+      />
 
       {/* Post-workout summary: closes itself, because the session is already
        * over and there is nothing left to decide. */}

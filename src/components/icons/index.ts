@@ -103,9 +103,6 @@ export const ChevronRightIcon = sized(NavArrowRight, 'ChevronRightIcon');
 export const ChevronLeftIcon = sized(NavArrowLeft, 'ChevronLeftIcon');
 export const ChevronDownIcon = sized(NavArrowDown, 'ChevronDownIcon');
 export const ChevronUpIcon = sized(NavArrowUp, 'ChevronUpIcon');
-/** Trend arrows (a comparison indicator, see training/components/TrendArrow). */
-export const ArrowUpIcon = sized(NavArrowUp, 'ArrowUpIcon');
-export const ArrowDownIcon = sized(NavArrowDown, 'ArrowDownIcon');
 export const SearchIcon = sized(Search, 'SearchIcon');
 export const SwapIcon = sized(DataTransferBoth, 'SwapIcon');
 export const SkipIcon = sized(FastArrowRight, 'SkipIcon');

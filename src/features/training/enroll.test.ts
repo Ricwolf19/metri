@@ -9,7 +9,8 @@ vi.mock('@/lib/crypto', () => ({ randomId: () => crypto.randomUUID() }));
 
 const { db } = await import('@/db/client');
 const { addDay, addRoutine, addSlot, createCustomProgram } = await import('./authoring.repo');
-const { advanceUserProgram, enrollInProgram } = await import('./enroll');
+const { advanceUserProgram, enrollInProgram, enrollmentQuery, setEffortMode } =
+  await import('./enroll');
 
 const USER = 'u-1';
 
@@ -162,5 +163,41 @@ describe('enrollInProgram copies the RM-test week', () => {
     const e = enrollInProgram(USER, program.id, [{ dayId: day.id, weekday: 2 }]);
     const [copy] = db.select().from(routines).where(eq(routines.id, e.currentRoutineId!)).all();
     expect(copy.rmTestWeek).toBe(4);
+  });
+});
+
+describe('setEffortMode', () => {
+  beforeEach(() => {
+    for (const t of [workoutLogs, userPrograms, workoutDays, routines, programs])
+      db.delete(t).run();
+  });
+
+  it('starts unset, so the program default applies', () => {
+    expect(enrollTwoPhases().effortMode).toBeNull();
+  });
+
+  // Synced: the write must move `updatedAt` or the pick never leaves the device.
+  it("stores the lifter's pick and stamps the row for sync", () => {
+    const e = enrollTwoPhases();
+    db.update(userPrograms)
+      .set({ updatedAt: new Date(0) })
+      .where(eq(userPrograms.id, e.id))
+      .run();
+    setEffortMode(USER, e.id, 'free');
+    const row = reload(e.id);
+    expect(row.effortMode).toBe('free');
+    expect(row.updatedAt.getTime()).toBeGreaterThan(0);
+  });
+
+  it("never writes another lifter's enrollment", () => {
+    const e = enrollTwoPhases();
+    setEffortMode('someone-else', e.id, 'simple');
+    expect(reload(e.id).effortMode).toBeNull();
+  });
+
+  it("the session's read is owner-scoped too", () => {
+    const e = enrollTwoPhases();
+    expect(enrollmentQuery(USER, e.id).all()).toHaveLength(1);
+    expect(enrollmentQuery('someone-else', e.id).all()).toHaveLength(0);
   });
 });

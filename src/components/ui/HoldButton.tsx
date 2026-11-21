@@ -38,6 +38,12 @@ type Props = {
   durationMs?: number;
   disabled?: boolean;
   accessibilityLabel?: string;
+  /**
+   * No disc or border at rest — only the glyph (or label) — for a control
+   * that sits among inputs and must not shout: the hold still fills a soft
+   * tint behind it, so the countdown stays visible.
+   */
+  ghost?: boolean;
 };
 
 const HOLD_MS = 900;
@@ -51,6 +57,8 @@ const CONTAINER: Record<Variant, string> = {
 /** Once the hold completes the control vanishes; only the loader stays in its place. */
 const BUSY = 'border border-transparent bg-transparent';
 const FILL: Record<Variant, string> = { danger: 'bg-red-500/30', secondary: 'bg-ink-600/60' };
+/** A ghost has no surface to fill, so its tint is softer still. */
+const GHOST_FILL: Record<Variant, string> = { danger: 'bg-red-500/15', secondary: 'bg-ink-600/40' };
 const LABEL: Record<Variant, string> = { danger: 'text-red-400', secondary: 'text-ink-50' };
 const HEIGHT: Record<Size, number> = { sm: 36, md: 44 };
 const CHIP = 40;
@@ -114,6 +122,7 @@ export const HoldButton = ({
   durationMs = HOLD_MS,
   disabled,
   accessibilityLabel,
+  ghost = false,
 }: Props) => {
   const t = useT();
   const { danger } = useTheme();
@@ -214,7 +223,7 @@ export const HoldButton = ({
         className={[
           'relative h-full w-full items-center justify-center overflow-hidden px-4',
           chip ? 'rounded-full' : 'rounded-field',
-          busy ? BUSY : CONTAINER[variant],
+          busy || ghost ? BUSY : CONTAINER[variant],
           disabled ? 'opacity-50' : '',
         ].join(' ')}
       >
@@ -223,7 +232,7 @@ export const HoldButton = ({
             pointerEvents="none"
             style={[{ position: 'absolute', left: 0, top: 0, bottom: 0 }, fillStyle]}
           >
-            <View className={`h-full w-full ${FILL[variant]}`} />
+            <View className={`h-full w-full ${(ghost ? GHOST_FILL : FILL)[variant]}`} />
           </Animated.View>
         )}
         {busy ? (

@@ -1,3 +1,4 @@
+import type { EffortMode } from '@/db/schema';
 import type { Locale } from '@/i18n';
 
 import { FOUNDATIONS_CONTENT, METRI_FOUNDATIONS } from './metri-foundations';
@@ -11,6 +12,17 @@ export type { ProgramSeed } from './types';
  * must never be reused.
  */
 export const PROGRAM_SEEDS: ProgramSeed[] = [METRI_FOUNDATIONS, METRI_PROGRESSION];
+
+/**
+ * How a preset logs effort until the lifter picks otherwise (`effortModeFor`).
+ * Foundations sends a beginner to failure on nearly everything and teaches the
+ * terms as it goes, so it asks in plain words; Progression is built on RIR.
+ * Code, not seed: an enrollment stores only the lifter's own pick.
+ */
+export const PRESET_EFFORT_MODE: Readonly<Partial<Record<string, EffortMode>>> = {
+  [METRI_FOUNDATIONS.id]: 'simple',
+  [METRI_PROGRESSION.id]: 'rir',
+};
 
 type PresetCopy = {
   name: string;

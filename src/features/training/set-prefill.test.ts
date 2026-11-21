@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   bumpValue,
-  compareToPrevious,
   nextSetPrefill,
+  prefillEnabled,
   previousSetFor,
   weightText,
 } from './set-prefill';
@@ -153,16 +153,17 @@ describe('previousSetFor', () => {
   });
 });
 
-describe('compareToPrevious', () => {
-  it('reads up, down and same within the tolerance', () => {
-    expect(compareToPrevious(82.5, 80)).toBe('up');
-    expect(compareToPrevious(77.5, 80)).toBe('down');
-    expect(compareToPrevious(80.01, 80, 0.02)).toBe('same');
-    expect(compareToPrevious(8, 8)).toBe('same');
+describe('prefillEnabled', () => {
+  // Beginners on the Foundations preset learn by filling every set themselves.
+  it('starts off on metri Foundations and on everywhere else', () => {
+    expect(prefillEnabled(null, 'metri-foundations')).toBe(false);
+    expect(prefillEnabled(null, 'metri-progression')).toBe(true);
+    expect(prefillEnabled(null, 'custom-program-id')).toBe(true);
+    expect(prefillEnabled(null, null)).toBe(true);
   });
 
-  it('is null while either side is unknown', () => {
-    expect(compareToPrevious(null, 80)).toBeNull();
-    expect(compareToPrevious(80, null)).toBeNull();
+  it("the lifter's own choice wins over the automatic default", () => {
+    expect(prefillEnabled(true, 'metri-foundations')).toBe(true);
+    expect(prefillEnabled(false, 'metri-progression')).toBe(false);
   });
 });

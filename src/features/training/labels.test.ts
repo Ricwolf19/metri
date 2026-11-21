@@ -4,6 +4,8 @@ import type { TFunction } from '@/i18n';
 
 import {
   dayDisplayName,
+  effortMark,
+  effortWords,
   phaseMeta,
   routineDisplayName,
   scheduleLabel,
@@ -101,5 +103,57 @@ describe('plan read-outs', () => {
   it('scheduleLabel names the day only, null while there is none', () => {
     expect(scheduleLabel({ weekday: 2 }, tt)).toBe('weekday.mon');
     expect(scheduleLabel({ weekday: null }, tt)).toBeNull();
+  });
+});
+
+describe("a logged set's effort", () => {
+  const tt: TFunction = (key) => key;
+
+  it.each([
+    ['a reserve', { rir: 2, isFailure: false }, { failure: false, text: '@2' }, 'RIR 2'],
+    [
+      'nothing in reserve, not failure',
+      { rir: 0, isFailure: false },
+      { failure: false, text: '@0' },
+      'RIR 0',
+    ],
+    // The effort sheet's open end: anything easier than four is stored as 5.
+    ['the open end', { rir: 5, isFailure: false }, { failure: false, text: '@5+' }, 'RIR 5+'],
+    ['past the open end', { rir: 7, isFailure: false }, { failure: false, text: '@5+' }, 'RIR 5+'],
+    // The sheet writes failure as rir 0 + the flag: the flag wins.
+    ['to failure', { rir: 0, isFailure: true }, { failure: true }, 'training.failure'],
+  ] as const)('%s', (_label, set, mark, words) => {
+    expect(effortMark(set, tt, 'rir')).toEqual(mark);
+    expect(effortWords(set, tt, 'rir')).toBe(words);
+    // Free mode lifts the requirement only: the notation stays professional.
+    expect(effortMark(set, tt, 'free')).toEqual(mark);
+    expect(effortWords(set, tt, 'free')).toBe(words);
+  });
+
+  it('says nothing when the set carries no effort', () => {
+    for (const mode of ['rir', 'simple', 'free'] as const) {
+      expect(effortMark({ rir: null, isFailure: false }, tt, mode)).toBeNull();
+      expect(effortWords({ rir: null, isFailure: false }, tt, mode)).toBeNull();
+      // A preview built from a bare weight × reps has neither field.
+      expect(effortMark({}, tt, mode)).toBeNull();
+      expect(effortWords({}, tt, mode)).toBeNull();
+    }
+  });
+
+  // Simple mode reads EVERY set as its band — one picked as "Hard" (stored rir 1)
+  // and one logged as RIR 2 on the professional scale alike.
+  it.each([
+    ['nothing in reserve, not failure', { rir: 0, isFailure: false }, 'training.effortHard'],
+    ['a band picked as hard', { rir: 1, isFailure: false }, 'training.effortHard'],
+    ['RIR 2', { rir: 2, isFailure: false }, 'training.effortHard'],
+    ['a band picked as moderate', { rir: 3, isFailure: false }, 'training.effortModerate'],
+    ['RIR 4', { rir: 4, isFailure: false }, 'training.effortModerate'],
+    ['the open end', { rir: 5, isFailure: false }, 'training.effortEasy'],
+    ['to failure', { rir: 0, isFailure: true }, 'training.failure'],
+  ] as const)('simple mode: %s', (_label, set, word) => {
+    expect(effortWords(set, tt, 'simple')).toBe(word);
+    expect(effortMark(set, tt, 'simple')).toEqual(
+      set.isFailure ? { failure: true } : { failure: false, text: `@ ${word}` },
+    );
   });
 });

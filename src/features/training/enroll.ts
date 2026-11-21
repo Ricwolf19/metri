@@ -9,6 +9,7 @@ import {
   workoutDayExercises,
   workoutDays,
   workoutLogs,
+  type EffortMode,
   type UserProgram,
 } from '@/db/schema';
 import { recordDeletion } from '@/features/sync/tombstones';
@@ -33,6 +34,24 @@ export const activeEnrollmentQuery = (userId: string) =>
     .from(userPrograms)
     .where(and(eq(userPrograms.userId, userId), inArray(userPrograms.status, ['active', 'paused'])))
     .orderBy(desc(userPrograms.createdAt));
+
+/** Live query of ONE of the user's enrollments, whatever its status (a session reads its mode). */
+export const enrollmentQuery = (userId: string, userProgramId: string) =>
+  db
+    .select()
+    .from(userPrograms)
+    .where(and(eq(userPrograms.id, userProgramId), eq(userPrograms.userId, userId)));
+
+/**
+ * The lifter's effort logging for an enrollment (`effortModeFor` resolves what
+ * a session runs in). Owner-scoped; stamps `updatedAt` so sync pushes it.
+ */
+export const setEffortMode = (userId: string, userProgramId: string, mode: EffortMode): void => {
+  db.update(userPrograms)
+    .set({ effortMode: mode, updatedAt: new Date() })
+    .where(and(eq(userPrograms.id, userProgramId), eq(userPrograms.userId, userId)))
+    .run();
+};
 
 /** Thrown when a template cannot start; `problems` is what the UI lists. */
 export class StartValidationError extends Error {

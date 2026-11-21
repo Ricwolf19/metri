@@ -1,15 +1,15 @@
-import { Platform, Pressable, Text, View, type AccessibilityActionEvent } from 'react-native';
+import { Pressable, Text, View, type AccessibilityActionEvent } from 'react-native';
 
-import { CheckIcon, SkipIcon, TrashIcon, XIcon } from '@/components/icons';
-import { HoldButton, ScrollRow } from '@/components/ui';
-import type { SetLog } from '@/db/schema';
+import { CheckIcon, EditIcon, SkipIcon, XIcon } from '@/components/icons';
+import { ScrollRow } from '@/components/ui';
+import type { EffortMode, SetLog } from '@/db/schema';
 import { useT } from '@/i18n';
 import type { Units } from '@/lib/storage';
 import { useTheme } from '@/theme/theme-context';
 
 import { MISSED } from '../adherence-colors';
+import { effortWords } from '../labels';
 import { loggedSetLabel } from '../session-a11y';
-import { deleteSet } from '../session.repo';
 import { weightText } from '../set-prefill';
 import { WeightButton } from './WeightButton';
 
@@ -22,10 +22,15 @@ import { WeightButton } from './WeightButton';
  */
 const ROW = 'min-h-11 flex-row items-center rounded-field';
 
-/** The row's text line: fills what the label and the control leave, scrolls past it. */
-const RowLine = ({ children }: { children: React.ReactNode }) => (
+/**
+ * The row's text line: fills what the label and the control leave, scrolls
+ * past it. A logged row paints the card's inset fill, so its fade says so.
+ */
+const RowLine = ({ children, sunken }: { children: React.ReactNode; sunken?: boolean }) => (
   <View className="min-w-0 flex-1">
-    <ScrollRow className="items-center pr-2">{children}</ScrollRow>
+    <ScrollRow className="items-center pr-2" surface={sunken ? 'sunken' : undefined}>
+      {children}
+    </ScrollRow>
   </View>
 );
 
@@ -78,58 +83,42 @@ export const PendingRow = ({ label, legend }: { label: string; legend: string | 
 );
 
 /**
- * A set already logged. Tapping the row reopens it in place for a correction;
- * the weight opens its picture (plates, pin, dumbbells); holding the bin
- * deletes it. For a screen reader the row is two elements, never a button
- * hiding buttons: the set read whole ("Set 2: 60 kg, 8 reps, 2 in reserve"),
- * which edits on activate and offers the picture as an action, then the delete.
+ * A set already logged. The check disc only says so — it does nothing; the
+ * weight opens its picture (plates, pin, dumbbells) and the pencil at the
+ * right reopens the set in place for a correction, where it can also be
+ * deleted (a hold). A delete one hold away on every logged row was a shortcut
+ * nobody needed mid-workout. For a screen reader the row is two elements: the
+ * set read whole ("Set 2: 60 kg, 8 reps, 2 in reserve"), offering the picture
+ * as an action, then the pencil.
  */
 export const LoggedRow = ({
   label,
   logged,
   unit,
-  warmup,
-  failureLabel,
-  editHint,
+  effortMode,
   onEdit,
   onWeightPress,
 }: {
   label: string;
   logged: SetLog;
   unit: Units;
-  warmup: boolean;
-  failureLabel: string;
-  editHint?: string;
+  /** How this session reads effort (`effortModeFor`): "@ Hard" in simple mode. */
+  effortMode: EffortMode;
   onEdit?: () => void;
   onWeightPress?: () => void;
 }) => {
   const t = useT();
-  const { brandContrast, danger } = useTheme();
+  const { brandContrast, muted } = useTheme();
   const twoDumbbells = logged.load?.kind === 'dumbbell' && logged.load.hands === 2;
-  const showLoad = t('loadView.title');
-  const actions = [
-    // Android's double-tap is ACTION_CLICK; iOS's goes to `onAccessibilityTap`
-    // (Fabric never routes it to `activate`, which would only sit in the rotor
-    // under its raw name), as in `ReorderRow`.
-    ...(onEdit && Platform.OS === 'android' ? [{ name: 'activate' }] : []),
-    ...(onWeightPress ? [{ name: 'showLoad', label: showLoad }] : []),
-  ];
+  const effort = effortWords(logged, t, effortMode);
+  const actions = onWeightPress ? [{ name: 'showLoad', label: t('loadView.title') }] : undefined;
   const onAction = (e: AccessibilityActionEvent) => {
-    if (e.nativeEvent.actionName === 'activate') onEdit?.();
-    else if (e.nativeEvent.actionName === 'showLoad') onWeightPress?.();
+    if (e.nativeEvent.actionName === 'showLoad') onWeightPress?.();
   };
   return (
-    <Pressable
-      onPress={onEdit}
-      disabled={!onEdit}
-      // Touch only: the screen reader gets the summary and the delete below as
-      // two siblings, so neither is swallowed by this wrapper.
-      accessible={false}
-      className={`${ROW} bg-ink-850 py-0.5 pl-3 pr-0.5 active:bg-ink-800`}
-    >
+    <View className={`${ROW} bg-ink-850 py-0.5 pl-3 pr-0.5`}>
       <View
         accessible
-        accessibilityRole={onEdit ? 'button' : undefined}
         accessibilityLabel={loggedSetLabel(
           {
             n: label,
@@ -140,23 +129,17 @@ export const LoggedRow = ({
             effort: { rir: logged.rir, failure: logged.isFailure },
           },
           t,
+          effortMode,
         )}
-        accessibilityHint={onEdit ? editHint : undefined}
-        accessibilityActions={actions.length ? actions : undefined}
-        onAccessibilityAction={actions.length ? onAction : undefined}
-        onAccessibilityTap={onEdit}
+        accessibilityActions={actions}
+        onAccessibilityAction={actions ? onAction : undefined}
         className="min-w-0 flex-1 flex-row items-center"
       >
-        <View
-          className={[
-            'mr-2.5 h-5 w-5 items-center justify-center rounded-full',
-            warmup ? 'bg-ink-600' : 'bg-brand',
-          ].join(' ')}
-        >
+        <View className="mr-2.5 h-5 w-5 items-center justify-center rounded-full bg-brand">
           <CheckIcon color={brandContrast} size={13} />
         </View>
         <Text className="w-7 text-xs font-sans-semibold text-ink-400">{label}</Text>
-        <RowLine>
+        <RowLine sunken>
           {/* Two dumbbells read as "2 × 30 kg × 10": the count goes first so it
               cannot be mistaken for the reps. */}
           {twoDumbbells ? (
@@ -168,20 +151,29 @@ export const LoggedRow = ({
             onPress={onWeightPress}
             accessible={false}
           />
+          {/* The effort in the plan's own notation ("12 reps @ RIR 2"): "× 8 @ RIR 2",
+              "× 8 @ Failure" — a failure set stores RIR 0, which never reads. Simple
+              mode reads the band: "× 8 @ Hard". */}
           <Text numberOfLines={1} className="text-sm font-sans-medium text-ink-100">
             {' '}
             × {logged.reps}
-            {logged.rir != null ? ` · RIR ${logged.rir}` : ''}
-            {logged.isFailure ? ` · ${failureLabel}` : ''}
+            {effort ? ` @ ${effort}` : ''}
           </Text>
         </RowLine>
       </View>
-      {/* Deleting a logged set cannot be undone: a hold, like every irreversible action. */}
-      <HoldButton
-        icon={<TrashIcon color={danger} size={15} />}
-        accessibilityLabel={t('training.deleteSet', { n: label })}
-        onComplete={() => deleteSet(logged.id)}
-      />
-    </Pressable>
+      {/* Just the glyph, no disc: the row's one control, the skipped row's
+          restore box plus a 2 dp slop. */}
+      {onEdit ? (
+        <Pressable
+          onPress={onEdit}
+          hitSlop={2}
+          accessibilityRole="button"
+          accessibilityLabel={t('training.editSet', { n: label })}
+          className="h-10 w-10 items-center justify-center active:opacity-50"
+        >
+          <EditIcon color={muted} size={16} />
+        </Pressable>
+      ) : null}
+    </View>
   );
 };

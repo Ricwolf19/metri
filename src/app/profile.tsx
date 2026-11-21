@@ -1,3 +1,4 @@
+import { useLiveQuery } from '@/db/useLiveQuery';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useWatch } from 'react-hook-form';
@@ -34,6 +35,8 @@ import { pickFromCamera, pickFromLibrary } from '@/features/photos/capture';
 import { deletePhotoFiles, persistAvatar } from '@/features/photos/media';
 import { UpdateCard } from '@/features/release/components/UpdateCard';
 import { useAppUpdate } from '@/features/release/useAppUpdate';
+import { activeEnrollmentQuery } from '@/features/training/enroll';
+import { useSetPrefill } from '@/features/training/useSetPrefill';
 import { LOCALES, useI18n, type Locale } from '@/i18n';
 import { APP_VERSION, WEB_URL } from '@/lib/env';
 import { openExternal } from '@/lib/open-external';
@@ -78,6 +81,10 @@ const ProfileContent = () => {
   const [clock, setClock] = useState<ClockFormat>(settings.getClockFormat());
   const { units, setUnits } = useUnits();
   const equipment = useEquipmentUnits();
+  // Set prefill, as the program in progress would open it (automatic: off on
+  // Foundations); flipping the switch makes it the lifter's own, everywhere.
+  const { data: enrollments } = useLiveQuery(activeEnrollmentQuery(user?.id ?? ''), [user?.id]);
+  const setPrefill = useSetPrefill(enrollments[0]?.programId);
   const dateFormat = useDateFormat();
   const [sampleDate] = useState(() => new Date());
   if (!user) return null;
@@ -358,6 +365,26 @@ const ProfileContent = () => {
         <Text className="mt-2 text-[11px] leading-4 text-ink-500">
           {t('profile.unitsEquipmentHint')}
         </Text>
+      </Card>
+
+      {/* Workout: how the session's set rows open. A device setting, like the ± steps. */}
+      <Text className="mb-2 mt-7 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
+        {t('profile.workout')}
+      </Text>
+      <Card>
+        <View className="flex-row items-center gap-4">
+          <View className="flex-1">
+            <Text className="text-sm font-sans-medium text-ink-100">{t('profile.setPrefill')}</Text>
+            <Text className="mt-0.5 text-[11px] leading-4 text-ink-500">
+              {t('profile.setPrefillHint')}
+            </Text>
+          </View>
+          <Switch
+            value={setPrefill.enabled}
+            onValueChange={setPrefill.setEnabled}
+            accessibilityLabel={t('profile.setPrefill')}
+          />
+        </View>
       </Card>
 
       {/* Date format */}

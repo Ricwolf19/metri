@@ -1,7 +1,8 @@
-import type { Equipment, IntensityType, SetGroup } from '@/db/schema';
+import type { EffortMode, Equipment, IntensityType, SetGroup } from '@/db/schema';
 import type { Locale, TFunction } from '@/i18n';
 import type { TranslationKey } from '@/i18n/en';
 
+import { effortBand, rirText, type EffortBand, type LoggedEffort } from './effort-mode';
 import { EXERCISE_NAMES } from './exercise-content';
 import { abbreviateName, EXERCISE_SHORT_NAMES } from './exercise-short-names';
 
@@ -100,6 +101,76 @@ export const targetLine = (row: SetTarget, t: TFunction): string => {
     ? t('training.targetEffort', { reps, effort: row.intensity })
     : t('training.target', { reps });
   return [row.groupName, target].filter(Boolean).join(' · ');
+};
+
+/** A logged set's effort, as the past-set chips draw it: to failure, or a reserve marker. */
+type EffortMark = { failure: true } | { failure: false; text: string };
+
+/**
+ * A simple-mode band's word ("Hard") and the line under it in the effort sheet
+ * ("1–2 reps left"). Failure is the plan's own word in either mode.
+ */
+export const EFFORT_BAND_COPY: Record<EffortBand, { label: TranslationKey; line: TranslationKey }> =
+  {
+    failure: { label: 'training.failure', line: 'training.effortFailureLine' },
+    hard: { label: 'training.effortHard', line: 'training.effortHardLine' },
+    moderate: { label: 'training.effortModerate', line: 'training.effortModerateLine' },
+    easy: { label: 'training.effortEasy', line: 'training.effortEasyLine' },
+  };
+
+/** The three effort-logging modes as the program screen offers them. */
+export const EFFORT_MODE_COPY: Record<
+  EffortMode,
+  { label: TranslationKey; caption: TranslationKey; description: TranslationKey }
+> = {
+  rir: {
+    label: 'program.effortRir',
+    caption: 'program.effortRirCaption',
+    description: 'program.effortRirBody',
+  },
+  simple: {
+    label: 'program.effortSimple',
+    caption: 'program.effortSimpleCaption',
+    description: 'program.effortSimpleBody',
+  },
+  free: {
+    label: 'program.effortFree',
+    caption: 'program.effortFreeCaption',
+    description: 'program.effortFreeBody',
+  },
+};
+
+/**
+ * The same effort in words, as a plan target names it ("12 reps @ RIR 2"):
+ * "RIR 2", "RIR 5+", "Failure"; null when the set carries none. A session in
+ * simple mode reads every set as its band ("Hard", `effortBand`), whatever
+ * scale logged it; `free` keeps the professional notation.
+ */
+export const effortWords = (set: LoggedEffort, t: TFunction, mode: EffortMode): string | null => {
+  if (mode === 'simple') {
+    const band = effortBand(set);
+    return band ? t(EFFORT_BAND_COPY[band].label) : null;
+  }
+  if (set.isFailure) return t('training.failure');
+  return set.rir == null ? null : `RIR ${rirText(set.rir)}`;
+};
+
+/**
+ * The compact marker after a past set's "60 kg × 8": `@2`, `@5+` (simple mode:
+ * `@ Hard`), or failure — which the caller draws as the flame glyph, the
+ * session's own sign for it. Null when the set carries no effort. Failure wins
+ * over its stored `rir: 0`.
+ */
+export const effortMark = (
+  set: LoggedEffort,
+  t: TFunction,
+  mode: EffortMode,
+): EffortMark | null => {
+  if (set.isFailure) return { failure: true };
+  if (set.rir == null) return null;
+  return mode === 'simple'
+    ? { failure: false, text: `@ ${effortWords(set, t, mode)}` }
+    : { failure: false, text: `@${rirText(set.rir)}` };
 };
 
 /**

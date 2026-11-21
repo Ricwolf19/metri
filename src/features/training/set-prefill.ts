@@ -29,7 +29,7 @@ export const weightText = (kg: number, unit: Units): string =>
 export type PriorSet = { weightKg: number; reps: number; load?: LoadDetail | null };
 
 /**
- * The set of the previous session that set `index` is measured against: the
+ * The set of the previous session that seeds set `index` when nothing here does: the
  * same ordinal, or the previous session's last set once this one runs longer.
  * `previous` holds WORKING sets only, in order — `set_logs.set_number` counts
  * warm-ups too, so callers filter before indexing.
@@ -44,7 +44,7 @@ export const previousSetFor = <T extends PriorSet>(
  * previous session of this exercise — weight, reps and plates. Every later
  * set opens on the set JUST LOGGED here: the current session is the source of
  * truth once it has a number (the lifter who added a rep or 2.5 kg keeps it),
- * and the previous session only serves as the reference for the arrows. The
+ * and the previous session only serves as the reference ("Last training"). The
  * reps follow the logged set too, unless the plan steps the reps on this row
  * (a false pyramid 8-6-4), when the plan's number wins. With nothing logged
  * yet past set 1 (every set deleted) history serves as for set 1, then the
@@ -87,16 +87,17 @@ export const nextSetPrefill = (input: {
   return { weightKg: suggestedKg, reps: planReps ?? 8, load: null };
 };
 
-export type Trend = 'up' | 'down' | 'same';
+/** The preset a beginner starts on: its sets open empty unless the lifter asks for prefill. */
+const BEGINNER_TEMPLATE = 'metri-foundations';
 
-/** How a typed value compares with its reference; null when either is missing. */
-export const compareToPrevious = (
-  current: number | null,
-  previous: number | null,
-  eps = 0,
-): Trend | null => {
-  if (current == null || previous == null) return null;
-  const delta = current - previous;
-  if (Math.abs(delta) <= eps) return 'same';
-  return delta > 0 ? 'up' : 'down';
-};
+/**
+ * Whether the live row opens prefilled (`nextSetPrefill`). The lifter's own
+ * on/off wins; left automatic, it is OFF on metri Foundations — a beginner
+ * learns more by filling every set by hand than by confirming numbers the app
+ * put there — and on everywhere else. `templateId` is the program the session
+ * belongs to (an enrolled copy keeps its template's id on `routines.program_id`).
+ */
+export const prefillEnabled = (
+  choice: boolean | null,
+  templateId: string | null | undefined,
+): boolean => choice ?? templateId !== BEGINNER_TEMPLATE;

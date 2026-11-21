@@ -362,6 +362,14 @@ export type NewWeekConfig = typeof weekConfigs.$inferInsert;
 
 export type UserProgramStatus = 'active' | 'paused' | 'completed' | 'abandoned';
 
+/**
+ * How a session asks for each set's effort: `rir` (reps in reserve, failure
+ * to 5+), `simple` (four plain-language bands stored on the same `rir` /
+ * `is_failure` columns) or `free` (never required). Wire format: add values,
+ * never rename.
+ */
+export type EffortMode = 'rir' | 'simple' | 'free';
+
 /** A user's enrolment in a program. Owns the deep-copied template rows. */
 export const userPrograms = sqliteTable(
   'user_programs',
@@ -379,6 +387,9 @@ export const userPrograms = sqliteTable(
     // The user's chosen training days (1=Sun…7=Sat) — drives "today's session"
     // and the automatic training-time notifications.
     trainingWeekdays: text('training_weekdays', { mode: 'json' }).$type<number[]>(),
+    /** The lifter's effort logging for this enrollment; NULL = the program's default
+     * (`effortModeFor`). Synced column: add, never rename. */
+    effortMode: text('effort_mode').$type<EffortMode>(),
     createdAt: tsMs('created_at').notNull().default(NOW_MS),
     updatedAt: tsMs('updated_at').notNull().default(NOW_MS),
   },

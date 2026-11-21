@@ -19,7 +19,7 @@ import type { SlotState } from '../session-order';
 
 export type SessionChip = {
   slotId: string;
-  /** The full name: read to screen readers, and shown once the chip is tapped. */
+  /** The full name: always read to screen readers, shown on a second tap of the chip in view. */
   label: string;
   /** What the chip shows by default (`exerciseShortName`), so a strip fits a phone. */
   shortLabel: string;
@@ -36,6 +36,7 @@ type Props = {
   focused: string | null;
   /** The chip a hold picked up (dashed outline + grip) until the strip is tapped. */
   lifted: string | null;
+  /** Every chip tap, name toggle or not: the screen pages there, or puts a lifted chip down. */
   onPress: (slotId: string) => void;
   /** Only exercises still in play can be lifted: a missed one has no place to move to. */
   onLongPress: (slotId: string) => void;
@@ -99,7 +100,11 @@ type Box = { x: number; width: number };
  * Focus is a dotted border around the chip, never a fill, so the exercise on
  * screen does not read as done just because it is selected. Missed exercises sit at the
  * end behind a divider; the phantom "+" chip adds an exercise to today. Chips show the
- * short name; a tap also spells that chip out in full, and a second tap shortens it again.
+ * short name. A tap on another chip only moves the focus there; a tap on the chip
+ * already in view spells it out in full, and the next one shortens it again. Focus
+ * moving on — a tap, or the screen paging after a logged set — shortens it too, so
+ * the full name never arrives in the same moment as the jump. Screen readers always
+ * hear the full name. The strip's edges fade wherever more chips sit off screen.
  */
 export const SessionChipStrip = ({
   active,
@@ -113,8 +118,16 @@ export const SessionChipStrip = ({
   const t = useT();
   const { brand, brandContrast, muted } = useTheme();
   const [boxes, setBoxes] = useState<ReadonlyMap<string, Box>>(new Map());
-  // ONE chip spelled out at a time: the strip stays a strip of short names.
+  // ONE chip spelled out at a time, and only the one in view: the strip stays a
+  // strip of short names. A focus that moves drops it — derived during render
+  // (the "adjust state on prop change" shape), never an effect, so the new
+  // page never draws one frame with the old chip still spelled out.
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [seenFocus, setSeenFocus] = useState(focused);
+  if (focused !== seenFocus) {
+    setSeenFocus(focused);
+    setExpanded(null);
+  }
   const place = (slotId: string) => (e: LayoutChangeEvent) => {
     const { x, width } = e.nativeEvent.layout;
     setBoxes((prev) => {
@@ -136,9 +149,10 @@ export const SessionChipStrip = ({
       <Pressable
         key={item.slotId}
         onPress={() => {
-          // A tap while a chip is lifted only puts it down.
+          // A tap while a chip is lifted only puts it down; one on another chip
+          // only focuses it. The name answers a tap on the chip already in view.
           if (lifted) haptic('tick');
-          else setExpanded((open) => (open === item.slotId ? null : item.slotId));
+          else if (isFocused) setExpanded((open) => (open === item.slotId ? null : item.slotId));
           onPress(item.slotId);
         }}
         onLongPress={
@@ -201,7 +215,7 @@ export const SessionChipStrip = ({
   };
 
   return (
-    <ScrollRow focusX={box ? box.x + box.width / 2 : undefined} cues={false}>
+    <ScrollRow focusX={box ? box.x + box.width / 2 : undefined}>
       {active.map((item) => chip(item, true))}
       {onAdd ? (
         <Pressable
