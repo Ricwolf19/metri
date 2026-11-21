@@ -1,8 +1,7 @@
 import { View } from 'react-native';
 
 import { BarGraphic } from '@/components/BarGraphic';
-import { ChipRow, Input, SegmentedControl } from '@/components/ui';
-import { UnitSuffix } from '@/features/training/components/UnitSuffix';
+import { ChipRow, Input, SegmentedControl, UnitSuffix } from '@/components/ui';
 import { stackPlates } from '@/features/training/load';
 import { plateOptions } from '@/features/training/plate-math';
 import { useT } from '@/i18n';

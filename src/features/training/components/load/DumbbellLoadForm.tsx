@@ -2,9 +2,8 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { ChevronDownIcon, ChevronUpIcon } from '@/components/icons';
-import { Input, SegmentedControl } from '@/components/ui';
+import { Input, SegmentedControl, UnitSuffix } from '@/components/ui';
 import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
-import { UnitSuffix } from '@/features/training/components/UnitSuffix';
 import { useT } from '@/i18n';
 import { parseDecimal } from '@/lib/numbers';
 import type { Units } from '@/lib/storage';

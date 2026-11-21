@@ -2,9 +2,8 @@ import { useWatch } from 'react-hook-form';
 import { Text, View } from 'react-native';
 
 import { ControlledInput, useOpenKey, useSaveForm } from '@/components/form';
-import { Button, Sheet, SheetForm, useToast } from '@/components/ui';
+import { Button, Sheet, SheetForm, UnitSuffix, useToast } from '@/components/ui';
 import { lbToKg } from '@/features/bmr/calc';
-import { UnitSuffix } from '@/features/training/components/UnitSuffix';
 import { fromKg } from '@/features/training/progression';
 import { useT } from '@/i18n';
 import { settings } from '@/lib/storage';

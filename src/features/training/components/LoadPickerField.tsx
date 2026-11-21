@@ -1,11 +1,10 @@
 import { Pressable, Text, View } from 'react-native';
 
 import { DumbbellIcon } from '@/components/icons';
+import { UnitSuffix } from '@/components/ui';
 import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 import { useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
-
-import { UnitSuffix } from './UnitSuffix';
 
 type Props = {
   /** The total, in the display unit; empty until a load is picked. */

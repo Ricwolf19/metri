@@ -1,14 +1,13 @@
 import { Pressable, Text, View } from 'react-native';
 
 import { PlusIcon, XIcon } from '@/components/icons';
-import { Input } from '@/components/ui';
+import { Input, UnitSuffix } from '@/components/ui';
 import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 import { useT } from '@/i18n';
 import type { Units } from '@/lib/storage';
 import { useTheme } from '@/theme/theme-context';
 
 import type { JumpText } from '../../load-sheet';
-import { UnitSuffix } from '../UnitSuffix';
 
 /**
  * Where a stack's plates, or a rack's dumbbells, change step: one row per

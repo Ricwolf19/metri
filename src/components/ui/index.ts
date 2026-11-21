@@ -48,4 +48,5 @@ export { TextLink } from './TextLink';
 export { TimePicker } from './TimePicker';
 export { ToastProvider, useToast } from './Toast';
 export { TrendChart } from './TrendChart';
+export { UnitSuffix } from './UnitSuffix';
 export { useUnsavedGuard } from './useUnsavedGuard';

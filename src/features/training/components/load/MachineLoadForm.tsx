@@ -1,7 +1,6 @@
 import { Text, View } from 'react-native';
 
-import { Input } from '@/components/ui';
-import { UnitSuffix } from '@/features/training/components/UnitSuffix';
+import { Input, UnitSuffix } from '@/components/ui';
 import { useT } from '@/i18n';
 import type { Units } from '@/lib/storage';
 

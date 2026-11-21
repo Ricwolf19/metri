@@ -3,9 +3,8 @@ import { useWatch } from 'react-hook-form';
 import { Text, View } from 'react-native';
 
 import { ControlledInput, useOpenKey, useSaveForm } from '@/components/form';
-import { Button, ChipRow, Sheet, SheetForm } from '@/components/ui';
+import { Button, ChipRow, Sheet, SheetForm, UnitSuffix } from '@/components/ui';
 import type { Equipment } from '@/db/schema';
-import { UnitSuffix } from '@/features/training/components/UnitSuffix';
 import { useT } from '@/i18n';
 import { parseDecimal, trimFloat } from '@/lib/numbers';
 import type { Units } from '@/lib/storage';

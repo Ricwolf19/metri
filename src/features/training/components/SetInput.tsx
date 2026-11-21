@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { TextInput, View, type KeyboardTypeOptions } from 'react-native';
 
+import { UnitSuffix } from '@/components/ui';
 import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 import { useTheme } from '@/theme/theme-context';
-
-import { UnitSuffix } from './UnitSuffix';
 
 type Props = {
   value: string;
