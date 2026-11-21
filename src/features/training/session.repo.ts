@@ -29,7 +29,7 @@ import { recordDeletion } from '@/features/sync/tombstones';
 
 import { localDateKey, markTrainingDay, releaseTrainingDay } from './adherence.repo';
 import { advanceUserProgram, rewindUserProgram } from './enroll';
-import { defaultRestFor } from './exercise-rest';
+import { defaultRestFor, legacyRestFor } from './exercise-rest';
 import { setVolumeKg } from './load';
 import { plannedSets } from './rest-summary';
 import { sessionBadges } from './session-badges';
@@ -593,6 +593,16 @@ export const catalogRestSeconds = (exerciseId: string): number => {
 };
 
 /**
+ * What builds before the catalog table seeded a slot with when nobody set a
+ * rest (`legacyRestFor`) — the second value settings propagation reads as
+ * untouched. Equals `catalogRestSeconds` for a custom exercise.
+ */
+export const legacyRestSeconds = (exerciseId: string): number => {
+  const exercise = getExerciseRow(exerciseId);
+  return exercise ? legacyRestFor(exercise) : DEFAULT_REST;
+};
+
+/**
  * How long an exercise rests away from a slot that plans it: the lifter's own
  * default for it (`exercise_settings`), else `catalogRestSeconds`'s answer.
  * Reads the table here rather than through `getExerciseSetting`, whose module
@@ -790,8 +800,11 @@ export const markRemainingSkipped = (logId: string, slotId?: string): void => {
  * `rest: true` re-resolves the rest from the slot's CURRENT rows for each log's
  * week, with the same precedence `startWorkout` uses — pushing the slot default
  * straight in would clobber a per-week override (Foundations prescribes one).
- * Badges describe the planned exercise, so a slot swapped to a variant keeps
- * its own. Call after the slot/week rows are written.
+ * It runs no "untouched" test of its own: the session follows the slot, and
+ * whether a settings edit may move the slot is decided once, by
+ * `propagateSettingsToEnrolled`. Badges describe the planned exercise, so a
+ * slot swapped to a variant keeps its own. Call after the slot/week rows are
+ * written.
  */
 export const propagateSlotMeta = (
   slotId: string,

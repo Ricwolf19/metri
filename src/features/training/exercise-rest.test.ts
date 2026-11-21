@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { CATALOG_REST_SECONDS } from './catalog-rest';
-import { defaultRestFor } from './exercise-rest';
+import { defaultRestFor, legacyRestFor } from './exercise-rest';
 import { EXERCISE_SEEDS } from './exercises.seed';
 
 const exerciseById = new Map(EXERCISE_SEEDS.map((e) => [e.id, e]));
@@ -53,5 +53,23 @@ describe('defaultRestFor', () => {
         secondaryMuscles: ['forearms'],
       }),
     ).toBe(120);
+  });
+});
+
+describe('legacyRestFor', () => {
+  it('is the two-band rule slots were seeded with before the catalog table', () => {
+    expect(legacyRestFor(exerciseById.get('barbell-curl')!)).toBe(120);
+    expect(legacyRestFor(exerciseById.get('deadlift')!)).toBe(180);
+    expect(legacyRestFor(exerciseById.get('barbell-bench-press')!)).toBe(180);
+  });
+
+  it('is what a custom exercise still rests at', () => {
+    const custom = {
+      id: 'custom-1',
+      category: 'legs' as const,
+      primaryMuscles: ['quads'],
+      secondaryMuscles: ['glutes'],
+    };
+    expect(defaultRestFor(custom)).toBe(legacyRestFor(custom));
   });
 });

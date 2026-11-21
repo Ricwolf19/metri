@@ -16,6 +16,8 @@ import {
 import { createTestDb } from '@/test/sqlite';
 
 import { CATALOG_REST_SECONDS } from './catalog-rest';
+import { legacyRestFor } from './exercise-rest';
+import { EXERCISE_SEEDS } from './exercises.seed';
 
 vi.mock('@/db/client', async () => ({ db: await createTestDb() }));
 vi.mock('@/lib/crypto', () => ({ randomId: () => crypto.randomUUID() }));
@@ -263,5 +265,129 @@ describe('exercise settings', () => {
     expect(slot('custom').updatedAt.getTime()).toBe(stamp.getTime());
     expect(slot('finished').defaultRestSeconds).toBe(180);
     expect(slot('finished').updatedAt.getTime()).toBe(stamp.getTime());
+  });
+
+  describe('a slot an older build seeded (the two-band rule, before the catalog table)', () => {
+    /** A catalog exercise with the muscles the legacy rule reads. */
+    const catalog = (id: string) => {
+      const seed = EXERCISE_SEEDS.find((e) => e.id === id)!;
+      db.delete(exercises).where(eq(exercises.id, id)).run();
+      db.insert(exercises)
+        .values({
+          id,
+          name: seed.name,
+          category: seed.category,
+          primaryMuscles: seed.primaryMuscles,
+          secondaryMuscles: seed.secondaryMuscles,
+          isCustom: false,
+        })
+        .run();
+    };
+    /** An active enrollment whose slots rest at the given seconds. */
+    const enrolled = (exerciseId: string, rests: Record<string, number>) => {
+      db.insert(programs).values({ id: 'p', name: 'P', isCustom: true, userId: U }).run();
+      db.insert(routines).values({ id: 'r', programId: 'p', name: '', orderIndex: 0 }).run();
+      db.insert(workoutDays).values({ id: 'd', routineId: 'r', name: '', orderIndex: 0 }).run();
+      db.insert(userPrograms)
+        .values({ id: 'up', userId: U, programId: 'p', status: 'active' })
+        .run();
+      db.insert(workoutDayExercises)
+        .values(
+          Object.entries(rests).map(([id, defaultRestSeconds], orderIndex) => ({
+            id,
+            workoutDayId: 'd',
+            exerciseId,
+            orderIndex,
+            userProgramId: 'up',
+            defaultRestSeconds,
+          })),
+        )
+        .run();
+    };
+    const restOf = (id: string) =>
+      db.select().from(workoutDayExercises).where(eq(workoutDayExercises.id, id)).all()[0]
+        .defaultRestSeconds;
+
+    it('reads the rule the older builds seeded with as untouched, and a chosen rest as not', () => {
+      catalog('barbell-curl');
+      expect(legacyRestFor(EXERCISE_SEEDS.find((e) => e.id === 'barbell-curl')!)).toBe(120);
+      expect(CATALOG_REST_SECONDS['barbell-curl']).not.toBe(120);
+      enrolled('barbell-curl', { legacy: 120, chosen: 95 });
+      db.insert(workoutLogs)
+        .values({
+          id: 'log',
+          userId: U,
+          userProgramId: 'up',
+          workoutDayId: 'd',
+          weekNumber: 1,
+          status: 'in_progress',
+          plannedSnapshot: [
+            {
+              slotId: 'legacy',
+              exerciseId: 'barbell-curl',
+              name: 'Curl',
+              setGroups: [{ sets: 3, reps: 10 }],
+              restSeconds: 120,
+              badges: [],
+              alternativeExerciseIds: [],
+              notes: null,
+            },
+          ],
+        })
+        .run();
+
+      upsertExerciseSetting(U, 'barbell-curl', { restSeconds: 60 });
+
+      expect(restOf('legacy')).toBe(60);
+      expect(restOf('chosen')).toBe(95);
+      // The live session follows the slot it moved.
+      const [log] = db.select().from(workoutLogs).where(eq(workoutLogs.id, 'log')).all();
+      expect(log.plannedSnapshot?.[0].restSeconds).toBe(60);
+    });
+
+    it('moves a preset-style slot holding the legacy rule onto the first library rest', () => {
+      catalog('deadlift');
+      // The sheets rest the main lifts 3 min — the legacy rule's heavy band, not the table's.
+      expect(CATALOG_REST_SECONDS.deadlift).not.toBe(180);
+      enrolled('deadlift', { preset: 180 });
+
+      upsertExerciseSetting(U, 'deadlift', { restSeconds: 240 });
+
+      expect(restOf('preset')).toBe(240);
+    });
+
+    it('a first save of exactly the default still reaches the legacy slots', () => {
+      catalog('barbell-curl');
+      enrolled('barbell-curl', { legacy: 120 });
+
+      upsertExerciseSetting(U, 'barbell-curl', {
+        restSeconds: CATALOG_REST_SECONDS['barbell-curl'],
+      });
+
+      expect(restOf('legacy')).toBe(CATALOG_REST_SECONDS['barbell-curl']);
+    });
+
+    it('stops counting once the lifter saved a rest of their own', () => {
+      catalog('barbell-curl');
+      upsertExerciseSetting(U, 'barbell-curl', { restSeconds: 150 });
+      enrolled('barbell-curl', { saved: 150, legacy: 120 });
+
+      upsertExerciseSetting(U, 'barbell-curl', { restSeconds: 90 });
+
+      expect(restOf('saved')).toBe(90);
+      expect(restOf('legacy')).toBe(120);
+    });
+
+    it('never re-rests a slot on a badge or load edit', () => {
+      catalog('barbell-curl');
+      enrolled('barbell-curl', { legacy: 120 });
+
+      upsertExerciseSetting(U, 'barbell-curl', { badges: ['LENTO'] });
+      upsertExerciseSetting(U, 'barbell-curl', {
+        load: { kind: 'barbell', barKg: 20, platesKg: [5] },
+      });
+
+      expect(restOf('legacy')).toBe(120);
+    });
   });
 });

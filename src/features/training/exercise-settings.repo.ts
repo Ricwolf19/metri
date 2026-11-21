@@ -11,7 +11,7 @@ import {
 } from '@/db/schema';
 import { randomId } from '@/lib/crypto';
 
-import { catalogRestSeconds, propagateSlotMeta } from './session.repo';
+import { catalogRestSeconds, legacyRestSeconds, propagateSlotMeta } from './session.repo';
 import { DEFAULT_REST } from './slot-draft';
 
 /** @see src/db/schema.ts `exerciseSettings` — per-user defaults for an exercise. */
@@ -47,7 +47,8 @@ export const exerciseSettingsQuery = (userId: string, exerciseIds: string[]) =>
  * What `addSlot` writes onto a new slot from the owner's defaults (or none).
  * With no rest configured the slot rests at `fallbackRest` — the exercise's
  * own (`catalogRestSeconds`), so a new slot, a swap and a mid-session add all
- * agree, and settings propagation compares against the same baseline.
+ * agree, and settings propagation compares against the same baseline (and,
+ * with nothing saved, the rule older builds seeded with: `legacyRestSeconds`).
  */
 export const slotSeed = (
   preset: Pick<ExerciseSetting, 'restSeconds' | 'badges' | 'alternativeExerciseIds'> | null,
@@ -93,13 +94,17 @@ const sameValue = (a: unknown, b: unknown): boolean =>
 
 const isEmptyList = (v: unknown): boolean => v == null || (Array.isArray(v) && v.length === 0);
 
+const SLOT_FIELDS = ['defaultRestSeconds', 'badges', 'alternativeExerciseIds'] as const;
+type SlotField = (typeof SLOT_FIELDS)[number];
+
 /**
  * The defaults are "configure once, reuse everywhere" — so editing them also
  * refreshes the slots of the user's ACTIVE enrollments and any in-progress
- * session rendering them (D1). A field moves only while the slot still holds
- * the PREVIOUS default: a slot the lifter customised, or a finished/paused
- * program, is history and keeps its values. Untouched slots are not stamped,
- * so a settings edit doesn't turn into a sync burst.
+ * session rendering them (D1). A field moves only while the slot is UNTOUCHED
+ * — still holding the PREVIOUS default (`untouched` below is the one test): a
+ * slot the lifter customised, or a finished/paused program, is history and
+ * keeps its values. Untouched slots are not stamped, so a settings edit
+ * doesn't turn into a sync burst.
  */
 const propagateSettingsToEnrolled = (
   userId: string,
@@ -110,10 +115,25 @@ const propagateSettingsToEnrolled = (
   const fallbackRest = catalogRestSeconds(exerciseId);
   const before = slotSeed(previous, fallbackRest);
   const after = slotSeed(current, fallbackRest);
-  const fields = (['defaultRestSeconds', 'badges', 'alternativeExerciseIds'] as const).filter(
-    (f) => !sameValue(before[f], after[f]),
+  // The rest is in play when the SAVED rest changed: a first save of exactly the
+  // default still reaches slots on the legacy rule, and a badge or load edit
+  // never re-rests anything.
+  const fields = SLOT_FIELDS.filter((f) =>
+    f === 'defaultRestSeconds'
+      ? !sameValue(previous?.restSeconds, current?.restSeconds)
+      : !sameValue(before[f], after[f]),
   );
   if (!fields.length) return;
+
+  // With no rest of the lifter's own saved yet, a slot holding the two-band rule
+  // older builds seeded with (`legacyRestSeconds`: a curl at 120 where the table
+  // says 75; every preset slot's 120/180, which the sheets prescribe by the same
+  // rule) is as untouched as one on today's default. Once they saved one, that
+  // saved rest is the only baseline.
+  const legacyRest = previous?.restSeconds == null ? legacyRestSeconds(exerciseId) : null;
+  const untouched = (slot: WorkoutDayExercise, f: SlotField): boolean =>
+    sameValue(slot[f], before[f]) ||
+    (f === 'defaultRestSeconds' && legacyRest != null && slot.defaultRestSeconds === legacyRest);
 
   const rows = db
     .select({ slot: workoutDayExercises })
@@ -131,7 +151,7 @@ const propagateSettingsToEnrolled = (
 
   const now = new Date();
   for (const { slot } of rows) {
-    const changed = fields.filter((f) => sameValue(slot[f], before[f]));
+    const changed = fields.filter((f) => untouched(slot, f) && !sameValue(slot[f], after[f]));
     if (!changed.length) continue;
     db.update(workoutDayExercises)
       .set({ ...Object.fromEntries(changed.map((f) => [f, after[f]])), updatedAt: now })
