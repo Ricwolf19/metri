@@ -156,7 +156,7 @@ export const RestTimer = ({ endsAt, onExtend, onDone }: Props) => {
         </Pressable>
       </View>
       <View className="mt-3">
-        <ScrollRow className="items-center gap-2" centerX={seamX}>
+        <ScrollRow className="items-center gap-2" centerX={seamX} surface="raised">
           {REDUCE_SECONDS.map((s) => (
             <ShiftPill key={s} seconds={s} onPress={onExtend} t={t} />
           ))}

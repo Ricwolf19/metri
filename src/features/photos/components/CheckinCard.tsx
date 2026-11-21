@@ -175,7 +175,7 @@ export const CheckinCard = ({
 
       {extras.length ? (
         <View className="mt-3">
-          <ScrollRow cues={false} className="gap-1.5">
+          <ScrollRow className="gap-1.5">
             {extras.map((m) => extraThumb(m, filter === 'video' ? 'w-20' : 'w-16'))}
           </ScrollRow>
         </View>

@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { DumbbellIcon, FlameIcon, ShareIcon } from '@/components/icons';
-import { BadgeRow, IconButton, ScrollArea, Sheet, TextLink } from '@/components/ui';
+import { BadgeRow, IconButton, OnSurface, ScrollArea, Sheet, TextLink } from '@/components/ui';
 import type { SkipReason, TrainingDayStatus } from '@/db/schema';
 import { useAuth } from '@/features/auth/auth-context';
 import { sessionShareModel, type ShareModel } from '@/features/share/models';
@@ -251,13 +251,16 @@ export const DayDetailSheet = ({
                         {displayName(ex)}
                       </Text>
                       <View className="mt-1">
-                        <BadgeRow
-                          mono
-                          items={ex.sets.map((s) => ({
-                            value: String(s.setNumber),
-                            label: setLabel(s),
-                          }))}
-                        />
+                        {/* The session box is ink-850: its edge fades must be too. */}
+                        <OnSurface surface="sunken">
+                          <BadgeRow
+                            mono
+                            items={ex.sets.map((s) => ({
+                              value: String(s.setNumber),
+                              label: setLabel(s),
+                            }))}
+                          />
+                        </OnSurface>
                       </View>
                     </View>
                   ))}

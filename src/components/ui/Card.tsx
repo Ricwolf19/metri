@@ -1,5 +1,7 @@
 import { View, type ViewProps } from 'react-native';
 
+import { OnSurface } from './surface';
+
 type Props = ViewProps & {
   padded?: boolean;
   /** `sunken` is the darker inset surface for code/formula blocks inside a card or screen. */
@@ -34,7 +36,8 @@ export const Card = ({
       ].join(' ')}
       {...rest}
     >
-      {children}
+      {/* The fill is declared too: a strip's edge fade melts into this card. */}
+      <OnSurface surface={surface}>{children}</OnSurface>
     </View>
   );
 };

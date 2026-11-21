@@ -1,6 +1,6 @@
 import { Text, View } from 'react-native';
 
-import { BadgeRow } from '@/components/ui';
+import { BadgeRow, OnSurface } from '@/components/ui';
 import { useI18n, useT } from '@/i18n';
 
 import { setGroupLine } from '../labels';
@@ -62,21 +62,24 @@ export const SplitExercises = ({
               ) : null}
               {row.badges.length ? (
                 <View className="mt-2">
-                  <BadgeRow
-                    mono
-                    tone="brand"
-                    items={row.badges.map((b, bi) => {
-                      const detail = badgeDetail(b, locale);
-                      const label = badgeLabel(b, locale);
-                      return detail
-                        ? {
-                            value: `${b}-${bi}`,
-                            label: `${label} · ${detail}`,
-                            tone: 'info' as const,
-                          }
-                        : { value: `${b}-${bi}`, label };
-                    })}
-                  />
+                  {/* The row's box is ink-850: its edge fades must be too. */}
+                  <OnSurface surface="sunken">
+                    <BadgeRow
+                      mono
+                      tone="brand"
+                      items={row.badges.map((b, bi) => {
+                        const detail = badgeDetail(b, locale);
+                        const label = badgeLabel(b, locale);
+                        return detail
+                          ? {
+                              value: `${b}-${bi}`,
+                              label: `${label} · ${detail}`,
+                              tone: 'info' as const,
+                            }
+                          : { value: `${b}-${bi}`, label };
+                      })}
+                    />
+                  </OnSurface>
                 </View>
               ) : null}
             </View>

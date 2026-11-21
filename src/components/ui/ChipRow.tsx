@@ -18,7 +18,7 @@ type Props<T extends string> = {
 
 /**
  * Single-select row of pill chips (the selected one in brand), scrolling
- * sideways with the shared edge cue when the options overflow. The live
+ * sideways behind the shared edge fade when the options overflow. The live
  * session's exercise strip has its own (`SessionChipStrip`): its chips carry
  * progress states this primitive does not, and it follows the page in view.
  */
