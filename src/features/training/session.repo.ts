@@ -584,17 +584,20 @@ export const appendSnapshotSlot = (logId: string, slot: PlannedSlot): void => {
 };
 
 /**
- * How long an exercise rests away from a slot that plans it: the lifter's own
- * default for it (`exercise_settings`), else what it trains calls for. Reads
- * the table here rather than through `getExerciseSetting`, whose module
- * imports this one.
+ * What an exercise rests at when nobody set a rest for it: its catalog entry
+ * (`CATALOG_REST_SECONDS`), else what a custom exercise trains calls for.
  */
-/** What an exercise rests at when nobody set a rest for it: what it trains calls for. */
 export const catalogRestSeconds = (exerciseId: string): number => {
   const exercise = getExerciseRow(exerciseId);
   return exercise ? defaultRestFor(exercise) : DEFAULT_REST;
 };
 
+/**
+ * How long an exercise rests away from a slot that plans it: the lifter's own
+ * default for it (`exercise_settings`), else `catalogRestSeconds`'s answer.
+ * Reads the table here rather than through `getExerciseSetting`, whose module
+ * imports this one.
+ */
 export const exerciseRestSeconds = (userId: string, exerciseId: string): number => {
   const [setting] = db
     .select({ restSeconds: exerciseSettings.restSeconds })

@@ -15,6 +15,8 @@ import {
 } from '@/db/schema';
 import { createTestDb } from '@/test/sqlite';
 
+import { CATALOG_REST_SECONDS } from './catalog-rest';
+
 vi.mock('@/db/client', async () => ({ db: await createTestDb() }));
 vi.mock('@/lib/crypto', () => ({ randomId: () => crypto.randomUUID() }));
 
@@ -150,7 +152,7 @@ describe('exercise settings', () => {
 
     const slot = addSlot('d', null, 'deadlift');
 
-    expect(slot.defaultRestSeconds).toBe(120);
+    expect(slot.defaultRestSeconds).toBe(CATALOG_REST_SECONDS.deadlift);
     expect(slot.badges).toBeNull();
   });
 
@@ -167,6 +169,8 @@ describe('exercise settings', () => {
         workoutDayId: 'd2',
         exerciseId: 'deadlift',
         orderIndex: 1,
+        // Seeded with the exercise's own default, as `addSlot` leaves it.
+        defaultRestSeconds: CATALOG_REST_SECONDS.deadlift,
         userProgramId: 'up1',
       })
       .run();
@@ -197,14 +201,14 @@ describe('exercise settings', () => {
       })
       .run();
 
-    upsertExerciseSetting(U, 'deadlift', { restSeconds: 210, badges: ['PAUSA LARGA'] });
+    upsertExerciseSetting(U, 'deadlift', { restSeconds: 240, badges: ['PAUSA LARGA'] });
 
     const [slot] = db
       .select()
       .from(workoutDayExercises)
       .where(eq(workoutDayExercises.id, 'slot1'))
       .all();
-    expect(slot.defaultRestSeconds).toBe(210);
+    expect(slot.defaultRestSeconds).toBe(240);
     expect(slot.badges).toEqual(['PAUSA LARGA']);
 
     const [template] = db
@@ -217,7 +221,7 @@ describe('exercise settings', () => {
     const [log] = db.select().from(workoutLogs).where(eq(workoutLogs.id, 'log1')).all();
     expect(log.plannedSnapshot?.[0]).toMatchObject({
       badges: ['PAUSA LARGA'],
-      restSeconds: 210,
+      restSeconds: 240,
     });
   });
 

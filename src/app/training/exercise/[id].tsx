@@ -15,6 +15,8 @@ import { MachineLoadChooser } from '@/features/training/components/MachineLoadCh
 import { ExerciseNote } from '@/features/training/components/ExerciseNote';
 import { getExercise } from '@/features/training/exercises.repo';
 import { EXERCISE_CONTENT } from '@/features/training/exercise-content';
+import { defaultRestFor } from '@/features/training/exercise-rest';
+import { DEFAULT_REST } from '@/features/training/slot-draft';
 import { buildExerciseSeries } from '@/features/training/exercise-trend';
 import {
   getExerciseSetting,
@@ -106,6 +108,10 @@ const ExerciseHistory = () => {
     user && id ? getExerciseSetting(user.id, id) : null,
   );
   const [restOpen, setRestOpen] = useState(false);
+  // Nothing saved: the row shows the exercise's own default, marked as such, and
+  // the picker opens on it. Nothing is written until the lifter turns the wheel.
+  const restIsSuggested = setting?.restSeconds == null;
+  const restSeconds = setting?.restSeconds ?? (exercise ? defaultRestFor(exercise) : DEFAULT_REST);
 
   const dateLabel = dayMonth;
   const content = id ? (EXERCISE_CONTENT[id]?.[locale] ?? null) : null;
@@ -172,21 +178,32 @@ const ExerciseHistory = () => {
             <Text className="mt-1 text-xs text-ink-500">{t('exercise.defaultsHint')}</Text>
 
             <View className="mt-3 flex-row items-center justify-between">
-              <Text className="text-sm text-ink-200">{t('editor.rest')}</Text>
+              <View className="flex-1 pr-3">
+                <Text className="text-sm text-ink-200">{t('editor.rest')}</Text>
+                {restIsSuggested ? (
+                  <Text className="mt-0.5 text-xs text-ink-500">{t('exercise.restSuggested')}</Text>
+                ) : null}
+              </View>
               <Pressable
                 onPress={() => setRestOpen((v) => !v)}
                 accessibilityRole="button"
+                // The label beside it is a sibling: alone, the button read "2:00".
+                accessibilityLabel={[
+                  `${t('editor.rest')}: ${mmss(restSeconds)}`,
+                  restIsSuggested ? t('exercise.restSuggested') : null,
+                ]
+                  .filter(Boolean)
+                  .join(', ')}
+                accessibilityState={{ expanded: restOpen }}
                 className="rounded-field border border-ink-700 bg-ink-800 px-4 py-2"
               >
-                <Text className="font-mono text-base text-ink-50">
-                  {setting?.restSeconds != null ? mmss(setting.restSeconds) : '—'}
-                </Text>
+                <Text className="font-mono text-base text-ink-50">{mmss(restSeconds)}</Text>
               </Pressable>
             </View>
             {restOpen ? (
               <View className="mt-3">
                 <DurationPicker
-                  seconds={setting?.restSeconds ?? 120}
+                  seconds={restSeconds}
                   onChange={(s) => saveSetting({ restSeconds: Math.max(5, s) })}
                 />
               </View>

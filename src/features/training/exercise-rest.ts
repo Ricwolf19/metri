@@ -1,5 +1,6 @@
 import type { Exercise } from '@/db/schema';
 
+import { CATALOG_REST_SECONDS } from './catalog-rest';
 import { DEFAULT_REST } from './slot-draft';
 
 const REST_HEAVY = 180;
@@ -8,15 +9,18 @@ const REST_HEAVY = 180;
 const HINGE_HEADS = new Set(['glutes', 'hamstrings']);
 
 /**
- * How long an exercise rests when the lifter has set nothing for it — the two
- * bands the presets prescribe (the sheets say 2 to 3 minutes between sets, on
- * everything: 3 on the main lifts), read from what the exercise trains. An
- * exercise swapped onto a slot rests at this, not at the rest of the movement
- * it replaced: a deadlift on a back-extension slot kept that slot's 90 s.
+ * How long an exercise rests when the lifter has set nothing for it. A catalog
+ * exercise rests at its own entry in `CATALOG_REST_SECONDS` (graded by the
+ * muscle and joints it loads); anything else — a custom exercise, an id the
+ * catalog dropped — falls back to two bands read from what it trains. The
+ * presets keep their own prescriptions and never read this. An exercise
+ * swapped onto a slot rests at this, not at the rest of the movement it
+ * replaced: a deadlift on a back-extension slot kept that slot's 90 s.
  */
 export const defaultRestFor = (
-  exercise: Pick<Exercise, 'category' | 'primaryMuscles' | 'secondaryMuscles'>,
+  exercise: Pick<Exercise, 'id' | 'category' | 'primaryMuscles' | 'secondaryMuscles'>,
 ): number => {
+  if (Object.hasOwn(CATALOG_REST_SECONDS, exercise.id)) return CATALOG_REST_SECONDS[exercise.id];
   const primary = exercise.primaryMuscles ?? [];
   const secondary = exercise.secondaryMuscles ?? [];
   if (exercise.category === 'back') {

@@ -15,6 +15,8 @@ import {
 } from '@/db/schema';
 import { createTestDb } from '@/test/sqlite';
 
+import { CATALOG_REST_SECONDS } from './catalog-rest';
+
 vi.mock('@/db/client', async () => ({ db: await createTestDb() }));
 vi.mock('@/lib/crypto', () => ({ randomId: () => crypto.randomUUID() }));
 
@@ -26,6 +28,8 @@ const { addSessionExercise } = await import('./session-add');
 const U = 'u-1';
 const UP = 'up-1';
 const SLOT = 'slot-a';
+/** What the catalog rests a deadlift at when nobody set one. */
+const DEADLIFT_REST = CATALOG_REST_SECONDS.deadlift;
 
 const snapshotOf = (logId: string) =>
   db.select().from(workoutLogs).where(eq(workoutLogs.id, logId)).all()[0].plannedSnapshot!;
@@ -153,7 +157,7 @@ describe('rest follows the exercise', () => {
     const log = start();
     expect(snapshotOf(log.id)[0].restSeconds).toBe(75);
     swap(log.id, 'deadlift', { kind: 'session' });
-    expect(snapshotOf(log.id)[0].restSeconds).toBe(180);
+    expect(snapshotOf(log.id)[0].restSeconds).toBe(DEADLIFT_REST);
     swap(log.id, 'back-extension', { kind: 'session' });
     expect(snapshotOf(log.id)[0].restSeconds).toBe(75);
   });
@@ -170,10 +174,13 @@ describe('rest follows the exercise', () => {
   it('a rest-of-cycle swap rewrites the slot default and drops the week override', () => {
     const log = start();
     swap(log.id, 'deadlift', { kind: 'cycle' });
-    expect(slotById(SLOT)).toMatchObject({ exerciseId: 'deadlift', defaultRestSeconds: 180 });
+    expect(slotById(SLOT)).toMatchObject({
+      exerciseId: 'deadlift',
+      defaultRestSeconds: DEADLIFT_REST,
+    });
     const [week] = db.select().from(weekConfigs).where(eq(weekConfigs.id, 'wk')).all();
     expect(week.restSeconds).toBeNull();
-    expect(snapshotOf(startWorkout(U, UP, 'day', 1).id)[0].restSeconds).toBe(180);
+    expect(snapshotOf(startWorkout(U, UP, 'day', 1).id)[0].restSeconds).toBe(DEADLIFT_REST);
   });
 
   it('leaves a week with no rest override unstamped, so sync has nothing to push for it', () => {
@@ -200,7 +207,7 @@ describe('rest follows the exercise', () => {
     swap(log.id, 'deadlift', { kind: 'sessions', count: 2 });
     expect(snapshotOf(startWorkout(U, UP, 'day', 1).id)[0]).toMatchObject({
       exerciseId: 'deadlift',
-      restSeconds: 180,
+      restSeconds: DEADLIFT_REST,
     });
   });
 
@@ -239,7 +246,7 @@ describe('rest follows the exercise', () => {
       locale: 'en',
     });
     expect(today?.setGroups).toEqual([{ sets: 1, reps: 8, rirMin: 2, rirMax: 2 }]);
-    expect(today?.restSeconds).toBe(180);
+    expect(today?.restSeconds).toBe(DEADLIFT_REST);
 
     const kept = addSessionExercise({
       logId: log.id,
