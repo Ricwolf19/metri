@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.22.0](https://github.com/Ricwolf19/metri/compare/metri-v1.21.0...metri-v1.22.0) (2026-11-21)
+
+
+### Features
+
+* **training:** give each catalog exercise its own rest ([7b0e494](https://github.com/Ricwolf19/metri/commit/7b0e4949d2e6ca3e5d127e0fc232bd156ca63f28))
+* **training:** rework set rows, prefill and effort modes ([86225f4](https://github.com/Ricwolf19/metri/commit/86225f43aeb65a29d184465f95aa403968f69ed9))
+* **ui:** fade scroll edges into their surface ([5375576](https://github.com/Ricwolf19/metri/commit/5375576fa9e719bcecbbebb48c3b22f4c0bbc9b4))
+* **ui:** keep focused fields clear of the keyboard ([4d04504](https://github.com/Ricwolf19/metri/commit/4d04504bf57339b1c3c3c80026f569c8798640f5))
+* **ui:** replace placeholders with labels and hints ([66e686c](https://github.com/Ricwolf19/metri/commit/66e686c5e1a95d9959196703df594a3df373c138))
+
+
+### Bug Fixes
+
+* **training:** let legacy slot rests follow edits ([1f00fed](https://github.com/Ricwolf19/metri/commit/1f00fed2f04d92ba65861e92e78c2cac9cbde0f3))
+* **training:** stop the chip strip shifting on focus ([1f80594](https://github.com/Ricwolf19/metri/commit/1f80594d33daaf5bf3a66c7fd9fd9f17634bc45a))
+* **ui:** make 44 dp touch targets real ([0f32834](https://github.com/Ricwolf19/metri/commit/0f32834b0d3390f618f660eb021ec3c5b321426d))
+
 ## [1.21.0](https://github.com/Ricwolf19/metri/compare/metri-v1.20.0...metri-v1.21.0) (2026-11-18)
 
 
