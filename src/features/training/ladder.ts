@@ -59,19 +59,42 @@ export const rungOf = (values: readonly number[], value: number | null): number 
   return i < 0 ? null : i;
 };
 
+/** Slack for "the step reaches this rung": rungs are display values, rounded to two decimals. */
+const REACH = 0.01;
+
 /**
- * Where a ± press lands from `current`: the rung nearest `current + delta`,
- * but always at least one rung the way it was pressed (a 0.5 nudge on a
- * 2.5 rack still moves one dumbbell); `current` when there is none that way.
+ * Where a ± press lands from `current`: as far along the rungs as the step
+ * reaches without passing it, but always at least one rung the way it was
+ * pressed (a 0.5 nudge on a 2.5 rack still moves one dumbbell); `current`
+ * when there is none that way. Never PAST a rung the step covers: on a rack
+ * holding an odd dumbbell (5, 10, 12, 15) a −5 from the 12 lands on the 10 —
+ * the rung nearest 12 − 5 is the 5, and the press skipped a dumbbell.
  */
 export const stepAlong = (values: readonly number[], current: number, delta: number): number => {
-  const ahead = values.filter((v) => (delta > 0 ? v > current + EPS : v < current - EPS));
+  const up = delta > 0;
+  // Nearest first, whichever way the press goes.
+  const ahead = values
+    .filter((v) => (up ? v > current + EPS : v < current - EPS))
+    .sort((a, b) => (up ? a - b : b - a));
   if (!ahead.length) return current;
   const target = current + delta;
-  return ahead.reduce((best, v) => (Math.abs(v - target) < Math.abs(best - target) ? v : best));
+  const reached = ahead.filter((v) => (up ? v <= target + REACH : v >= target - REACH));
+  return reached.length ? reached[reached.length - 1] : ahead[0];
 };
 
-const isNum = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n);
+/**
+ * The next rung from `current` the way a ± press goes — ONE dumbbell along the
+ * rack, the odd ones the lifter added included (from the 10 on a rack of 5s
+ * holding a 12, + lands on the 12, never past it); `current` at the end.
+ */
+export const nextRung = (values: readonly number[], current: number, delta: number): number => {
+  const up = delta > 0;
+  const ahead = values.filter((v) => (up ? v > current + EPS : v < current - EPS));
+  if (!ahead.length) return current;
+  return up ? Math.min(...ahead) : Math.max(...ahead);
+};
+
+export const isNum = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n);
 
 /**
  * A ladder read back from storage, or null: MMKV outlives builds, so a shape

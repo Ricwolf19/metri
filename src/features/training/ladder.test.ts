@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ladderAt, ladderValues, parseLadder, rungOf, stepAlong } from './ladder';
+import { ladderAt, ladderValues, nextRung, parseLadder, rungOf, stepAlong } from './ladder';
 
 describe('ladder', () => {
   const stack = { start: 10, step: 5 };
@@ -53,7 +53,7 @@ describe('ladder', () => {
     expect(rungOf(values, null)).toBeNull();
   });
 
-  it('steps ± at least one rung, else to the rung nearest the jump asked', () => {
+  it('steps ± as far as the step reaches, at least one rung', () => {
     const values = ladderValues(jumped, 80, 99);
     expect(stepAlong(values, 45, 0.5)).toBe(50);
     expect(stepAlong(values, 50, 2.5)).toBe(60);
@@ -61,6 +61,20 @@ describe('ladder', () => {
     expect(stepAlong(values, 60, -1)).toBe(50);
     expect(stepAlong(values, 0, -5)).toBe(0);
     expect(stepAlong(values, 80, 5)).toBe(80);
+  });
+
+  // A rack with an odd dumbbell: from the 12 the rung nearest 12 − 5 is the 5,
+  // and the press jumped straight over the 10.
+  it('never steps past a rung the step covers, so an odd dumbbell keeps its neighbours', () => {
+    const rack = [5, 10, 12, 15, 20];
+    expect(stepAlong(rack, 12, -5)).toBe(10);
+    expect(stepAlong(rack, 12, 5)).toBe(15);
+    expect(stepAlong(rack, 10, 5)).toBe(15);
+    expect(stepAlong(rack, 10, 2.5)).toBe(12);
+    expect(stepAlong(rack, 15, -5)).toBe(10);
+    // As far as the step reaches, never further: a 10 on 6s moves one rung.
+    expect(stepAlong([0, 6, 12, 18], 0, 10)).toBe(6);
+    expect(stepAlong([0, 6, 12, 18], 18, -12)).toBe(6);
   });
 });
 
@@ -76,5 +90,23 @@ describe('parseLadder', () => {
     expect(parseLadder({ start: 0, step: 0 })).toBeNull();
     expect(parseLadder({ start: -1, step: 5 })).toBeNull();
     expect(parseLadder('rack')).toBeNull();
+  });
+});
+
+describe('nextRung', () => {
+  // A dumbbell's ±: one dumbbell along the rack, whatever the step.
+  it('moves one dumbbell, stopping on an odd one the gym added', () => {
+    const rack = [5, 10, 12, 15, 20];
+    expect(nextRung(rack, 10, 5)).toBe(12);
+    expect(nextRung(rack, 12, 5)).toBe(15);
+    expect(nextRung(rack, 15, -5)).toBe(12);
+    // From between two dumbbells (a typed number), the nearest one that way.
+    expect(nextRung(rack, 11, 1)).toBe(12);
+    expect(nextRung(rack, 11, -1)).toBe(10);
+  });
+
+  it('stays at either end of the rack', () => {
+    expect(nextRung([5, 10], 10, 5)).toBe(10);
+    expect(nextRung([5, 10], 5, -5)).toBe(5);
   });
 });
