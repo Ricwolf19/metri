@@ -26,6 +26,9 @@ export const MachineLoadForm = ({
   pins,
   step,
   onPick,
+  near,
+  expanded,
+  onExpandedChange,
 }: {
   unit: Units;
   baseText: string;
@@ -39,6 +42,11 @@ export const MachineLoadForm = ({
   /** The selected pin. */
   step: number | null;
   onPick: (index: number) => void;
+  /** The row's number: with no pin picked, the collapsed pins open around it. */
+  near: number | null;
+  /** The pins shown in full ("Show more"), kept for the session by the sheet. */
+  expanded: boolean;
+  onExpandedChange: (expanded: boolean) => void;
 }) => {
   const t = useT();
   return (
@@ -75,7 +83,15 @@ export const MachineLoadForm = ({
       {/* The area is always there: the grid filling it must not shove the
           buttons down once the increment is typed. */}
       {pins.length ? (
-        <LoadGrid loads={pins} unit={unit} selected={step} onSelect={onPick} />
+        <LoadGrid
+          loads={pins}
+          unit={unit}
+          selected={step}
+          onSelect={onPick}
+          near={near}
+          expanded={expanded}
+          onExpandedChange={onExpandedChange}
+        />
       ) : (
         <Text className="min-h-11 text-xs leading-4 text-ink-500">{t('load.pinsHint')}</Text>
       )}

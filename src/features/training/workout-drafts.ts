@@ -1,4 +1,4 @@
-import { useCallback, useSyncExternalStore } from 'react';
+import { useCallback, useState, useSyncExternalStore } from 'react';
 
 import type { LoadDetail } from '@/db/schema';
 
@@ -41,11 +41,20 @@ export const editDraftKey = (slotId: string, setId: string): DraftKey => `${slot
 /** Rows beyond the plan the lifter opened on a slot (extra sets). */
 export type SlotCounts = { extra: number };
 
+/**
+ * The weight sheet's two pickers that collapse: the gym's dumbbell rack and a
+ * stack's pins. Each remembers its own "Show more": the rack is one list every
+ * dumbbell exercise shares, the pins a different picker on every machine.
+ */
+export type LoadGridKind = 'rack' | 'pins';
+
 type SessionDrafts = {
   rows: ReadonlyMap<DraftKey, RowDraft>;
   counts: ReadonlyMap<string, SlotCounts>;
   /** The exercise page the lifter was on; the screen reopens there. */
   focusSlotId?: string;
+  /** The load grids the lifter opened in full: they stay open until the session ends. */
+  expandedGrids?: ReadonlySet<LoadGridKind>;
 };
 
 const EMPTY: SessionDrafts = { rows: new Map(), counts: new Map() };
@@ -171,6 +180,23 @@ export const writeFocusSlot = (logId: string, slotId: string): void => {
 
 export const readFocusSlot = (logId: string): string | null => read(logId).focusSlotId ?? null;
 
+export const readGridExpanded = (logId: string, kind: LoadGridKind): boolean =>
+  read(logId).expandedGrids?.has(kind) ?? false;
+
+/**
+ * "Show more" / "Show less" on a load grid: one tap keeps it that way for the
+ * rest of the session, so the lifter is not asked again on every open. A
+ * write that changes nothing emits nothing.
+ */
+export const writeGridExpanded = (logId: string, kind: LoadGridKind, expanded: boolean): void => {
+  const session = read(logId);
+  if (readGridExpanded(logId, kind) === expanded) return;
+  const next = new Set(session.expandedGrids);
+  if (expanded) next.add(kind);
+  else next.delete(kind);
+  setSession(logId, { ...session, expandedGrids: next });
+};
+
 /** The session is over — drafts must not leak into a re-run of the same day. */
 export const clearSessionDrafts = (logId: string): void => {
   if (!sessions.delete(logId)) return;
@@ -203,4 +229,27 @@ export const useSessionDrafts = (logId: string): ReadonlyMap<DraftKey, RowDraft>
 export const useSlotCounts = (logId: string, slotId: string): SlotCounts => {
   const getSnapshot = useCallback(() => readSlotCounts(logId, slotId), [logId, slotId]);
   return useSyncExternalStore(subscribe, getSnapshot, () => NO_COUNTS);
+};
+
+/**
+ * Whether a load grid opens in full, and the toggle. Inside a session the
+ * answer lives in this store (`writeGridExpanded`) until the session ends;
+ * with no session (`logId` absent) it is the open sheet's own, collapsed
+ * every time it opens.
+ */
+export const useGridExpanded = (
+  logId: string | undefined,
+  kind: LoadGridKind,
+): [boolean, (expanded: boolean) => void] => {
+  const [local, setLocal] = useState(false);
+  const getSnapshot = useCallback(
+    () => (logId ? readGridExpanded(logId, kind) : false),
+    [logId, kind],
+  );
+  const stored = useSyncExternalStore(subscribe, getSnapshot, () => false);
+  const set = useCallback(
+    (expanded: boolean) => (logId ? writeGridExpanded(logId, kind, expanded) : setLocal(expanded)),
+    [logId, kind],
+  );
+  return [logId ? stored : local, set];
 };

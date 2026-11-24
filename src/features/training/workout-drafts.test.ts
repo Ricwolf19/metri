@@ -7,10 +7,12 @@ import {
   editDraftKey,
   liveAfterDelete,
   liveDraftKey,
+  readGridExpanded,
   readSessionDrafts,
   readSlotCounts,
   settleDeletedSet,
   writeDraft,
+  writeGridExpanded,
   writeSlotCounts,
   type RowDraft,
 } from './workout-drafts';
@@ -89,6 +91,33 @@ describe('workout draft store', () => {
     const before = readSessionDrafts('log-1');
     clearDraft('log-1', 'slot-z:9');
     expect(readSessionDrafts('log-1')).toBe(before);
+  });
+});
+
+describe('an expanded load grid', () => {
+  afterEach(() => {
+    clearSessionDrafts('log-1');
+    clearSessionDrafts('log-2');
+  });
+
+  it('stays open for the rest of the session, each grid on its own', () => {
+    expect(readGridExpanded('log-1', 'rack')).toBe(false);
+    writeGridExpanded('log-1', 'rack', true);
+    expect(readGridExpanded('log-1', 'rack')).toBe(true);
+    // The pins are another picker; another session starts collapsed.
+    expect(readGridExpanded('log-1', 'pins')).toBe(false);
+    expect(readGridExpanded('log-2', 'rack')).toBe(false);
+    writeGridExpanded('log-1', 'rack', false);
+    expect(readGridExpanded('log-1', 'rack')).toBe(false);
+  });
+
+  it('survives the row drafts changing and goes with the session', () => {
+    writeGridExpanded('log-1', 'pins', true);
+    writeDraft('log-1', 'slot-a:live', { weight: '40', reps: '10', effort: null });
+    clearDraftLoads('log-1', 'slot-a');
+    expect(readGridExpanded('log-1', 'pins')).toBe(true);
+    clearSessionDrafts('log-1');
+    expect(readGridExpanded('log-1', 'pins')).toBe(false);
   });
 });
 
