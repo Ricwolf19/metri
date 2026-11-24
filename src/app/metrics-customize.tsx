@@ -61,6 +61,7 @@ const MetricsCustomize = () => {
         onReorder={({ from, to }) => move(from, to)}
         contentContainerStyle={{ paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
+        overScrollMode="never"
       />
     </Screen>
   );

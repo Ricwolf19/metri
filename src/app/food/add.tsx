@@ -157,6 +157,7 @@ const AddFood = () => {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
+        overScrollMode="never"
         contentContainerStyle={{ paddingBottom: 40 }}
         ListHeaderComponent={
           <>

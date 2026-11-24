@@ -247,6 +247,7 @@ const EditRoutine = () => {
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        overScrollMode="never"
       />
     </Screen>
   );

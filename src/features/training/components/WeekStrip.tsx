@@ -98,6 +98,7 @@ export const WeekStrip = () => {
         ref={scrollRef}
         horizontal
         showsHorizontalScrollIndicator={false}
+        overScrollMode="never"
         contentContainerClassName="px-3"
         onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
       >

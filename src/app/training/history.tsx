@@ -81,6 +81,7 @@ const History = () => {
         keyExtractor={(item) => (item.kind === 'group' ? `g:${item.key}` : item.session.id)}
         getItemType={(item) => item.kind}
         showsVerticalScrollIndicator={false}
+        overScrollMode="never"
         contentContainerStyle={{ paddingBottom: 40 }}
         ListHeaderComponent={
           <Card className="mb-2 border-brand/25 bg-brand/5">

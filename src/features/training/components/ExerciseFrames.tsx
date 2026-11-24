@@ -361,6 +361,7 @@ const FramePlayer = ({
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
+        overScrollMode="never"
         onScrollBeginDrag={() => setPaused(true)}
         onMomentumScrollEnd={(e) => onSettle(e.nativeEvent.contentOffset.x)}
         style={{ flex: 1 }}
