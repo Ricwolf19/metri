@@ -111,7 +111,8 @@ describe('Screen keyboard room', () => {
       expect(hostWith('bottomOffset').enabled).toBe(false);
       expect(hostWith('offset').enabled).toBe(false);
     } finally {
-      release();
+      // The release re-renders the screen (the store emits): inside act.
+      await act(async () => release());
       if (original) keyboard.mockImplementation(original);
     }
   });
