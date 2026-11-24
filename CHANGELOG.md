@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.23.0](https://github.com/Ricwolf19/metri/compare/metri-v1.22.0...metri-v1.23.0) (2026-11-24)
+
+
+### Features
+
+* **training:** add odd dumbbells to the rack ([fe610c5](https://github.com/Ricwolf19/metri/commit/fe610c556c27a4e087361177909353778b0ceee2))
+* **training:** finish at the last set with a summary ([2eae1b2](https://github.com/Ricwolf19/metri/commit/2eae1b212b1a2b841b25c31a5be569ae35020835))
+* **training:** fold long weight grids into a window ([8269d2c](https://github.com/Ricwolf19/metri/commit/8269d2c143e341228969f3b226fa8b8b88dfd7ec))
+* **training:** log dumbbells per hand without asking ([464fb6d](https://github.com/Ricwolf19/metri/commit/464fb6d2df5214587e713675ffdc97ef1fc25c43))
+* **ui:** let sheets own the keyboard ([59d0a99](https://github.com/Ricwolf19/metri/commit/59d0a99b25956f94c0612f4beb73f4d691acdae4))
+* **ui:** run strips and sheet lists to their edges ([1147943](https://github.com/Ricwolf19/metri/commit/1147943f9c93279a584c4b590416c43150ba6cd0))
+
+
+### Bug Fixes
+
+* **ui:** keep toasts from closing on a sideways drag ([5338f28](https://github.com/Ricwolf19/metri/commit/5338f286f978cc09ff182435483f51df480688c9))
+* **ui:** keep visible sheet fields where tapped ([57efbfc](https://github.com/Ricwolf19/metri/commit/57efbfc38573b6e8e182f06cc94346ea9b226dcc))
+* **ui:** stop overscroll swallowing the next tap ([dabc0eb](https://github.com/Ricwolf19/metri/commit/dabc0ebf3e8aedb8c28cb0f3d69eac21431036a0))
+
 ## [1.22.0](https://github.com/Ricwolf19/metri/compare/metri-v1.21.0...metri-v1.22.0) (2026-11-21)
 
 
