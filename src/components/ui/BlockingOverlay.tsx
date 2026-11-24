@@ -87,7 +87,14 @@ export const BlockingOverlay = ({ visible, label, onShow }: Props) => {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onShow={shown}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      navigationBarTranslucent
+      onShow={shown}
+    >
       <View
         className="flex-1 items-center justify-center bg-ink-900 px-10"
         accessible

@@ -1,11 +1,13 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen } from '@testing-library/react-native';
 import { Text, View } from 'react-native';
+import { useKeyboardState } from 'react-native-keyboard-controller';
 
 import { renderWithProviders } from '@/test/render';
 
 import { KEYBOARD_CLEARANCE } from './keyboard-room';
 import { Screen } from './Screen';
+import { holdSheetOpen } from './sheet-open';
 
 jest.mock(
   'react-native-safe-area-context',
@@ -59,6 +61,59 @@ describe('Screen keyboard room', () => {
     );
     await footerLayout(76);
     expect(hostWith('bottomOffset').bottomOffset).toBe(KEYBOARD_CLEARANCE + 76);
+  });
+
+  // Android 12+'s stretch overscroll catches the next touch while it relaxes:
+  // a sideways swipe on a strip right after a vertical drag went to the page.
+  it('never stretches a scroll screen past its ends', async () => {
+    await renderWithProviders(
+      <Screen scroll>
+        <Text>Body</Text>
+      </Screen>,
+    );
+    expect(hostWith('overScrollMode').overScrollMode).toBe('never');
+  });
+
+  // keyboard-controller reports a keyboard opened inside a Modal to every
+  // listener: the page behind a sheet padded and scrolled for the sheet's field.
+  it('stands back from the keyboard while a sheet is up, and takes it back after', async () => {
+    await renderWithProviders(
+      <Screen scroll footer={<Text>Save</Text>}>
+        <Text>Body</Text>
+      </Screen>,
+    );
+    expect(hostWith('bottomOffset').enabled).toBe(true);
+    let release = () => {};
+    await act(async () => {
+      release = holdSheetOpen();
+    });
+    expect(hostWith('bottomOffset').enabled).toBe(false);
+    // The footer stays put too: it does not ride a keyboard that is not its own.
+    expect(hostWith('offset').enabled).toBe(false);
+    await act(async () => release());
+    expect(hostWith('bottomOffset').enabled).toBe(true);
+  });
+
+  it('mounted under a sheet whose keyboard is still up, leaves that keyboard to the sheet', async () => {
+    // The spotlight closes its sheet and pushes a screen in one tap, its search keyboard up.
+    const keyboard = useKeyboardState as unknown as jest.Mock<
+      (select?: (s: object) => unknown) => unknown
+    >;
+    const original = keyboard.getMockImplementation();
+    keyboard.mockImplementation((select) => (select ? select({ isVisible: true }) : {}));
+    const release = holdSheetOpen();
+    try {
+      await renderWithProviders(
+        <Screen scroll footer={<Text>Save</Text>}>
+          <Text>Body</Text>
+        </Screen>,
+      );
+      expect(hostWith('bottomOffset').enabled).toBe(false);
+      expect(hostWith('offset').enabled).toBe(false);
+    } finally {
+      release();
+      if (original) keyboard.mockImplementation(original);
+    }
   });
 
   it('pads a static screen to the top of its footer', async () => {

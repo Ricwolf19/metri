@@ -12,6 +12,7 @@ import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-ar
 import { KEYBOARD_CLEARANCE, liftedFooterHeight } from './keyboard-room';
 import { makePullHoldController } from './pull-hold-controller';
 import { useLocalScrollVisibility, useScrollVisibility } from './scroll-visibility';
+import { useSheetOwnsKeyboard } from './useSheetOwnsKeyboard';
 
 // NativeWind only maps `contentContainerClassName` on RN's own scroll views; on
 // this third-party one the prop would reach the native side as a raw string.
@@ -105,15 +106,24 @@ export const Screen = ({
   const padsBottom = edges.includes('bottom');
   const [footerHeight, setFooterHeight] = useState(0);
   const footerLift = footer ? liftedFooterHeight(footerHeight, insets.bottom, padsBottom) : 0;
+  // Under an open sheet the keyboard is the sheet's: nothing here pads,
+  // scrolls or lifts for it (`useSheetOwnsKeyboard`).
+  const standBack = useSheetOwnsKeyboard();
 
   const body = scroll ? (
     <KeyboardAwareScrollView
+      enabled={!standBack}
       bottomOffset={KEYBOARD_CLEARANCE + footerLift}
       // Room to scroll that far: the keyboard's own inset alone cannot lift the
       // LAST field of a page clear by more than the padding under it.
       extraKeyboardSpace={KEYBOARD_CLEARANCE}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
+      // Android 12+'s stretch overscroll catches the next touch while it
+      // relaxes: a sideways swipe on a strip right after a vertical drag went
+      // to the page and the strip never moved. The hold-at-top still fires:
+      // it reads the drag events, and Android reports no negative offset.
+      overScrollMode="never"
       contentContainerClassName={contentClassName}
       onScroll={pull.onScroll}
       onScrollBeginDrag={pull.onScrollBeginDrag}
@@ -125,7 +135,12 @@ export const Screen = ({
     </KeyboardAwareScrollView>
   ) : (
     // A positive offset raises the line the content pads to: the footer's top.
-    <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={footerLift} className="flex-1">
+    <KeyboardAvoidingView
+      enabled={!standBack}
+      behavior="padding"
+      keyboardVerticalOffset={footerLift}
+      className="flex-1"
+    >
       {clearance}
       <View className={['flex-1', contentClassName ?? ''].join(' ')}>{children}</View>
     </KeyboardAvoidingView>
@@ -135,7 +150,7 @@ export const Screen = ({
   // Open, it sits on the keyboard: `opened` tucks the home-indicator room
   // (the SafeAreaView's padding or the footer's own) behind the keyboard.
   const footerNode = footer ? (
-    <KeyboardStickyView offset={{ opened: insets.bottom }}>
+    <KeyboardStickyView enabled={!standBack} offset={{ opened: insets.bottom }}>
       <View
         onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
         className="border-t border-ink-800 bg-ink-900 px-5 pt-3"
