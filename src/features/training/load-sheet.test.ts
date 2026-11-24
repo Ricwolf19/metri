@@ -5,8 +5,6 @@ import { DEFAULT_DUMBBELL_RACK } from './plate-math';
 
 const base = {
   unit: 'kg' as const,
-  unilateral: false,
-  oneDumbbell: false,
   rack: DEFAULT_DUMBBELL_RACK.kg,
 };
 
@@ -32,27 +30,16 @@ describe('weight sheet seed', () => {
     expect(seed.plates.reduce((a, b) => a + b, 0)).toBe(20);
   });
 
-  it('opens a dumbbell on the row as ONE dumbbell, hands from the saved detail', () => {
+  it('opens a dumbbell on the row as ONE dumbbell, with no hand count to choose', () => {
     const seed = seedLoadSheet({
       ...base,
       equipment: 'dumbbell',
       initialWeight: '22.5',
       initialLoad: { kind: 'dumbbell', perHandKg: 22.5, hands: 1 },
     });
-    expect(seed).toMatchObject({ mode: 'dumbbell', perHandText: '22.5', hands: 1 });
-    expect(
-      seedLoadSheet({ ...base, equipment: 'dumbbell', initialWeight: '20', initialLoad: null })
-        .hands,
-    ).toBe(2);
-    expect(
-      seedLoadSheet({
-        ...base,
-        oneDumbbell: true,
-        equipment: 'dumbbell',
-        initialWeight: '20',
-        initialLoad: null,
-      }).hands,
-    ).toBe(1);
+    expect(seed).toMatchObject({ mode: 'dumbbell', perHandText: '22.5' });
+    // The count is the exercise's (`defaultHands`), never a field of the sheet.
+    expect(seed).not.toHaveProperty('hands');
   });
 
   it('puts a stack row on its pin, and none when it sits between pins', () => {

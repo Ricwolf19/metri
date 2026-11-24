@@ -3,6 +3,7 @@ import { kgToLb, lbToKg } from '@/features/bmr/calc';
 import { formatNumber, trimFloat as trim } from '@/lib/numbers';
 import type { Units } from '@/lib/storage';
 
+import type { DumbbellRack } from './dumbbell-rack';
 import { ladderAt, ladderValues, rungOf, type Ladder } from './ladder';
 import { LB_BARS, plateOptions, platesForSide, platesToSide, totalFromSide } from './plate-math';
 
@@ -197,9 +198,6 @@ export const unstackPlates = (stack: PlateStack[]): number[] =>
 export const hasLoadDetail = (setting: { load?: LoadDetail | null } | null | undefined): boolean =>
   !!setting?.load;
 
-/** Two dumbbells unless the exercise works one side at a time. */
-export const defaultHands = (unilateral: boolean | undefined): 1 | 2 => (unilateral ? 1 : 2);
-
 /**
  * Catalog exercises that hold ONE dumbbell in both hands — the seated French
  * press, the goblet squat, the pullover: the number is the whole load, never
@@ -211,7 +209,37 @@ const ONE_DUMBBELL: ReadonlySet<string> = new Set([
   'pullover',
 ]);
 
-export const holdsOneDumbbell = (exerciseId: string): boolean => ONE_DUMBBELL.has(exerciseId);
+/**
+ * Unilateral catalog lifts done with a dumbbell in EACH hand: one leg works,
+ * both dumbbells load it, so the pair counts — a split squat or a lunge is not
+ * a single-arm row.
+ */
+const PAIR_PER_SIDE: ReadonlySet<string> = new Set([
+  'bulgarian-split-squat',
+  'walking-lunge',
+  'reverse-lunge',
+]);
+
+/**
+ * How many dumbbells a set moves — the EXERCISE's fact, never asked (owner's
+ * call 2026-11-24): one for a lift that holds one in both hands, for a
+ * kettlebell (a swing, a goblet squat: one bell), and for a unilateral lift
+ * other than those done with a pair; else a pair. The row's number is always
+ * ONE dumbbell; only volume counts a pair twice.
+ */
+export const exerciseHands = (exercise: {
+  id: string;
+  unilateral: boolean;
+  equipment: Equipment | null;
+}): 1 | 2 => {
+  if (ONE_DUMBBELL.has(exercise.id) || exercise.equipment === 'kettlebell') return 1;
+  if (exercise.unilateral && !PAIR_PER_SIDE.has(exercise.id)) return 1;
+  return 2;
+};
+
+/** Whether a logged set moved a PAIR of dumbbells: its number is one of two. */
+export const isPair = (load: LoadDetail | null | undefined): boolean =>
+  load?.kind === 'dumbbell' && load.hands === 2;
 
 /* ── Display unit ⇄ kg ──────────────────────────────────────────────────── */
 
@@ -338,9 +366,19 @@ export const clampInput = (mode: RowInputMode['mode'], value: number, unit: Unit
 /** The heaviest a mode offers: the top of a dumbbell rack, the last pin of a stack. */
 export const inputCap = (mode: RowInputMode['mode'], unit: Units): number => MAX_INPUT[mode][unit];
 
-/** Every dumbbell on a rack (display unit), lightest first, up to the heaviest a gym holds. */
-export const rackWeights = (rack: Ladder, unit: Units): number[] =>
-  ladderValues(rack, inputCap('perHand', unit), 80);
+/**
+ * Every dumbbell on a rack (display unit), lightest first, up to the heaviest a
+ * gym holds: the ladder's rungs and the odd ones the lifter added beside them
+ * (a 12 lb on a rack that goes up by 5), merged in order. An extra the ladder
+ * already reaches is not listed twice. THE list the grid draws, `rungOf`
+ * finds a pick in and the row's ± walks (`stepAlong`).
+ */
+export const rackWeights = (rack: DumbbellRack, unit: Units): number[] => {
+  const cap = inputCap('perHand', unit);
+  const rungs = ladderValues(rack, cap, 80);
+  const odd = (rack.extras ?? []).filter((w) => w > 0 && w <= cap && rungOf(rungs, w) == null);
+  return odd.length ? [...rungs, ...odd].sort((a, b) => a - b) : rungs;
+};
 
 export const rowInputMode = (
   facts: { equipment: Equipment | null } | null | undefined,
@@ -365,9 +403,10 @@ export const rowInputMode = (
 /**
  * The detail a row carries for the number it holds — the one rule for typing
  * AND for the ± buttons, so bumping a bar never drops its plates: per side is
- * split greedily onto the rack, a dumbbell keeps its hands, a stack total lands
- * on its pin. Null when the number names no picture (a side no rack adds up
- * to, a total between pins, a plain number).
+ * split greedily onto the rack, a dumbbell is one dumbbell counted by the
+ * exercise's hands (`exerciseHands` — never a count the row or a saved detail
+ * chose), a stack total lands on its pin. Null when the number names no
+ * picture (a side no rack adds up to, a total between pins, a plain number).
  */
 export const deriveLoad = (input: {
   mode: RowInputMode;
@@ -375,24 +414,16 @@ export const deriveLoad = (input: {
   value: number | null;
   unit: Units;
   setting: LoadDetail | null | undefined;
-  /** The detail the row already carries (keeps a chosen hand count). */
-  current: LoadDetail | null | undefined;
-  unilateral: boolean | undefined;
+  /** How many dumbbells a set moves (`exerciseHands`). */
+  hands: 1 | 2;
 }): LoadDetail | null => {
-  const { mode, value, unit, setting, current, unilateral } = input;
+  const { mode, value, unit, setting, hands } = input;
   if (value == null) return null;
   switch (mode.mode) {
     case 'perSide':
       return loadFromSide(value, mode.baseKg, unit, mode.sides);
-    case 'perHand': {
-      const hands =
-        current?.kind === 'dumbbell'
-          ? current.hands
-          : setting?.kind === 'dumbbell'
-            ? setting.hands
-            : defaultHands(unilateral);
+    case 'perHand':
       return { kind: 'dumbbell', perHandKg: unitToKg(value, unit), hands };
-    }
     case 'total':
       return machineLoadForTotal(unitToKg(value, unit), setting);
   }
@@ -402,28 +433,23 @@ export const deriveLoad = (input: {
  * The detail a set is logged with, reconciled with the number actually typed:
  * - a draft the lifter built in the sheet stands as long as it still adds up to
  *   the row (typing over the total invalidates it — the row is the truth);
- * - no draft, but the exercise is known to be loaded with dumbbells, synthesises
- *   the detail so every dumbbell set carries its ×2 even when the sheet was never
- *   opened — the row's number is one dumbbell, by definition of that equipment;
+ * - a dumbbell, drafted or not (the exercise is known to be loaded with them),
+ *   is the row's number as ONE dumbbell counted by the exercise's hands — so
+ *   every dumbbell set carries its ×2 even when the sheet was never opened, and
+ *   no count a draft or an older build picked outlives the rule;
  * - anything else is a plain number.
  */
 export const reconcileLoad = (input: {
   draft: LoadDetail | null | undefined;
   setting: LoadDetail | null | undefined;
   weightKg: number;
-  unilateral: boolean | undefined;
+  /** How many dumbbells a set moves (`exerciseHands`). */
+  hands: 1 | 2;
 }): LoadDetail | null => {
-  const { draft, setting, weightKg, unilateral } = input;
-  if (draft) {
-    if (draft.kind === 'dumbbell') {
-      return Math.abs(draft.perHandKg - weightKg) <= EPS_KG
-        ? draft
-        : { ...draft, perHandKg: weightKg };
-    }
-    return Math.abs(loadTotalKg(draft) - weightKg) <= EPS_KG ? draft : null;
+  const { draft, setting, weightKg, hands } = input;
+  if (draft?.kind === 'dumbbell' || (!draft && setting?.kind === 'dumbbell')) {
+    return { kind: 'dumbbell', perHandKg: weightKg, hands };
   }
-  if (setting?.kind === 'dumbbell') {
-    return { kind: 'dumbbell', perHandKg: weightKg, hands: defaultHands(unilateral) };
-  }
+  if (draft) return Math.abs(loadTotalKg(draft) - weightKg) <= EPS_KG ? draft : null;
   return null;
 };

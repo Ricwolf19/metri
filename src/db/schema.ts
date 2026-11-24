@@ -488,8 +488,9 @@ export type LoadDetail =
       steps: number;
       jumps?: { fromKg: number; incrementKg: number }[];
     }
-  /** `hands` is frozen at log time from the exercise's unilateral flag, so the
-   * total of a dumbbell set never depends on a flag that may change later. */
+  /** `perHandKg` is ONE dumbbell (= `weight_kg`). `hands` is stamped whenever
+   * the set is written (logged or corrected) from the exercise (`exerciseHands`),
+   * never asked — so a set's total never depends on a flag read later. */
   | { kind: 'dumbbell'; perHandKg: number; hands: 1 | 2 };
 
 /** A single logged set — the core training datum. Weight stored in kg. */

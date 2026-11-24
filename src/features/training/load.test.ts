@@ -11,7 +11,7 @@ import {
   POST_MACHINE_SEED,
   STACK_MACHINE_SEED,
   clampInput,
-  defaultHands,
+  exerciseHands,
   deriveLoad,
   describeLoad,
   hasLoadDetail,
@@ -23,6 +23,7 @@ import {
   machineLoadKind,
   stackPins,
   stackRuns,
+  rackWeights,
   reconcileLoad,
   rowInputMode,
   setVolumeKg,
@@ -172,52 +173,81 @@ describe('units', () => {
 
 describe('reconcileLoad', () => {
   it('keeps a sheet-built detail that still adds up to the row', () => {
-    expect(reconcileLoad({ draft: barbell, setting: null, weightKg: 85, unilateral: false })).toBe(
-      barbell,
-    );
+    expect(reconcileLoad({ draft: barbell, setting: null, weightKg: 85, hands: 2 })).toBe(barbell);
   });
 
   it('tolerates the 2-decimal rounding of the row text', () => {
     const load: LoadDetail = { kind: 'barbell', barKg: 20, platesKg: [20.412] };
-    expect(reconcileLoad({ draft: load, setting: null, weightKg: 60.82, unilateral: false })).toBe(
-      load,
-    );
+    expect(reconcileLoad({ draft: load, setting: null, weightKg: 60.82, hands: 2 })).toBe(load);
   });
 
   it('drops a detail the lifter typed over', () => {
-    expect(
-      reconcileLoad({ draft: barbell, setting: null, weightKg: 90, unilateral: false }),
-    ).toBeNull();
+    expect(reconcileLoad({ draft: barbell, setting: null, weightKg: 90, hands: 2 })).toBeNull();
   });
 
   it('follows the typed per-hand number for a dumbbell draft', () => {
-    expect(
-      reconcileLoad({ draft: dumbbells, setting: null, weightKg: 32.5, unilateral: false }),
-    ).toEqual({ kind: 'dumbbell', perHandKg: 32.5, hands: 2 });
+    expect(reconcileLoad({ draft: dumbbells, setting: null, weightKg: 32.5, hands: 2 })).toEqual({
+      kind: 'dumbbell',
+      perHandKg: 32.5,
+      hands: 2,
+    });
+  });
+
+  // The sheet used to ask "one hand / both hands" and the draft kept the answer:
+  // the count is the exercise's now, whatever a draft or an older build carried.
+  it("logs a dumbbell with the exercise's count, not the draft's", () => {
+    const oneHand: LoadDetail = { kind: 'dumbbell', perHandKg: 30, hands: 1 };
+    expect(reconcileLoad({ draft: oneHand, setting: null, weightKg: 30, hands: 2 })).toEqual({
+      kind: 'dumbbell',
+      perHandKg: 30,
+      hands: 2,
+    });
+    expect(reconcileLoad({ draft: dumbbells, setting: oneHand, weightKg: 30, hands: 1 })).toEqual({
+      kind: 'dumbbell',
+      perHandKg: 30,
+      hands: 1,
+    });
+    // The number is one dumbbell: the detail never drifts off it.
+    expect(reconcileLoad({ draft: dumbbells, setting: null, weightKg: 30.01, hands: 2 })).toEqual({
+      kind: 'dumbbell',
+      perHandKg: 30.01,
+      hands: 2,
+    });
   });
 
   it('synthesises ×2 for a dumbbell exercise logged without the sheet', () => {
-    expect(
-      reconcileLoad({ draft: null, setting: dumbbells, weightKg: 20, unilateral: false }),
-    ).toEqual({ kind: 'dumbbell', perHandKg: 20, hands: 2 });
-    expect(
-      reconcileLoad({ draft: null, setting: dumbbells, weightKg: 20, unilateral: true }),
-    ).toEqual({ kind: 'dumbbell', perHandKg: 20, hands: 1 });
+    expect(reconcileLoad({ draft: null, setting: dumbbells, weightKg: 20, hands: 2 })).toEqual({
+      kind: 'dumbbell',
+      perHandKg: 20,
+      hands: 2,
+    });
+    expect(reconcileLoad({ draft: null, setting: dumbbells, weightKg: 20, hands: 1 })).toEqual({
+      kind: 'dumbbell',
+      perHandKg: 20,
+      hands: 1,
+    });
   });
 
   it('is a plain number otherwise', () => {
-    expect(
-      reconcileLoad({ draft: null, setting: barbell, weightKg: 85, unilateral: false }),
-    ).toBeNull();
-    expect(
-      reconcileLoad({ draft: null, setting: null, weightKg: 85, unilateral: false }),
-    ).toBeNull();
+    expect(reconcileLoad({ draft: null, setting: barbell, weightKg: 85, hands: 2 })).toBeNull();
+    expect(reconcileLoad({ draft: null, setting: null, weightKg: 85, hands: 2 })).toBeNull();
   });
 
-  it('defaults hands by the unilateral flag', () => {
-    expect(defaultHands(true)).toBe(1);
-    expect(defaultHands(false)).toBe(2);
-    expect(defaultHands(undefined)).toBe(2);
+  it('counts the dumbbells a set moves from the exercise', () => {
+    const hands = (
+      id: string,
+      unilateral: boolean,
+      equipment: 'dumbbell' | 'kettlebell' = 'dumbbell',
+    ) => exerciseHands({ id, unilateral, equipment });
+    // A pair, unless the lift holds one in both hands or works a side with one.
+    expect(hands('dumbbell-curl', false)).toBe(2);
+    expect(hands('goblet-squat', false)).toBe(1);
+    expect(hands('dumbbell-row', true)).toBe(1);
+    // A split squat or a lunge works one leg with a dumbbell in each hand.
+    expect(hands('bulgarian-split-squat', true)).toBe(2);
+    expect(hands('walking-lunge', true)).toBe(2);
+    // A kettlebell is one bell: a custom swing never counts twice.
+    expect(hands('u1-swing', false, 'kettlebell')).toBe(1);
     expect(hasLoadDetail({ load: dumbbells })).toBe(true);
     expect(hasLoadDetail(null)).toBe(false);
   });
@@ -304,16 +334,14 @@ describe('loadFromSide / deriveLoad', () => {
       value: 20,
       unit: 'kg',
       setting: null,
-      current: null,
-      unilateral: false,
+      hands: 2,
     });
     const after = deriveLoad({
       mode: side,
       value: 22.5,
       unit: 'kg',
       setting: null,
-      current: before,
-      unilateral: false,
+      hands: 2,
     });
     expect(before?.kind === 'barbell' && before.platesKg).toEqual([20]);
     expect(after?.kind === 'barbell' && after.platesKg).toEqual([20, 2.5]);
@@ -326,49 +354,27 @@ describe('loadFromSide / deriveLoad', () => {
       value: 45,
       unit: 'lb',
       setting: null,
-      current: null,
-      unilateral: false,
+      hands: 2,
     });
     const rowKg = unitToKg(totalFromSide(45, baseLb), 'lb');
     expect(load).not.toBeNull();
     expect(Math.abs(loadTotalKg(load!) - rowKg)).toBeLessThan(0.02);
-    expect(reconcileLoad({ draft: load, setting: null, weightKg: rowKg, unilateral: false })).toBe(
-      load,
-    );
+    expect(reconcileLoad({ draft: load, setting: null, weightKg: rowKg, hands: 2 })).toBe(load);
   });
 
-  it('keeps the hands a dumbbell row already chose, else the saved ones, else the flag', () => {
+  it('counts the dumbbells by the exercise alone, never by a saved or chosen count', () => {
     const perHand = { mode: 'perHand' } as const;
-    expect(
-      deriveLoad({
-        mode: perHand,
-        value: 30,
-        unit: 'kg',
-        setting: null,
-        current: null,
-        unilateral: true,
-      }),
-    ).toEqual({ kind: 'dumbbell', perHandKg: 30, hands: 1 });
-    expect(
-      deriveLoad({
-        mode: perHand,
-        value: 30,
-        unit: 'kg',
-        setting: dumbbells,
-        current: null,
-        unilateral: true,
-      }),
-    ).toEqual({ kind: 'dumbbell', perHandKg: 30, hands: 2 });
-    expect(
-      deriveLoad({
-        mode: perHand,
-        value: 32.5,
-        unit: 'kg',
-        setting: dumbbells,
-        current: { kind: 'dumbbell', perHandKg: 30, hands: 1 },
-        unilateral: false,
-      }),
-    ).toEqual({ kind: 'dumbbell', perHandKg: 32.5, hands: 1 });
+    const pair = (setting: LoadDetail | null, hands: 1 | 2) =>
+      deriveLoad({ mode: perHand, value: 30, unit: 'kg', setting, hands });
+    expect(pair(null, 2)).toEqual({ kind: 'dumbbell', perHandKg: 30, hands: 2 });
+    expect(pair(null, 1)).toEqual({ kind: 'dumbbell', perHandKg: 30, hands: 1 });
+    // A detail saved by a build that asked for the hands no longer decides them.
+    expect(pair({ kind: 'dumbbell', perHandKg: 30, hands: 1 }, 2)).toEqual({
+      kind: 'dumbbell',
+      perHandKg: 30,
+      hands: 2,
+    });
+    expect(pair(dumbbells, 1)).toEqual({ kind: 'dumbbell', perHandKg: 30, hands: 1 });
   });
 
   it('lands a typed stack total on its pin and is nothing for an empty field', () => {
@@ -379,8 +385,7 @@ describe('loadFromSide / deriveLoad', () => {
         value: 40,
         unit: 'kg',
         setting: machine,
-        current: null,
-        unilateral: false,
+        hands: 2,
       }),
     ).toEqual({ ...machine, steps: 6 });
     expect(
@@ -389,8 +394,7 @@ describe('loadFromSide / deriveLoad', () => {
         value: null,
         unit: 'kg',
         setting: machine,
-        current: null,
-        unilateral: false,
+        hands: 2,
       }),
     ).toBeNull();
   });
@@ -417,8 +421,7 @@ describe('loadFromSide / deriveLoad', () => {
         value: 35,
         unit: 'kg',
         setting: null,
-        current: null,
-        unilateral: false,
+        hands: 2,
       }),
     ).toEqual({ kind: 'barbell', barKg: 0, platesKg: [25, 10], sides: 1 });
     expect(clampInput('perSide', 9999, 'kg')).toBe(250);
@@ -469,5 +472,21 @@ describe('seedFromPlates', () => {
       seedFromPlates({ kind: 'machine', baseKg: 5, incrementKg: 5, steps: 4 }, 0, 2, 'kg'),
     ).toBeNull();
     expect(seedFromPlates(null, 20, 2, 'kg')).toBeNull();
+  });
+});
+
+describe('rackWeights', () => {
+  const lbRack = { start: 5, step: 5 };
+
+  it('merges the odd dumbbells into the ladder, lightest first', () => {
+    const weights = rackWeights({ ...lbRack, extras: [12, 17.5] }, 'lb');
+    expect(weights.slice(0, 6)).toEqual([5, 10, 12, 15, 17.5, 20]);
+  });
+
+  it('lists an extra the ladder already reaches once, and none past the heaviest a rack holds', () => {
+    const weights = rackWeights({ ...lbRack, extras: [10, 225, 0] }, 'lb');
+    expect(weights.filter((w) => w === 10)).toHaveLength(1);
+    expect(weights).not.toContain(225);
+    expect(weights).toEqual(rackWeights(lbRack, 'lb'));
   });
 });

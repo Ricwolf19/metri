@@ -4,7 +4,6 @@ import type { Units } from '@/lib/storage';
 
 import { ladderValues, rungOf, type Ladder, type StepJump } from './ladder';
 import {
-  defaultHands,
   inputCap,
   kgToUnit,
   loadModesFor,
@@ -103,9 +102,9 @@ export type LoadSheetValues = {
   /** Where the plates change weight further down the stack. */
   jumps: JumpText[];
   step: number | null;
-  // Dumbbell
+  // Dumbbell: ONE dumbbell, always — how many the set moves is the exercise's
+  // (`defaultHands`), never a field.
   perHandText: string;
-  hands: 1 | 2;
   /** The gym's rack (a device setting), editable from here. */
   rackStartText: string;
   rackStepText: string;
@@ -121,10 +120,8 @@ type SeedInput = {
   /** The row's own detail, else the exercise's last-used config (kg). */
   initialLoad: LoadDetail | null;
   equipment: Equipment | null;
-  unilateral: boolean;
-  oneDumbbell: boolean;
   preferMode?: LoadMode;
-  /** The dumbbell rack in the display unit (`dumbbellRack`). */
+  /** The dumbbell rack's ladder in the display unit (`dumbbellRack`). */
   rack: Ladder;
 };
 
@@ -138,8 +135,6 @@ export const seedLoadSheet = ({
   initialWeight,
   initialLoad,
   equipment,
-  unilateral,
-  oneDumbbell,
   preferMode,
   rack,
 }: SeedInput): LoadSheetValues => {
@@ -191,11 +186,6 @@ export const seedLoadSheet = ({
     step: savedStack ? rungOf(stackPins(savedStack, unit), row) : null,
     // Dumbbell: the row's number IS one dumbbell.
     perHandText: initialWeight,
-    hands: oneDumbbell
-      ? 1
-      : initialLoad?.kind === 'dumbbell'
-        ? initialLoad.hands
-        : defaultHands(unilateral),
     rackStartText: String(rack.start),
     rackStepText: String(rack.step),
     rackJumps: jumpsToText(rack.jumps),

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { ChevronDownIcon, ChevronUpIcon } from '@/components/icons';
-import { Input, SegmentedControl, UnitSuffix } from '@/components/ui';
+import { ChevronDownIcon, ChevronUpIcon, PlusIcon } from '@/components/icons';
+import { Input, UnitSuffix } from '@/components/ui';
 import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 import { useT } from '@/i18n';
 import { parseDecimal } from '@/lib/numbers';
@@ -13,6 +13,7 @@ import { rungOf } from '../../ladder';
 import type { JumpText } from '../../load-sheet';
 import { LoadSectionLabel } from './LoadSectionLabel';
 import { LoadGrid } from './LoadGrid';
+import { RackExtrasEditor, type RackExtras } from './RackExtrasEditor';
 import { StepJumpsEditor } from './StepJumpsEditor';
 
 type RackFields = {
@@ -27,10 +28,12 @@ type RackFields = {
 /**
  * The dumbbell mode of the weight sheet: ONE dumbbell picked off the gym's
  * rack (a grid, like a stack's pins — never a typed number, so the row always
- * names a dumbbell that exists), how many hands hold one, and the rack itself
- * behind "Edit rack" for a gym whose dumbbells go up differently. A kettlebell
- * keeps a typed field over the same grid. Presentational — the sheet owns the
- * state.
+ * names a dumbbell that exists). The number is always one dumbbell: how many
+ * the set moves is the exercise's, never asked here. Behind "Edit rack" the
+ * rack itself, for a gym whose dumbbells go up differently; behind "Add a
+ * dumbbell" the odd ones no step reaches (the 12 lb on a rack of 5s). A
+ * kettlebell keeps a typed field over the same grid. Presentational — the
+ * sheet owns the state.
  */
 export const DumbbellLoadForm = ({
   unit,
@@ -39,29 +42,34 @@ export const DumbbellLoadForm = ({
   weights,
   typed,
   missing,
-  hands,
-  onHands,
   rack,
+  extras,
+  expanded,
+  onExpandedChange,
 }: {
   unit: Units;
   perHandText: string;
   onPerHandText: (text: string) => void;
-  /** Every dumbbell on the rack, display unit, lightest first. */
+  /** Every dumbbell on the rack, display unit, lightest first (`rackWeights`). */
   weights: number[];
   /** A typed field above the grid (kettlebells: their sizes are no rack's). */
   typed: boolean;
   /** No usable number yet: the form says what it needs. */
   missing: boolean;
-  hands: 1 | 2;
-  /** Absent: the exercise holds ONE dumbbell in both hands and there is nothing to choose. */
-  onHands?: (hands: 1 | 2) => void;
   rack: RackFields;
+  extras: RackExtras;
+  /** The rack shown in full ("Show more"), kept for the session by the sheet. */
+  expanded: boolean;
+  onExpandedChange: (expanded: boolean) => void;
 }) => {
   const t = useT();
-  const { muted } = useTheme();
-  // Presentation only: the rack's fields live in the sheet's form either way.
+  const { brand, muted } = useTheme();
+  // Presentation only: the rack's fields live in the sheet's form either way,
+  // and an added dumbbell is written by the sheet the moment it is added.
   const [editingRack, setEditingRack] = useState(false);
-  const picked = rungOf(weights, parseDecimal(perHandText));
+  const [adding, setAdding] = useState(false);
+  const current = parseDecimal(perHandText);
+  const picked = rungOf(weights, current);
 
   return (
     <>
@@ -87,27 +95,54 @@ export const DumbbellLoadForm = ({
         unit={unit}
         selected={picked}
         onSelect={(i) => onPerHandText(String(weights[i]))}
+        near={current}
+        expanded={expanded}
+        onExpandedChange={onExpandedChange}
       />
-      <Pressable
-        onPress={() => setEditingRack((open) => !open)}
-        accessibilityRole="button"
-        accessibilityState={{ expanded: editingRack }}
-        className="mt-2 min-h-11 flex-row items-center gap-1 self-start"
-      >
-        <Text
-          maxFontSizeMultiplier={CONTROL_FONT_SCALE}
-          className="text-xs font-sans-semibold text-ink-300 underline"
+      <View className="mt-2 flex-row flex-wrap items-center gap-x-5">
+        <Pressable
+          onPress={() => setEditingRack((open) => !open)}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: editingRack }}
+          className="min-h-11 flex-row items-center gap-1"
         >
-          {t('load.editRack')}
-        </Text>
-        {editingRack ? (
-          <ChevronUpIcon color={muted} size={12} />
-        ) : (
-          <ChevronDownIcon color={muted} size={12} />
+          <Text
+            maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+            className="text-xs font-sans-semibold text-ink-300 underline"
+          >
+            {t('load.editRack')}
+          </Text>
+          {editingRack ? (
+            <ChevronUpIcon color={muted} size={12} />
+          ) : (
+            <ChevronDownIcon color={muted} size={12} />
+          )}
+        </Pressable>
+        {/* A kettlebell's field takes any number; the odd sizes are a rack's. */}
+        {typed ? null : (
+          <Pressable
+            onPress={() => setAdding((open) => !open)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: adding }}
+            className="min-h-11 flex-row items-center gap-1"
+          >
+            <PlusIcon color={brand} size={14} />
+            <Text
+              maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+              className="text-xs font-sans-semibold text-brand"
+            >
+              {t('load.addDumbbell')}
+            </Text>
+          </Pressable>
         )}
-      </Pressable>
+      </View>
       {editingRack ? (
-        <View className="rounded-field border border-ink-700 px-3 pb-1 pt-3">
+        <View
+          className={[
+            'rounded-field border border-ink-700 px-3 pb-1 pt-3',
+            adding ? 'mb-2' : '',
+          ].join(' ')}
+        >
           <Text className="mb-3 text-xs leading-4 text-ink-400">{t('load.rackHint')}</Text>
           <View className="flex-row gap-3">
             <View className="flex-1">
@@ -139,20 +174,7 @@ export const DumbbellLoadForm = ({
           />
         </View>
       ) : null}
-      {onHands ? (
-        <View className="mt-4">
-          <SegmentedControl
-            segments={[
-              { value: '1', label: t('load.oneDumbbell') },
-              { value: '2', label: t('load.twoDumbbells') },
-            ]}
-            value={String(hands) as '1' | '2'}
-            onChange={(v) => onHands(v === '1' ? 1 : 2)}
-          />
-        </View>
-      ) : (
-        <Text className="mt-4 text-xs text-ink-500">{t('load.heldInBothHands')}</Text>
-      )}
+      {adding && !typed ? <RackExtrasEditor unit={unit} extras={extras} /> : null}
     </>
   );
 };

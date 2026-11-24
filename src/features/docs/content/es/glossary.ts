@@ -5,7 +5,18 @@ export const glossary: DocSection[] = [
     id: 'glossary',
     category: 'glossary',
     title: 'Glosario',
-    tags: ['glosario', 'términos', 'rir', 'rom', 'tut', 'neat', 'tdee'],
+    tags: [
+      'glosario',
+      'términos',
+      'rir',
+      'rom',
+      'tut',
+      'neat',
+      'tdee',
+      'unilateral',
+      'por mano',
+      'mancuerna',
+    ],
     body: `Definiciones breves de los términos que usan estas guías, en orden alfabético.
 Los números son valores típicos, no reglas.
 
@@ -26,6 +37,7 @@ Los números son valores típicos, no reglas.
 | **Masa magra**                        | Peso corporal menos masa grasa; la base para calcular proteína y grasa                          |
 | **NEAT**                              | Actividad no deportiva: pasos, escaleras, tareas. Primera palanca cuando una definición se frena |
 | **Pausa de dieta (diet break)**       | 1–2 semanas en mantenimiento dentro de una definición larga; una herramienta de adherencia, no un reinicio metabólico |
+| **Por mano**                          | El peso de **una** mancuerna (el "peso por mancuerna" de la hoja): lo que registras en un ejercicio con mancuernas. Con una en cada mano, el peso movido (peso × reps) lo cuenta dos veces |
 | **Proteína de alto valor biológico**  | Proteína con perfil completo de aminoácidos que el cuerpo aprovecha bien: huevo, lácteos, carne, pescado |
 | **Rampa de RIR**                      | Reducir el RIR semana a semana dentro de un bloque hasta llegar al fallo en la última            |
 | **Recomposición**                     | Perder grasa y ganar músculo con el mismo peso corporal, normalmente en mantenimiento           |
@@ -39,6 +51,7 @@ Los números son valores típicos, no reglas.
 | **Tensión mecánica**                  | El principal motor del crecimiento muscular                                                     |
 | **Termogénesis adaptativa**           | El gasto baja al perder peso (un cuerpo más pequeño, menos NEAT) y sube al ganarlo; el déficit de ayer es el mantenimiento de hoy |
 | **TUT**                               | Tiempo bajo tensión (~20–40 s/serie)                                                            |
+| **Unilateral**                        | Un lado a la vez (sentadilla búlgara, remo a una mano): cada lado hace las mismas series y reps, y las registras una vez |
 | **Volumen**                           | Series semanales por músculo (10–20)                                                            |
 | **Volumen (bulk)**                    | Fase en superávit calórico para ganar peso, idealmente 0,5–1% del peso corporal al mes          |
 

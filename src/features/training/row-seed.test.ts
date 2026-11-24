@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { loadTotalKg, type LoadDetail } from './load';
-import { oneDumbbellFill, seedRow } from './row-seed';
+import { seedRow } from './row-seed';
 
 const BAR: LoadDetail = { kind: 'barbell', barKg: 20, platesKg: [20, 10] };
 
@@ -12,7 +12,7 @@ describe("seedRow — a new session opens on last time's picture", () => {
       mode: { mode: 'perSide', baseKg: 20, sides: 2 },
       unit: 'kg',
       setting: null,
-      unilateral: false,
+      hands: 2,
     });
     expect(draft).toMatchObject({ side: '30', weight: '80', reps: '8', load: BAR });
   });
@@ -23,7 +23,7 @@ describe("seedRow — a new session opens on last time's picture", () => {
       mode: { mode: 'perSide', baseKg: 20, sides: 2 },
       unit: 'kg',
       setting: null,
-      unilateral: false,
+      hands: 2,
     });
     expect(draft.weight).toBe('80');
     expect(draft.load?.kind).toBe('barbell');
@@ -37,7 +37,7 @@ describe("seedRow — a new session opens on last time's picture", () => {
       mode: { mode: 'perSide', baseKg: 0, sides: 1 },
       unit: 'kg',
       setting: post,
-      unilateral: false,
+      hands: 2,
     });
     expect(draft).toMatchObject({ weight: '21.25', load: { sides: 1, platesKg: [20, 1.25] } });
   });
@@ -49,21 +49,35 @@ describe("seedRow — a new session opens on last time's picture", () => {
       mode: { mode: 'total' },
       unit: 'kg',
       setting: stack,
-      unilateral: false,
+      hands: 2,
     });
     expect(draft.load).toEqual({ ...stack, steps: 6 });
   });
 
-  it('dumbbells keep the hands they were lifted with', () => {
+  it('dumbbells keep their weight, and the count is the exercise’s', () => {
     const pair: LoadDetail = { kind: 'dumbbell', perHandKg: 22.5, hands: 2 };
     const draft = seedRow({
       fill: { weightKg: 22.5, reps: 10, load: pair },
       mode: { mode: 'perHand' },
       unit: 'kg',
       setting: null,
-      unilateral: false,
+      hands: 2,
     });
     expect(draft).toMatchObject({ weight: '22.5', load: pair });
+  });
+
+  // An older build let the lifter say "one hand" on a two-dumbbell lift: the
+  // next set reopens on the pair the exercise uses, not on that answer.
+  it('reopens a set an older build logged with a chosen count on the exercise’s count', () => {
+    const fill = {
+      weightKg: 20,
+      reps: 10,
+      load: { kind: 'dumbbell', perHandKg: 20, hands: 1 } as LoadDetail,
+    };
+    const seed = (hands: 1 | 2) =>
+      seedRow({ fill, mode: { mode: 'perHand' }, unit: 'kg', setting: null, hands }).load;
+    expect(seed(2)).toEqual({ kind: 'dumbbell', perHandKg: 20, hands: 2 });
+    expect(seed(1)).toEqual({ kind: 'dumbbell', perHandKg: 20, hands: 1 });
   });
 
   it('a lb gym reads the kg plates back as its own rack', () => {
@@ -73,7 +87,7 @@ describe("seedRow — a new session opens on last time's picture", () => {
       mode: { mode: 'perSide', baseKg: 20.41, sides: 2 },
       unit: 'lb',
       setting: lbBar,
-      unilateral: false,
+      hands: 2,
     });
     expect(draft).toMatchObject({ side: '45', weight: '135' });
   });
@@ -84,19 +98,24 @@ describe("seedRow — a new session opens on last time's picture", () => {
       mode: { mode: 'perSide', baseKg: 20, sides: 2 },
       unit: 'kg',
       setting: null,
-      unilateral: false,
+      hands: 2,
     });
     expect(draft).toMatchObject({ weight: '', reps: '8', load: null });
   });
 });
 
-describe('oneDumbbellFill', () => {
-  it('reopens a single-dumbbell lift on one dumbbell, whatever an older set said', () => {
+describe('seedRow on a one-dumbbell lift', () => {
+  // The seated French press holds ONE dumbbell in both hands; builds before
+  // that fact logged it as a pair, which would keep doubling its volume.
+  it('reopens on one dumbbell, whatever an older set recorded', () => {
     const pair: LoadDetail = { kind: 'dumbbell', perHandKg: 20, hands: 2 };
-    expect(oneDumbbellFill({ weightKg: 20, reps: 10, load: pair }).load).toEqual({
-      ...pair,
+    const draft = seedRow({
+      fill: { weightKg: 20, reps: 10, load: pair },
+      mode: { mode: 'perHand' },
+      unit: 'kg',
+      setting: null,
       hands: 1,
     });
-    expect(oneDumbbellFill({ weightKg: 20, reps: 10, load: null }).load).toBeNull();
+    expect(draft.load).toEqual({ ...pair, hands: 1 });
   });
 });

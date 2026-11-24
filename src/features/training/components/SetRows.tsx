@@ -9,6 +9,7 @@ import { useTheme } from '@/theme/theme-context';
 
 import { MISSED } from '../adherence-colors';
 import { effortWords } from '../labels';
+import { isPair } from '../load';
 import { loggedSetLabel } from '../session-a11y';
 import { weightText } from '../set-prefill';
 import { WeightButton } from './WeightButton';
@@ -109,7 +110,7 @@ export const LoggedRow = ({
 }) => {
   const t = useT();
   const { brandContrast, muted } = useTheme();
-  const twoDumbbells = logged.load?.kind === 'dumbbell' && logged.load.hands === 2;
+  const twoDumbbells = isPair(logged.load);
   const effort = effortWords(logged, t, effortMode);
   const actions = onWeightPress ? [{ name: 'showLoad', label: t('loadView.title') }] : undefined;
   const onAction = (e: AccessibilityActionEvent) => {

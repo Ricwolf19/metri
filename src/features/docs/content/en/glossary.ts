@@ -5,7 +5,18 @@ export const glossary: DocSection[] = [
     id: 'glossary',
     category: 'glossary',
     title: 'Glossary',
-    tags: ['glossary', 'terms', 'rir', 'rom', 'tut', 'neat', 'tdee'],
+    tags: [
+      'glossary',
+      'terms',
+      'rir',
+      'rom',
+      'tut',
+      'neat',
+      'tdee',
+      'unilateral',
+      'per hand',
+      'dumbbell',
+    ],
     body: `Short definitions of the terms used across these guides, in alphabetical
 order. The numbers are typical defaults, not rules.
 
@@ -31,6 +42,7 @@ order. The numbers are typical defaults, not rules.
 | **Maintenance (TDEE)**            | The calories at which your weight holds steady                                                 |
 | **Mechanical tension**            | The main driver of muscle growth                                                               |
 | **NEAT**                          | Non-exercise activity: steps, stairs, chores. First lever when a cut stalls                    |
+| **Per hand**                      | The weight of **one** dumbbell (the sheet's "weight per dumbbell"): what you log on a dumbbell exercise. With one in each hand, the weight moved (weight × reps) counts it twice |
 | **Ramp-up sets**                  | Light warm-up sets that don't count (~RIR 10), climbing toward the working weight              |
 | **Recomposition**                 | Losing fat and gaining muscle at the same bodyweight, usually at maintenance                   |
 | **RIR**                           | Reps in reserve — reps left before failure                                                     |
@@ -40,6 +52,7 @@ order. The numbers are typical defaults, not rules.
 | **Straight sets**                 | Same reps on every set (e.g. 3×8); trim the weight ~5% per set to keep them                    |
 | **Technical failure**             | The point where the next rep would break form; the stop signal for working sets                |
 | **TUT**                           | Time under tension (~20–40 s/set)                                                              |
+| **Unilateral**                    | One side at a time (a split squat, a single-arm row): each side does the same sets and reps, and you log them once |
 | **Volume**                        | Total weekly sets per muscle (10–20)                                                           |
 
 > **Tip:** Most of these come up in [training intensity](/docs/training-intensity), [weight tracking](/docs/weight-tracking) and [macros](/docs/macros).`,

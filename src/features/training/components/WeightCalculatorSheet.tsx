@@ -3,13 +3,14 @@ import { useWatch } from 'react-hook-form';
 import { Text, View } from 'react-native';
 
 import { ControlledInput, useOpenKey, useSaveForm } from '@/components/form';
-import { Button, ChipRow, Sheet, SheetForm, UnitSuffix } from '@/components/ui';
+import { Button, ChipRow, SHEET_GUTTER, Sheet, SheetForm, UnitSuffix } from '@/components/ui';
 import type { Equipment } from '@/db/schema';
 import { useT } from '@/i18n';
-import { parseDecimal, trimFloat } from '@/lib/numbers';
+import { formatNumber, parseDecimal } from '@/lib/numbers';
 import type { Units } from '@/lib/storage';
 
-import { dumbbellRack, saveDumbbellRack } from '../dumbbell-rack';
+import { addRackExtra, dumbbellRack, removeRackExtra, saveRackLadder } from '../dumbbell-rack';
+import { rungOf } from '../ladder';
 import { loadModesFor, rackWeights, unitToKg, type LoadDetail, type LoadMode } from '../load';
 import {
   parseJumpTexts,
@@ -29,6 +30,7 @@ import {
   removePlate,
   totalFromSide,
 } from '../plate-math';
+import { useGridExpanded } from '../workout-drafts';
 import { BarbellLoadForm } from './load/BarbellLoadForm';
 import { DumbbellLoadForm } from './load/DumbbellLoadForm';
 import { LoadSectionLabel } from './load/LoadSectionLabel';
@@ -54,24 +56,31 @@ type Props = {
   /** The row's own detail, else the exercise's last-used config (kg). */
   initialLoad: LoadDetail | null;
   equipment: Equipment | null;
-  unilateral: boolean;
-  /** One dumbbell held in both hands (the seated French press): the hand count is fixed at one. */
-  oneDumbbell?: boolean;
+  /**
+   * How many dumbbells a set of this exercise moves (`defaultHands`): one on a
+   * unilateral lift or one held in both hands, else a pair. The exercise's
+   * fact — the sheet never asks, and the number it takes is always ONE.
+   */
+  hands: 1 | 2;
+  /**
+   * The session the sheet opened in: a weight grid shown in full stays so on
+   * every open until it ends (`useGridExpanded`). Absent, the grids open folded.
+   */
+  workoutLogId?: string;
   /** The mode to open in when the equipment offers several (the machine chooser). */
   preferMode?: LoadMode;
   onApply: (result: LoadApply) => void;
 };
 
-const trim = (n: number): number => trimFloat(n, 3);
 const num = parseDecimal;
 
 /**
  * The weight sheet, shaped by how the exercise is loaded: a bar takes plates
  * per side (and remembers which bar; a plate-loaded machine types its base
  * instead), a stack takes a base + increment and offers the pins as badges,
- * dumbbells take ONE dumbbell and count hands. The sheet works in the DISPLAY
- * unit end to end (see plate-math) and converts once at Apply; an open that
- * leaves every field as it was → Apply returns the row's text as-is.
+ * dumbbells take ONE dumbbell off the gym's rack. The sheet works in the
+ * DISPLAY unit end to end (see plate-math) and converts once at Apply; an open
+ * that leaves every field as it was → Apply returns the row's text as-is.
  */
 export const WeightCalculatorSheet = ({ visible, onClose, ...props }: Props) => {
   // The sheet stays mounted between opens; the form inside starts over on
@@ -90,25 +99,21 @@ const LoadSheetForm = ({
   initialWeight,
   initialLoad,
   equipment,
-  unilateral,
-  oneDumbbell = false,
+  hands,
+  workoutLogId,
   preferMode,
   onApply,
 }: Omit<Props, 'visible'>) => {
   const t = useT();
   const [savedRack] = useState(() => dumbbellRack(unit));
+  // The odd dumbbells are written the moment they are added or removed (the
+  // gym's fact, kept even if the sheet is cancelled); this is the open sheet's copy.
+  const [extras, setExtras] = useState<readonly number[]>(() => savedRack.extras ?? []);
   const [seed] = useState(() =>
-    seedLoadSheet({
-      unit,
-      initialWeight,
-      initialLoad,
-      equipment,
-      unilateral,
-      oneDumbbell,
-      preferMode,
-      rack: savedRack,
-    }),
+    seedLoadSheet({ unit, initialWeight, initialLoad, equipment, preferMode, rack: savedRack }),
   );
+  const [rackOpen, setRackOpen] = useGridExpanded(workoutLogId, 'rack');
+  const [pinsOpen, setPinsOpen] = useGridExpanded(workoutLogId, 'pins');
   /** A machine marked as plates carries its sled weight where a bar would go. */
   const plateMachine = equipment === 'machine';
 
@@ -124,7 +129,7 @@ const LoadSheetForm = ({
       // The rack is the gym's, not the exercise's: a device setting, written here.
       const typedRack = sheetRack(values);
       if (form.isDirty && values.mode === 'dumbbell' && typedRack.step > 0 && rackChanged(values))
-        saveDumbbellRack(unit, typedRack);
+        saveRackLadder(unit, typedRack);
       onApply(build(values));
       onClose();
     },
@@ -163,11 +168,27 @@ const LoadSheetForm = ({
   const stackOnly = v.mode === 'machine' && inc > 0 && v.step == null;
 
   /* ── Dumbbell ────────────────────────────────────────────────────────── */
+  // The number is ONE dumbbell, and so is what the sheet shows: a pair is
+  // counted twice in volume, never asked about nor doubled here.
   const perHand = num(v.perHandText);
-  const dumbbellTotal = perHand != null ? trim(perHand * v.hands) : 0;
+  // A kettlebell shares the mode (one weight, typed) but is no dumbbell to name.
+  const dumbbells = v.mode === 'dumbbell' && equipment !== 'kettlebell';
   const editedRack = sheetRack(v);
   // A rack mid-edit (no step yet) keeps showing the saved one rather than nothing.
   const rack = editedRack.step > 0 ? editedRack : savedRack;
+  const weights = rackWeights({ ...rack, extras }, unit);
+  // An odd dumbbell joins the rack at once and is the one picked: the lifter
+  // just named the dumbbell in hand. One the rack already holds is only picked.
+  const addExtra = (weight: number) => {
+    if (rungOf(weights, weight) == null) setExtras(addRackExtra(unit, weight));
+    set('perHandText')(formatNumber(weight));
+  };
+  const removeExtra = (weight: number) => {
+    setExtras(removeRackExtra(unit, weight));
+    // The dumbbell in hand just left the rack: pick again, or Apply would log
+    // one the gym no longer has (picked, never typed).
+    if (perHand != null && Math.abs(perHand - weight) <= 0.01) set('perHandText')('');
+  };
   const rackChanged = (values: LoadSheetValues): boolean =>
     values.rackStartText !== seed.rackStartText ||
     values.rackStepText !== seed.rackStepText ||
@@ -179,7 +200,7 @@ const LoadSheetForm = ({
       : v.mode === 'machine'
         ? machineTotal
         : v.mode === 'dumbbell'
-          ? dumbbellTotal
+          ? (perHand ?? 0)
           : (num(v.plainText) ?? 0);
 
   // Every mode but the plain number must leave with a complete picture: that
@@ -219,7 +240,7 @@ const LoadSheetForm = ({
     }
     if (values.mode === 'dumbbell') {
       const kg = unitToKg(perHand ?? 0, unit);
-      const load: LoadDetail = { kind: 'dumbbell', perHandKg: kg, hands: values.hands };
+      const load: LoadDetail = { kind: 'dumbbell', perHandKg: kg, hands };
       return { row: { weightText: String(perHand ?? ''), load }, save: load };
     }
     return { row: { weightText: values.plainText, load: null }, save: null };
@@ -239,7 +260,7 @@ const LoadSheetForm = ({
     // the sheet itself grows to show every field and both buttons.
     <SheetForm>
       <Text className="mb-1 text-lg font-sans-bold text-ink-50">
-        {t('training.calculatorTitle')}
+        {dumbbells ? t('load.dumbbellTitle') : t('training.calculatorTitle')}
       </Text>
       <Text className="mb-4 text-sm leading-5 text-ink-400">{t('load.sheetHint')}</Text>
 
@@ -249,7 +270,7 @@ const LoadSheetForm = ({
             label={plateMachine ? t('load.machineKindTitle') : t('load.kind')}
             first
           />
-          <ChipRow items={modeItems} value={v.mode} onChange={set('mode')} />
+          <ChipRow items={modeItems} value={v.mode} onChange={set('mode')} bleed={SHEET_GUTTER} />
         </>
       ) : null}
 
@@ -286,6 +307,9 @@ const LoadSheetForm = ({
           pins={pins}
           step={v.step}
           onPick={set('step')}
+          near={num(initialWeight)}
+          expanded={pinsOpen}
+          onExpandedChange={setPinsOpen}
         />
       ) : null}
 
@@ -294,11 +318,9 @@ const LoadSheetForm = ({
           unit={unit}
           perHandText={v.perHandText}
           onPerHandText={set('perHandText')}
-          weights={rackWeights(rack, unit)}
+          weights={weights}
           typed={equipment !== 'dumbbell'}
           missing={perHand == null}
-          hands={v.hands}
-          onHands={oneDumbbell ? undefined : set('hands')}
           rack={{
             startText: v.rackStartText,
             onStartText: set('rackStartText'),
@@ -307,6 +329,9 @@ const LoadSheetForm = ({
             jumps: v.rackJumps,
             onJumps: set('rackJumps'),
           }}
+          extras={{ weights: extras, onAdd: addExtra, onRemove: removeExtra }}
+          expanded={rackOpen}
+          onExpandedChange={setRackOpen}
         />
       ) : null}
 
@@ -326,7 +351,11 @@ const LoadSheetForm = ({
       <View className="mt-5 rounded-field bg-ink-800 px-4 py-3">
         <View className="flex-row items-baseline justify-between">
           <Text className="min-w-0 flex-1 pr-3 text-sm text-ink-400">
-            {v.mode === 'dumbbell' ? t('load.totalBothHands') : t('training.total')}
+            {!dumbbells
+              ? t(v.mode === 'dumbbell' ? 'training.weight' : 'training.total')
+              : hands === 2
+                ? t('load.eachDumbbell')
+                : t('load.perHand')}
           </Text>
           <Text className="shrink-0 text-2xl font-sans-bold tabular-nums text-ink-50">
             {total} {unit}

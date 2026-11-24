@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { fold } from '@/lib/text';
+
 import { en } from './content/en';
 import { es } from './content/es';
 import { searchDocs } from './index';
@@ -43,5 +45,25 @@ describe('searchDocs', () => {
     const fresh = searchDocs([...en], 'protein').map((d) => d.id);
     expect(searchDocs(en, 'protein').map((d) => d.id)).toEqual(fresh);
     expect(searchDocs(en, 'protein').map((d) => d.id)).toEqual(fresh);
+  });
+});
+
+describe('glossary', () => {
+  const terms = (docs: typeof en): string[] =>
+    [...(docs.find((d) => d.id === 'glossary')?.body ?? '').matchAll(/^\| \*\*(.+?)\*\*/gm)].map(
+      (m) => m[1],
+    );
+
+  it('lists its terms alphabetically in both languages', () => {
+    for (const docs of [en, es]) {
+      const folded = terms(docs).map(fold);
+      expect(folded).toEqual([...folded].sort());
+    }
+  });
+
+  // The session's blue tag names "Unilateral"; the weight sheet's number is per hand.
+  it('defines what a unilateral lift and a per-hand weight are', () => {
+    expect(terms(en)).toEqual(expect.arrayContaining(['Unilateral', 'Per hand']));
+    expect(terms(es)).toEqual(expect.arrayContaining(['Unilateral', 'Por mano']));
   });
 });

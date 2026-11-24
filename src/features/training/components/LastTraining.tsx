@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from 'react-native';
 
 import { FlameIcon } from '@/components/icons';
-import { ScrollRow } from '@/components/ui';
+import { CARD_GUTTER, ScrollRow } from '@/components/ui';
 import type { EffortMode, SetLog } from '@/db/schema';
 import { useT } from '@/i18n';
 import type { Units } from '@/lib/storage';
@@ -9,7 +9,7 @@ import { useDateFormat } from '@/lib/useDateFormat';
 import { useTheme } from '@/theme/theme-context';
 
 import { effortMark } from '../labels';
-import { describeLoad } from '../load';
+import { describeLoad, isPair } from '../load';
 import { loggedSetLabel } from '../session-a11y';
 import type { PreviousSession } from '../session.repo';
 import { weightText } from '../set-prefill';
@@ -44,9 +44,10 @@ export const LastTraining = ({
         {t('training.lastTraining')} · {dayMonth(previous.finishedAt)}
       </Text>
       <View className="mt-1">
-        <ScrollRow className="gap-1.5">
+        {/* It sits straight on the session's exercise Card: through its p-5. */}
+        <ScrollRow className="gap-1.5" bleed={CARD_GUTTER}>
           {previous.sets.map((s, i) => {
-            const twoDumbbells = s.load?.kind === 'dumbbell' && s.load.hands === 2;
+            const twoDumbbells = isPair(s.load);
             const effort = effortMark(s, t, effortMode);
             // The whole chip opens the picture: a 44 dp target, and ONE element that
             // reads the set whole ("Set 1: 60 kg, 8 reps, 2 in reserve"), not "60 kg".

@@ -6,6 +6,7 @@ import { EditIcon, PlusIcon, SkipIcon, SwapIcon } from '@/components/icons';
 import {
   BadgeRow,
   Card,
+  CARD_GUTTER,
   OnSurface,
   OptionSheet,
   type SelectItem,
@@ -36,13 +37,13 @@ import { upsertExerciseSetting } from '../exercise-settings.repo';
 import { visualIdFor } from '../exercise-visuals';
 import { exercisesQuery, getExercise } from '../exercises.repo';
 import { exerciseDisplayName, targetLine } from '../labels';
-import { stepAlong } from '../ladder';
+import { nextRung, stepAlong } from '../ladder';
 import {
   clampInput,
-  defaultHands,
   deriveLoad,
   hasLoadDetail,
-  holdsOneDumbbell,
+  exerciseHands,
+  isPair,
   kgToUnit,
   machineLoadForTotal,
   machineLoadKind,
@@ -60,7 +61,9 @@ import {
 import { exerciseHeads, muscleHeadKey } from '../muscles';
 import { sideFieldFromTotal, sideStep, totalFromSide } from '../plate-math';
 import { badgeDetail, badgeLabel } from '../programs/badge-copy';
-import { oneDumbbellFill, seedRow } from '../row-seed';
+import { takeRestBefore } from '../rest-taken';
+import { seedRow } from '../row-seed';
+import { DEFAULT_REST } from '../slot-draft';
 import { bumpAnnouncement, setLoggedAnnouncement } from '../session-a11y';
 import { sessionBadges } from '../session-badges';
 import {
@@ -258,9 +261,13 @@ export const ExerciseCard = ({
   // machine the lifter marked as plates), one dumbbell, else the total. The
   // draft's `weight` is always the total; `side` is presentation on top of it.
   const inputMode = rowInputMode(facts, loadSetting?.load, unit);
-  // One dumbbell in each hand unless the exercise works a side at a time or
-  // holds a single dumbbell in both hands (the seated French press).
-  const oneHand = !!facts?.unilateral || holdsOneDumbbell(planned.exerciseId);
+  // How many dumbbells a set moves: the exercise's fact, never asked (a pair
+  // unless it holds one in both hands, works one side with one, or is a bell).
+  const hands = exerciseHands({
+    id: planned.exerciseId,
+    unilateral: !!facts?.unilateral,
+    equipment: facts?.equipment ?? null,
+  });
   const perSide = inputMode.mode === 'perSide' ? inputMode : null;
   // A pin stack the lifter has described (base + increment): every total is a pin.
   const stack =
@@ -291,8 +298,7 @@ export const ExerciseCard = ({
       value: parseDecimal(perSide ? sideOf(draft) : draft.weight),
       unit,
       setting: loadSetting?.load,
-      current: draft.load,
-      unilateral: oneHand,
+      hands,
     });
   // A machine the lifter has not yet described: plates or a pin stack decides
   // what the row asks for, so the card asks first.
@@ -333,11 +339,11 @@ export const ExerciseCard = ({
       suggestedKg: suggested,
     });
     return seedRow({
-      fill: holdsOneDumbbell(planned.exerciseId) ? oneDumbbellFill(fill) : fill,
+      fill,
       mode: inputMode,
       unit,
       setting: loadSetting?.load,
-      unilateral: oneHand,
+      hands,
     });
   };
   /** A correction starts from what was logged — never from history. */
@@ -410,8 +416,8 @@ export const ExerciseCard = ({
 
   const stepDraft = (key: DraftKey, field: 'weight' | 'reps', delta: number) => {
     const draft = freshDraft(key);
-    // A stack moves pin by pin (past a plate change too): at least one pin, the
-    // one nearest the step asked for, so ± never lands between two holes.
+    // A stack moves along its pins (past a plate change too): as far as the step
+    // reaches without passing it, at least one pin, never between two holes.
     if (field === 'weight' && stack) {
       const pins = stackPins(stack, unit);
       const next = stepAlong(pins, parseDecimal(draft.weight) ?? pins[0] ?? 0, delta);
@@ -423,13 +429,14 @@ export const ExerciseCard = ({
       });
       return;
     }
-    // A dumbbell moves to the next one on the rack the same way.
+    // A dumbbell moves ONE dumbbell along the rack, whatever the step: an odd
+    // one the gym has (a 12 on a rack of 5s) is a stop, never jumped over.
     if (field === 'weight' && rackPicked) {
       const weights = rackWeights(dumbbellRack(unit), unit);
       const current = parseDecimal(draft.weight);
       // Nothing yet: + starts on the lightest dumbbell, − stays empty.
       const next =
-        current == null ? (delta > 0 ? weights[0] : undefined) : stepAlong(weights, current, delta);
+        current == null ? (delta > 0 ? weights[0] : undefined) : nextRung(weights, current, delta);
       // The detail (its hands) follows the number in `patchDraft`.
       if (next != null) patchDraft(key, { weight: formatNumber(next) });
       return;
@@ -489,7 +496,7 @@ export const ExerciseCard = ({
         draft: draft.load,
         setting: loadSetting?.load,
         weightKg,
-        unilateral: oneHand,
+        hands,
       }),
       rir: effort?.rir ?? null,
       isFailure: effort?.failure ?? false,
@@ -516,7 +523,13 @@ export const ExerciseCard = ({
     const read = await readWithEffort(key, wantsEffortAt(index));
     if (!read) return;
     guardOrder(() => {
-      const logged = logSet({ workoutLogId, exerciseId: planned.exerciseId, ...read });
+      const logged = logSet({
+        workoutLogId,
+        exerciseId: planned.exerciseId,
+        ...read,
+        // The rest actually taken since the last set (the summary's time breakdown).
+        restBeforeSeconds: takeRestBefore(workoutLogId),
+      });
       haptic('confirm');
       clearDraft(workoutLogId, key);
       // The row turns into a logged one and the rest starts: say so, or a
@@ -528,7 +541,7 @@ export const ExerciseCard = ({
             weight: weightText(read.weightKg, unit),
             unit,
             reps: read.reps,
-            twoDumbbells: read.load?.kind === 'dumbbell' && read.load.hands === 2,
+            twoDumbbells: isPair(read.load),
           },
           t,
         ),
@@ -536,7 +549,7 @@ export const ExerciseCard = ({
       // The extra row is spent, or another would open by itself.
       if (extra) setExtraRows(extraRows - 1);
       onLogged({
-        restSeconds: planned.restSeconds ?? 120,
+        restSeconds: planned.restSeconds ?? DEFAULT_REST,
         slotId: planned.slotId,
         doneCount: doneCount + 1,
         logged,
@@ -689,32 +702,19 @@ export const ExerciseCard = ({
   const rowCaption = (draft: RowDraft): { text: string | null; breakdown: LoadDetail | null } => {
     const value = parseDecimal(draft.weight);
     if (value == null) return { text: null, breakdown: null };
-    const draftDumbbell = draft.load?.kind === 'dumbbell' ? draft.load : null;
-    if (draftDumbbell || loadSetting?.load?.kind === 'dumbbell') {
-      const hands = draftDumbbell?.hands ?? defaultHands(oneHand);
-      // One dumbbell in both hands needs no caption: the number is the load.
-      const text =
-        hands === 2
-          ? t('load.perHandCaption', {
-              perHand: draft.weight,
-              // Already in the display unit; only the float noise of ×2 is trimmed.
-              total: Math.round(value * 200) / 100,
-              unit,
-            })
-          : facts?.unilateral
-            ? t('load.perSideCaption', { value: draft.weight, unit })
-            : null;
-      return { text, breakdown: null };
-    }
-    const breakdown = draft.load ?? null;
+    // The number IS one dumbbell, pair or not: no breakdown to draw under it.
+    const dumbbell = draft.load?.kind === 'dumbbell' || loadSetting?.load?.kind === 'dumbbell';
+    const breakdown = dumbbell ? null : (draft.load ?? null);
     // The picker field shows the total, so the line under it reads per side
     // (one post has no sides: its tag already says the plates go on once).
-    if (perSide)
+    if (perSide && !dumbbell)
       return {
         text: perSide.sides === 2 ? t('load.perSideCaption', { value: sideOf(draft), unit }) : null,
         breakdown,
       };
-    if (facts?.unilateral)
+    // "Per side" only where the number IS one side's: a split squat's pair
+    // loads its working leg with both dumbbells.
+    if (facts?.unilateral && !(dumbbell && hands === 2))
       return { text: t('load.perSideCaption', { value: draft.weight, unit }), breakdown };
     return { text: null, breakdown };
   };
@@ -877,6 +877,7 @@ export const ExerciseCard = ({
           <BadgeRow
             mono
             tone="brand"
+            bleed={CARD_GUTTER}
             items={[
               ...badges.map((b, i) => {
                 // A pause is technique, not a tag: it reads in full and in `info`
@@ -1091,8 +1092,8 @@ export const ExerciseCard = ({
         initialWeight={focusDraft?.weight ?? ''}
         initialLoad={calcSeed ?? focusDraft?.load ?? loadSetting?.load ?? null}
         equipment={facts?.equipment ?? null}
-        unilateral={oneHand}
-        oneDumbbell={holdsOneDumbbell(planned.exerciseId)}
+        hands={hands}
+        workoutLogId={workoutLogId}
         preferMode={needsMachineKind ? 'machine' : undefined}
         onApply={({ row, save }) => {
           if (!focusKey) return;
