@@ -34,6 +34,7 @@ import {
 } from '@/components/icons';
 import { useT } from '@/i18n';
 import { HEADER_PILL_BOTTOM } from './Screen';
+import { PAN_SLOP, swipeDismisses } from './toast-swipe';
 import { useTheme } from '@/theme/theme-context';
 
 type ToastType = 'success' | 'error' | 'info';
@@ -63,9 +64,6 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 // Notification-like: long enough to read and act on; swipe dismisses sooner.
 const DURATION_MS = 7_500;
 
-// Swipe-release thresholds: distance or an upward flick dismisses.
-const DISMISS_DY = 36;
-const DISMISS_VY = 600;
 /** Far enough above its slot to leave past the header pill on any phone. */
 const OFFSCREEN_Y = -220;
 /** A downward drag only gives a little: the toast has nowhere to go but up. */
@@ -140,11 +138,13 @@ const makeToastController = (opts: {
   };
 
   // Upward pan = the heads-up banner pushed back where it came from (the toast
-  // drops in from under the header). activeOffsetY keeps plain taps flowing to
-  // the Pressable below (which carries the accessibility surface).
+  // drops in from under the header). The slop keeps plain taps flowing to the
+  // Pressable below (which carries the accessibility surface); past it the pan
+  // takes the touch in EITHER direction, which cancels the press, so a sideways
+  // drag can never be released as a tap that dismisses (`toast-swipe.ts`).
   const pan = Gesture.Pan()
-    .activeOffsetY([-12, 12])
-    .failOffsetX([-16, 16])
+    .activeOffsetY([-PAN_SLOP, PAN_SLOP])
+    .activeOffsetX([-PAN_SLOP, PAN_SLOP])
     .onStart(() => {
       runOnJS(pause)();
     })
@@ -152,7 +152,7 @@ const makeToastController = (opts: {
       panY.value = e.translationY < 0 ? e.translationY : e.translationY * DOWN_RESISTANCE;
     })
     .onEnd((e) => {
-      if (e.translationY < -DISMISS_DY || e.velocityY < -DISMISS_VY) {
+      if (swipeDismisses(e)) {
         panY.value = withTiming(
           OFFSCREEN_Y,
           { duration: 160, easing: Easing.out(Easing.cubic) },
