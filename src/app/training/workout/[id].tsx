@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, AppState, Pressable, Text, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
-import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, ShareIcon, XIcon } from '@/components/icons';
+import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, XIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
 import {
   BlockingOverlay,
@@ -15,8 +15,8 @@ import {
   Screen,
   SegmentedControl,
   TextLink,
-  TimedModal,
   useDialog,
+  useSheetOwnsKeyboard,
 } from '@/components/ui';
 import type { Exercise, PlannedSlot, SetLog, WorkoutLog } from '@/db/schema';
 import { useLiveQuery } from '@/db/useLiveQuery';
@@ -29,8 +29,6 @@ import {
   startRest,
 } from '@/features/notifications/rest-notification';
 import { ensureNotificationPermission } from '@/features/notifications/service';
-import { sessionShareModel } from '@/features/share/models';
-import { ShareSheet } from '@/features/share/ShareSheet';
 import { getRoutine, reorderSplitFromNowOn } from '@/features/training/authoring.repo';
 import { closeSession } from '@/features/training/close-session';
 import { AddExerciseSheet } from '@/features/training/components/AddExerciseSheet';
@@ -53,10 +51,11 @@ import {
   targetLine,
 } from '@/features/training/labels';
 import { getWorkoutDay } from '@/features/training/programs.repo';
-import { fromKg, isRmTestWeek } from '@/features/training/progression';
+import { isRmTestWeek } from '@/features/training/progression';
 import { restState, useActiveRest } from '@/features/training/rest-state';
 import { nextSetSummary, type NextSet } from '@/features/training/rest-summary';
 import { addSessionExercise } from '@/features/training/session-add';
+import { isReopened } from '@/features/training/session-end';
 import {
   chronologyMove,
   mergeOrder,
@@ -75,13 +74,11 @@ import {
   markRemainingSkipped,
   previousSessionSets,
   reorderSnapshot,
-  sessionSummary,
   setLogsQuery,
   setWarmupDone,
   suggestedWeight,
   workoutQuery,
   type PreviousSession,
-  type SessionSummary,
 } from '@/features/training/session.repo';
 import { nextSetPrefill, weightText } from '@/features/training/set-prefill';
 import { expandRows } from '@/features/training/set-rows';
@@ -98,11 +95,6 @@ import { useTheme } from '@/theme/theme-context';
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
-const fmtDuration = (s: number): string => {
-  const m = Math.floor(s / 60);
-  return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
-};
-
 /** Ticking session clock, isolated so the 1 s re-render stays in this leaf. */
 const ElapsedClock = ({ startedAt }: { startedAt: Date }) => {
   const [now, setNow] = useState(() => Date.now());
@@ -116,6 +108,17 @@ const ElapsedClock = ({ startedAt }: { startedAt: Date }) => {
     ? `${h}:${pad2(Math.floor((s % 3600) / 60))}:${pad2(s % 60)}`
     : `${Math.floor(s / 60)}:${pad2(s % 60)}`;
   return <Text className="font-mono-medium text-xs tabular-nums text-ink-300">{label}</Text>;
+};
+
+/**
+ * The session's scroller. A sheet over the session owns the keyboard (the
+ * weight sheet's fields, the add-exercise search): the sets behind must not
+ * scroll for it, nor shift as it opens and closes. A leaf, so a keyboard
+ * showing or hiding re-renders this alone, not the whole session.
+ */
+const SessionScroll = (props: React.ComponentProps<typeof KeyboardAwareScrollView>) => {
+  const sheetOwnsKeyboard = useSheetOwnsKeyboard();
+  return <KeyboardAwareScrollView {...props} enabled={!sheetOwnsKeyboard} />;
 };
 
 const WorkoutSession = () => {
@@ -185,10 +188,11 @@ const WorkoutSession = () => {
   const rest = activeRest?.workoutId === log?.id ? activeRest : null;
   // The rest bar sits under the scroll view; a focused field must clear it.
   const [restBarHeight, setRestBarHeight] = useState(0);
-  const [summary, setSummary] = useState<SessionSummary | null>(null);
-  // The share sheet holds the summary's ring while it is up.
-  const [sharing, setSharing] = useState(false);
+  // So does the finish bar, shown once every planned set is settled.
+  const [finishBarHeight, setFinishBarHeight] = useState(0);
   const blocking = useBlockingTask<'finishing' | 'discarding'>();
+  // One finish per session: the last check and a tap on the bar can land together.
+  const finishing = useRef(false);
 
   const day = workoutDayId ? getWorkoutDay(workoutDayId) : null;
   const routine = day ? getRoutine(day.routineId) : null;
@@ -366,7 +370,12 @@ const WorkoutSession = () => {
     return () => sub.remove();
   }, [liveWorkoutId]);
 
-  if (!user || !log || log.status !== 'in_progress') return <Redirect href="/training" />;
+  // While the finish (or discard) runs behind its overlay, the log stops being
+  // in progress a frame before this screen is replaced: redirecting then would
+  // race the summary for the navigation.
+  if (!user || !log || (log.status !== 'in_progress' && blocking.busy === null)) {
+    return <Redirect href="/training" />;
+  }
 
   const planned = log.plannedSnapshot ?? [];
 
@@ -378,10 +387,14 @@ const WorkoutSession = () => {
   );
   const doneSets = sets.filter((s) => !s.isWarmup).length;
   // Skipped sets fill the bar too: the session is "settled", not "trained".
-  const settledSets = planned.reduce(
-    (sum, p) => sum + (p.skipped ? plannedSetsOf(p) : (p.skippedSets?.length ?? 0)),
-    doneSets,
-  );
+  // Per exercise and never past its plan: an exercise skipped half done used to
+  // count its logged sets on top of all its planned ones.
+  const settledSets = planned.reduce((sum, p) => {
+    const plan = plannedSetsOf(p);
+    if (p.skipped) return sum + plan;
+    const done = sets.filter((s) => s.exerciseId === p.exerciseId && !s.isWarmup).length;
+    return sum + Math.min(plan, done + (p.skippedSets?.length ?? 0));
+  }, 0);
   const progress = totalPlannedSets ? Math.min(1, settledSets / totalPlannedSets) : 0;
 
   const requestEffort: RequestEffort = () =>
@@ -396,35 +409,68 @@ const WorkoutSession = () => {
       setEffortResolve(() => resolver);
     });
 
-  // Confirmed before anything happens: the two header buttons sit side by side,
-  // and ending a session by a mis-tap cannot be undone. A rest still running
-  // ends as the question opens: nothing is left to rest for, and the alarm
-  // must not ring over the prompt (`endRest` is the one place it stops).
-  const finish = () => {
+  // A reopened session (finished once, back from its summary) can be finished
+  // again but never abandoned: abandoning deletes its sets.
+  const reopened = isReopened(log);
+  // Every planned set logged or skipped: what the finish bar waits for.
+  const settled = sessionNext(planned, doneFor).kind === 'done';
+
+  /**
+   * The session is over: the end is stamped from the last set
+   * (`finishWorkout` → `sessionEndAt`), never from a confirmation the lifter
+   * may forget to give, and the summary replaces this screen — nested to
+   * nested, so a replace, not a second Train tab. A rest still running ends at
+   * once (`endRest` is the one place the alarm stops).
+   */
+  const finishNow = () => {
+    if (finishing.current) return;
+    finishing.current = true;
     if (restState.get()?.workoutId === log.id) void endRest();
+    playSound('sessionDone');
+    haptic('confirm');
+    // The teardown is synchronous: it runs once the overlay is on screen, and
+    // the overlay stays (`keep`) until the summary replaces this screen.
+    blocking.start(
+      'finishing',
+      () => {
+        closeSession('finish', log.id, log.userId);
+        router.replace({
+          pathname: '/training/summary/[id]',
+          params: { id: log.id, finished: '1' },
+        });
+      },
+      { keep: true },
+    );
+  };
+
+  // The header's check and the finish bar. With every planned set settled
+  // there is nothing to confirm; with sets still open the two header buttons
+  // sit side by side and ending by a mis-tap marks those sets missed, so it
+  // asks first. A rest still running ends as the question opens: the alarm
+  // must not ring over it.
+  const requestFinish = () => {
+    if (restState.get()?.workoutId === log.id) void endRest();
+    if (settled) {
+      finishNow();
+      return;
+    }
     dialog.confirm({
       title: t('training.finishConfirm'),
       message: t('training.finishConfirmBody'),
       confirmLabel: t('training.finish'),
-      onConfirm: () => {
-        // Whatever is still open closes as MISSED, not forgotten.
-        markRemainingSkipped(log.id);
-        playSound('sessionDone');
-        haptic('confirm');
-        setSummary(sessionSummary(log.id, locale));
-      },
+      onConfirm: finishNow,
     });
   };
 
   /**
    * After a set is settled (logged or skipped): page to the next exercise with
-   * sets left, or — with nothing left anywhere — ask to finish, so the last
-   * check is the end. Reads the snapshot it is handed: the live query lags a
-   * skip by a tick.
+   * sets left, or — with nothing left anywhere — finish, so the last check is
+   * the end. Reads the snapshot it is handed: the live query lags a skip by a
+   * tick.
    */
   const advanceAfter = (plannedNow: PlannedSlot[], slotId: string, doneInSlot: number) => {
     const upcoming = nextSetSummary(plannedNow, slotId, doneInSlot, doneFor);
-    if (upcoming.kind === 'done') finish();
+    if (upcoming.kind === 'done') finishNow();
     else if (upcoming.slotId !== slotId) setPageSlot(upcoming.slotId);
     return upcoming;
   };
@@ -435,8 +481,12 @@ const WorkoutSession = () => {
   const onSkipped = (patched: PlannedSlot) => {
     const plannedNow = planned.map((p) => (p.slotId === patched.slotId ? patched : p));
     const upcoming = sessionNext(plannedNow, doneFor);
-    if (upcoming.kind === 'done') finish();
-    else if (upcoming.slotId !== patched.slotId) setPageSlot(upcoming.slotId);
+    // The last open set skipped ends the session like the last one logged.
+    if (upcoming.kind === 'done') {
+      finishNow();
+      return;
+    }
+    if (upcoming.slotId !== patched.slotId) setPageSlot(upcoming.slotId);
     void showSession(sessionRecord(log, nextSetCopy(plannedNow, upcoming)));
   };
 
@@ -463,13 +513,10 @@ const WorkoutSession = () => {
     const upcoming = stay
       ? nextSetSummary(plannedNow, slotId, doneCount, doneFor)
       : advanceAfter(plannedNow, slotId, doneCount);
+    // The last set finished the session (`advanceAfter`): no rest starts and
+    // no face is drawn — the teardown takes the card down.
+    if (!stay && upcoming.kind === 'done') return;
     const record = sessionRecord(log, nextSetCopy(plannedNow, upcoming, logged));
-    // The last set opened the finish prompt (`advanceAfter`): no rest starts
-    // under it — the prompt has already ended any rest still running.
-    if (!stay && upcoming.kind === 'done') {
-      void showSession(record);
-      return;
-    }
     const restPayload = {
       workoutId: log.id,
       slotId,
@@ -489,23 +536,9 @@ const WorkoutSession = () => {
     );
   };
 
-  // Finish work is synchronous: it runs once the overlay is on screen, and the
-  // overlay stays (`keep`) until this screen is popped. `dismissTo` returns to
-  // the Train tab that is already mounted — a `replace` stacked a second copy
-  // of every tab on each finish.
-  const closeSummary = () =>
-    blocking.start(
-      'finishing',
-      () => {
-        closeSession('finish', log.id, log.userId);
-        setSummary(null);
-        // `settling` keeps the wait on screen while the tab re-runs its
-        // queries; without it the hand-off flashes a half-built Train tab.
-        router.dismissTo({ pathname: '/training', params: { settling: '1' } });
-      },
-      { keep: true },
-    );
-
+  // The teardown is synchronous and the tab must settle: `dismissTo` returns to
+  // the Train tab that is already mounted (a `replace` stacked a second copy of
+  // every tab), and `settling` keeps the wait up while it re-runs its queries.
   const cancel = () =>
     dialog.confirm({
       title: t('training.cancelConfirm'),
@@ -513,7 +546,6 @@ const WorkoutSession = () => {
       destructive: true,
       onConfirm: () => {
         playSound('discard');
-        // Same as finishing: the teardown is synchronous and the tab must settle.
         blocking.start(
           'discarding',
           () => {
@@ -723,6 +755,11 @@ const WorkoutSession = () => {
       </View>
     ) : null;
 
+  // A focused field clears the keyboard by the app-wide room plus whatever
+  // rides on it under the scroll view: the rest bar, the finish bar.
+  const scrollBottomOffset =
+    KEYBOARD_CLEARANCE + (rest ? restBarHeight : 0) + (settled ? finishBarHeight : 0);
+
   return (
     <Screen
       edges={['top', 'bottom']}
@@ -739,16 +776,19 @@ const WorkoutSession = () => {
             .join(' · ')}
           right={
             // Finish sits in the corner, where a confirming check is looked for;
-            // abandon steps inward. Both still confirm before acting.
+            // abandon steps inward and confirms. A reopened session has no
+            // abandon: its sets were a finished session.
             <View className="flex-row items-center gap-2">
-              <IconButton
-                icon={<XIcon color={danger} size={18} />}
-                onPress={cancel}
-                accessibilityLabel={t('training.cancelWorkout')}
-              />
+              {reopened ? null : (
+                <IconButton
+                  icon={<XIcon color={danger} size={18} />}
+                  onPress={cancel}
+                  accessibilityLabel={t('training.cancelWorkout')}
+                />
+              )}
               <IconButton
                 icon={<CheckIcon color={brandContrast} size={18} />}
-                onPress={finish}
+                onPress={requestFinish}
                 accessibilityLabel={t('training.finish')}
                 tone="brand"
               />
@@ -807,12 +847,15 @@ const WorkoutSession = () => {
        * clearance for the actions under it (the set row's check, the note's
        * Save) plus that bar while a rest shows: with only its own 24 dp, it
        * landed behind the timer and its buttons under the keyboard. */}
-      <KeyboardAwareScrollView
+      <SessionScroll
         className="flex-1"
         contentContainerClassName="grow px-5 pb-2"
-        bottomOffset={KEYBOARD_CLEARANCE + (rest ? restBarHeight : 0)}
+        bottomOffset={scrollBottomOffset}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        // No stretch at the ends (Android 12+): while it relaxes it catches the
+        // next touch, so a swipe on the chip strip right after a scroll was lost.
+        overScrollMode="never"
       >
         {exerciseChips}
 
@@ -888,7 +931,7 @@ const WorkoutSession = () => {
             />
           </>
         ) : null}
-      </KeyboardAwareScrollView>
+      </SessionScroll>
 
       {rest ? (
         <View
@@ -904,6 +947,28 @@ const WorkoutSession = () => {
         </View>
       ) : null}
 
+      {/* Every planned set is settled — in practice a session reopened from its
+       * summary (the last check finishes a session on its own): one tap closes
+       * it again and lands on the summary. It rides the keyboard under the
+       * scroll view, like the rest bar. */}
+      {settled ? (
+        <View
+          onLayout={(e) => setFinishBarHeight(e.nativeEvent.layout.height)}
+          className="gap-2 border-t border-ink-800 px-5 pb-2 pt-3"
+        >
+          {reopened ? (
+            <Text className="text-xs leading-4 text-ink-400">{t('training.reopenedHint')}</Text>
+          ) : null}
+          <Button
+            variant="brand"
+            size="lg"
+            label={t('training.finish')}
+            leftIcon={<CheckIcon color={brandContrast} size={18} />}
+            onPress={requestFinish}
+          />
+        </View>
+      ) : null}
+
       {/* Effort sheet — the one place an effort gets reported, in the session's mode. */}
       <EffortSheet
         visible={!!effortResolve}
@@ -912,87 +977,6 @@ const WorkoutSession = () => {
         onClose={() => effortResolve?.(null)}
       />
 
-      {/* Post-workout summary: closes itself, because the session is already
-       * over and there is nothing left to decide. */}
-      <TimedModal
-        visible={summary !== null}
-        onDone={closeSummary}
-        paused={sharing}
-        actions={
-          summary?.exercises.length ? (
-            // Solid: it sits on the scrim, under the card, where a tinted fill
-            // let the screen behind show through.
-            <Button
-              variant="brand"
-              label={t('share.session')}
-              leftIcon={<ShareIcon color={brandContrast} size={16} />}
-              onPress={() => setSharing(true)}
-            />
-          ) : null
-        }
-      >
-        <View className="items-center">
-          <View className="h-14 w-14 items-center justify-center rounded-full bg-brand">
-            <CheckIcon color={brandContrast} size={28} />
-          </View>
-          <Text className="mt-4 text-xl font-sans-bold text-ink-50">
-            {t('training.summaryTitle')}
-          </Text>
-        </View>
-        {summary ? (
-          <View className="mt-5 gap-2.5">
-            <View className="flex-row justify-between">
-              <Text className="text-sm text-ink-400">{t('training.summaryVolume')}</Text>
-              <Text className="text-sm font-sans-semibold text-ink-100">
-                {fromKg(summary.volumeKg, unit)} {unit}
-              </Text>
-            </View>
-            <View className="flex-row justify-between">
-              <Text className="text-sm text-ink-400">{t('training.summarySets')}</Text>
-              <Text className="text-sm font-sans-semibold text-ink-100">{summary.setCount}</Text>
-            </View>
-            {summary.missedSets > 0 ? (
-              <View className="flex-row justify-between">
-                <Text className="text-sm text-ink-400">{t('training.missedSets')}</Text>
-                <Text className="text-sm font-sans-semibold text-red-400">
-                  {summary.missedSets}
-                </Text>
-              </View>
-            ) : null}
-            <View className="flex-row justify-between">
-              <Text className="text-sm text-ink-400">{t('training.summaryDuration')}</Text>
-              <Text className="text-sm font-sans-semibold text-ink-100">
-                {fmtDuration(summary.durationSeconds)}
-              </Text>
-            </View>
-            {summary.prs.length ? (
-              <View className="mt-1 rounded-field bg-brand/10 p-3">
-                <Text className="text-xs font-sans-semibold text-brand">
-                  {t('training.summaryPrs')}: {summary.prs.join(', ')}
-                </Text>
-              </View>
-            ) : null}
-          </View>
-        ) : null}
-        <Text className="mt-5 text-center text-[11px] leading-4 text-ink-500">
-          {t('training.summaryAuto')}
-        </Text>
-      </TimedModal>
-      <ShareSheet
-        visible={sharing}
-        onClose={() => setSharing(false)}
-        model={
-          summary
-            ? sessionShareModel({
-                summary,
-                splitName: day ? dayDisplayName(day, t) : t('training.workout'),
-                programLine: t('training.weekN', { n: log.weekNumber }),
-                unit,
-                t,
-              })
-            : null
-        }
-      />
       <AddExerciseSheet
         visible={addOpen}
         onClose={() => setAddOpen(false)}

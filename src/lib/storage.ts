@@ -53,6 +53,8 @@ export const SettingKeys = {
   bodyMetricsBackfilled: 'body.metricsBackfilled',
   // In-flight rest timer (see features/training/rest-state).
   activeRest: 'training.activeRest',
+  // The last rest the lifter ended, until the next set records it (see features/training/rest-taken).
+  restTaken: 'training.restTaken',
   // In-flight workout session (see features/training/session-state).
   activeSession: 'training.activeSession',
   // The day whose planned check-in a session holds back (see notifications/checkin-hold).

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  endRest,
   endSession,
   reconcileSession,
   registerRestBackgroundHandler,
@@ -65,7 +66,11 @@ vi.mock('react-native-notify-kit', () => ({
 }));
 vi.mock('react-native-mmkv', () => ({ useMMKVString: () => [undefined] }));
 vi.mock('@/lib/storage', () => ({
-  SettingKeys: { activeSession: 'training.activeSession', activeRest: 'training.activeRest' },
+  SettingKeys: {
+    activeSession: 'training.activeSession',
+    activeRest: 'training.activeRest',
+    restTaken: 'training.restTaken',
+  },
   storage: {
     getString: (k: string) => h.store.get(k),
     set: (k: string, v: string) => h.store.set(k, v),
@@ -147,5 +152,36 @@ describe('foreground service stop guard', () => {
     h.appState = 'active';
     h.listener?.('active');
     await vi.waitFor(() => expect(h.stopForegroundService).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe('the rest the lifter took', () => {
+  beforeEach(() => h.store.clear());
+
+  it('Skip / Ready from the shade (headless) records when the rest began and when it was called over', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(10_000);
+    recordSession();
+    h.store.set(
+      'training.activeRest',
+      JSON.stringify({ workoutId: 'w1', slotId: 's', startedAt: 1_000, endsAt: 91_000, copy: {} }),
+    );
+    registerRestBackgroundHandler();
+    await h.background?.({
+      type: 'action',
+      detail: { notification: { id: 'session' }, pressAction: { id: 'rest-skip' } },
+    });
+    expect(h.store.has('training.activeRest')).toBe(false);
+    expect(JSON.parse(h.store.get('training.restTaken')!)).toEqual({
+      workoutId: 'w1',
+      startedAt: 1_000,
+      endedAt: 10_000,
+    });
+    vi.useRealTimers();
+  });
+
+  it('ending with no rest running records nothing', async () => {
+    await endRest();
+    expect(h.store.has('training.restTaken')).toBe(false);
   });
 });

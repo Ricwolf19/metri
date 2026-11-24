@@ -1,4 +1,5 @@
 import { useLiveQuery } from '@/db/useLiveQuery';
+import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
@@ -21,6 +22,7 @@ import { dayDisplayName, exerciseDisplayName } from '../labels';
 import { dayQuery, markTrainingDay } from '../adherence.repo';
 import { getDayDetail, type LoggedSet } from '../day-events';
 import { getWorkoutDay } from '../programs.repo';
+import { durationText } from '../session-report';
 import { getWorkout, sessionSummary } from '../session.repo';
 import { skipPlannedDay, unskipDay } from '../skip-split';
 import { fromKgHalf } from '../progression';
@@ -36,7 +38,6 @@ const STATUS_CHOICES: { status: TrainingDayStatus; key: TranslationKey }[] = [
   { status: 'skipped', key: 'adherence.skipped' },
 ];
 
-const fmtDur = (s: number | null): string => (s ? `${Math.round(s / 60)}m` : '');
 const fmtSet = (s: LoggedSet, unit: Units, t: TFunction): string => {
   const base = `${fromKgHalf(s.weightKg, unit)}×${s.reps}`;
   if (s.isFailure) return `${base} ${t('set.failureShort')}`;
@@ -56,6 +57,7 @@ export const DayDetailSheet = ({
   onClose: () => void;
 }) => {
   const t = useT();
+  const router = useRouter();
   const { locale } = useI18n();
   const { user } = useAuth();
   const theme = useTheme();
@@ -129,6 +131,12 @@ export const DayDetailSheet = ({
   const workouts = (detail?.workouts ?? []).filter((w) => !deleted.has(w.logId));
   const empty = !adherence && !workouts.length && !detail?.tdeeComputed;
   const title = date ? dateKey(date) : '';
+
+  // A sheet is a Modal, which would stay drawn over the pushed screen: close it first.
+  const openSummary = (logId: string) => {
+    onClose();
+    router.push({ pathname: '/training/summary/[id]', params: { id: logId } });
+  };
 
   // Sharing a past session draws the same card as finishing one.
   const shareSession = (logId: string, name: string) => {
@@ -207,7 +215,7 @@ export const DayDetailSheet = ({
                       volume: fromKgHalf(w.volumeKg, unit),
                       unit,
                     })}
-                    {w.durationSeconds ? ` · ${fmtDur(w.durationSeconds)}` : ''}
+                    {w.durationSeconds ? ` · ${durationText(w.durationSeconds)}` : ''}
                   </Text>
                 </View>
                 {w.exercises.length ? (
@@ -224,19 +232,34 @@ export const DayDetailSheet = ({
                 />
               </View>
               {w.exercises.length ? (
-                <Pressable
-                  onPress={() => toggleTimeline(w.logId)}
-                  hitSlop={6}
-                  accessibilityRole="button"
-                  className="mt-3 self-start"
-                >
-                  <Text
-                    className="font-mono-medium text-xs uppercase tracking-wider text-accent"
-                    maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+                // Both text actions stand 44 dp tall: a 14 dp line and a hit slop fell short.
+                <View className="mt-1 flex-row items-center justify-between gap-3">
+                  <Pressable
+                    onPress={() => toggleTimeline(w.logId)}
+                    accessibilityRole="button"
+                    className="min-h-11 justify-center"
                   >
-                    {t(timelines.has(w.logId) ? 'dayDetail.byExercise' : 'dayDetail.timeline')}
-                  </Text>
-                </Pressable>
+                    <Text
+                      className="font-mono-medium text-xs uppercase tracking-wider text-accent"
+                      maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+                    >
+                      {t(timelines.has(w.logId) ? 'dayDetail.byExercise' : 'dayDetail.timeline')}
+                    </Text>
+                  </Pressable>
+                  {/* The session's summary, to read: its records, last time, its time. */}
+                  <Pressable
+                    onPress={() => openSummary(w.logId)}
+                    accessibilityRole="button"
+                    className="min-h-11 justify-center"
+                  >
+                    <Text
+                      className="font-mono-medium text-xs uppercase tracking-wider text-accent"
+                      maxFontSizeMultiplier={CONTROL_FONT_SCALE}
+                    >
+                      {t('dayDetail.summary')}
+                    </Text>
+                  </Pressable>
+                </View>
               ) : null}
               {w.exercises.length && timelines.has(w.logId) ? (
                 <SessionTimeline

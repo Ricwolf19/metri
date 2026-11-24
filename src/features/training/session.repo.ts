@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNotNull, lte, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, lt, lte, ne, sql } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import type { Locale } from '@/i18n';
@@ -27,12 +27,22 @@ import { randomId } from '@/lib/crypto';
 
 import { recordDeletion } from '@/features/sync/tombstones';
 
-import { localDateKey, markTrainingDay, releaseTrainingDay } from './adherence.repo';
+import { dayQuery, markTrainingDay, releaseTrainingDay } from './adherence.repo';
 import { advanceUserProgram, rewindUserProgram } from './enroll';
 import { defaultRestFor, legacyRestFor } from './exercise-rest';
 import { setVolumeKg } from './load';
 import { plannedSets } from './rest-summary';
 import { sessionBadges } from './session-badges';
+import { isReopened, recordedDurationSeconds, sessionEndAt, sessionFiling } from './session-end';
+import {
+  bestE1rmOf,
+  missedSetsOf,
+  pickTopExercise,
+  plannedSetCount,
+  topSetOf,
+  type SessionTop,
+  type TopCandidate,
+} from './session-report';
 import { estimate1Rm, roundToPlate, weightForReps } from './progression';
 import { DEFAULT_REST } from './slot-draft';
 
@@ -146,33 +156,148 @@ export const setWarmupDone = (id: string, done: boolean | null): void => {
     .run();
 };
 
-/** Finish a session: stamp it completed with an elapsed duration. */
+/**
+ * Finish an open session: stamp it completed, ended at its last activity
+ * rather than at the tap (`sessionEndAt` — a session forgotten open used to
+ * count every hour), mark its day trained and move the program on. Every
+ * finish path comes here: the last set, the header, the stale prompt.
+ *
+ * A REOPENED session (`isReopened`) finishes again on the day it was first
+ * finished (`sessionFiling`), and its day keeps the mark it has. Its program
+ * position is safe as it is: `advanceUserProgram` only moves a cursor week
+ * that is complete, and the first finish already moved past this one.
+ */
 export const finishWorkout = (id: string, rating?: number, notes?: string): void => {
   const log = getWorkout(id);
-  if (!log) return;
-  const durationSeconds = Math.max(0, Math.round((Date.now() - log.startedAt.getTime()) / 1000));
+  // Finished or abandoned already: a second call (a double tap, the stale
+  // prompt racing the screen) must neither move the end nor re-mark the day.
+  if (!log || log.status !== 'in_progress') return;
+  const now = Date.now();
+  const startedAt = log.startedAt.getTime();
+  const [last] = db
+    .select({ at: setLogs.createdAt })
+    .from(setLogs)
+    .where(eq(setLogs.workoutLogId, id))
+    .orderBy(desc(setLogs.createdAt))
+    .limit(1)
+    .all();
+  const firstFinishedAt = log.completedAt?.getTime() ?? null;
+  const endAt = sessionEndAt({
+    startedAt,
+    lastActivityAt: last?.at.getTime() ?? null,
+    now,
+    firstFinishedAt,
+  });
+  const { completedAt, day } = sessionFiling({ endAt, firstFinishedAt });
   db.update(workoutLogs)
     .set({
       status: 'completed',
-      completedAt: new Date(),
-      durationSeconds,
-      rating: rating ?? null,
-      notes: notes ?? null,
-      updatedAt: new Date(),
+      completedAt: new Date(completedAt),
+      durationSeconds: Math.max(0, Math.round((endAt - startedAt) / 1000)),
+      // A re-finish keeps what the first one stored.
+      rating: rating ?? log.rating ?? null,
+      notes: notes ?? log.notes ?? null,
+      updatedAt: new Date(now),
     })
     .where(eq(workoutLogs.id, id))
     .run();
 
-  // Close the adherence loop: finishing a session marks today "trained".
-  markTrainingDay(log.userId, {
-    date: localDateKey(),
-    status: 'trained',
-    workoutLogId: log.id,
-    workoutDayId: log.workoutDayId,
-  });
+  // Close the adherence loop: the session's day reads "trained". A re-finish
+  // writes only a day left unmarked — a mark the lifter changed since is theirs.
+  if (firstFinishedAt == null || !dayQuery(log.userId, day).all().length) {
+    markTrainingDay(log.userId, {
+      date: day,
+      status: 'trained',
+      workoutLogId: log.id,
+      workoutDayId: log.workoutDayId,
+    });
+  }
 
   // Move the program forward when this finish completed the week.
   advanceUserProgram(log.userProgramId);
+};
+
+/**
+ * "Back to session" from the summary of a session just finished: a COMPLETED
+ * session of the owner opens again to add a set or fix one, its `completedAt`
+ * kept as the mark of the first finish (`isReopened`). Nothing is undone — the
+ * day keeps its mark, the program stays where the finish moved it, and
+ * finishing again files it where it was (`finishWorkout`). Refused while
+ * another session is open: there is one in-progress session per lifter.
+ */
+export const reopenWorkout = (id: string, userId: string): boolean => {
+  const log = getWorkout(id);
+  if (!log || log.userId !== userId || log.status !== 'completed' || !log.completedAt) return false;
+  if (activeWorkoutQuery(userId).all().length) return false;
+  db.update(workoutLogs)
+    .set({ status: 'in_progress', updatedAt: new Date() })
+    .where(eq(workoutLogs.id, id))
+    .run();
+  return true;
+};
+
+/** A session's WORKING sets in the order they were logged. */
+export const workingSetsOf = (workoutLogId: string): SetLog[] =>
+  db
+    .select()
+    .from(setLogs)
+    .where(and(eq(setLogs.workoutLogId, workoutLogId), eq(setLogs.isWarmup, false)))
+    .orderBy(asc(setLogs.createdAt), asc(setLogs.setNumber))
+    .all();
+
+/**
+ * The previous COMPLETED session of the same split, before this one, with its
+ * working sets — "vs last time". A split belongs to one phase of one
+ * enrollment, so this is last week's run of it (or an earlier repeat). With no
+ * run of that very split, it is the latest one of a split that READS the same
+ * in this enrollment (its name, or its slot when both are unnamed): a phase
+ * built as one-week routines (Foundations' phase 3) gives every week's "Side A"
+ * its own split, so the same-split rule never found anything to compare with.
+ */
+export const previousSplitSession = (
+  log: Pick<WorkoutLog, 'id' | 'userId' | 'userProgramId' | 'workoutDayId' | 'startedAt'>,
+): { log: WorkoutLog; sets: SetLog[] } | null => {
+  const before = and(
+    eq(workoutLogs.userId, log.userId),
+    eq(workoutLogs.status, 'completed'),
+    ne(workoutLogs.id, log.id),
+    lt(workoutLogs.startedAt, log.startedAt),
+  );
+  const [same] = db
+    .select()
+    .from(workoutLogs)
+    .where(and(before, eq(workoutLogs.workoutDayId, log.workoutDayId)))
+    .orderBy(desc(workoutLogs.startedAt))
+    .limit(1)
+    .all();
+  const previous = same ?? namesakeSession(log, before);
+  return previous ? { log: previous, sets: workingSetsOf(previous.id) } : null;
+};
+
+/** The latest earlier session, in the same enrollment, of a split named like this one. */
+const namesakeSession = (
+  log: Pick<WorkoutLog, 'userProgramId' | 'workoutDayId'>,
+  before: ReturnType<typeof and>,
+): WorkoutLog | null => {
+  const [day] = db
+    .select({ name: workoutDays.name, orderIndex: workoutDays.orderIndex })
+    .from(workoutDays)
+    .where(eq(workoutDays.id, log.workoutDayId))
+    .all();
+  if (!day) return null;
+  // Unnamed splits read as their slot ("Split 2"): the same slot is the namesake.
+  const sameName = day.name
+    ? eq(workoutDays.name, day.name)
+    : and(eq(workoutDays.name, ''), eq(workoutDays.orderIndex, day.orderIndex));
+  const [row] = db
+    .select({ log: workoutLogs })
+    .from(workoutLogs)
+    .innerJoin(workoutDays, eq(workoutDays.id, workoutLogs.workoutDayId))
+    .where(and(before, eq(workoutLogs.userProgramId, log.userProgramId), sameName))
+    .orderBy(desc(workoutLogs.startedAt))
+    .limit(1)
+    .all();
+  return row?.log ?? null;
 };
 
 /**
@@ -235,6 +360,10 @@ const deleteSetsOf = (workoutLogId: string): void => {
 
 /** Discard a session and its sets (used to cancel a started-by-mistake workout). */
 export const abandonWorkout = (id: string): void => {
+  // A reopened session was complete: abandoning it would delete every set it
+  // has (`closeSession` refuses first; this holds for any other caller).
+  const log = getWorkout(id);
+  if (!log || isReopened(log)) return;
   deleteSetsOf(id);
   db.update(workoutLogs)
     .set({ status: 'abandoned', updatedAt: new Date() })
@@ -888,50 +1017,49 @@ export type SessionSummary = {
   volumeKg: number;
   setCount: number;
   durationSeconds: number;
-  /** Display names of the exercises that set a record — the modal's one line. */
+  /** Display names of the exercises that set a record. */
   prs: string[];
   /** Every exercise with its top set, in logging order — the share card's rows. */
   exercises: SummaryExercise[];
   /** Planned sets skipped or left unfilled: missed volume, shown when above zero. */
   missedSets: number;
+  /** The plan's sets, an exercise added today aside (`plannedSetCount`): the "18/20". */
+  plannedSets: number;
+  /** The exercise the session is remembered by (`pickTopExercise`); null with no set. */
+  top: SessionTop | null;
 };
 
-/** Post-workout summary: volume, working sets, duration, and simple PRs (a
- * session top weight beating everything logged before it). */
+/** Post-workout summary: volume, working sets, duration, simple PRs (a session
+ * top weight beating everything logged before it) and the top exercise. */
 export const sessionSummary = (logId: string, locale: Locale = 'en'): SessionSummary => {
   const log = getWorkout(logId);
-  const rows = db
-    .select()
-    .from(setLogs)
-    .where(and(eq(setLogs.workoutLogId, logId), eq(setLogs.isWarmup, false)))
-    .orderBy(asc(setLogs.createdAt), asc(setLogs.setNumber))
-    .all();
-  const volumeKg = Math.round(rows.reduce((sum, r) => sum + setVolumeKg(r), 0));
+  const rows = workingSetsOf(logId);
+  // Unrounded: the share card and the day sheet round in the display unit.
+  const volumeKg = rows.reduce((sum, r) => sum + setVolumeKg(r), 0);
   // A closed session keeps the length it was saved with (a past one is shared from the day sheet).
-  const durationSeconds = log
-    ? (log.durationSeconds ??
-      Math.max(0, Math.round((Date.now() - log.startedAt.getTime()) / 1000)))
-    : 0;
+  const durationSeconds = log ? recordedDurationSeconds(log, Date.now()) : 0;
 
-  const topByExercise = new Map<string, { weightKg: number; reps: number }>();
-  for (const r of rows) {
-    const top = topByExercise.get(r.exerciseId);
-    if (!top || r.weightKg > top.weightKg || (r.weightKg === top.weightKg && r.reps > top.reps)) {
-      topByExercise.set(r.exerciseId, { weightKg: r.weightKg, reps: r.reps });
-    }
-  }
+  const setsByExercise = new Map<string, SetLog[]>();
+  for (const r of rows)
+    setsByExercise.set(r.exerciseId, [...(setsByExercise.get(r.exerciseId) ?? []), r]);
+  // Last time on this split: what the top exercise's progress is measured against.
+  const previous = log ? previousSplitSession(log) : null;
+  const previousSets = (exerciseId: string) =>
+    previous?.sets.filter((s) => s.exerciseId === exerciseId) ?? [];
   const names = new Map(
-    topByExercise.size
+    setsByExercise.size
       ? db
           .select({ id: exercises.id, name: exercises.name })
           .from(exercises)
-          .where(inArray(exercises.id, [...topByExercise.keys()]))
+          .where(inArray(exercises.id, [...setsByExercise.keys()]))
           .all()
           .map((e) => [e.id, e.name])
       : [],
   );
   const summaryExercises: SummaryExercise[] = [];
-  for (const [exerciseId, top] of topByExercise) {
+  const candidates: TopCandidate[] = [];
+  for (const [exerciseId, sets] of setsByExercise) {
+    const top = topSetOf(sets)!;
     // The best of the COMPLETED sessions before this one, so a past session
     // shared later keeps its records; a first-ever session counts as one.
     const [best] = db
@@ -944,13 +1072,15 @@ export const sessionSummary = (logId: string, locale: Locale = 'en'): SessionSum
           eq(setLogs.isWarmup, false),
           eq(workoutLogs.status, 'completed'),
           ne(workoutLogs.id, logId),
+          // The lifter's own history only: sync can hold another account's rows.
+          log ? eq(workoutLogs.userId, log.userId) : undefined,
           log ? lte(workoutLogs.startedAt, log.startedAt) : undefined,
         ),
       )
       .orderBy(desc(setLogs.weightKg))
       .limit(1)
       .all();
-    summaryExercises.push({
+    const entry: SummaryExercise = {
       exerciseId,
       name: exerciseDisplayName(
         { id: exerciseId, name: names.get(exerciseId) ?? exerciseId },
@@ -959,10 +1089,22 @@ export const sessionSummary = (logId: string, locale: Locale = 'en'): SessionSum
       topKg: top.weightKg,
       topReps: top.reps,
       isPr: !best || top.weightKg > best.weightKg,
+    };
+    summaryExercises.push(entry);
+    const before = previousSets(exerciseId);
+    candidates.push({
+      ...entry,
+      volumeKg: sets.reduce((sum, s) => sum + setVolumeKg(s), 0),
+      setCount: sets.length,
+      e1rmKg: bestE1rmOf(sets),
+      previousE1rmKg: before.length ? bestE1rmOf(before) : null,
     });
   }
-  const missedSets = (log?.plannedSnapshot ?? []).reduce(
-    (sum, p) => sum + (p.skipped ? plannedSets(p) : (p.skippedSets?.length ?? 0)),
+  const snapshot = log?.plannedSnapshot ?? [];
+  // A skipped exercise misses what was left of it, not the sets it got: a
+  // bench skipped after two of four logged sets missed two.
+  const missedSets = snapshot.reduce(
+    (sum, p) => sum + missedSetsOf(p, setsByExercise.get(p.exerciseId)?.length ?? 0),
     0,
   );
   return {
@@ -972,6 +1114,8 @@ export const sessionSummary = (logId: string, locale: Locale = 'en'): SessionSum
     prs: summaryExercises.filter((e) => e.isPr).map((e) => e.name),
     exercises: summaryExercises,
     missedSets,
+    plannedSets: plannedSetCount(snapshot),
+    top: pickTopExercise(candidates),
   };
 };
 

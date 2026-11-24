@@ -13,7 +13,7 @@ import {
  * Drives the pure `reducePullHold` from the scroll view's drag events and
  * paints the progress hairline: a module-scope factory, so the shared-value
  * writes and the mutable bookkeeping stay out of render (the same shape as
- * `scroll-visibility` and `TimedModal`). The handlers are created once and
+ * `scroll-visibility` and the toast's controller). The handlers are created once and
  * passed straight to the scroll view, so a re-render never re-creates them.
  */
 export const makePullHoldController = (

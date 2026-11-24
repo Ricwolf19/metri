@@ -13,6 +13,7 @@ import notifee, {
 import { dayQuery } from '@/features/training/adherence.repo';
 import { localDateKey } from '@/features/training/dates';
 import { restState, shiftRestEnd, type ActiveRest } from '@/features/training/rest-state';
+import { restTaken } from '@/features/training/rest-taken';
 import { sessionState, type ActiveSession } from '@/features/training/session-state';
 import { startAlarm, stopAlarm } from '@/lib/sounds';
 import { session as authSession } from '@/lib/storage';
@@ -274,10 +275,17 @@ export const extendRest = async (seconds: number): Promise<void> => {
 /**
  * Skip, ready, next set logged, or a stale rest found: back to training mode.
  * The service keeps running — only `endSession` stops it.
+ *
+ * The end is recorded (`restTaken`, MMKV — this may run headless, from the
+ * shade) so the next set can say how long the rest really was.
  */
 export const endRest = async (): Promise<void> => {
+  const ended = restState.get();
   // Cleared first: the service reads this to know the ringing is over.
   restState.clear();
+  if (ended) {
+    restTaken.set({ workoutId: ended.workoutId, startedAt: ended.startedAt, endedAt: Date.now() });
+  }
   stopAlarm();
   await notifee.cancelTriggerNotification(SESSION_ID).catch(() => {});
   if (isAndroid && sessionState.get()) await draw();

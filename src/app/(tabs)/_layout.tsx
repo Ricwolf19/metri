@@ -25,6 +25,7 @@ import { useAuth } from '@/features/auth/auth-context';
 import { useCalendarSync } from '@/features/calendar/useCalendarSync';
 import { useQuickActions } from '@/features/quick-actions/useQuickActions';
 import { closeSession } from '@/features/training/close-session';
+import { isReopened } from '@/features/training/session-end';
 import { activeWorkoutQuery } from '@/features/training/session.repo';
 import { useAutoAdherence } from '@/features/training/useAutoAdherence';
 import { SpotlightProvider } from '@/features/spotlight/SpotlightProvider';
@@ -177,21 +178,34 @@ const TabsLayout = () => {
     focusHandled.current = true;
     const ageHours = (Date.now() - activeWorkout.startedAt.getTime()) / 3_600_000;
     if (ageHours > 8) {
-      dialog.show({
-        title: t('training.staleTitle'),
-        message: t('training.staleBody'),
-        actions: [
-          {
-            label: t('training.staleFinish'),
-            onPress: () => closeSession('finish', activeWorkout.id, activeWorkout.userId),
-          },
-          {
-            label: t('training.cancelWorkout'),
-            style: 'destructive',
-            onPress: () => closeSession('abandon', activeWorkout.id, activeWorkout.userId),
-          },
-        ],
-      });
+      const finish = {
+        label: t('training.staleFinish'),
+        onPress: () => void closeSession('finish', activeWorkout.id, activeWorkout.userId),
+      };
+      // Saved, it ends at its last set (`sessionEndAt`), not now. A session
+      // reopened from its summary was complete once: it is saved again, never
+      // discarded with its sets.
+      dialog.show(
+        isReopened(activeWorkout)
+          ? {
+              title: t('training.staleTitle'),
+              message: t('training.staleReopenedBody'),
+              actions: [{ ...finish, style: 'confirm' }],
+            }
+          : {
+              title: t('training.staleTitle'),
+              message: t('training.staleBody'),
+              actions: [
+                finish,
+                {
+                  label: t('training.cancelWorkout'),
+                  style: 'destructive',
+                  onPress: () =>
+                    void closeSession('abandon', activeWorkout.id, activeWorkout.userId),
+                },
+              ],
+            },
+      );
       return;
     }
     router.push({ pathname: '/training/workout/[id]', params: { id: activeWorkout.id } });

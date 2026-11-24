@@ -98,7 +98,9 @@ export const getDayDetail = (userId: string, dateKey: string): DayDetail => {
       dayOrder: day?.orderIndex ?? null,
       durationSeconds: log.durationSeconds,
       setCount: sets.length,
-      volumeKg: Math.round(sets.reduce((sum, { set }) => sum + setVolumeKg(set), 0)),
+      // Unrounded: the sheet rounds in the display unit; whole kg first read a lb
+      // gym's 100 × 20 as "1999.5 lb".
+      volumeKg: sets.reduce((sum, { set }) => sum + setVolumeKg(set), 0),
       exercises: [...byExercise.values()],
     };
   });

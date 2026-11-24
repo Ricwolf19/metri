@@ -3,7 +3,9 @@ import { captureError } from '@/lib/telemetry';
 
 import { reconcileAutoAdherence } from './auto-adherence.repo';
 import { syncTrainingReminder } from './reminders';
-import { abandonWorkout, finishWorkout } from './session.repo';
+import { restTaken } from './rest-taken';
+import { isReopened } from './session-end';
+import { abandonWorkout, finishWorkout, getWorkout, markRemainingSkipped } from './session.repo';
 import { clearSessionDrafts } from './workout-drafts';
 
 type SessionOutcome = 'finish' | 'abandon';
@@ -13,11 +15,27 @@ type SessionOutcome = 'finish' | 'abandon';
  * the stale-session dialog. Hand-copied, the dialog skipped the drafts, the
  * rest and the reminder, so half-typed sets resurfaced in the next run of the
  * day and a stale rest kept ringing. Sound and navigation stay with the caller.
+ *
+ * Finishing closes whatever is still open as MISSED first, on every path (the
+ * stale prompt used to leave the rows unfilled). A REOPENED session refuses to
+ * be abandoned: abandoning deletes every set, and it was a complete session.
+ * Returns whether the session closed; one already closed is left alone.
  */
-export const closeSession = (outcome: SessionOutcome, logId: string, userId: string): void => {
-  if (outcome === 'finish') finishWorkout(logId);
-  else abandonWorkout(logId);
+export const closeSession = (outcome: SessionOutcome, logId: string, userId: string): boolean => {
+  const log = getWorkout(logId);
+  // Closed already (a second tap, the stale prompt racing the screen): nothing
+  // to tear down, and no snapshot rewritten for sync to push again.
+  if (!log || log.status !== 'in_progress') return false;
+  if (outcome === 'finish') {
+    markRemainingSkipped(logId);
+    finishWorkout(logId);
+  } else {
+    if (isReopened(log)) return false;
+    abandonWorkout(logId);
+  }
   void endRest();
+  // `endRest` just recorded the rest it ended; with the session over, no set will read it.
+  restTaken.clear();
   clearSessionDrafts(logId);
   void endSession();
   // Finishing advances the program, so the next reminder may point at another
@@ -33,4 +51,5 @@ export const closeSession = (outcome: SessionOutcome, logId: string, userId: str
       captureError(e);
     }
   }
+  return true;
 };
