@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 
-import { Button, ChipRow, Sheet } from '@/components/ui';
+import { Button, ChipRow, SCREEN_GUTTER, Sheet } from '@/components/ui';
 import { SWAP_REASONS, type SwapReason } from '@/db/schema';
 import type { SwapScope } from '@/features/training/session.repo';
 import { useT, type TranslationKey } from '@/i18n';
@@ -69,6 +69,7 @@ export const SwapScopeSheet = ({ visible, exerciseName, onClose, onConfirm }: Pr
             }))}
             value={reason}
             onChange={pickReason}
+            bleed={SCREEN_GUTTER}
           />
         </View>
         <Text className="mt-4 text-xs font-sans-semibold uppercase tracking-wider text-ink-400">
@@ -82,6 +83,7 @@ export const SwapScopeSheet = ({ visible, exerciseName, onClose, onConfirm }: Pr
             }))}
             value={scope}
             onChange={setScope}
+            bleed={SCREEN_GUTTER}
           />
         </View>
         <Text className="mt-2 min-h-10 text-xs leading-4 text-ink-500">

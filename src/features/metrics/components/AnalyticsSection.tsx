@@ -11,6 +11,7 @@ import { ActivityIcon, FlameIcon, HistoryIcon } from '@/components/icons';
 import {
   BarChart,
   Card,
+  CARD_GUTTER,
   ChipRow,
   ChoiceCarousel,
   EmptyState,
@@ -261,7 +262,7 @@ export const AnalyticsSection = ({ headerRight }: MetricsSectionProps) => {
     <>
       <SectionLabel label={t('stats.bodyMap')} right={headerRight} className="mt-0" />
       <Card>
-        <ChoiceCarousel items={viewCards} value={view} onChange={setView} />
+        <ChoiceCarousel items={viewCards} value={view} onChange={setView} bleed={CARD_GUTTER} />
         {/* What the chosen view reads, right under the choice. */}
         <Text className="mt-3 text-xs leading-5 text-ink-400">
           {view === 'balance'
@@ -271,7 +272,7 @@ export const AnalyticsSection = ({ headerRight }: MetricsSectionProps) => {
               : t('stats.strengthHint')}
         </Text>
         <View className="mt-3">
-          <ChipRow items={windowChips} value={days} onChange={pickWindow} />
+          <ChipRow items={windowChips} value={days} onChange={pickWindow} bleed={CARD_GUTTER} />
         </View>
 
         <View className="mt-4" accessibilityState={{ busy: reading }}>

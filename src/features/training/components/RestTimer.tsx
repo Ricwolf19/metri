@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, AppState, Pressable, Text, View } from 'react-native';
 
 import { CheckIcon, TimerIcon, XIcon } from '@/components/icons';
-import { ScrollRow } from '@/components/ui';
+import { ScrollRow, TIGHT_GUTTER } from '@/components/ui';
 import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 import { useT, type TFunction } from '@/i18n';
 import { mmss } from '@/lib/duration';
@@ -156,7 +156,13 @@ export const RestTimer = ({ endsAt, onExtend, onDone }: Props) => {
         </Pressable>
       </View>
       <View className="mt-3">
-        <ScrollRow className="items-center gap-2" centerX={seamX} surface="raised">
+        {/* Through the timer box's own px-4, to its border. */}
+        <ScrollRow
+          className="items-center gap-2"
+          centerX={seamX}
+          surface="raised"
+          bleed={TIGHT_GUTTER}
+        >
           {REDUCE_SECONDS.map((s) => (
             <ShiftPill key={s} seconds={s} onPress={onExtend} t={t} />
           ))}

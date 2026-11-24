@@ -14,6 +14,8 @@ type Props<T extends string> = {
   /** null renders every chip unselected — "you still have to choose". */
   value: T | null;
   onChange: (value: T) => void;
+  /** The padding of the box the strip spans, to run through to its edge (`ScrollRow`). */
+  bleed?: number;
 };
 
 /**
@@ -22,8 +24,8 @@ type Props<T extends string> = {
  * session's exercise strip has its own (`SessionChipStrip`): its chips carry
  * progress states this primitive does not, and it follows the page in view.
  */
-export const ChipRow = <T extends string>({ items, value, onChange }: Props<T>) => (
-  <ScrollRow>
+export const ChipRow = <T extends string>({ items, value, onChange, bleed }: Props<T>) => (
+  <ScrollRow bleed={bleed}>
     {items.map((item) => {
       const active = item.value === value;
       return (

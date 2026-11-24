@@ -9,7 +9,7 @@ import {
   PlusIcon,
   XIcon,
 } from '@/components/icons';
-import { ScrollRow } from '@/components/ui';
+import { SCREEN_GUTTER, ScrollRow } from '@/components/ui';
 import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 import { useT, type TranslationKey } from '@/i18n';
 import { haptic } from '@/lib/haptics';
@@ -217,7 +217,10 @@ export const SessionChipStrip = ({
   };
 
   return (
-    <ScrollRow focusX={box ? box.x + box.width / 2 : undefined}>
+    // Across the session screen's px-5 content, edge to edge — except while a
+    // chip is lifted: the screen puts Prev/Next beside the strip then, and a
+    // strip reaching past its own box would run under them.
+    <ScrollRow focusX={box ? box.x + box.width / 2 : undefined} bleed={lifted ? 0 : SCREEN_GUTTER}>
       {active.map((item) => chip(item, true))}
       {onAdd ? (
         <Pressable

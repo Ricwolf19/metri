@@ -10,6 +10,7 @@ import {
   EmptyState,
   IconButton,
   Screen,
+  SCREEN_GUTTER,
   ScreenTitle,
   type ChipItem,
 } from '@/components/ui';
@@ -93,7 +94,7 @@ const ProgressContent = () => {
       <ScreenTitle title={t('photos.title')} subtitle={t('photos.subtitle')} />
       {entries.length ? (
         <>
-          <ChipRow items={filters} value={filter} onChange={setFilter} />
+          <ChipRow items={filters} value={filter} onChange={setFilter} bleed={SCREEN_GUTTER} />
           {canCompare ? (
             <Pressable
               onPress={() => router.push('/progress/compare')}
@@ -118,17 +119,18 @@ const ProgressContent = () => {
   );
 
   return (
-    <Screen
-      edges={['top']}
-      contentClassName="px-5"
-      header={<TopBar showBack showAvatar={false} right={addButton} />}
-    >
+    <Screen edges={['top']} header={<TopBar showBack showAvatar={false} right={addButton} />}>
+      {/* The side padding lives in the list's content, not around the list: a
+          frame inset by it clipped the strips inside at the padding line. */}
       <FlashList
         data={items}
         keyExtractor={(item) => (item.kind === 'month' ? `m:${item.key}` : item.entry.checkin.id)}
         getItemType={(item) => (item.kind === 'month' ? 'month' : `checkin:${filter}`)}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        // The filter chips and each check-in's extras scroll sideways: Android
+        // 12+'s stretch overscroll caught the next swipe on them after a drag.
+        overScrollMode="never"
+        contentContainerStyle={{ paddingHorizontal: SCREEN_GUTTER, paddingBottom: 40 }}
         ListHeaderComponent={header}
         ListEmptyComponent={
           entries.length ? (

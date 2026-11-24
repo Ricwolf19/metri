@@ -92,14 +92,18 @@ export const MuscleDetailSheet = ({ heads, details, onClose }: Props) => {
   const t = useT();
   return (
     <Sheet visible={heads.length > 0} onClose={onClose} snapPoints={['55%', '92%']} expandable>
-      <ScrollArea inSheet className="px-5 pb-6">
-        <Text className="mb-4 mt-1 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
-          {t('stats.muscleDetail')}
-        </Text>
-        {heads.map((head) => {
-          const detail = details.get(head);
-          return detail ? <HeadBlock key={head} head={head} detail={detail} /> : null;
-        })}
+      <ScrollArea inSheet className="px-5">
+        {/* The end room inside the list, not under it: padding below the list
+            stopped it short of the sheet's edge. */}
+        <View className="pb-6">
+          <Text className="mb-4 mt-1 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
+            {t('stats.muscleDetail')}
+          </Text>
+          {heads.map((head) => {
+            const detail = details.get(head);
+            return detail ? <HeadBlock key={head} head={head} detail={detail} /> : null;
+          })}
+        </View>
       </ScrollArea>
     </Sheet>
   );

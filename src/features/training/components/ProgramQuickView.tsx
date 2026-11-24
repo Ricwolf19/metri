@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Text, View, useWindowDimensions } from 'react-native';
 
 import { ChevronLeftIcon, ChevronRightIcon } from '@/components/icons';
-import { Button, ChipRow, IconButton, ScrollArea, Sheet } from '@/components/ui';
+import { Button, ChipRow, IconButton, SCREEN_GUTTER, ScrollArea, Sheet } from '@/components/ui';
 import { useI18n, useT } from '@/i18n';
 import { useTheme } from '@/theme/theme-context';
 
@@ -155,6 +155,7 @@ export const ProgramQuickView = ({
                 }))}
                 value={dayId}
                 onChange={(id) => setNav((n) => (n ? { ...n, dayId: id } : n))}
+                bleed={SCREEN_GUTTER}
               />
             </View>
           ) : null}
@@ -170,6 +171,7 @@ export const ProgramQuickView = ({
                 }))}
                 value={String(week)}
                 onChange={(w) => setNav((n) => (n ? { ...n, week: Number(w) } : n))}
+                bleed={SCREEN_GUTTER}
               />
             </View>
           ) : null}

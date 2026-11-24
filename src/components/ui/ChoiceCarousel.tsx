@@ -19,6 +19,8 @@ type Props<T extends string> = {
   items: readonly ChoiceCard<T>[];
   value: T;
   onChange: (value: T) => void;
+  /** The padding of the box the strip spans, to run through to its edge (`ScrollRow`). */
+  bleed?: number;
 };
 
 /** Wide enough for "Strength" plus a two-line caption in Spanish; three cards
@@ -32,12 +34,12 @@ const CARD_WIDTH = 148;
  * options are a `ChipRow`; two or three short values a `SegmentedControl`.
  * The selected card is lime and is kept in view.
  */
-export const ChoiceCarousel = <T extends string>({ items, value, onChange }: Props<T>) => {
+export const ChoiceCarousel = <T extends string>({ items, value, onChange, bleed }: Props<T>) => {
   const theme = useTheme();
   const [lefts, setLefts] = useState<Partial<Record<T, number>>>({});
   const left = lefts[value];
   return (
-    <ScrollRow focusX={left == null ? undefined : left + CARD_WIDTH / 2}>
+    <ScrollRow focusX={left == null ? undefined : left + CARD_WIDTH / 2} bleed={bleed}>
       {items.map(({ value: v, label, caption, Icon }) => {
         const active = v === value;
         return (

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, Text, View, type LayoutChangeEvent } from 'react-native';
 
 import { CheckIcon } from '@/components/icons';
-import { ScrollRow } from '@/components/ui';
+import { ScrollRow, TIGHT_GUTTER } from '@/components/ui';
 import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 import type { ProgressPose } from '@/db/schema';
 import { useT } from '@/i18n';
@@ -37,7 +37,8 @@ export const CapturePoseStrip = ({
     setCentres((prev) => (prev[pose] === centre ? prev : { ...prev, [pose]: centre }));
   };
   return (
-    <ScrollRow focusX={centres[current]}>
+    // The camera screen gives it a px-4 bar of its own, edge to edge.
+    <ScrollRow focusX={centres[current]} bleed={TIGHT_GUTTER}>
       {POSES.map((pose) => {
         const isCurrent = pose === current;
         const isDone = done.has(pose);

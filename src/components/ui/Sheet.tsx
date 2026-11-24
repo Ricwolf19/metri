@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, View, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
@@ -6,6 +6,7 @@ import Animated, {
   Easing,
   runOnJS,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
   withTiming,
   type SharedValue,
@@ -15,11 +16,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useT } from '@/i18n';
 
 import { Scrim } from './Scrim';
+import { SheetBottomProvider } from './sheet-bottom';
+import { holdSheetOpen } from './sheet-open';
 import {
   computeStops,
+  keyboardCover,
   keyboardLift,
-  keyboardLimit,
   scrimOpacity,
+  sheetSize,
   sheetTranslate,
   type Bounds,
 } from './sheet-math';
@@ -28,7 +32,11 @@ import { OnSurface } from './surface';
 type Props = {
   visible: boolean;
   onClose: () => void;
-  /** A `<ScrollArea inSheet>` (or any flex view). */
+  /**
+   * A `<ScrollArea inSheet>` (or any flex view). As the last child it runs
+   * through the sheet's bottom safe-area padding to the physical edge
+   * (`sheet-bottom.tsx`).
+   */
   children: React.ReactNode;
   /**
    * Explicit height stops as window percentages, e.g. `['55%', '92%']`. Omit for
@@ -40,6 +48,14 @@ type Props = {
    * meaningful with `snapPoints`: a content-sized sheet has a single stop.
    */
   expandable?: boolean;
+  /**
+   * Take the stop's whole height instead of hugging the content, for a body
+   * with no height of its own: a virtualized list (`ExerciseList inSheet`)
+   * fills the room it is given and got none in a content-sized sheet, so the
+   * sheet opened as its title and search alone. Its body fills it (`flex: 1`);
+   * the keyboard still shrinks it. Set once per sheet, never toggled.
+   */
+  fill?: boolean;
 };
 
 /** Stops for option pickers (Select, TagPicker): half the screen, pulled up to
@@ -186,7 +202,14 @@ const makePan = (
  * did NOT re-run and hid the resting state; a deps-keyed layout effect is the
  * hand-close path that already ships, applied to every open.
  */
-export const Sheet = ({ visible, onClose, children, snapPoints, expandable = true }: Props) => {
+export const Sheet = ({
+  visible,
+  onClose,
+  children,
+  snapPoints,
+  expandable = true,
+  fill = false,
+}: Props) => {
   const t = useT();
   const { height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -212,6 +235,9 @@ export const Sheet = ({ visible, onClose, children, snapPoints, expandable = tru
     }
   }
   const mounted = visible || falling;
+  // Up from the first frame to the last of the fall: the screen behind stands
+  // back from the keyboard meanwhile (`useSheetOwnsKeyboard`).
+  useEffect(() => (mounted ? holdSheetOpen() : undefined), [mounted]);
   /**
    * Latches true on the first layout that reaches the smallest stop, and resets
    * on the next open. The latch belongs to one OPEN, not to the component: a
@@ -276,11 +302,12 @@ export const Sheet = ({ visible, onClose, children, snapPoints, expandable = tru
     opacity: scrimOpacity(shown.value, drag.value, sheetHeight.value, SCRIM_OPACITY),
   }));
   // `maxHeight`, not `height`: short content keeps its own height (the sheet hugs
-  // it), long content is clamped here and scrolls inside. The keyboard shrinks
-  // the cap and lifts the sheet (`sheet-math.ts`).
+  // it), long content is clamped here and scrolls inside — unless `fill` makes
+  // the cap the height. The keyboard shrinks the cap and lifts the sheet
+  // (`sheet-math.ts`).
   const bottomInset = insets.bottom;
   const sheetStyle = useAnimatedStyle(() => ({
-    maxHeight: keyboardLimit(limit.value, kb.value, ceiling),
+    ...sheetSize(limit.value, kb.value, ceiling, fill),
     transform: [
       {
         translateY: keyboardLift(
@@ -293,6 +320,11 @@ export const Sheet = ({ visible, onClose, children, snapPoints, expandable = tru
     ],
   }));
 
+  // The body that runs through the bottom padding keeps its fade above the
+  // part the keyboard covers.
+  const covered = useDerivedValue(() => keyboardCover(bottomInset, kbProgress.value));
+  const bottom = useMemo(() => ({ inset: bottomInset, covered }), [bottomInset, covered]);
+
   const onHandlePress = () => {
     if (resizable) ctl.toggle();
     else ctl.close();
@@ -303,7 +335,12 @@ export const Sheet = ({ visible, onClose, children, snapPoints, expandable = tru
       visible={mounted}
       transparent
       animationType="none"
+      // Edge to edge on BOTH bars, as Android 15+ draws a dialog anyway: on an
+      // older Android a Modal short of the navigation bar sat above it (the
+      // sheet then padded that inset twice) and could hand the screen behind a
+      // changed bottom inset while it was up, shifting it at the end of its scroll.
       statusBarTranslucent
+      navigationBarTranslucent
       onRequestClose={ctl.close}
     >
       {/* A Modal is its own native view tree: gestures need a root inside it. */}
@@ -344,7 +381,9 @@ export const Sheet = ({ visible, onClose, children, snapPoints, expandable = tru
             </Pressable>
           </GestureDetector>
           {/* A sheet opened from inside a card is still drawn on ink-900. */}
-          <OnSurface surface="base">{children}</OnSurface>
+          <OnSurface surface="base">
+            <SheetBottomProvider value={bottom}>{children}</SheetBottomProvider>
+          </OnSurface>
         </Animated.View>
       </GestureHandlerRootView>
     </Modal>

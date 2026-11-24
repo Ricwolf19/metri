@@ -23,6 +23,8 @@ type Props = {
   tone?: Tone;
   /** Renders the text in the monospaced face, for cues like `Bench 30°` — case as typed. */
   mono?: boolean;
+  /** The padding of the box the strip spans, to run through to its edge (`ScrollRow`). */
+  bleed?: number;
 };
 
 const PILL: Record<Tone, string> = {
@@ -41,11 +43,11 @@ const LABEL: Record<Tone, string> = {
  * trains, cues on a set, tags on a document. Tappable badges pass `onPress`;
  * everything else renders as plain text so it never looks pressable.
  */
-export const BadgeRow = ({ items, tone = 'muted', mono = false }: Props) => {
+export const BadgeRow = ({ items, tone = 'muted', mono = false, bleed }: Props) => {
   if (!items.length) return null;
 
   return (
-    <ScrollRow className="gap-1.5">
+    <ScrollRow className="gap-1.5" bleed={bleed}>
       {items.map((item) => {
         const itemTone = item.tone ?? tone;
         const itemMono = item.mono ?? mono;

@@ -9,6 +9,7 @@ import { TopBar } from '@/components/TopBar';
 import {
   Button,
   Card,
+  CARD_GUTTER,
   ChipRow,
   DurationPicker,
   HoldButton,
@@ -242,7 +243,12 @@ const EditSlot = () => {
           <Text className="mb-2 font-mono-medium text-xs uppercase tracking-wider text-ink-400">
             {t('editor.intensity')}
           </Text>
-          <ChipRow items={methodItems} value={cfg.method} onChange={changeMethod} />
+          <ChipRow
+            items={methodItems}
+            value={cfg.method}
+            onChange={changeMethod}
+            bleed={CARD_GUTTER}
+          />
           {cfg.method === 'rir' ? (
             <View className="mt-3 flex-row">
               <View className="flex-1">

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 
-import { Card, ScrollRow, SegmentedControl, Stat, TrendChart } from '@/components/ui';
+import { Card, CARD_GUTTER, ScrollRow, SegmentedControl, Stat, TrendChart } from '@/components/ui';
 import { useT } from '@/i18n';
 import type { Units } from '@/lib/storage';
 import { useDateFormat } from '@/lib/useDateFormat';
@@ -94,7 +94,7 @@ export const ExerciseTrendCard = ({
             {t('exHistory.byWeek')}
           </Text>
           <View className="mt-1.5">
-            <ScrollRow className="gap-1.5">
+            <ScrollRow className="gap-1.5" bleed={CARD_GUTTER}>
               {/* The numbers alone: an up/down arrow judged a lighter week as worse,
                   which a deload or a slower tempo is not (the note says so). */}
               {weeks.map((w) => (

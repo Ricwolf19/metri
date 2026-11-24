@@ -1,6 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
 
-import { ScrollRow } from '@/components/ui';
+import { SCREEN_GUTTER, ScrollRow } from '@/components/ui';
 import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 import type { ProgressPose } from '@/db/schema';
 import { dateFromKey } from '@/features/training/dates';
@@ -30,7 +30,8 @@ export const ComparePicker = ({
   const t = useT();
   const { dayMonth } = useDateFormat();
   return (
-    <ScrollRow>
+    // Straight on the compare screen's px-5 content.
+    <ScrollRow bleed={SCREEN_GUTTER}>
       {entries.map((entry) => {
         const photo = photoForPose(entry, pose);
         if (!photo) return null;

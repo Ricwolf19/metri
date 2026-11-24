@@ -19,6 +19,7 @@ import {
   FadeInUp,
   HoldButton,
   Screen,
+  SCREEN_GUTTER,
   SectionLabel,
   useDialog,
   useToast,
@@ -289,6 +290,7 @@ const ProgramDetail = () => {
             items={effortCards}
             value={effortMode}
             onChange={(mode) => setEffortMode(user.id, enrollment.id, mode)}
+            bleed={SCREEN_GUTTER}
           />
           <Text className="mt-3 text-xs leading-5 text-ink-400">
             {t(EFFORT_MODE_COPY[effortMode].description)}

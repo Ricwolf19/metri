@@ -10,6 +10,7 @@ import {
   BadgeRow,
   Button,
   Card,
+  CARD_GUTTER,
   HoldButton,
   Input,
   ReorderRow,
@@ -130,7 +131,10 @@ const EditDay = () => {
             <Text className="mb-1.5 font-mono-medium text-xs uppercase tracking-wider text-ink-300">
               {t('editor.muscles')}
             </Text>
-            <BadgeRow items={muscles.map((h) => ({ value: h, label: t(muscleHeadKey(h)) }))} />
+            <BadgeRow
+              items={muscles.map((h) => ({ value: h, label: t(muscleHeadKey(h)) }))}
+              bleed={CARD_GUTTER}
+            />
           </View>
         ) : null}
         {live ? (
@@ -221,6 +225,9 @@ const EditDay = () => {
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        // The header's muscle strip scrolls sideways: Android 12+'s stretch
+        // overscroll caught the next swipe on it after a drag of the list.
+        overScrollMode="never"
       />
     </Screen>
   );

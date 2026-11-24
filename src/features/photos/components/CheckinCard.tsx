@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from 'react-native';
 
 import { ChevronRightIcon } from '@/components/icons';
-import { Card, PressableScale, ScrollRow } from '@/components/ui';
+import { Card, PressableScale, ScrollRow, TIGHT_GUTTER } from '@/components/ui';
 import type { ProgressPhoto, ProgressPose } from '@/db/schema';
 import { siteLabelKey, type SiteId } from '@/features/body/sites';
 import { useT } from '@/i18n';
@@ -175,7 +175,8 @@ export const CheckinCard = ({
 
       {extras.length ? (
         <View className="mt-3">
-          <ScrollRow className="gap-1.5">
+          {/* Through the card's own p-4, to its edge. */}
+          <ScrollRow className="gap-1.5" bleed={TIGHT_GUTTER}>
             {extras.map((m) => extraThumb(m, filter === 'video' ? 'w-20' : 'w-16'))}
           </ScrollRow>
         </View>

@@ -5,7 +5,15 @@ import { Text, View } from 'react-native';
 
 import { ShareIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
-import { Button, ChipRow, HoldButton, Screen, SectionLabel, useToast } from '@/components/ui';
+import {
+  Button,
+  ChipRow,
+  HoldButton,
+  Screen,
+  SCREEN_GUTTER,
+  SectionLabel,
+  useToast,
+} from '@/components/ui';
 import type { ProgressPhoto, ProgressPose } from '@/db/schema';
 import { keepUnlockedWhile } from '@/features/app-lock/lock';
 import { LockGate } from '@/features/app-lock/LockGate';
@@ -109,6 +117,7 @@ const MediaScreen = ({ media, entry, onDeleted }: ScreenProps) => {
             items={POSES.map((pose) => ({ value: pose, label: t(poseLabelKey(pose)) }))}
             value={media.pose}
             onChange={(pose) => setMediaPose(media.id, user?.id ?? '', pose)}
+            bleed={SCREEN_GUTTER}
           />
         </>
       )}

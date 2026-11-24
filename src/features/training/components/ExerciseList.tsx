@@ -3,7 +3,16 @@ import { FlashList } from '@shopify/flash-list';
 import { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 
-import { Card, ChipRow, EmptyState, Input, PressableScale } from '@/components/ui';
+import {
+  Card,
+  ChipRow,
+  EmptyState,
+  Input,
+  PressableScale,
+  SCREEN_GUTTER,
+  useSheetBleed,
+  SHEET_END,
+} from '@/components/ui';
 import type { Exercise } from '@/db/schema';
 import { ExerciseDocButton } from '@/features/training/components/ExerciseDocButton';
 import { exercisesQuery } from '@/features/training/exercises.repo';
@@ -32,7 +41,11 @@ type Props = {
   showDoc?: boolean;
   /** Ids left out of the list (a live session's own exercises). */
   exclude?: ReadonlySet<string>;
-  /** Inside a `<Sheet>`: shrink to the sheet's cap instead of filling a screen. */
+  /**
+   * Inside a `<Sheet fill>`, as its last child: it fills the sheet and runs
+   * through the sheet's bottom safe area to the physical edge, the last row
+   * padded clear of the navigation bar (`sheet-bottom.tsx`).
+   */
   inSheet?: boolean;
 };
 
@@ -46,7 +59,8 @@ const Gap = () => <View className="h-2" />;
  * It IS its own scroller: the search and the muscle chips stay put above a
  * virtualized `FlashList` (the library is ~100 rows and growing; mounted
  * whole inside a ScrollView it built every card on open). So it must sit in a
- * bounded parent — a non-scroll `Screen`, or a sheet with `inSheet`.
+ * bounded parent — a non-scroll `Screen`, or a `<Sheet fill>` with `inSheet`:
+ * a content-sized sheet has no height to give it, and it collapsed to nothing.
  */
 export const ExerciseList = ({
   userId,
@@ -63,6 +77,7 @@ export const ExerciseList = ({
   const [search, setSearch] = useState('');
   const [head, setHead] = useState<MuscleHead | undefined>();
   const { data: exercises } = useLiveQuery(exercisesQuery(userId), [userId]);
+  const { inset: bleed } = useSheetBleed(inSheet);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -75,7 +90,7 @@ export const ExerciseList = ({
   }, [exercises, search, head, locale, exclude]);
 
   return (
-    <View style={inSheet ? { flexShrink: 1 } : { flex: 1 }}>
+    <View style={bleed ? { flex: 1, marginBottom: -bleed } : { flex: 1 }}>
       <Input
         value={search}
         onChangeText={setSearch}
@@ -85,6 +100,7 @@ export const ExerciseList = ({
       />
 
       <View className="mt-3">
+        {/* Every host pads it px-5: a non-scroll screen's content, the add sheet's body. */}
         <ChipRow
           items={[
             { value: ALL, label: t('common.all') },
@@ -92,6 +108,7 @@ export const ExerciseList = ({
           ]}
           value={head ?? ALL}
           onChange={(v) => setHead(v === ALL ? undefined : (v as MuscleHead))}
+          bleed={SCREEN_GUTTER}
         />
       </View>
 
@@ -101,7 +118,11 @@ export const ExerciseList = ({
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: inSheet ? 20 : 40 }}
+        // Android 12+'s stretch overscroll catches the next touch while it
+        // relaxes: a tap on a row right after the list hit its end went to the
+        // list. The same as the screens and sheets around it (`Screen`, `ScrollArea`).
+        overScrollMode="never"
+        contentContainerStyle={{ paddingBottom: (inSheet ? SHEET_END : 40) + bleed }}
         ListHeaderComponent={
           <>
             {above}

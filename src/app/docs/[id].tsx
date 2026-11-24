@@ -2,7 +2,16 @@ import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { View } from 'react-native';
 
 import { TopBar } from '@/components/TopBar';
-import { BadgeRow, Card, Deferred, FadeInUp, Screen, ScreenTitle, Skeleton } from '@/components/ui';
+import {
+  BadgeRow,
+  Card,
+  Deferred,
+  FadeInUp,
+  Screen,
+  SCREEN_GUTTER,
+  ScreenTitle,
+  Skeleton,
+} from '@/components/ui';
 import { getDocById } from '@/features/docs';
 import { DocMarkdown } from '@/features/docs/DocMarkdown';
 import { docSections } from '@/features/docs/doc-sections';
@@ -43,6 +52,7 @@ const DocDetail = () => {
               onPress: () => router.push({ pathname: '/explore', params: { q: tag } }),
             }))}
             tone="brand"
+            bleed={SCREEN_GUTTER}
           />
         </View>
         {/* Title and tags paint with the push. The body waits for the push to

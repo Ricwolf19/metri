@@ -4,10 +4,12 @@ import {
   FIT_CAP,
   MIN_LIMIT,
   computeStops,
+  keyboardCover,
   keyboardLift,
   keyboardLimit,
   pct,
   scrimOpacity,
+  sheetSize,
   sheetTranslate,
 } from './sheet-math';
 
@@ -72,6 +74,41 @@ describe('keyboardLimit', () => {
   it('floors at MIN_LIMIT', () => {
     expect(keyboardLimit(600, -850, CEILING)).toBe(MIN_LIMIT);
     expect(keyboardLimit(100, 0, CEILING)).toBe(MIN_LIMIT);
+  });
+});
+
+describe('sheetSize', () => {
+  it('only caps a content sheet, so it hugs what it holds', () => {
+    expect(sheetSize(920, 0, CEILING, false)).toEqual({ maxHeight: 920 });
+  });
+
+  // The session's "add exercise" sheet hosts a FlashList, which has no height
+  // of its own: capped only, it opened as its title and search, no list at all.
+  it('gives a fill sheet its whole cap as its height', () => {
+    expect(sheetSize(920, 0, CEILING, true)).toEqual({ maxHeight: 920, height: 920 });
+  });
+
+  it('shrinks a fill sheet to the room the keyboard leaves', () => {
+    expect(sheetSize(920, -300, CEILING, true)).toEqual({
+      maxHeight: CEILING - 300,
+      height: CEILING - 300,
+    });
+    expect(sheetSize(920, -850, CEILING, true).height).toBe(MIN_LIMIT);
+  });
+});
+
+describe('keyboardCover', () => {
+  it('covers none of the bottom inset with the keyboard down, all of it once up', () => {
+    expect(keyboardCover(34, 0)).toBe(0);
+    expect(keyboardCover(34, 1)).toBe(34);
+    expect(keyboardCover(34, 0.5)).toBe(17);
+  });
+
+  it('is exactly the inset the lift tucks behind the keyboard', () => {
+    // The sheet's bottom sits this far under the keyboard's edge: a list that
+    // runs to the sheet's bottom keeps its fade that far up.
+    const kb = -300;
+    expect(keyboardLift(0, kb, 34, 0.5) - kb).toBe(keyboardCover(34, 0.5));
   });
 });
 

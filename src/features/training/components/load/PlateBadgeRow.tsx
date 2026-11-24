@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from 'react-native';
 
 import { MinusIcon, PlusIcon } from '@/components/icons';
-import { ScrollRow } from '@/components/ui';
+import { SHEET_GUTTER, ScrollRow } from '@/components/ui';
 import { CONTROL_FONT_SCALE } from '@/components/ui/typography';
 import { useT } from '@/i18n';
 import type { Units } from '@/lib/storage';
@@ -32,7 +32,8 @@ export const PlateBadgeRow = ({
   const t = useT();
   const { brand } = useTheme();
   return (
-    <ScrollRow>
+    // Straight in the weight sheet's form: it scrolls out to the sheet's edges.
+    <ScrollRow bleed={SHEET_GUTTER}>
       {options.map((plate) => {
         const count = counts.get(plate) ?? 0;
         const on = count > 0;

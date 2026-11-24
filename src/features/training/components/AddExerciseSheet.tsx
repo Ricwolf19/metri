@@ -18,8 +18,10 @@ type Props = {
 
 /**
  * The library, searchable, minus what the session already holds — opened from
- * the phantom chip at the end of the session strip. Fixed height, so the sheet
- * does not resize under the finger while the search narrows the list.
+ * the phantom chip at the end of the session strip. A `fill` sheet: fixed
+ * height, so it does not resize under the finger while the search narrows the
+ * list, and the list has room at all — a virtualized list has no height of its
+ * own, and in a content-sized sheet it collapsed to nothing under the search.
  */
 export const AddExerciseSheet = ({ visible, onClose, userId, exclude, onPick }: Props) => {
   const t = useT();
@@ -27,10 +29,10 @@ export const AddExerciseSheet = ({ visible, onClose, userId, exclude, onPick }: 
   const [opened, setOpened] = useState(false);
   if (visible && !opened) setOpened(true);
   return (
-    <Sheet visible={visible} onClose={onClose} snapPoints={['92%']}>
-      {/* The list virtualizes and scrolls itself; this column only shrinks to the
-          sheet's cap (and to the keyboard), the way `ScrollArea inSheet` would. */}
-      <View className="px-5" style={{ flexShrink: 1 }}>
+    <Sheet visible={visible} onClose={onClose} snapPoints={['92%']} fill>
+      {/* The list virtualizes and scrolls itself; this column fills the sheet
+          (and shrinks with it to the keyboard) to give it the room. */}
+      <View className="px-5" style={{ flex: 1 }}>
         <Text className="mb-1 text-lg font-sans-bold text-ink-50">{t('training.addExercise')}</Text>
         <Text className="mb-3 text-sm leading-5 text-ink-400">{t('training.addExerciseHint')}</Text>
         {opened ? (

@@ -61,6 +61,35 @@ export const keyboardLimit = (limit: number, kb: number, ceiling: number): numbe
 };
 
 /**
+ * The sheet's size: `maxHeight` alone hugs the content up to the cap. A `fill`
+ * sheet takes the cap as its HEIGHT too, for a body with no height of its own —
+ * a virtualized list fills whatever room it is given, so in a content-sized
+ * sheet it got none and the sheet opened as its header alone. Both shrink with
+ * the keyboard (`keyboardLimit`).
+ */
+export const sheetSize = (
+  limit: number,
+  kb: number,
+  ceiling: number,
+  fill: boolean,
+): { maxHeight: number; height?: number } => {
+  'worklet';
+  const cap = keyboardLimit(limit, kb, ceiling);
+  return fill ? { maxHeight: cap, height: cap } : { maxHeight: cap };
+};
+
+/**
+ * How much of the sheet's bottom safe-area padding sits under the keyboard
+ * right now: all of it once the keyboard is up, since `keyboardLift` tucks the
+ * padding behind it. A list that runs through that padding keeps its bottom
+ * fade this far up, at the keyboard's edge.
+ */
+export const keyboardCover = (bottomInset: number, progress: number): number => {
+  'worklet';
+  return bottomInset * progress;
+};
+
+/**
  * The sheet's translateY with the keyboard up: the rise/fall `offset` plus the
  * keyboard lift. The sheet pads its own `bottomInset` for the nav bar; once the
  * keyboard covers that area the padding is dead space, so `progress` (0..1)
@@ -73,7 +102,7 @@ export const keyboardLift = (
   progress: number,
 ): number => {
   'worklet';
-  return offset + kb + bottomInset * progress;
+  return offset + kb + keyboardCover(bottomInset, progress);
 };
 
 /**

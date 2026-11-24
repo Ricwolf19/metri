@@ -9,6 +9,7 @@ import {
   Card,
   ChipRow,
   Screen,
+  SCREEN_GUTTER,
   SegmentedControl,
   Slider,
   type ChipItem,
@@ -287,7 +288,7 @@ const CompareContent = () => {
       header={<TopBar showBack showAvatar={false} title={t('photos.compare')} />}
     >
       <View className="gap-3">
-        <ChipRow items={poseItems} value={pose} onChange={setPoseChoice} />
+        <ChipRow items={poseItems} value={pose} onChange={setPoseChoice} bleed={SCREEN_GUTTER} />
         <SegmentedControl
           segments={modeSegments}
           value={mode}

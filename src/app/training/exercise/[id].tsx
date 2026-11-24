@@ -5,7 +5,15 @@ import { Pressable, Text, View } from 'react-native';
 
 import { StarIcon } from '@/components/icons';
 import { TopBar } from '@/components/TopBar';
-import { Card, DurationPicker, FadeInUp, Screen, ScreenTitle, TextLink } from '@/components/ui';
+import {
+  Card,
+  CARD_GUTTER,
+  DurationPicker,
+  FadeInUp,
+  Screen,
+  ScreenTitle,
+  TextLink,
+} from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { BadgesEditor } from '@/features/training/components/BadgesEditor';
 import { ExerciseDocButton } from '@/features/training/components/ExerciseDocButton';
@@ -217,7 +225,11 @@ const ExerciseHistory = () => {
 
             {exercise.equipment === 'machine' ? (
               <View className="mt-4">
-                <MachineLoadChooser value={machineKind} onChange={chooseMachineKind} />
+                <MachineLoadChooser
+                  value={machineKind}
+                  onChange={chooseMachineKind}
+                  bleed={CARD_GUTTER}
+                />
               </View>
             ) : null}
           </Card>

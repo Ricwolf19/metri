@@ -115,8 +115,10 @@ export const SpotlightProvider = ({ children }: { children: ReactNode }) => {
   return (
     <SpotlightContext.Provider value={value}>
       {children}
-      {/* A fixed stop: the sheet must not resize as results come and go under the finger. */}
-      <Sheet visible={visible} onClose={close} snapPoints={['60%']}>
+      {/* A fixed stop: the sheet must not resize as results come and go under the
+          finger. `fill` holds it there; a content-hugging sheet grew and shrank
+          with every keystroke. */}
+      <Sheet visible={visible} onClose={close} snapPoints={['60%']} fill>
         <View className="mb-3 px-5">
           <Input
             ref={inputRef}

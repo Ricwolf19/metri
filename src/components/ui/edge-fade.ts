@@ -20,11 +20,12 @@ const SURFACE_TOKEN: Record<Surface, string> = {
 export type FadeEdge = 'left' | 'right' | 'top' | 'bottom';
 
 /**
- * How far the fade reaches in from its edge. An area's is deep enough that its
- * solid band (`STOPS`) covers the glyphs a 44 dp row cuts at the clip; a row's
- * stays narrow, so it never hides a short chip outright.
+ * How far the fade reaches in from its edge. A row's reads past the 17.5–20 dp
+ * gutter a bleeding strip runs through (`gutter.ts`) and still never hides a
+ * short chip outright; an area's covers the glyphs a 44 dp row cuts at the
+ * clip, and over a sheet's bottom safe area it reaches past a gesture bar.
  */
-export const FADE_SIZE = { row: 24, area: 36 } as const;
+export const FADE_SIZE = { row: 32, area: 36 } as const;
 
 /**
  * Which ends of a scroller still hide content, from the frame, the content and
@@ -53,17 +54,23 @@ const TOWARDS: Record<FadeEdge, string> = {
 };
 
 /**
- * A SOLID band at the edge, then an eased thinning. The band is what hides the
- * scroller's cut: opaque only at the very edge, a word or a chip clipped there
- * still read at 40–90 % and the clip showed as a hard line through it. Past the
- * band the content thins out instead of meeting a second edge.
+ * The fade's opacity a share `t` of its depth in from the edge: one minus a
+ * smoothstep, flat at both ends. Near-opaque against the edge (above 0.9
+ * through the first 15 %), which hides the scroller's cut where nothing bleeds
+ * past it — opaque only at the very edge, a word clipped there still read at
+ * 40–90 % and the clip showed as a hard line through it. Then it eases out and
+ * lands on clear with no line where it stops. The solid band it replaces ended
+ * in a kink the eye read as a second edge.
  */
-const STOPS = [
-  { alpha: 1, at: '0%' },
-  { alpha: 1, at: '35%' },
-  { alpha: 0.5, at: '65%' },
-  { alpha: 0, at: '100%' },
-] as const;
+const ease = (t: number): number => 1 - t * t * (3 - 2 * t);
+
+/** Eighths: enough stops that the straight runs between them read as the curve. */
+const STOP_COUNT = 9;
+
+const STOPS = Array.from({ length: STOP_COUNT }, (_, i) => {
+  const t = i / (STOP_COUNT - 1);
+  return { alpha: Math.round(ease(t) * 1000) / 1000, at: `${t * 100}%` };
+});
 
 const PLACE: Record<FadeEdge, ViewStyle> = {
   left: { top: 0, bottom: 0, left: 0, width: FADE_SIZE.row },

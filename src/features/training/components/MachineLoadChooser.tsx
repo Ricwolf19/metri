@@ -18,9 +18,12 @@ type Family = 'plates' | 'stack';
 export const MachineLoadChooser = ({
   value,
   onChange,
+  bleed,
 }: {
   value: MachineKind | null;
   onChange: (kind: MachineKind) => void;
+  /** The padding of the box it spans, for its strips to run through (`ScrollRow`). */
+  bleed?: number;
 }) => {
   const t = useT();
   const [family, setFamily] = useState<Family | null>(
@@ -41,6 +44,7 @@ export const MachineLoadChooser = ({
           setFamily(next);
           if (next === 'stack') onChange('stack');
         }}
+        bleed={bleed}
       />
       {family === 'plates' ? (
         <>
@@ -52,6 +56,7 @@ export const MachineLoadChooser = ({
             ]}
             value={platesKind}
             onChange={onChange}
+            bleed={bleed}
           />
         </>
       ) : null}

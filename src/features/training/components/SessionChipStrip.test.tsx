@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, screen } from '@testing-library/react-native';
 import { useState } from 'react';
+import { StyleSheet } from 'react-native';
 
+import { SCREEN_GUTTER } from '@/components/ui';
 import { settings } from '@/lib/storage';
 import { renderWithProviders } from '@/test/render';
 
@@ -48,6 +50,12 @@ const Paging = () => {
       onLongPress={jest.fn()}
     />
   );
+};
+
+/** The strip's outer box: the scroll view's parent. */
+const stripBox = () => {
+  const [frame] = screen.container.queryAll((n) => n.type === 'RCTScrollView');
+  return StyleSheet.flatten(frame.parent?.props.style) ?? {};
 };
 
 describe('SessionChipStrip', () => {
@@ -113,5 +121,17 @@ describe('SessionChipStrip', () => {
     await renderWithProviders(<Strip focused="a" />);
     expect(screen.getByRole('button', { name: '1. Barbell Bench Press' })).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: '2. Incline Dumbbell Press' })).toBeOnTheScreen();
+  });
+
+  // Clipped at the screen's px-5, the chips stopped 17.5 dp short of its edge and
+  // the fade left a band of bare background beyond them.
+  it("runs out to the screen's edges, through its padding", async () => {
+    await renderWithProviders(<Strip focused="a" />);
+    expect(stripBox()).toEqual({ marginHorizontal: -SCREEN_GUTTER });
+  });
+
+  it('stays in its own box while a chip is lifted: Prev and Next sit beside it', async () => {
+    await renderWithProviders(<Strip focused="a" lifted="b" />);
+    expect(stripBox()).toEqual({});
   });
 });

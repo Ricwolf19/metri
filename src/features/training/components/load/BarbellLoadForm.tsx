@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 
 import { BarGraphic } from '@/components/BarGraphic';
-import { ChipRow, Input, SegmentedControl, UnitSuffix } from '@/components/ui';
+import { ChipRow, Input, SHEET_GUTTER, SegmentedControl, UnitSuffix } from '@/components/ui';
 import { stackPlates } from '@/features/training/load';
 import { plateOptions } from '@/features/training/plate-math';
 import { useT } from '@/i18n';
@@ -73,7 +73,7 @@ export const BarbellLoadForm = ({
       ) : (
         <>
           <LoadSectionLabel label={t('training.bar')} />
-          <ChipRow items={barItems} value={barId} onChange={onBar} />
+          <ChipRow items={barItems} value={barId} onChange={onBar} bleed={SHEET_GUTTER} />
         </>
       )}
       <View className="mt-4">
