@@ -185,6 +185,9 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   than ten points while the press stays active, so a thumb that moved watched the fill reach
   100 % and nothing fire. Toasts only for save/delete/start/abandon; a toast drops in under the
   header pill and leaves with an UPWARD swipe (a heads-up banner's gesture), never a sideways one.
+  Its pan claims a sideways drag too (`PAN_SLOP` both ways) and only `swipeDismisses`
+  (`toast-swipe.ts`: up, and more up than sideways) lets it go: with the pan failing sideways, the
+  press underneath survived the drag and its release dismissed the toast like a tap.
 - **Forms are react-hook-form through `@/components/form`** — `useSaveForm` + `ControlledInput` /
   `ControlledSegmentedControl` / `ControlledSelect` (a one-off control gets RHF's `Controller`). An
   edit form takes the loaded row as `defaultValues` ONCE (a new day/row is a `reset(next)` from the
@@ -238,9 +241,18 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   declared = ink-900), a one-off box wraps its strips in `<OnSurface surface=…>`, and a
   `ScrollRow`/`ScrollArea` placed straight on one takes `surface`. The gradient is RN's native
   `experimental_backgroundImage` (New Architecture), never a new dependency, its colours from the
-  tokens. A fade opens with a SOLID band (a third of its depth): opaque only at its very edge, a
-  row cut by the scroller's clip still showed through and the clip drew a line across its text.
-  `ScrollRow` and `ScrollArea` re-read their geometry on `onScrollEndDrag` and
+  tokens. **A strip runs to its surface's edge** (owner's report 2026-11-24: content stopped at the
+  padding line and its fade left a band of bare background beside the edge): one that spans its
+  container's full padded width passes `bleed` = that padding (`gutter.ts`: `SCREEN_GUTTER` px-5,
+  `CARD_GUTTER` p-5, `TIGHT_GUTTER` p-4, `SHEET_GUTTER` the sheet body's 20 — rem is 14, so px-5
+  is 17.5) and its content keeps the same padding inside, so nothing moves at rest. Never bleed a
+  strip that shares its line (a label beside it, the session strip while a chip is lifted) or sits
+  in a nested inset box; inside a FlashList the padding goes in `contentContainerStyle`, or the
+  list's own frame clips the bleed. The gradient is an eased curve (1 − smoothstep, 9 stops; row
+  32 dp, area 36): opaque at the edge, never the solid band it once opened with, whose kink read
+  as a hard cut. A `ScrollRow` keeps a chip's tap with the keyboard up
+  (`keyboardShouldPersistTaps="handled"`, like every scroller holding buttons): by default the row
+  spent it on dismissing the keyboard, so a "Last training" weight needed a second tap after typing. `ScrollRow` and `ScrollArea` re-read their geometry on `onScrollEndDrag` and
   `onMomentumScrollEnd` as well as `onScroll`, because a throttled `onScroll` misses the last frame
   of a fling and leaves the fade over the very item just scrolled to.
 - **Motion**: no springs, no bounce. Dialogs only fade (the Modal's own fade); sheets are `<Sheet>`,
@@ -264,15 +276,42 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   late, dimmed, cleared and re-dimmed every first open. The handle is a static lime bar (the
   sweep it played on open is gone, owner's call 2026-11-12). Press
   feedback is a 110ms timing. Bounded lists that may overflow use `<ScrollArea>`, whose top/bottom
-  edge fades where there is more — inside a sheet use `<ScrollArea inSheet>` (fills the sheet,
-  safe-area padded). A sheet with no `snapPoints` fits its WHOLE content up to 92% of the screen
+  edge fades where there is more — inside a sheet use `<ScrollArea inSheet>`. The sheet's LAST
+  scroll body (`ScrollArea inSheet`, so `SheetForm`, and `ExerciseList inSheet`) runs through the
+  sheet's bottom safe area to the physical edge — ONE rule, `useSheetBleed` (`sheet-bottom.tsx`):
+  a negative margin of the inset, a trailing spacer as tall after `SHEET_END`, the bottom fade
+  riding up by `covered` while the keyboard hides that strip; one with a footer after it passes
+  `beforeFooter`, and ScrollArea's outer box never takes bottom padding. A ScrollArea keeps a
+  tap on its buttons with the keyboard up (`keyboardShouldPersistTaps="handled"` by default). A body with no height of its own (a FlashList) needs `<Sheet fill>`
+  and a `flex: 1` body — content-sized, the add-exercise sheet opened as its search alone and the
+  spotlight resized under the finger; every other sheet hugs its content. **A sheet owns the
+  keyboard**: keyboard-controller reports a keyboard opened inside a Modal (and the event a Modal
+  fires as it attaches) to EVERY listener, so the screen behind padded and scrolled for a field it
+  could not see. A sheet counts itself up from its first frame to the end of its fall
+  (`holdSheetOpen`, `sheet-open.ts`) and the screen behind passes `enabled={!useSheetOwnsKeyboard()}`
+  to its keyboard-aware scroll view, avoiding view and sticky footer (`Screen` does; so does the
+  workout screen, from a leaf around its scroller so a keyboard showing re-renders that alone) —
+  handing over only while no keyboard is up, so neither side's keyboard is cut off mid-animation;
+  a screen that MOUNTS under a sheet starts with the sheet owning it (the spotlight pushes a
+  screen while its search keyboard is still up). Its Modal is edge to edge on both bars (`statusBarTranslucent` +
+  `navigationBarTranslucent`, as is `BlockingOverlay`'s): short of the navigation bar, an older
+  Android sat the sheet above the bar and could shift the screen behind at the end of its scroll.
+  A sheet with no `snapPoints` fits its WHOLE content up to 92% of the screen
   (a form must never hide its own buttons below the fold); option pickers pass `PICKER_STOPS`
   (half, pull up to 92%). The rise starts in a layout effect — a plain effect drew the first open
   fully shown for a frame, then jumped away to rise. With the keyboard up a sheet rides it at its
   own height while that fits under the ceiling and shrinks only past it (`keyboardLimit`). A sheet
-  holding a form uses `<SheetForm>` (not a bare `ScrollArea inSheet`): once the keyboard settles it
-  scrolls the focused field to the top with as much of what follows as fits — a plain ScrollView
-  never follows focus on iOS.
+  holding a form uses `<SheetForm>` (not a bare `ScrollArea inSheet`): once the keyboard settles, a
+  field the keyboard covers comes up just far enough for itself and `KEYBOARD_CLEARANCE` under it,
+  never past its label, and a field already in view stays where it was tapped
+  (`fieldRevealOffset`, measured without the safe-area strip under the keyboard) — a plain
+  ScrollView never follows focus on iOS, and pulling every focused field to the top shoved the form
+  around on each tap.
+- **No overscroll stretch** (`overScrollMode="never"` on every scroller: `Screen`, `ScrollArea`,
+  `ScrollRow`, the FlashLists, the reorderable lists, the session's): while Android 12+'s stretch
+  relaxes it takes the next touch, so a swipe on a strip right after a vertical scroll, or a field
+  tapped right after reaching the bottom of a sheet, did nothing (reproduced on the emulator,
+  2026-11-24). A touch during a fling still only stops it — the platform's rule.
 - **Two units.** `settings.units` is app-wide (body weight, goals, check-ins, calculators) and
   rides the account profile; `settings.equipmentUnits` is the gym's — sets, plates, bars,
   dumbbells, stacks and every number measured on them (volume, e1RM, trends, session cards) —
@@ -416,8 +455,11 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   never call `startAlarm` or `stopAlarm` themselves; a component that did would silence an alarm the
   service legitimately owns the moment the screen unmounted. `extendRest` takes negative seconds
   (`shiftRestEnd`); a reduction past zero ENDS the rest rather than ringing the lifter's own tap.
-  Opening the finish prompt ends any rest of the workout (`finish` → `endRest`), and a set whose
-  logging opens it starts none: nothing is left to rest for.
+  Finishing ends any rest of the workout (`finishNow` → `endRest`; the header's confirm ends it as
+  it opens), and the set whose logging finishes the session starts none. `endRest` also records
+  the rest it ends (`rest-taken.ts`, MMKV `training.restTaken`, safe headless); the next set takes
+  it as `set_logs.rest_before_seconds` (`takeRestBefore`, the only writer: start to Ready/Skip, or
+  to the set when never ended, clamped to 30 min), and `closeSession` clears it.
 - **Sound cues** go through `lib/sounds.ts` — the only module importing `expo-audio`. Players are
   created once and kept (decoding on first play stutters), every call is try/caught (a cue must
   never break a save) and the rest alarm loops until `stopAlarm()`. Notification sounds are a
@@ -497,6 +539,37 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   activity") is a fourth day status, neutral for the streak like rest; `moved` is a skip reason.
   Both are wire format. The day sheet shows an answered day as a summary (status, reason, the
   carried-over split, the linked session) with a "Change" link — it never re-offers "Mark this day".
+- **A session ends when the lifter is done, not when someone remembers to tap** (owner's call,
+  2026-11-24). The last planned set settling (logged or skipped) finishes it at once (`finishNow`,
+  behind the blocking overlay) and `replace`s the workout with `/training/summary/[id]?finished=1`;
+  the header's check confirms only while sets are still open, and extra sets or exercises added
+  today never trigger it. `finishWorkout` stamps the end through `sessionEndAt` on EVERY path (the
+  auto finish, the header, the stale prompt): the tap, unless the session sat idle past
+  `SESSION_IDLE_CAP_MS` (30 min) — then its last set, or its start — so a forgotten finish no
+  longer counts the afternoon; it files the day of the END (`sessionFiling`), is a no-op on a
+  session that is not open, and `closeSession('finish')` marks open rows missed first. The summary
+  (`sessionReport`, owner-scoped) shows the stats, the top exercise (`pickTopExercise`: the biggest
+  e1RM gain against last time, else the heaviest record, else the most volume), the records, each
+  exercise's sets, "vs last time" (`previousSplitSession`: the previous completed run of the
+  split, else of the split NAMED the same in the enrollment — Foundations' phase 3 makes every
+  week's "Side A" a split of its own; deltas neutral, no colour, no arrows) and the time breakdown
+  (`session-timing.ts`), an ESTIMATE that says so: lifting at 40 s a set, rest as recorded (else
+  planned, capped by the gap), setup allowances, idle — and with 30 % or more of the sets logged in
+  a batch (under 20 s apart, no rest between) only the total and the timed rests. Reached from the
+  finish it offers "Back to session"; from the day sheet's "Summary" it is read-only. **Reopened**
+  = `in_progress` with `completedAt` KEPT (`isReopened`, made only by `reopenWorkout`): it never
+  rewinds the program (`advanceUserProgram` moves only on the cursor's own week, so finishing again
+  never advances twice) nor touches the day mark, and it is never abandoned — no X,
+  `closeSession('abandon')` refuses, the stale prompt offers only Finish — because abandoning
+  deletes a complete session's sets. Finishing it again moves the end only for sets logged since
+  and keeps it on the first finish's day; while every planned set is settled the screen shows a
+  finish bar (the header's own "Finish workout"). A query for finished sessions filters `status = 'completed'`, never
+  `completedAt IS NOT NULL`; the report is owner-scoped (`sessionReport(logId, userId, …)`), reads
+  an older session's end with today's rule (one saved up to a late tap is no idle time), never
+  counts an exercise added today as missed, and the summary, the card and the day sheet write
+  weights and durations through the same helpers (`weightText`, `durationText`,
+  `recordedDurationSeconds`). Volumes are summed unrounded and rounded once, in the display unit
+  (whole kg first read a lb gym's 100 × 20 as "1999.5 lb").
 - **Session history is append-only; deletion is the one undo** — except a logged SET, which the
   lifter reopens in place from the pencil at its row's end (`updateSet`: same ordinal, no rest,
   no advance; the draft lives under `editDraftKey`). The correction is where a set is deleted (a
@@ -547,19 +620,42 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   stack joined on 2026-11-17): on a per-side row, any stack (a cable, a machine marked stack — one
   not described yet opens the sheet on its base and plate) and a dumbbell, the weight field is
   `LoadPickerField` — the total, or one dumbbell, opening the sheet — and the separate calculator
-  button goes; ± still step (a side through `deriveLoad`, a stack pin by pin, a dumbbell to the
-  next on the rack, both through `stepAlong`). Kettlebells and plain totals stay typed. Stacks and
+  button goes; ± still step (a side through `deriveLoad`; a stack along its pins through
+  `stepAlong`, as far as the ± step reaches without passing it and at least one pin; a dumbbell
+  ONE dumbbell along the rack through `nextRung`, whatever the step — an odd one the gym added is
+  a stop: "nearest the target" hopped from the 10 over the lifter's 12).
+  Kettlebells and plain totals stay typed. Stacks and
   racks are a `Ladder` (`ladder.ts`): a start, a step, and `jumps` where the step changes ("from
   50, every 10") — a stack's live on its detail (`jumps`, additive: an older build reads one
   increment throughout), the dumbbell rack is a DEVICE setting per unit (`dumbbellRack`, edited
-  in the sheet, `DEFAULT_DUMBBELL_RACK` up to 100 kg / 220 lb). Choosing "stack" saves the seed at
+  in the sheet, `DEFAULT_DUMBBELL_RACK` up to 100 kg / 220 lb), plus the odd dumbbells the ladder
+  misses (`DumbbellRack.extras`: "a 12 lb on a rack that goes up by 5"), added and removed at
+  once from the sheet's "Add a dumbbell" while Apply writes only the ladder, an older build reading
+  the ladder alone; `rackWeights` is THE list the grid, `rungOf` and the row's ± read. The pickers'
+  grid (`LoadGrid`) is 5 fixed columns: past three rows it folds into a short WINDOW that scrolls
+  through every load (owner's call 2026-11-24: flick to any weight without laying them all out),
+  nested in the sheet's scroll (`nestedScrollEnabled`), opened on the two rows around the pick
+  (`gridRows`, `windowOffset`) with half a row peeking in above and below under ScrollArea's fades;
+  a pick made outside it (typed, a dumbbell added) scrolls it into view, a tap inside never moves
+  it (`rowInSight`); "Show more" / "Show less" lays every load out — kept for the session per grid kind, rack or pins
+  (`useGridExpanded` in the drafts store, cleared with them), local and folded with no session.
+  Choosing "stack" saves the seed at
   once, and the sheet's Apply saves a described stack with no pin picked yet ("Save machine"):
   the plate weight typed on the first open used to be lost with it. A logged weight (the set rows, "Last
   training") opens `LoadPreviewSheet`, the read-only picture of that set (plates on the bar, the
   pin, the dumbbells; a bar set without a detail is drawn on the default bar and says so) with
-  the other unit as one line under the total — the in-place unit flip is gone. Lifts that hold
-  ONE dumbbell in both hands (`holdsOneDumbbell`: seated French press, goblet squat, pullover)
-  are fixed at one hand: the sheet hides the toggle and `oneDumbbellFill` reseeds older pairs.
+  the other unit as one line under the total — the in-place unit flip is gone. **A dumbbell row's
+  number is ONE dumbbell and the count is never asked** (owner's call, 2026-11-24): it is the
+  exercise's, computed once on the card (`exerciseHands`: one for a lift that holds ONE dumbbell in
+  both hands — seated French press, goblet squat, pullover —, for a kettlebell (one bell), and for a
+  unilateral lift except those done with a pair (`PAIR_PER_SIDE`: the split squat and the lunges
+  load the working leg with both); else a pair) and passed down as `hands`, stamped by
+  `reconcileLoad` on every write and by `seedRow` on every prefill, whatever a draft or an older
+  set carried; `LoadDetail.hands` stays wire format and volume still counts a pair twice. The row
+  says "per side" only where the number IS one side's (not a split squat's pair).
+  The sheet reads "Weight per dumbbell" and "Each dumbbell", never a doubled total; the info chip
+  of a unilateral exercise says "Unilateral", the glossary's word (and "Per hand" is defined there
+  too; the table stays alphabetical, `docs.test.ts`).
   Prefill is keyed by the exercise on the card, and a variant swap clears the slot's draft
   details and per-side text (`clearDraftLoads`).
 - **A saved stack's pins are walked in kg** and converted pin by pin (`stackPins`); the sheet
@@ -672,7 +768,7 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
   (`PlannedSlot.skippedSets`, 0-based ordinals) or exercise (`PlannedSlot.skipped`) is a
   snapshot field, confirmed with a hold, and counts as SETTLED (`resolvedSets`) for paging,
   the progress bar and the open-exercise guard — never as trained: `sessionSummary.missedSets` says
-  how much was missed. Finishing never asks about open rows (the guard above already settled anything half done): `markRemainingSkipped` writes what is left before the log closes.
+  how much was missed (a skipped exercise misses only the sets it had left). Finishing never asks about open rows (the guard above already settled anything half done): `markRemainingSkipped` writes what is left before the log closes.
 - **`exercises.unilateral`** (seed v9 for the catalog, a toggle on custom exercises) only tags
   and captions — one `set_logs` row per set, the weight per side; left/right rows are a later
   step, not a column to add casually.
@@ -685,7 +781,8 @@ Read `src/features/sync/` (and the web repo's `docs/sync.md`) before touching it
 - **Share cards** are two templates, and `useShareCard` has exactly two callers. The SESSION card
   (owner's call, 2026-11-09: the exercise, plan and day variants are gone): ONE template
   (`components/ui/share/ShareCard`) from `sessionShareModel` (`features/share/models.ts`) inside
-  `ShareSheet`, opened from the finish modal and from a session in the day sheet. Exercise
+  `ShareSheet`, opened from the session summary and from a session in the day sheet; it carries
+  the top exercise's highlight and four stats two by two, every text `allowFontScaling={false}`. Exercise
   rows carry the FULL exercise name, clamped to one line with an ellipsis, with the result in a
   fixed right-aligned column (codes were tried and read worse). The PROGRESS card (owner's call,
   2026-11-17: photos may be shared when the lifter composes the card) — `/progress/share`,
