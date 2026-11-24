@@ -31,6 +31,8 @@ export const FIELD_LEAD = 32;
 type Reveal = {
   /** The focused field's top, in the form's content coordinates. */
   top: number;
+  /** The focused field's own height (a multiline note is taller). */
+  height: number;
   /** The scroll view's whole content height, its padding included. */
   content: number;
   /** The scroll view's height, the keyboard already up. */
@@ -40,13 +42,27 @@ type Reveal = {
 };
 
 /**
- * Where a sheet's form scrolls once the keyboard has settled: as far down as
- * it can while the focused field and its label stay at the top — the field and
- * as much of what follows it (the next field, the Save) as the room holds.
- * `null` when it is already there. A form that fits never moves.
+ * Where a sheet's form scrolls once the keyboard has settled, or `null` to
+ * stay. A field already in view with its clearance under it (its hint, then
+ * the next field or the Save: `KEYBOARD_CLEARANCE`) never moves the form:
+ * pulling every focused field up to the top shoved the form around on each
+ * tap, the field the lifter was looking at with it. A field the keyboard
+ * covers comes up only as far as that clearance needs, never so far that its
+ * label leaves the top; one scrolled past above comes back down to its label.
  */
-export const fieldRevealOffset = ({ top, content, viewport, offset }: Reveal): number | null => {
+export const fieldRevealOffset = ({
+  top,
+  height,
+  content,
+  viewport,
+  offset,
+}: Reveal): number | null => {
   const furthest = Math.max(0, content - viewport);
-  const target = Math.min(Math.max(0, top - FIELD_LEAD), furthest);
-  return Math.abs(target - offset) < 1 ? null : target;
+  const labelTop = top - FIELD_LEAD;
+  // Nothing exists past the end of the form to make room for.
+  const wanted = Math.min(top + height + KEYBOARD_CLEARANCE, content);
+  if (labelTop >= offset && wanted <= offset + viewport) return null;
+  const target = labelTop < offset ? labelTop : Math.min(labelTop, wanted - viewport);
+  const clamped = Math.min(Math.max(0, target), furthest);
+  return Math.abs(clamped - offset) < 1 ? null : clamped;
 };

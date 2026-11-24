@@ -11,6 +11,7 @@ import { runOnJS } from 'react-native-reanimated';
 
 import { fieldRevealOffset } from './keyboard-room';
 import { ScrollArea } from './ScrollArea';
+import { useSheetBleed } from './sheet-bottom';
 
 /**
  * The body of a `<Sheet>` that holds a form: a `<ScrollArea inSheet>` that
@@ -20,13 +21,19 @@ import { ScrollArea } from './ScrollArea';
  * so a form taller than that room scrolls — and a plain ScrollView never
  * follows focus on iOS: the quick-add's macros, the amount's Add and the plate
  * calculator's typed fields sat under the keyboard on a small phone. Once the
- * keyboard settles, the form scrolls as far down as it can while the focused
- * field keeps its label in view (`fieldRevealOffset`); a form that fits stays.
+ * keyboard settles, a field it covers comes up just far enough to show the
+ * field and what follows it; a field already in view stays where the lifter
+ * tapped it (`fieldRevealOffset`).
  * Positions are measured INSIDE the form, never against the window: the
  * sheet's lift is a transform the layout tree may not have caught up with.
  */
 export const SheetForm = ({ children }: { children: React.ReactNode }) => {
   const scrollRef = useRef<ScrollView>(null);
+  // The list runs through the sheet's bottom safe area (it ends in a spacer as
+  // tall), and with the keyboard up, the only time this reveals, that strip
+  // sits under the keyboard: no room a field or its Save can be seen in.
+  // The same rule as the ScrollArea this renders (`useSheetBleed`).
+  const underKeyboard = useSheetBleed(true).inset;
   const contentRef = useRef<View>(null);
   const offset = useRef(0);
   // The scrollable height as the scroll view reports it, which counts the
@@ -47,12 +54,14 @@ export const SheetForm = ({ children }: { children: React.ReactNode }) => {
       if (!field || !scroll || !frame || !content) return;
       field.measureLayout(
         content,
-        (_x, top) =>
+        (_x, top, _w, height) =>
           frame.measure((_sx, _sy, _sw, viewport) => {
             const y = fieldRevealOffset({
               top,
-              content: scrollable.current,
-              viewport,
+              height,
+              // Both without the strip under the keyboard: what the lifter sees.
+              content: scrollable.current - underKeyboard,
+              viewport: viewport - underKeyboard,
               offset: offset.current,
             });
             if (y != null) scroll.scrollTo({ y, animated: true });
@@ -72,7 +81,8 @@ export const SheetForm = ({ children }: { children: React.ReactNode }) => {
         if (e.height > 0) runOnJS(reveal)();
       },
     },
-    [],
+    // Re-bound when the inset changes: `reveal` reads it.
+    [underKeyboard],
   );
 
   return (
